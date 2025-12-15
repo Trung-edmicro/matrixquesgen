@@ -1,93 +1,195 @@
-# MatrixQuesGen
+# Matrix Question Generator
 
+Hệ thống tạo câu hỏi trắc nghiệm tự động từ file Excel sử dụng Vertex AI của Google Cloud.
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Cấu trúc dự án
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/nhaplieu/matrixquesgen.git
-git branch -M main
-git push -uf origin main
+MatrixQuesGen/
+├── client/                 # Frontend (chưa phát triển)
+├── data/
+│   ├── input/             # Thư mục chứa file Excel đầu vào
+│   └── output/            # Thư mục chứa file DOCX kết quả
+└── server/
+    ├── requirements.txt   # Dependencies
+    ├── .env.example       # Mẫu file cấu hình
+    └── src/
+        ├── main.py        # Entry point chính
+        ├── config/        # Cấu hình hệ thống
+        │   └── __init__.py
+        └── services/      # Các module chức năng
+            ├── __init__.py
+            ├── excel_reader.py      # Đọc file Excel
+            ├── vertex_ai_client.py  # Tương tác Vertex AI
+            └── docx_generator.py    # Tạo file DOCX
 ```
 
-## Integrate with your tools
+## Tính năng
 
-* [Set up project integrations](https://gitlab.com/nhaplieu/matrixquesgen/-/settings/integrations)
+### 1. Excel Reader (✓)
 
-## Collaborate with your team
+- Đọc file Excel (.xlsx) với pandas và openpyxl
+- Hỗ trợ đọc nhiều sheets
+- Chuyển đổi dữ liệu sang JSON
+- Hiển thị thông tin chi tiết về dữ liệu
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 2. Vertex AI Client (✓)
 
-## Test and Deploy
+- Kết nối với Google Cloud Vertex AI
+- Hỗ trợ các mô hình Gemini (gemini-1.5-pro)
+- Generate nội dung từ prompt
+- Chat session
+- Batch processing
+- Tích hợp với dữ liệu JSON
 
-Use the built-in continuous integration in GitLab.
+### 3. DOCX Generator (✓)
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- Tạo file Word (.docx) từ dữ liệu JSON
+- Hỗ trợ heading, paragraph, table
+- Custom style và format
+- Template system
 
-***
+## Cài đặt
 
-# Editing this README
+### 1. Cài đặt dependencies
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+cd server
+pip install -r requirements.txt
+```
 
-## Suggestions for a good README
+### 2. Cấu hình Google Cloud (Optional - cho tính năng AI)
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+1. Tạo file `.env` từ `.env.example`:
 
-## Name
-Choose a self-explaining name for your project.
+```bash
+cp .env.example .env
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+2. Cấu hình các thông số trong file `.env`:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```env
+GCP_PROJECT_ID=your-gcp-project-id
+GCP_LOCATION=us-central1
+GCP_CREDENTIALS_PATH=path/to/credentials.json
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+3. Tải credentials từ Google Cloud Console:
+   - Truy cập [Google Cloud Console](https://console.cloud.google.com)
+   - Tạo Service Account
+   - Tải file JSON credentials
+   - Đặt đường dẫn vào `GCP_CREDENTIALS_PATH`
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Sử dụng
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Chạy demo đầy đủ
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+cd server
+python src/main.py
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Sử dụng từng module riêng lẻ
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+#### 1. Đọc file Excel
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```python
+from services import ExcelReader
+from config import Config
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+reader = ExcelReader()
+file_path = Config.get_input_file_path("your_file.xlsx")
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+# Đọc tất cả sheets
+data = reader.read_file(str(file_path))
 
-## License
-For open source projects, say how it is licensed.
+# Đọc một sheet cụ thể
+df = reader.read_sheet(str(file_path), sheet_name="Sheet1")
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+# Chuyển sang JSON
+json_data = reader.to_json()
+```
+
+#### 2. Sử dụng Vertex AI
+
+```python
+from services import VertexAIClient
+from config import Config
+
+# Khởi tạo client
+ai_client = VertexAIClient(
+    project_id=Config.GCP_PROJECT_ID,
+    location=Config.GCP_LOCATION,
+    credentials_path=Config.GCP_CREDENTIALS_PATH
+)
+
+# Khởi tạo model
+ai_client.initialize_model()
+
+# Generate content
+response = ai_client.generate_content("Tạo câu hỏi về lịch sử")
+
+# Chat
+ai_client.start_chat()
+response = ai_client.send_message("Xin chào")
+```
+
+#### 3. Tạo file DOCX
+
+```python
+from services import DocxGenerator
+from config import Config
+
+generator = DocxGenerator()
+generator.create_new_document()
+generator.set_document_style()
+
+# Thêm nội dung
+generator.add_heading("Tiêu đề", level=1)
+generator.add_paragraph("Nội dung đoạn văn")
+
+# Thêm bảng
+data = [
+    {"Câu hỏi": "...", "Đáp án": "A"},
+    {"Câu hỏi": "...", "Đáp án": "B"}
+]
+generator.add_table_from_dict(data)
+
+# Lưu file
+output_path = Config.get_output_file_path("output.docx")
+generator.save(str(output_path))
+```
+
+## Quy trình hoàn chỉnh
+
+```
+Excel Input → Excel Reader → JSON Data → Vertex AI → Processed Data → DOCX Generator → Word Output
+```
+
+1. **Đọc Excel**: File template được đọc và chuyển thành JSON
+2. **Xử lý AI**: Vertex AI tạo câu hỏi dựa trên dữ liệu
+3. **Tạo DOCX**: Kết quả được format thành file Word
+
+## Dependencies chính
+
+- `pandas` - Xử lý dữ liệu Excel
+- `openpyxl` - Engine đọc file .xlsx
+- `google-cloud-aiplatform` - Vertex AI SDK
+- `python-docx` - Tạo file Word
+- `python-dotenv` - Quản lý biến môi trường
+
+## Lưu ý
+
+- Đặt file Excel input vào `data/input/`
+- File output sẽ được tạo trong `data/output/`
+- Vertex AI yêu cầu cấu hình Google Cloud (có thể bỏ qua nếu chỉ dùng Excel Reader và DOCX Generator)
+- Template prompt có thể tùy chỉnh trong `config/__init__.py`
+
+## Phát triển tiếp
+
+- [ ] Frontend với React/Vue
+- [ ] API REST với FastAPI/Flask
+- [ ] Database integration
+- [ ] Batch processing nhiều file
+- [ ] Template system nâng cao
+- [ ] Export nhiều format (PDF, HTML)

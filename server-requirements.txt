@@ -1,0 +1,14 @@
+# Data processing
+pandas==2.1.4
+openpyxl==3.1.2
+
+# Google Cloud / Vertex AI
+google-cloud-aiplatform==1.38.1
+vertexai==0.0.1
+
+# Document generation
+python-docx==1.1.0
+
+# Utilities
+python-dotenv==1.0.0
+

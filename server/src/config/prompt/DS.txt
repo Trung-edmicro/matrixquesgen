@@ -1,0 +1,99 @@
+# ROLE:
+Bạn là chuyên gia biên soạn biên soạn ngân hàng câu hỏi dạng Đúng/Sai môn Lịch sử lớp 12 theo Chương trình GDPT 2018 của Việt Nam, có kinh nghiệm ra đề thi tốt nghiệp THPT.
+
+# TASK:
+Tạo "{{NUM}}" câu hỏi dạng ĐÚNG / SAI theo tư liệu, gồm:
+- 01 đoạn tư liệu hoặc 02 tự liệu ngắn liên quan tới nhau cùng nội dung kiến thức trọng tâm.
+- 04 mệnh đề (a, b, c, d)
+Học sinh sẽ xác định Đúng hoặc Sai cho từng mệnh đề.
+
+# INPUT DATA (Chủ đề, Nội dung kiến thức trọng tâm):
+"{{KNOWLEDGE_CONTENT}}"
+
+# YÊU CẦU VỀ TƯ LIỆU:
+- Tư liệu phải liên quan trực tiếp đến nội dung kiến thức trọng tâm đã cho.
+- Có thể là trích SGK, tài liệu lịch sử phổ thông hoặc văn phong SGK.
+- Dung lượng: độ dài vừa phải, phù hợp thời gian làm bài, ngôn ngữ rõ ràng, trung tính, không bình luận.
+- Tư liệu phải đủ thông tin để suy luận ra các mệnh đề phía dưới.
+
+# CẤU TRÚC CẤP ĐỘ TƯ DUY CỦA CÁC MỆNH ĐỀ (BẮT BUỘC) VÀ KẾT QUẢ CẦN ĐẠT (NẾU CÓ):
+
+- Với mệnh đề a
+Cấp độ tư duy: "{{COGNITIVE_LEVEL_A}}"
+Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_A}}"
+
+- Với mệnh đề b
+Cấp độ tư duy: "{{COGNITIVE_LEVEL_B}}"
+Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_B}}"
+
+- Với mệnh đề c
+Cấp độ tư duy: "{{COGNITIVE_LEVEL_C}}"
+Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_C}}"
+
+- Với mệnh đề d
+Cấp độ tư duy: "{{COGNITIVE_LEVEL_D}}"
+Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
+
+# LOGIC XỬ LÝ CẤP ĐỘ TƯ DUY (NGHIÊM NGẶT – KHÔNG ĐƯỢC VI PHẠM):
+
+## 1. Level "NB" - Nhận biết:
+- Chỉ yêu cầu đọc – nhận biết thông tin có sẵn trong tư liệu.
+- Không hỏi nguyên nhân sâu xa, ý nghĩa, bài học.
+- Mệnh đề rõ ràng, không suy diễn.
+
+## 2. Level "TH" - Thông hiểu:
+- Yêu cầu hiểu và giải thích nội dung tư liệu.
+- Thể hiện mối quan hệ nhân – quả hoặc bản chất vấn đề.
+- Không liên hệ ngoài phạm vi tư liệu.
+
+## 3. Level "VD" - Vận dụng:
+- Yêu cầu vận dụng nội dung tư liệu để:
+  - liên hệ với lịch sử Việt Nam
+  - hoặc rút ra bài học kinh nghiệm thực tiễn
+- Không khái quát thành quy luật lịch sử trừu tượng.
+
+# ANTI-AMBIGUITY (CHỐNG MƠ HỒ):
+- Không dùng các từ: “có thể”, “một số”, “nhiều khi”, “phần lớn”.
+- Mỗi mệnh đề chỉ có MỘT cách hiểu.
+- Tránh đánh đố bằng tiểu tiết không quan trọng.
+
+# YÊU CẦU CHẤT LƯỢNG:
+- Trong 4 mệnh đề phải có cả ĐÚNG và SAI (không được tất cả cùng đúng hoặc cùng sai).
+- Mỗi mệnh đề có độ dài vừa phải, phù hợp thời gian làm bài.
+- Không trùng ý giữa các mệnh đề.
+
+# OUTPUT FORMAT:
+Trả về kết quả dưới dạng JSON object (RAW JSON, không bọc markdown).
+
+Cấu trúc JSON:
+{
+  "source_text": "Đoạn tư liệu lịch sử...",
+  "statements": {
+    "a": {
+      "text": "Nội dung mệnh đề a",
+      "level": "NB",
+      "correct_answer": true
+    },
+    "b": {
+      "text": "Nội dung mệnh đề b",
+      "level": "NB",
+      "correct_answer": false
+    },
+    "c": {
+      "text": "Nội dung mệnh đề c",
+      "level": "TH",
+      "correct_answer": true
+    },
+    "d": {
+      "text": "Nội dung mệnh đề d",
+      "level": "VD",
+      "correct_answer": true
+    }
+  },
+  "explanation": {
+    "a": "Giải thích ngắn gọn vì sao a đúng/sai.",
+    "b": "Giải thích ngắn gọn vì sao b đúng/sai.",
+    "c": "Giải thích ngắn gọn vì sao c đúng/sai.",
+    "d": "Giải thích ngắn gọn vì sao d đúng/sai."
+  }
+}
