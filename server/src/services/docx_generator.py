@@ -1,6 +1,3 @@
-"""
-Module tạo file DOCX từ dữ liệu JSON
-"""
 import json
 from pathlib import Path
 from typing import Dict, List, Union, Optional, Any
@@ -8,19 +5,30 @@ from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 
 class DocxGenerator:
     """Class tạo file DOCX từ dữ liệu JSON"""
     
-    def __init__(self):
+    def __init__(self, verbose: bool = False):
         self.document = None
         self.output_path = None
+        self.verbose = verbose
+        
+        # Màu nền theo level
+        self.level_colors = {
+            'NB': 'ADFF2F',  # Bright green
+            'TH': '40E0D0',  # Turquoise
+            'VD': 'FFFF00'   # Yellow
+        }
     
     def create_new_document(self):
         """Tạo document mới"""
         self.document = Document()
-        print("✓ Đã tạo document mới")
+        if self.verbose:
+            print("✓ Đã tạo document mới")
     
     def set_document_style(self, 
                           font_name: str = "Times New Roman",
@@ -41,7 +49,8 @@ class DocxGenerator:
         font.name = font_name
         font.size = Pt(font_size)
         
-        print(f"✓ Đã thiết lập style: {font_name}, {font_size}pt")
+        if self.verbose:
+            print(f"✓ Đã thiết lập style: {font_name}, {font_size}pt")
     
     def add_heading(self, 
                    text: str, 
@@ -114,7 +123,8 @@ class DocxGenerator:
             self.create_new_document()
         
         if not data:
-            print("⚠ Không có dữ liệu để tạo bảng")
+            if self.verbose:
+                print("⚠ Không có dữ liệu để tạo bảng")
             return
         
         # Lấy headers
@@ -141,7 +151,8 @@ class DocxGenerator:
                 value = item.get(header, "")
                 row_cells[idx].text = str(value)
         
-        print(f"✓ Đã thêm bảng {len(data)} hàng x {len(headers)} cột")
+        if self.verbose:
+            print(f"✓ Đã thêm bảng {len(data)} hàng x {len(headers)} cột")
         return table
     
     def add_page_break(self):
@@ -150,6 +161,15 @@ class DocxGenerator:
             self.create_new_document()
         
         self.document.add_page_break()
+    
+    def _set_run_background(self, run, level: str):
+        """Tô màu nền cho run dựa vào level"""
+        color = self.level_colors.get(level, 'FFFFFF')
+        
+        # Tạo shading element
+        shading_elm = OxmlElement('w:shd')
+        shading_elm.set(qn('w:fill'), color)
+        run._element.get_or_add_rPr().append(shading_elm)
     
     def generate_from_json(self, 
                           json_data: Union[Dict, str],
@@ -247,11 +267,193 @@ class DocxGenerator:
             self.document.save(output_path)
             self.output_path = output_path
             
-            print(f"✓ Đã lưu file: {output_path}")
+            if self.verbose:
+                print(f"✓ Đã lưu file: {output_path}")
         
         except Exception as e:
             print(f"✗ Lỗi khi lưu file: {str(e)}")
             raise
+    
+    def generate_questions_document(self, 
+                                   json_data: Union[Dict, str],
+                                   output_path: str):
+        """
+        Tạo document câu hỏi từ dữ liệu JSON
+        
+        Args:
+            json_data (Union[Dict, str]): Dữ liệu JSON hoặc đường dẫn file JSON
+            output_path (str): Đường dẫn file DOCX output
+        """
+        # Đọc JSON nếu là đường dẫn
+        if isinstance(json_data, str):
+            with open(json_data, 'r', encoding='utf-8') as f:
+                json_data = json.load(f)
+        
+        # Tạo document mới
+        self.create_new_document()
+        self.set_document_style()
+        
+        # Thêm tiêu đề
+        metadata = json_data.get('metadata', {})
+        self.add_heading('ĐỀ THI TRẮC NGHIỆM', level=1, alignment='center')
+        self.add_paragraph(f"Ma trận: {metadata.get('matrix_file', 'N/A')}", alignment='center')
+        self.add_paragraph(f"Ngày tạo: {metadata.get('generated_at', 'N/A')[:10]}", alignment='center')
+        self.add_paragraph(f"Tổng số câu: {metadata.get('total_questions', 0)}", alignment='center')
+        self.add_paragraph("")
+        
+        questions_data = json_data.get('questions', {})
+        
+        # Xuất câu hỏi TN
+        tn_questions = questions_data.get('TN', [])
+        if tn_questions:
+            tn_questions_sorted = sorted(tn_questions, key=lambda x: int(x.get('question_code', 'C0')[1:]))
+            
+            self.add_heading('PHẦN I. Thí sinh trả lời từ câu 1 đến câu 24. Mỗi câu hỏi thí sinh chỉ chọn một phương án.', level=2)
+            
+            for idx, q in enumerate(tn_questions_sorted, 1):
+                self._add_tn_question(q, idx)
+            
+            self.add_paragraph("")
+        
+        # Xuất câu hỏi DS
+        ds_questions = questions_data.get('DS', [])
+        if ds_questions:
+            ds_questions_sorted = sorted(ds_questions, key=lambda x: int(x.get('question_code', 'C0')[1:]))
+            
+            self.add_heading('PHẦN II. Thí sinh trả lời từ câu 1 đến 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.', level=2)
+            
+            for idx, q in enumerate(ds_questions_sorted, 1):
+                self._add_ds_question(q, idx)
+            
+            self.add_paragraph("")
+        
+        # Thêm phần đáp án
+        self.add_page_break()
+        self.add_heading('ĐÁP ÁN VÀ GIẢI THÍCH', level=1, alignment='center')
+        self.add_paragraph("")
+        
+        # Đáp án TN
+        if tn_questions:
+            self.add_heading('PHẦN I: TRẮC NGHIỆM', level=2)
+            
+            for idx, q in enumerate(tn_questions_sorted, 1):
+                self._add_tn_answer(q, idx)
+        
+        # Đáp án DS
+        if ds_questions:
+            self.add_heading('PHẦN II: ĐÚNG/SAI', level=2)
+            
+            for idx, q in enumerate(ds_questions_sorted, 1):
+                self._add_ds_answer(q, idx)
+        
+        # Lưu file
+        self.save(output_path)
+    
+    def _add_tn_question(self, question: Dict, number: int):
+        """Thêm câu hỏi trắc nghiệm"""
+        # Câu hỏi
+        para = self.document.add_paragraph()
+        
+        level = question.get('level', 'NB')
+        
+        run = para.add_run(f"Câu {number} ")
+        run.bold = True
+        run = para.add_run(f"({level})")
+        run.bold = True
+        self._set_run_background(run, level)
+        
+        para.add_run(". ")
+        para.add_run(question.get('question_stem', ''))
+        
+        # Các lựa chọn
+        options = question.get('options', {})
+        correct_answer = question.get('correct_answer', '')
+        
+        for key in ['A', 'B', 'C', 'D']:
+            if key in options:
+                para = self.document.add_paragraph()
+                
+                # Tô đỏ nếu là đáp án đúng
+                if key == correct_answer:
+                    run = para.add_run(f"{key}. {options[key]}")
+                    run.font.color.rgb = RGBColor(255, 0, 0)
+                else:
+                    para.add_run(f"{key}. {options[key]}")
+    
+    def _add_ds_question(self, question: Dict, number: int):
+        """Thêm câu hỏi đúng/sai"""
+        # Tiêu đề câu
+        para = self.document.add_paragraph()
+        para.add_run(f"Câu {number}. ").bold = True
+        para.add_run("Cho đoạn tư liệu sau:")
+        
+        # Tư liệu
+        self.add_paragraph(question.get('source_text', ''), italic=True)
+        
+        statements = question.get('statements', {})
+        for label in ['a', 'b', 'c', 'd']:
+            if label in statements:
+                stmt = statements[label]
+                level = stmt.get('level', 'NB')
+                text = stmt.get('text', '')
+                is_correct = stmt.get('correct_answer', False)
+                
+                para = self.document.add_paragraph()
+                
+                # "(level)" - tô màu nền
+                run_level = para.add_run(f"({level})")
+                self._set_run_background(run_level, level)
+                
+                # " label. text" - tô đỏ nếu đúng
+                run_content = para.add_run(f" {label}. {text}")
+                if is_correct:
+                    run_content.font.color.rgb = RGBColor(255, 0, 0)
+    
+    def _add_tn_answer(self, question: Dict, number: int):
+        """Thêm đáp án trắc nghiệm"""
+        para = self.document.add_paragraph()
+        para.add_run(f"Câu {number}. ").bold = True
+        
+        # Đáp án đúng tô đỏ
+        run = para.add_run(f"Đáp án: {question.get('correct_answer', 'N/A')}")
+        run.bold = True
+        run.font.color.rgb = RGBColor(255, 0, 0)
+        
+        # Giải thích
+        explanation = question.get('explanation', '')
+        if explanation:
+            self.add_paragraph(f"Giải thích: {explanation}")
+        
+        self.add_paragraph("")
+    
+    def _add_ds_answer(self, question: Dict, number: int):
+        """Thêm đáp án đúng/sai"""
+        para = self.document.add_paragraph()
+        para.add_run(f"Câu {number}. ").bold = True
+        
+        # Đáp án từng mệnh đề
+        statements = question.get('statements', {})
+        answer_parts = []
+        for label in ['a', 'b', 'c', 'd']:
+            if label in statements:
+                stmt = statements[label]
+                is_correct = stmt.get('correct_answer', False)
+                answer_text = "Đ" if is_correct else "S"
+                answer_parts.append(f"{label}. {answer_text}")
+        
+        # Tô đỏ đáp án
+        run = para.add_run(", ".join(answer_parts))
+        run.font.color.rgb = RGBColor(255, 0, 0)
+        
+        # Giải thích
+        explanations = question.get('explanation', {})
+        if explanations:
+            self.add_paragraph("Giải thích:")
+            for label in ['a', 'b', 'c', 'd']:
+                if label in explanations:
+                    self.add_paragraph(f"{label}. {explanations[label]}")
+        
+        self.add_paragraph("")
     
     def create_from_json_file(self, 
                              json_path: str,
@@ -278,7 +480,8 @@ class DocxGenerator:
             # Lưu file
             self.save(output_path)
             
-            print(f"✓ Đã tạo DOCX từ JSON: {json_path} -> {output_path}")
+            if self.verbose:
+                print(f"✓ Đã tạo DOCX từ JSON: {json_path} -> {output_path}")
         
         except Exception as e:
             print(f"✗ Lỗi khi tạo DOCX từ JSON: {str(e)}")

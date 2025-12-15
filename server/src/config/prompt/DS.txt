@@ -3,7 +3,7 @@ Bạn là chuyên gia biên soạn biên soạn ngân hàng câu hỏi dạng Đ
 
 # TASK:
 Tạo "{{NUM}}" câu hỏi dạng ĐÚNG / SAI theo tư liệu, gồm:
-- 01 đoạn tư liệu hoặc 02 tự liệu ngắn liên quan tới nhau cùng nội dung kiến thức trọng tâm.
+- 01 đoạn tư liệu (cũng có thể 02 tự liệu ngắn liên quan tới nhau cùng nội dung kiến thức trọng tâm)
 - 04 mệnh đề (a, b, c, d)
 Học sinh sẽ xác định Đúng hoặc Sai cho từng mệnh đề.
 
@@ -12,7 +12,7 @@ Học sinh sẽ xác định Đúng hoặc Sai cho từng mệnh đề.
 
 # YÊU CẦU VỀ TƯ LIỆU:
 - Tư liệu phải liên quan trực tiếp đến nội dung kiến thức trọng tâm đã cho.
-- Có thể là trích SGK, tài liệu lịch sử phổ thông hoặc văn phong SGK.
+- Khuyến khích trích SGK, tài liệu lịch sử phổ thông hoặc văn phong SGK.
 - Dung lượng: độ dài vừa phải, phù hợp thời gian làm bài, ngôn ngữ rõ ràng, trung tính, không bình luận.
 - Tư liệu phải đủ thông tin để suy luận ra các mệnh đề phía dưới.
 
@@ -62,38 +62,5 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
 - Mỗi mệnh đề có độ dài vừa phải, phù hợp thời gian làm bài.
 - Không trùng ý giữa các mệnh đề.
 
-# OUTPUT FORMAT:
-Trả về kết quả dưới dạng JSON object (RAW JSON, không bọc markdown).
-
-Cấu trúc JSON:
-{
-  "source_text": "Đoạn tư liệu lịch sử...",
-  "statements": {
-    "a": {
-      "text": "Nội dung mệnh đề a",
-      "level": "NB",
-      "correct_answer": true
-    },
-    "b": {
-      "text": "Nội dung mệnh đề b",
-      "level": "NB",
-      "correct_answer": false
-    },
-    "c": {
-      "text": "Nội dung mệnh đề c",
-      "level": "TH",
-      "correct_answer": true
-    },
-    "d": {
-      "text": "Nội dung mệnh đề d",
-      "level": "VD",
-      "correct_answer": true
-    }
-  },
-  "explanation": {
-    "a": "Giải thích ngắn gọn vì sao a đúng/sai.",
-    "b": "Giải thích ngắn gọn vì sao b đúng/sai.",
-    "c": "Giải thích ngắn gọn vì sao c đúng/sai.",
-    "d": "Giải thích ngắn gọn vì sao d đúng/sai."
-  }
-}
+# OUTPUT:
+Nội dung tiếng Việt chuẩn mực, đúng thuật ngữ lịch sử, không lỗi font.

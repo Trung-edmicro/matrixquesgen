@@ -13,497 +13,497 @@
         "question_type": "TN",
         "lesson_name": "Bài 1. Liên Hợp Quốc",
         "level": "NB",
-        "question_stem": "Theo quy định của Hiến chương, Liên hợp quốc chính thức được thành lập vào thời gian nào?",
+        "question_stem": "Hiến chương Liên hợp quốc được thông qua tại hội nghị nào dưới đây (năm 1945)?",
         "options": {
-          "A": "Ngày 24 - 10 - 1945",
-          "B": "Ngày 26 - 6 - 1945",
-          "C": "Ngày 1 - 1 - 1942",
-          "D": "Ngày 25 - 4 - 1945"
+          "A": "Hội nghị Ianta.",
+          "B": "Hội nghị Xan Phranxixcô.",
+          "C": "Hội nghị Pốtxđam.",
+          "D": "Hội nghị Têhêran."
         },
-        "correct_answer": "A",
-        "explanation": "Ngày 24/10/1945, sau khi Quốc hội các nước thành viên phê chuẩn, bản Hiến chương có hiệu lực, đánh dấu Liên hợp quốc chính thức thành lập. Các phương án còn lại sai mốc thời gian: 26/6/1945 là ngày ký Hiến chương; 1/1/1942 là ngày ra Tuyên ngôn Liên hợp quốc; 25/4/1945 là ngày khai mạc Hội nghị San Francisco."
+        "correct_answer": "B",
+        "explanation": "Từ ngày 25-4 đến ngày 26-6-1945, đại biểu 50 nước họp tại Xan Phranxixcô (Mĩ) đã thông qua Hiến chương Liên hợp quốc."
       },
       {
         "question_code": "C2",
         "question_type": "TN",
         "lesson_name": "Bài 1. Liên Hợp Quốc",
         "level": "NB",
-        "question_stem": "Một trong những mục tiêu chính của tổ chức Liên hợp quốc được quy định trong Hiến chương là",
+        "question_stem": "Theo quy định của Hiến chương Liên hợp quốc, một trong những mục tiêu chính của tổ chức này là",
         "options": {
-          "A": "duy trì hòa bình và an ninh quốc tế",
-          "B": "lãnh đạo phong trào giải phóng dân tộc",
-          "C": "can thiệp vào công việc nội bộ các nước",
-          "D": "thúc đẩy sự hình thành trật tự đơn cực"
+          "A": "duy trì hòa bình và an ninh quốc tế.",
+          "B": "duy trì trật tự thế giới đơn cực.",
+          "C": "tăng cường chạy đua vũ trang.",
+          "D": "thiết lập các liên minh quân sự."
         },
         "correct_answer": "A",
-        "explanation": "Theo Hiến chương, mục tiêu hàng đầu của Liên hợp quốc là duy trì hòa bình và an ninh quốc tế. Phương án B sai vì đây không phải mục tiêu được quy định trong Hiến chương; Phương án C sai vì vi phạm nguyên tắc hoạt động (không can thiệp nội bộ); Phương án D sai về bản chất tổ chức."
-      },
-      {
-        "question_code": "C6",
-        "question_type": "TN",
-        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
-        "level": "NB",
-        "question_stem": "Hội nghị Ianta (tháng 2-1945) có sự tham gia của nguyên thủ ba cường quốc nào sau đây?",
-        "options": {
-          "A": "Liên Xô, Mỹ, Anh",
-          "B": "Mỹ, Anh, Pháp",
-          "C": "Liên Xô, Anh, Trung Quốc",
-          "D": "Mỹ, Pháp, Đức"
-        },
-        "correct_answer": "A",
-        "explanation": "Đáp án đúng là A: Hội nghị Ianta diễn ra với sự tham gia của nguyên thủ 3 nước là Liên Xô (Xtalin), Mỹ (Ru-dơ-ven) và Anh (Sơ-trin). Các phương án B, C, D sai vì Pháp, Trung Quốc không tham gia hội nghị này; Đức là nước bại trận, không tham gia hội nghị."
-      },
-      {
-        "question_code": "C7",
-        "question_type": "TN",
-        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
-        "level": "NB",
-        "question_stem": "Sau Chiến tranh thế giới thứ hai, trật tự thế giới mới được hình thành với tên gọi là",
-        "options": {
-          "A": "Trật tự Vécxai - Oasinhtơn",
-          "B": "Trật tự hai cực Ianta",
-          "C": "Trật tự đa cực, nhiều trung tâm",
-          "D": "Trật tự đơn cực"
-        },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Sau Chiến tranh thế giới thứ hai, một trật tự thế giới mới đã được xác lập là Trật tự hai cực Ianta. Phương án A sai vì đây là trật tự sau Chiến tranh thế giới thứ nhất. Phương án C và D sai vì không phải tên gọi của trật tự thế giới hình thành ngay sau năm 1945."
-      },
-      {
-        "question_code": "C10",
-        "question_type": "TN",
-        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
-        "level": "NB",
-        "question_stem": "Một trong những xu thế phát triển chính của thế giới sau khi Chiến tranh lạnh chấm dứt là",
-        "options": {
-          "A": "hòa bình, hợp tác và phát triển.",
-          "B": "đối đầu căng thẳng giữa hai cực.",
-          "C": "chạy đua vũ trang hạt nhân.",
-          "D": "xung đột quân sự giữa các siêu cường."
-        },
-        "correct_answer": "A",
-        "explanation": "Đáp án A đúng vì sau Chiến tranh lạnh, các quốc gia điều chỉnh quan hệ theo hướng đối thoại, hòa bình, hợp tác và phát triển là xu thế chủ đạo. Các phương án B, C, D là đặc điểm của thời kỳ Chiến tranh lạnh, không phải là xu thế chính sau năm 1991."
-      },
-      {
-        "question_code": "C12",
-        "question_type": "TN",
-        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
-        "level": "TH",
-        "question_stem": "Xu thế toàn cầu hóa xuất hiện từ đầu thập niên 80 của thế kỷ XX có nguồn gốc chủ yếu từ",
-        "options": {
-          "A": "sự chấm dứt của cuộc Chiến tranh lạnh.",
-          "B": "sự ra đời của các tổ chức liên kết khu vực.",
-          "C": "sự bùng nổ của cách mạng khoa học - công nghệ.",
-          "D": "sự sụp đổ của hệ thống xã hội chủ nghĩa."
-        },
-        "correct_answer": "C",
-        "explanation": "Đáp án đúng là C: Sự bùng nổ của cuộc cách mạng khoa học - công nghệ hiện đại đã mang lại sự phát triển vượt bậc của lực lượng sản xuất, dẫn đến hệ quả tất yếu là xu thế toàn cầu hóa. Các phương án A, D sai vì đây là các sự kiện chính trị xảy ra vào cuối thập niên 80 - đầu thập niên 90, trong khi toàn cầu hóa đã nhen nhóm từ đầu thập niên 80. Phương án B là một xu thế song hành (khu vực hóa) chứ không phải nguồn gốc sâu xa của toàn cầu hóa."
+        "explanation": "Theo Hiến chương, mục tiêu chính của Liên hợp quốc là duy trì hòa bình và an ninh quốc tế; thúc đẩy quan hệ hữu nghị giữa các dân tộc..."
       },
       {
         "question_code": "C15",
         "question_type": "TN",
         "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
         "level": "NB",
-        "question_stem": "Hiệp hội các quốc gia Đông Nam Á (ASEAN) được thành lập (8-1967) tại địa điểm nào sau đây?",
+        "question_stem": "Văn kiện nào sau đây được kí kết vào ngày 8-8-1967, đánh dấu sự ra đời của Hiệp hội các quốc gia Đông Nam Á (ASEAN)?",
         "options": {
-          "A": "Băng Cốc (Thái Lan).",
-          "B": "Ba-li (In-đô-nê-xi-a).",
-          "C": "Hà Nội (Việt Nam).",
-          "D": "Cua-la Lăm-pơ (Ma-lai-xi-a)."
+          "A": "Hiến chương ASEAN",
+          "B": "Tuyên bố Ba-li",
+          "C": "Tuyên bố Băng Cốc",
+          "D": "Tuyên bố Hà Nội"
         },
-        "correct_answer": "A",
-        "explanation": "Đáp án đúng là A: Ngày 8-8-1967, Hiệp hội các quốc gia Đông Nam Á (ASEAN) được thành lập tại Băng Cốc (Thái Lan) thông qua bản Tuyên bố Băng Cốc. Các đáp án B, D là địa điểm khác trong khu vực; đáp án C là thủ đô của Việt Nam (gia nhập ASEAN năm 1995), không phải nơi thành lập ASEAN năm 1967."
+        "correct_answer": "C",
+        "explanation": "Ngày 8-8-1967, tại Băng Cốc (Thái Lan), đại diện 5 nước (In-đô-nê-xi-a, Ma-lai-xi-a, Phi-lip-pin, Xin-ga-po, Thái Lan) đã kí Tuyên bố Băng Cốc, đánh dấu sự thành lập Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
       },
       {
-        "question_code": "C17",
+        "question_code": "C10",
         "question_type": "TN",
-        "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
-        "level": "TH",
-        "question_stem": "Quá trình phát triển thành viên từ \"ASEAN 5\" đến \"ASEAN 10\" phản ánh sự biến đổi nào sau đây trong quan hệ giữa các quốc gia Đông Nam Á?",
+        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
+        "level": "NB",
+        "question_stem": "Sau khi Chiến tranh lạnh chấm dứt, một trong những xu thế chủ đạo của tình hình thế giới là",
         "options": {
-          "A": "Chuyển từ tình trạng đối đầu, nghi kỵ sang đối thoại, hợp tác và hòa bình.",
-          "B": "Chuyển từ quan hệ đồng minh quân sự sang hợp tác kinh tế đa phương.",
-          "C": "Chuyển từ sự lệ thuộc vào các nước lớn sang độc lập hoàn toàn về kinh tế.",
-          "D": "Chuyển từ cơ chế hợp tác song phương sang liên kết phòng thủ chung."
+          "A": "hòa bình, ổn định và hợp tác phát triển.",
+          "B": "đối đầu căng thẳng giữa hai hệ thống xã hội.",
+          "C": "chạy đua vũ trang giữa các cường quốc.",
+          "D": "chiến tranh lan rộng trên quy mô toàn cầu."
         },
         "correct_answer": "A",
-        "explanation": "Đáp án A đúng vì quá trình mở rộng từ 5 nước sáng lập sang các nước Đông Dương và Mianma đánh dấu sự chấm dứt mâu thuẫn giữa hai nhóm nước (ASEAN và Đông Dương), mở ra kỷ nguyên hòa bình, thống nhất khu vực. Đáp án B sai vì ASEAN không phải là đồng minh quân sự. Đáp án C sai về thực tế lịch sử và kinh tế. Đáp án D sai vì ASEAN không hướng tới liên kết phòng thủ chung."
+        "explanation": "Sau khi Chiến tranh lạnh chấm dứt, thế giới bước vào giai đoạn mới với xu thế chủ đạo là hòa bình, ổn định và hợp tác phát triển; các quốc gia điều chỉnh chiến lược lấy phát triển kinh tế làm trọng tâm."
+      },
+      {
+        "question_code": "C6",
+        "question_type": "TN",
+        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
+        "level": "NB",
+        "question_stem": "Hội nghị Ianta (tháng 2-1945) diễn ra với sự tham gia của nguyên thủ ba cường quốc nào sau đây?",
+        "options": {
+          "A": "Liên Xô, Mỹ, Anh",
+          "B": "Mỹ, Anh, Pháp",
+          "C": "Liên Xô, Trung Quốc, Anh",
+          "D": "Mỹ, Đức, Nhật Bản"
+        },
+        "correct_answer": "A",
+        "explanation": "Hội nghị Ianta diễn ra tại Liên Xô từ ngày 4 đến 11-2-1945 với sự tham gia của nguyên thủ ba cường quốc là Liên Xô (Xtalin), Mỹ (Ru-dơ-ven) và Anh (Sớc-sin)."
+      },
+      {
+        "question_code": "C7",
+        "question_type": "TN",
+        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
+        "level": "NB",
+        "question_stem": "Trật tự thế giới hai cực Ianta được xác lập sau Chiến tranh thế giới thứ hai do hai cường quốc nào đứng đầu mỗi cực?",
+        "options": {
+          "A": "Anh và Pháp",
+          "B": "Liên Xô và Mỹ",
+          "C": "Đức và Nhật Bản",
+          "D": "Trung Quốc và Ấn Độ"
+        },
+        "correct_answer": "B",
+        "explanation": "Trật tự thế giới hai cực Ianta đặc trưng bởi sự phân chia thế giới thành hai phe đối lập: tư bản chủ nghĩa do Mỹ đứng đầu và xã hội chủ nghĩa do Liên Xô đứng đầu."
+      },
+      {
+        "question_code": "C12",
+        "question_type": "TN",
+        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
+        "level": "TH",
+        "question_stem": "Xét về bản chất, toàn cầu hóa là quá trình",
+        "options": {
+          "A": "tăng lên mạnh mẽ những mối liên hệ, tác động phụ thuộc lẫn nhau của các quốc gia, dân tộc.",
+          "B": "các nước tư bản phát triển mở rộng thị trường để tranh giành ảnh hưởng và xâm chiếm thuộc địa.",
+          "C": "hình thành các tổ chức liên kết quân sự - chính trị lớn nhằm duy trì trật tự thế giới đơn cực.",
+          "D": "xóa bỏ hoàn toàn chủ quyền quốc gia để tiến tới thành lập một nhà nước chung toàn cầu."
+        },
+        "correct_answer": "A",
+        "explanation": "Về bản chất, toàn cầu hóa là quá trình tăng lên mạnh mẽ những mối liên hệ, những ảnh hưởng tác động lẫn nhau, phụ thuộc lẫn nhau của tất cả các khu vực, các quốc gia, các dân tộc trên thế giới (chủ yếu về phương diện kinh tế)."
+      },
+      {
+        "question_code": "C3",
+        "question_type": "TN",
+        "lesson_name": "Bài 1. Liên Hợp Quốc",
+        "level": "NB",
+        "question_stem": "Theo quy định của Hiến chương, mục tiêu hàng đầu của tổ chức Liên Hợp Quốc là",
+        "options": {
+          "A": "duy trì hòa bình và an ninh quốc tế.",
+          "B": "thúc đẩy tự do thương mại toàn cầu.",
+          "C": "thành lập các liên minh quân sự khu vực.",
+          "D": "can thiệp vào công việc nội bộ các nước."
+        },
+        "correct_answer": "A",
+        "explanation": "Theo Hiến chương Liên Hợp Quốc, mục tiêu hàng đầu và quan trọng nhất của tổ chức này là duy trì hòa bình và an ninh quốc tế. Đây là cơ sở nền tảng để thực hiện các mục tiêu khác như phát triển quan hệ hữu nghị và hợp tác quốc tế giữa các quốc gia."
       },
       {
         "question_code": "C20",
         "question_type": "TN",
         "lesson_name": "Bài 5. Cộng đồng ASEAN: Từ ý tưởng đến hiện thực",
         "level": "NB",
-        "question_stem": "Cộng đồng ASEAN được hình thành dựa trên ba trụ cột chính nào sau đây?",
+        "question_stem": "Theo Tuyên bố Hòa hợp ASEAN II (tháng 10-2003), ba trụ cột chính hợp thành Cộng đồng ASEAN bao gồm",
         "options": {
           "A": "Cộng đồng Chính trị - An ninh, Cộng đồng Kinh tế, Cộng đồng Văn hóa - Xã hội.",
-          "B": "Cộng đồng Quân sự - Quốc phòng, Cộng đồng Kinh tế, Cộng đồng Văn hóa.",
-          "C": "Cộng đồng Chính trị, Cộng đồng Môi trường, Cộng đồng Giáo dục - Y tế.",
-          "D": "Cộng đồng An ninh, Cộng đồng Ngoại giao, Cộng đồng Tài chính - Tiền tệ."
+          "B": "Cộng đồng Quân sự - Quốc phòng, Cộng đồng Kinh tế, Cộng đồng Giáo dục.",
+          "C": "Cộng đồng Chính trị, Cộng đồng Tài chính - Tiền tệ, Cộng đồng Khoa học.",
+          "D": "Cộng đồng An ninh, Cộng đồng Thương mại tự do, Cộng đồng Văn hóa."
         },
         "correct_answer": "A",
-        "explanation": "Đáp án đúng là A: Ba trụ cột của Cộng đồng ASEAN gồm Cộng đồng Chính trị - An ninh (APSC), Cộng đồng Kinh tế (AEC) và Cộng đồng Văn hóa - Xã hội (ASCC). Các đáp án B, C, D sai về tên gọi và nội dung các trụ cột (ASEAN không có trụ cột về quân sự hay tài chính riêng biệt)."
+        "explanation": "Theo Tuyên bố Hòa hợp ASEAN II (tháng 10-2003), Cộng đồng ASEAN được xây dựng dựa trên 3 trụ cột là: Cộng đồng Chính trị - An ninh (APSC), Cộng đồng Kinh tế (AEC) và Cộng đồng Văn hóa - Xã hội (ASCC)."
       },
       {
         "question_code": "C21",
         "question_type": "TN",
         "lesson_name": "Bài 5. Cộng đồng ASEAN: Từ ý tưởng đến hiện thực",
         "level": "NB",
-        "question_stem": "Văn kiện nào được thông qua tại Hội nghị cấp cao ASEAN lần thứ 9 (tháng 10-2003) đã khẳng định mục tiêu xây dựng Cộng đồng ASEAN?",
+        "question_stem": "Cộng đồng ASEAN chính thức được thành lập vào thời gian nào?",
         "options": {
-          "A": "Tuyên bố Băng-cốc.",
-          "B": "Tuyên bố về sự hòa hợp ASEAN II (Tuyên bố Ba-li II).",
-          "C": "Hiến chương ASEAN.",
-          "D": "Tuyên bố Cu-a-la Lăm-pơ."
+          "A": "Ngày 31-12-2015.",
+          "B": "Ngày 08-8-1967.",
+          "C": "Ngày 28-7-1995.",
+          "D": "Ngày 20-11-2007."
         },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Tuyên bố về sự hòa hợp ASEAN II (Tuyên bố Ba-li II) năm 2003 đã khẳng định mục tiêu xây dựng Cộng đồng ASEAN. Đáp án A sai (năm 1967, thành lập ASEAN). Đáp án C sai (năm 2007, tạo cơ sở pháp lý). Đáp án D sai (năm 2015, tuyên bố thành lập Cộng đồng)."
+        "correct_answer": "A",
+        "explanation": "Ngày 22-11-2015, các nhà lãnh đạo ASEAN đã ký Tuyên bố Cu-a-la Lăm-pơ về việc thành lập Cộng đồng ASEAN. Cộng đồng ASEAN chính thức được thành lập vào ngày 31-12-2015."
       },
       {
         "question_code": "C22",
         "question_type": "TN",
         "lesson_name": "Bài 5. Cộng đồng ASEAN: Từ ý tưởng đến hiện thực",
         "level": "TH",
-        "question_stem": "Việc thông qua Hiến chương ASEAN (năm 2007) có ý nghĩa quan trọng nào sau đây đối với quá trình phát triển của Hiệp hội?",
+        "question_stem": "Sự ra đời của Cộng đồng ASEAN (2015) đánh dấu bước phát triển nào của Hiệp hội các quốc gia Đông Nam Á (ASEAN)?",
         "options": {
-          "A": "Đánh dấu sự ra đời chính thức của Cộng đồng ASEAN.",
-          "B": "Tạo ra cơ sở pháp lý và khuôn khổ thể chế cho ASEAN.",
-          "C": "Xóa bỏ hoàn toàn khoảng cách giàu nghèo giữa các nước.",
-          "D": "Biến ASEAN thành một tổ chức liên minh quân sự chung."
+          "A": "Bắt đầu quá trình hợp tác giữa các nước trong khu vực.",
+          "B": "Chuyển sang giai đoạn liên kết chuyên sâu và toàn diện.",
+          "C": "Trở thành một tổ chức siêu quốc gia có chung quân đội.",
+          "D": "Hoàn tất quá trình nhất thể hóa kinh tế và chính trị."
         },
         "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Hiến chương ASEAN là văn kiện tạo cơ sở pháp lý và khuôn khổ thể chế, trao tư cách pháp nhân cho ASEAN. A sai vì Cộng đồng ASEAN chính thức ra đời năm 2015. C sai vì đây là mục tiêu dài hạn, chưa đạt được ngay năm 2007. D sai vì ASEAN hoạt động trên nguyên tắc không phải là liên minh quân sự."
+        "explanation": "Việc thành lập Cộng đồng ASEAN (2015) đánh dấu bước chuyển quan trọng của ASEAN từ một hiệp hội hợp tác lỏng lẻo sang một cộng đồng liên kết chặt chẽ, chuyên sâu và toàn diện hơn dựa trên ba trụ cột: Cộng đồng Chính trị - An ninh, Cộng đồng Kinh tế và Cộng đồng Văn hóa - Xã hội. Các phương án A, C, D sai về bản chất (ASEAN bắt đầu hợp tác từ 1967, không phải là tổ chức siêu quốc gia và chưa nhất thể hóa hoàn toàn)."
       },
       {
-        "question_code": "C3",
+        "question_code": "C17",
         "question_type": "TN",
-        "lesson_name": "Bài 1. Liên Hợp Quốc",
-        "level": "NB",
-        "question_stem": "Theo Hiến chương Liên hợp quốc, mục tiêu hàng đầu của tổ chức này là",
-        "options": {
-          "A": "duy trì hòa bình và an ninh quốc tế.",
-          "B": "mở rộng quan hệ thương mại tự do.",
-          "C": "can thiệp vào công việc nội bộ các nước.",
-          "D": "thành lập các khối quân sự khu vực."
-        },
-        "correct_answer": "A",
-        "explanation": "Theo Hiến chương Liên hợp quốc, mục tiêu hàng đầu là duy trì hòa bình và an ninh quốc tế. Các phương án còn lại sai: B là mục tiêu của các tổ chức kinh tế (như WTO); C vi phạm nguyên tắc không can thiệp vào công việc nội bộ; D sai vì Liên hợp quốc là diễn đàn quốc tế, không phải khối quân sự."
-      },
-      {
-        "question_code": "C4",
-        "question_type": "TN",
-        "lesson_name": "Bài 1. Liên Hợp Quốc",
+        "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
         "level": "TH",
-        "question_stem": "Nội dung nào sau đây phản ánh đúng vai trò của Liên hợp quốc trong nỗ lực duy trì hòa bình và an ninh thế giới?",
+        "question_stem": "Việc hoàn thành quá trình phát triển từ \"ASEAN 6\" thành \"ASEAN 10\" với sự kiện Campuchia gia nhập năm 1999 có ý nghĩa to lớn nào sau đây đối với khu vực Đông Nam Á?",
         "options": {
-          "A": "Ngăn chặn được mọi cuộc chiến tranh và xung đột sắc tộc trên toàn cầu.",
-          "B": "Trở thành diễn đàn quốc tế vừa hợp tác, vừa đấu tranh nhằm duy trì hòa bình.",
-          "C": "Giải quyết triệt để các mâu thuẫn cơ bản về lợi ích giữa các cường quốc.",
-          "D": "Bảo đảm tuyệt đối quyền bình đẳng về chính trị giữa các quốc gia thành viên."
+          "A": "Chấm dứt hoàn toàn sự chi phối và ảnh hưởng của các cường quốc bên ngoài.",
+          "B": "Đánh dấu sự chấm dứt tình trạng chia rẽ, đối đầu giữa các nước trong khu vực.",
+          "C": "Chứng tỏ các quốc gia thành viên đã thống nhất về thể chế chính trị, xã hội.",
+          "D": "Khẳng định ASEAN đã trở thành một liên minh quân sự và phòng thủ vững chắc."
         },
         "correct_answer": "B",
-        "explanation": "Phương án B đúng vì Liên hợp quốc đóng vai trò là diễn đàn lớn nhất hành tinh để các quốc gia đàm phán, thương lượng (hợp tác) và đấu tranh chống lại các hành vi xâm phạm chủ quyền, qua đó nỗ lực duy trì hòa bình. Các phương án còn lại sai do tính chất tuyệt đối hóa: A sai vì thực tế chiến tranh vẫn xảy ra; C sai vì mâu thuẫn nước lớn vẫn tồn tại; D sai vì trong Hội đồng Bảo an, 5 nước lớn có quyền phủ quyết nên không có sự bình đẳng tuyệt đối."
+        "explanation": "Việc ASEAN mở rộng thành viên từ 6 nước lên 10 nước (với việc kết nạp Việt Nam, Lào, Mianma và cuối cùng là Campuchia năm 1999) có ý nghĩa quan trọng là chấm dứt tình trạng chia rẽ, đối đầu giữa nhóm nước Đông Dương và nhóm nước ASEAN tồn tại trước đó. Điều này mở ra một kỷ nguyên mới của hòa bình, ổn định và hợp tác cùng phát triển cho toàn khu vực. Các phương án A, C, D sai vì: ASEAN không chấm dứt được hoàn toàn ảnh hưởng của nước lớn, không thống nhất về thể chế chính trị (đa dạng trong thống nhất) và không phải là liên minh quân sự."
       },
       {
         "question_code": "C8",
         "question_type": "TN",
         "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
         "level": "NB",
-        "question_stem": "Một trong những đặc trưng cơ bản của trật tự thế giới hai cực Ianta là sự đối đầu giữa hai cường quốc nào sau đây?",
+        "question_stem": "Sau Chiến tranh thế giới thứ hai, trật tự thế giới hai cực Ianta được hình thành với sự đứng đầu của hai siêu cường nào?",
         "options": {
-          "A": "Mỹ và Liên Xô",
+          "A": "Mĩ và Liên Xô",
           "B": "Anh và Pháp",
           "C": "Đức và Nhật Bản",
-          "D": "Trung Quốc và Ấn Độ"
+          "D": "Mĩ và Trung Quốc"
         },
         "correct_answer": "A",
-        "explanation": "Trật tự hai cực Ianta được hình thành sau Chiến tranh thế giới thứ hai với đặc trưng cơ bản là thế giới bị chia thành hai phe (tư bản chủ nghĩa và xã hội chủ nghĩa) do hai siêu cường Mỹ và Liên Xô đứng đầu mỗi phe. Các phương án B, C, D sai vì đây không phải là hai cường quốc đại diện cho hai cực đối đầu trong trật tự Ianta."
+        "explanation": "Theo nội dung kiến thức về Trật tự thế giới trong Chiến tranh lạnh, đặc trưng bao trùm của trật tự hai cực Ianta là thế giới bị chia thành hai phe (tư bản chủ nghĩa và xã hội chủ nghĩa) do hai siêu cường Mĩ và Liên Xô đứng đầu."
       },
       {
-        "question_code": "C9",
+        "question_code": "C4",
         "question_type": "TN",
-        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
+        "lesson_name": "Bài 1. Liên Hợp Quốc",
         "level": "TH",
-        "question_stem": "Sự sụp đổ của Trật tự thế giới hai cực I-an-ta (1991) đã dẫn đến tác động nào sau đây đối với quan hệ quốc tế?",
+        "question_stem": "Trong việc duy trì hòa bình và an ninh thế giới, vai trò của Liên Hợp Quốc được thể hiện chủ yếu qua hoạt động nào sau đây?",
         "options": {
-          "A": "Hình thành ngay lập tức trật tự thế giới đơn cực do Mỹ hoàn toàn chi phối.",
-          "B": "Mở ra chiều hướng đi tới một trật tự thế giới mới đa cực, nhiều trung tâm.",
-          "C": "Dẫn đến sự giải thể của tất cả các khối liên minh quân sự trên thế giới.",
-          "D": "Chấm dứt hoàn toàn các cuộc xung đột sắc tộc và tôn giáo ở các khu vực."
+          "A": "Ngăn chặn và xóa bỏ hoàn toàn mọi cuộc chiến tranh cục bộ trên thế giới.",
+          "B": "Soạn thảo và xây dựng Hiến pháp cho các quốc gia thành viên.",
+          "C": "Giải quyết các tranh chấp, xung đột quốc tế bằng biện pháp hòa bình.",
+          "D": "Can thiệp trực tiếp vào công việc nội bộ của các nước thành viên."
         },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Sau khi Liên Xô tan rã và trật tự hai cực I-an-ta sụp đổ, thế giới không còn bị chia rẽ bởi hai cực đối đầu, mở ra xu thế hình thành trật tự thế giới mới đa cực với sự vươn lên của nhiều cường quốc (Mỹ, Tây Âu, Nhật Bản, Trung Quốc, Nga...). Phương án A sai vì 'đơn cực' là tham vọng của Mỹ nhưng không hoàn toàn thành hiện thực do vấp phải sự cạnh tranh của các nước khác. Phương án C sai vì NATO vẫn tồn tại. Phương án D sai vì xung đột sắc tộc, tôn giáo vẫn diễn ra phức tạp (như ở vùng Ban-căng, châu Phi)."
-      },
-      {
-        "question_code": "C11",
-        "question_type": "TN",
-        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
-        "level": "NB",
-        "question_stem": "Sau khi trật tự hai cực Ianta sụp đổ, trật tự thế giới mới đang trong quá trình hình thành theo xu thế nào?",
-        "options": {
-          "A": "Đơn cực.",
-          "B": "Đa cực.",
-          "C": "Hai cực.",
-          "D": "Biệt lập."
-        },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Sau Chiến tranh lạnh, trật tự hai cực tan rã, thế giới tiến tới xác lập trật tự đa cực với sự vươn lên của nhiều cường quốc (Mỹ, EU, Nhật Bản, Trung Quốc, Nga...). Phương án A sai vì đơn cực chỉ là tham vọng của Mỹ, không phải xu thế chung. Phương án C sai vì trật tự hai cực đã chấm dứt năm 1991. Phương án D sai về bản chất quan hệ quốc tế giai đoạn này."
+        "correct_answer": "C",
+        "explanation": "Đáp án C đúng vì một trong những vai trò chính trị quan trọng nhất của Liên Hợp Quốc là duy trì hòa bình và an ninh thế giới, được thực hiện chủ yếu thông qua việc giải quyết các tranh chấp, xung đột quốc tế bằng biện pháp hòa bình, làm trung gian hòa giải và triển khai lực lượng gìn giữ hòa bình.\n- Đáp án A sai vì thực tế Liên Hợp Quốc chưa thể ngăn chặn và xóa bỏ 'hoàn toàn' mọi cuộc chiến tranh.\n- Đáp án B sai vì Liên Hợp Quốc không có chức năng soạn thảo Hiến pháp cho các nước (vi phạm chủ quyền).\n- Đáp án D sai vì nguyên tắc hoạt động của Liên Hợp Quốc là không can thiệp vào công việc nội bộ của bất kỳ quốc gia nào."
       },
       {
         "question_code": "C13",
         "question_type": "TN",
         "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
         "level": "TH",
-        "question_stem": "Sau khi Chiến tranh lạnh kết thúc, các quốc gia trên thế giới đều điều chỉnh chiến lược phát triển lấy kinh tế làm trọng điểm, chủ yếu là vì",
+        "question_stem": "Sau khi Chiến tranh lạnh kết thúc, các quốc gia đều điều chỉnh chiến lược phát triển lấy kinh tế làm trọng tâm chủ yếu vì",
         "options": {
-          "A": "sức mạnh kinh tế là nền tảng để củng cố các liên minh quân sự.",
-          "B": "kinh tế trở thành nhân tố quyết định sức mạnh tổng hợp của quốc gia.",
-          "C": "muốn xóa bỏ hoàn toàn sự can thiệp của các cường quốc bên ngoài.",
-          "D": "nguy cơ chiến tranh thế giới đã bị đẩy lùi vĩnh viễn khỏi lịch sử."
+          "A": "muốn nhanh chóng xóa bỏ sự chênh lệch giàu nghèo giữa các dân tộc.",
+          "B": "các liên minh quân sự - chính trị trên thế giới đã bị giải thể hoàn toàn.",
+          "C": "kinh tế trở thành nền tảng quyết định sức mạnh tổng hợp của quốc gia.",
+          "D": "xu thế toàn cầu hóa bắt đầu xuất hiện và chi phối quan hệ quốc tế."
         },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Sau Chiến tranh lạnh, quan hệ quốc tế chuyển từ đối đầu sang đối thoại, sức mạnh của mỗi quốc gia dựa trên một nền sản xuất phồn vinh, tài chính vững chắc và công nghệ cao. Do đó, kinh tế trở thành nội dung căn bản trong quan hệ quốc tế và là nhân tố quyết định sức mạnh tổng hợp của quốc gia. Các phương án A, C, D sai vì: A không phải mục tiêu chính (nhiều nước giảm chú trọng quân sự); C không phản ánh đúng bối cảnh toàn cầu hóa; D sai vì nguy cơ chiến tranh vẫn còn (xung đột sắc tộc, tôn giáo...) chứ chưa bị đẩy lùi vĩnh viễn."
+        "correct_answer": "C",
+        "explanation": "Sau Chiến tranh lạnh, các quốc gia nhận thức được rằng sức mạnh thực sự của mỗi quốc gia không chỉ nằm ở quân sự mà dựa trên một nền sản xuất phồn vinh, tài chính vững chắc và công nghệ cao. Do đó, kinh tế trở thành nội dung căn bản trong quan hệ quốc tế và là nền tảng quyết định sức mạnh tổng hợp cũng như vị thế của mỗi quốc gia."
+      },
+      {
+        "question_code": "C9",
+        "question_type": "TN",
+        "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
+        "level": "TH",
+        "question_stem": "Một trong những tác động của sự sụp đổ Trật tự thế giới hai cực Ianta (1991) đối với tình hình thế giới là",
+        "options": {
+          "A": "trật tự thế giới mới đang dần hình thành theo xu hướng đa cực.",
+          "B": "Mĩ đã thiết lập thành công trật tự đơn cực chi phối thế giới.",
+          "C": "mọi xung đột quân sự và nội chiến ở các quốc gia đều chấm dứt.",
+          "D": "chủ nghĩa xã hội trở thành hệ thống duy nhất trên toàn cầu."
+        },
+        "correct_answer": "A",
+        "explanation": "Sự sụp đổ của trật tự hai cực Ianta (sau khi Liên Xô tan rã năm 1991) đã dẫn đến việc trật tự thế giới cũ tan vỡ. Mặc dù Mĩ muốn thiết lập trật tự đơn cực, nhưng thực tế thế giới đang vận động theo xu hướng đa cực, nhiều trung tâm với sự vươn lên của các cường quốc (Mĩ, Tây Âu, Nhật Bản, Trung Quốc, Nga...). Do đó, đáp án đúng phản ánh xu thế khách quan này."
+      },
+      {
+        "question_code": "C11",
+        "question_type": "TN",
+        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
+        "level": "NB",
+        "question_stem": "Khái niệm nào sau đây dùng để chỉ trật tự thế giới có sự tham gia của nhiều trung tâm quyền lực khác nhau sau khi Chiến tranh lạnh kết thúc?",
+        "options": {
+          "A": "Đa cực",
+          "B": "Hai cực",
+          "C": "Độc quyền",
+          "D": "Biệt lập"
+        },
+        "correct_answer": "A",
+        "explanation": "Sau khi Chiến tranh lạnh kết thúc, trật tự hai cực Ianta sụp đổ, thế giới hình thành xu thế đa cực. Đa cực là khái niệm chỉ trật tự thế giới có nhiều trung tâm quyền lực (như Mỹ, Trung Quốc, Liên bang Nga, EU, Nhật Bản, Ấn Độ...) cùng tham gia chi phối quan hệ quốc tế, thay vì chỉ có hai cực như trước đây."
       },
       {
         "question_code": "C16",
         "question_type": "TN",
         "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
         "level": "NB",
-        "question_stem": "Văn kiện nào sau đây được các nước thành viên ASEAN ký kết tại Hội nghị cấp cao lần thứ nhất (tháng 2-1976)?",
+        "question_stem": "Tháng 2-1976, các nước ASEAN đã ký kết văn kiện nào sau đây tại Hội nghị cấp cao lần thứ nhất ở Bali (Inđônêxia)?",
         "options": {
-          "A": "Tuyên bố Băng Cốc.",
-          "B": "Hiệp ước Bali.",
-          "C": "Hiến chương ASEAN.",
-          "D": "Tuyên bố Cua-la Lăm-pơ."
+          "A": "Hiến chương ASEAN.",
+          "B": "Tuyên bố Băng Cốc.",
+          "C": "Hiệp ước Bali.",
+          "D": "Tuyên bố Hà Nội."
         },
-        "correct_answer": "B",
-        "explanation": "Đáp án đúng là B: Tháng 2-1976, tại Hội nghị cấp cao ASEAN lần thứ nhất ở Bali (In-đô-nê-xi-a), các nước thành viên đã ký Hiệp ước Thân thiện và Hợp tác ở Đông Nam Á (gọi tắt là Hiệp ước Bali). Các đáp án còn lại sai về mốc thời gian: Tuyên bố Băng Cốc (1967), Tuyên bố Cua-la Lăm-pơ (1971), Hiến chương ASEAN (2007)."
+        "correct_answer": "C",
+        "explanation": "Tháng 2-1976, tại Hội nghị cấp cao ASEAN lần thứ nhất diễn ra ở Bali (Inđônêxia), các nước thành viên đã ký Hiệp ước thân thiện và hợp tác ở Đông Nam Á (gọi tắt là Hiệp ước Bali). Đây là văn kiện quan trọng xác định các nguyên tắc cơ bản trong quan hệ giữa các nước."
       },
       {
         "question_code": "C18",
         "question_type": "TN",
         "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
         "level": "TH",
-        "question_stem": "Việc hoàn thành quá trình mở rộng thành viên từ 5 nước sáng lập lên 10 nước (đến năm 1999) có ý nghĩa to lớn nào sau đây đối với tổ chức ASEAN?",
+        "question_stem": "Việc mở rộng thành viên của Hiệp hội các quốc gia Đông Nam Á (ASEAN) trong những năm 90 của thế kỷ XX có ý nghĩa quan trọng nào sau đây đối với khu vực?",
         "options": {
-          "A": "Chấm dứt sự chia rẽ và đối đầu, mở ra giai đoạn hòa bình, hợp tác cùng phát triển ở khu vực.",
-          "B": "Chuyển trọng tâm hoạt động của tổ chức sang hợp tác về quân sự và an ninh quốc phòng.",
-          "C": "Khẳng định sự thoát ly hoàn toàn của khu vực khỏi ảnh hưởng của các cường quốc bên ngoài.",
-          "D": "Đánh dấu sự cân bằng tuyệt đối về trình độ phát triển kinh tế - xã hội giữa các nước hội viên."
+          "A": "Đánh dấu sự chấm dứt hoàn toàn ảnh hưởng của các nước lớn vào khu vực.",
+          "B": "Mở ra thời kỳ phát triển mới của khu vực trong hòa bình, ổn định và hợp tác.",
+          "C": "Dẫn đến sự hình thành một liên minh phòng thủ quân sự chung thống nhất.",
+          "D": "Giúp các nước Đông Nam Á trở thành trung tâm kinh tế - tài chính toàn cầu."
         },
-        "correct_answer": "A",
-        "explanation": "Phương án A đúng: Việc ASEAN quy tụ được 10 quốc gia Đông Nam Á đã chấm dứt tình trạng chia rẽ, nghi kỵ giữa các nhóm nước (đặc biệt là giữa nhóm nước sáng lập và nhóm nước Đông Dương), tạo cơ sở cho hòa bình và ổn định khu vực. Phương án B sai vì ASEAN không phải là liên minh quân sự. Phương án C sai vì các cường quốc vẫn có ảnh hưởng nhất định. Phương án D sai vì vẫn còn sự chênh lệch về trình độ phát triển giữa các nước."
+        "correct_answer": "B",
+        "explanation": "Việc mở rộng thành viên ASEAN từ 6 nước lên 10 nước (với việc kết nạp Việt Nam, Lào, Mianma, Campuchia) đã chấm dứt tình trạng nghi kỵ, đối đầu giữa hai nhóm nước (ASEAN và Đông Dương), từ đó mở ra một chương mới cho lịch sử khu vực: xây dựng một Đông Nam Á hòa bình, ổn định và cùng phát triển."
       },
       {
         "question_code": "C23",
         "question_type": "TN",
         "lesson_name": "Bài 5. Cộng đồng ASEAN: Từ ý tưởng đến hiện thực",
         "level": "TH",
-        "question_stem": "Một trong những thách thức lớn mà Cộng đồng ASEAN phải đối mặt trong quá trình xây dựng và phát triển là",
+        "question_stem": "Một trong những thách thức lớn đặt ra cho Cộng đồng ASEAN trong quá trình xây dựng và phát triển là sự",
         "options": {
-          "A": "sự chênh lệch về trình độ phát triển kinh tế giữa các quốc gia thành viên.",
-          "B": "việc các nước thành viên xóa bỏ hoàn toàn nguyên tắc đồng thuận.",
-          "C": "thiếu hụt các văn bản pháp lý quy định về cơ cấu tổ chức và hoạt động.",
-          "D": "sự tương đồng tuyệt đối về thể chế chính trị và tín ngưỡng tôn giáo."
+          "A": "chênh lệch về trình độ phát triển và sự đa dạng về chế độ chính trị.",
+          "B": "tương đồng tuyệt đối về văn hóa, tôn giáo và lịch sử dân tộc.",
+          "C": "thiếu hụt hoàn toàn các văn bản pháp lý và nguyên tắc hoạt động.",
+          "D": "cạnh tranh gay gắt và đối đầu quân sự trực tiếp giữa các nước."
         },
         "correct_answer": "A",
-        "explanation": "Đáp án A đúng vì sự chênh lệch trình độ phát triển (giữa nhóm nước phát triển hơn và nhóm CLMV) gây khó khăn cho việc hội nhập sâu rộng và san sẻ lợi ích. B sai vì nguyên tắc đồng thuận vẫn được duy trì. C sai vì ASEAN đã có Hiến chương (2008). D sai vì ASEAN có sự đa dạng lớn về chính trị và văn hóa."
+        "explanation": "Đáp án A đúng vì một trong những thách thức cơ bản của Cộng đồng ASEAN là sự chênh lệch về trình độ phát triển kinh tế giữa các nhóm nước (ví dụ nhóm CLMV và ASEAN-6) cũng như sự khác biệt về thể chế chính trị, gây khó khăn trong việc đạt được sự đồng thuận và liên kết sâu rộng. Các đáp án B, C, D sai vì: ASEAN đa dạng về văn hóa (không tương đồng tuyệt đối); đã có Hiến chương ASEAN (không thiếu hụt pháp lý); duy trì hòa bình, ổn định (không đối đầu quân sự)."
       },
       {
         "question_code": "C5",
         "question_type": "TN",
         "lesson_name": "Bài 1. Liên Hợp Quốc",
         "level": "VD",
-        "question_stem": "Trong việc giải quyết vấn đề tranh chấp chủ quyền biển đảo hiện nay, Việt Nam đã vận dụng nguyên tắc hoạt động nào của Liên Hợp Quốc?",
+        "question_stem": "Trong bối cảnh tranh chấp chủ quyền lãnh thổ diễn biến phức tạp hiện nay, việc Việt Nam kiên trì chủ trương giải quyết các bất đồng thông qua thương lượng và luật pháp quốc tế là sự vận dụng nguyên tắc nào của Liên Hợp Quốc?",
         "options": {
           "A": "Giải quyết các tranh chấp quốc tế bằng biện pháp hòa bình.",
-          "B": "Sử dụng vũ lực để răn đe các hành động xâm phạm chủ quyền.",
-          "C": "Tăng cường chạy đua vũ trang để bảo vệ hòa bình, an ninh.",
-          "D": "Hợp tác quân sự với các nước lớn để gây sức ép quốc tế."
+          "B": "Sự nhất trí giữa năm nước thường trực Hội đồng Bảo an.",
+          "C": "Không can thiệp vào công việc nội bộ của bất kì nước nào.",
+          "D": "Bình đẳng chủ quyền giữa các quốc gia và quyền tự quyết."
         },
         "correct_answer": "A",
-        "explanation": "Đáp án A đúng vì một trong những nguyên tắc hoạt động cơ bản của Liên Hợp Quốc là giải quyết các tranh chấp quốc tế bằng biện pháp hòa bình, điều này phù hợp với chủ trương của Việt Nam trong vấn đề Biển Đông (đàm phán, tuân thủ luật pháp quốc tế). Đáp án B sai vì vi phạm nguyên tắc cấm đe dọa hoặc sử dụng vũ lực. Đáp án C và D sai vì đi ngược lại mục tiêu duy trì hòa bình của Liên Hợp Quốc và chính sách quốc phòng của Việt Nam."
-      },
-      {
-        "question_code": "C14",
-        "question_type": "TN",
-        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
-        "level": "VD",
-        "question_stem": "Đối với công cuộc xây dựng đất nước của Việt Nam hiện nay, xu thế đa cực và toàn cầu hóa sau Chiến tranh lạnh đã tạo ra thời cơ thuận lợi nào sau đây?",
-        "options": {
-          "A": "Tranh thủ được các nguồn lực bên ngoài để phát triển kinh tế.",
-          "B": "Tránh được sự cạnh tranh quyết liệt từ các nền kinh tế lớn.",
-          "C": "Được các cường quốc bảo đảm tuyệt đối về an ninh, quốc phòng.",
-          "D": "Không phải đối mặt với nguy cơ đánh mất bản sắc văn hóa dân tộc."
-        },
-        "correct_answer": "A",
-        "explanation": "Đáp án A đúng vì xu thế đa cực và toàn cầu hóa giúp mở rộng quan hệ hợp tác, tạo điều kiện cho Việt Nam thu hút vốn, khoa học - kĩ thuật (nguồn lực bên ngoài) kết hợp với nội lực để phát triển. Các đáp án B, C, D sai vì: cạnh tranh kinh tế ngày càng gay gắt (B); các nước phải tự chủ về an ninh, không thể dựa dẫm tuyệt đối (C); nguy cơ xói mòn bản sắc văn hóa là một thách thức lớn đang hiện hữu (D)."
+        "explanation": "Câu hỏi yêu cầu vận dụng kiến thức về các nguyên tắc hoạt động của Liên Hợp Quốc vào thực tiễn chính sách đối ngoại của Việt Nam. Một trong 5 nguyên tắc cơ bản của Liên Hợp Quốc là 'Giải quyết các tranh chấp quốc tế bằng biện pháp hòa bình'. Việc Việt Nam chủ trương giải quyết các tranh chấp (như vấn đề Biển Đông) thông qua thương lượng, đối thoại và tuân thủ luật pháp quốc tế chính là sự vận dụng trực tiếp nguyên tắc này để đảm bảo hòa bình, ổn định khu vực và bảo vệ chủ quyền quốc gia."
       },
       {
         "question_code": "C19",
         "question_type": "TN",
         "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
         "level": "VD",
-        "question_stem": "Từ thực tiễn quá trình hoạt động, có thể rút ra một trong những đóng góp quan trọng của Hiệp hội các quốc gia Đông Nam Á (ASEAN) đối với khu vực là",
+        "question_stem": "Một trong những đóng góp quan trọng của Hiệp hội các quốc gia Đông Nam Á (ASEAN) đối với tình hình khu vực trong quá trình phát triển là",
         "options": {
-          "A": "xóa bỏ hoàn toàn mâu thuẫn và sự chênh lệch giàu nghèo giữa các quốc gia.",
-          "B": "tạo dựng môi trường hòa bình, ổn định để các nước thành viên cùng phát triển.",
-          "C": "hỗ trợ các nước thành viên đấu tranh xóa bỏ chế độ thực dân cũ và mới.",
-          "D": "xây dựng thành công một nhà nước siêu quốc gia với nền kinh tế thống nhất."
+          "A": "hình thành một liên minh phòng thủ quân sự chung thay thế cho khối SEATO.",
+          "B": "xóa bỏ triệt để mọi mâu thuẫn về lợi ích quốc gia - dân tộc giữa các nước thành viên.",
+          "C": "góp phần chuyển biến khu vực từ cục diện đối đầu sang đối thoại, hòa bình và ổn định.",
+          "D": "nhất thể hóa nền kinh tế và chính trị của toàn bộ các nước trong khu vực."
         },
-        "correct_answer": "B",
-        "explanation": "Phương án B đúng vì thành tựu và đóng góp lớn nhất của ASEAN là chuyển hóa khu vực từ chia rẽ, đối đầu sang đối thoại, hợp tác, tạo môi trường hòa bình (thông qua Hiệp ước Bali, giải quyết vấn đề Campuchia...) để phát triển. Phương án A sai vì chênh lệch giàu nghèo vẫn tồn tại. Phương án C sai vì ASEAN không phải tổ chức lãnh đạo đấu tranh giải phóng dân tộc. Phương án D sai vì ASEAN tôn trọng chủ quyền quốc gia, không phải là nhà nước siêu quốc gia."
+        "correct_answer": "C",
+        "explanation": "Phương án C đúng vì: Trước khi ASEAN mở rộng và phát triển, Đông Nam Á bị chia rẽ sâu sắc (đặc biệt là sự đối đầu giữa nhóm nước ASEAN và nhóm nước Đông Dương). Một trong những thành tựu và đóng góp lớn nhất của ASEAN là đã hóa giải được các mâu thuẫn, nghi kỵ, thúc đẩy quá trình chuyển biến khu vực từ cục diện đối đầu, căng thẳng sang đối thoại, hợp tác, tạo dựng môi trường hòa bình và ổn định để các nước cùng phát triển.\n\nCác phương án nhiễu:\n- A sai vì ASEAN không phải là một liên minh quân sự.\n- B sai vì từ \"triệt để\" không chính xác, mâu thuẫn lợi ích quốc gia vẫn tồn tại dù có cơ chế hợp tác.\n- D sai vì ASEAN chưa đạt đến mức độ \"nhất thể hóa\" về chính trị như Liên minh châu Âu (EU)."
+      },
+      {
+        "question_code": "C14",
+        "question_type": "TN",
+        "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
+        "level": "VD",
+        "question_stem": "Đối với các nước đang phát triển, sự hình thành trật tự thế giới đa cực và xu thế toàn cầu hóa sau Chiến tranh lạnh đã đặt ra thách thức lớn nào dưới đây?",
+        "options": {
+          "A": "Nguy cơ đánh mất bản sắc văn hóa dân tộc và tụt hậu về kinh tế.",
+          "B": "Sự can thiệp quân sự trực tiếp và thường xuyên của các cường quốc.",
+          "C": "Buộc phải tham gia vào các tổ chức liên minh quân sự phòng thủ.",
+          "D": "Bị cô lập hoàn toàn khỏi các quan hệ giao thương quốc tế."
+        },
+        "correct_answer": "A",
+        "explanation": "Câu hỏi yêu cầu vận dụng kiến thức về xu thế phát triển của thế giới sau Chiến tranh lạnh để rút ra thách thức. Trong bối cảnh trật tự thế giới đa cực đang định hình và toàn cầu hóa diễn ra mạnh mẽ, các nước đang phát triển đứng trước sự cạnh tranh quyết liệt. Nếu không nắm bắt thời cơ, họ sẽ đối mặt với nguy cơ tụt hậu xa hơn về kinh tế. Đồng thời, sự hòa nhập sâu rộng cũng đặt ra nguy cơ bị hòa tan, đánh mất bản sắc văn hóa dân tộc. Các phương án B, C, D không phản ánh đúng xu thế chủ đạo là hòa bình, hợp tác và phát triển."
       },
       {
         "question_code": "C24",
         "question_type": "TN",
         "lesson_name": "Bài 5. Cộng đồng ASEAN: Từ ý tưởng đến hiện thực",
         "level": "VD",
-        "question_stem": "Một trong những đóng góp quan trọng của Việt Nam đối với quá trình xây dựng và phát triển Cộng đồng ASEAN là",
+        "question_stem": "Một trong những đóng góp quan trọng của Việt Nam đối với quá trình hình thành và phát triển của Cộng đồng ASEAN là",
         "options": {
-          "A": "khởi xướng và đi đầu trong việc thành lập tổ chức ASEAN (1967).",
-          "B": "tích cực tham gia xây dựng và hoàn thiện Hiến chương ASEAN.",
-          "C": "đưa ra nguyên tắc đồng thuận làm nền tảng hoạt động của tổ chức.",
-          "D": "quyết định mọi vấn đề an ninh và chính trị trong khu vực Đông Nam Á."
+          "A": "khởi xướng ý tưởng thành lập và là một trong năm thành viên sáng lập Hiệp hội.",
+          "B": "thúc đẩy việc hoàn tất ý tưởng về một ASEAN bao gồm cả 10 nước Đông Nam Á.",
+          "C": "đóng vai trò quyết định duy nhất trong mọi cơ chế hợp tác an ninh - chính trị của khu vực.",
+          "D": "chuyển hóa ASEAN thành một liên minh quân sự nhằm đối đầu với các cường quốc bên ngoài."
         },
         "correct_answer": "B",
-        "explanation": "Đáp án B đúng vì Việt Nam đã đóng vai trò tích cực trong việc soạn thảo và thúc đẩy thông qua Hiến chương ASEAN (2007), tạo cơ sở pháp lý và khuôn khổ thể chế quan trọng cho sự hình thành Cộng đồng ASEAN. Đáp án A sai vì Việt Nam gia nhập năm 1995, không phải nước sáng lập (1967). Đáp án C sai vì nguyên tắc đồng thuận đã có từ trước khi Việt Nam gia nhập. Đáp án D sai về bản chất hoạt động của ASEAN (bình đẳng, không nước nào có quyền quyết định tất cả)."
+        "explanation": "Đáp án B đúng vì: Sau khi gia nhập ASEAN (1995), Việt Nam đã tích cực thúc đẩy việc kết nạp các nước còn lại (Lào, Mianma, Campuchia) để hoàn tất ý tưởng về một 'ASEAN-10'. Việc quy tụ đầy đủ 10 quốc gia Đông Nam Á là nền tảng quan trọng, tạo tiền đề vững chắc để Hiệp hội chuyển sang giai đoạn xây dựng Cộng đồng ASEAN. Các phương án còn lại sai: A sai vì Việt Nam không phải nước sáng lập; C sai vì ASEAN hoạt động theo nguyên tắc đồng thuận, không nước nào có quyền quyết định duy nhất; D sai vì ASEAN không phải là liên minh quân sự."
       }
     ],
     "DS": [
       {
-        "question_code": "C1",
-        "question_type": "DS",
-        "lesson_name": "Bài 1. Liên Hợp Quốc",
-        "source_text": "Hội nghị Xan Phran-xi-xcô (Mỹ) diễn ra từ ngày 25-4 đến ngày 26-6-1945 với sự tham gia của đại biểu 50 nước để thông qua Hiến chương Liên hợp quốc. Ngày 24-10-1945, sau khi được Quốc hội các nước thành viên phê chuẩn, bản Hiến chương chính thức có hiệu lực. Theo Hiến chương, Liên hợp quốc hoạt động nhằm mục đích duy trì hòa bình và an ninh thế giới, phát triển các mối quan hệ hữu nghị giữa các dân tộc. Để thực hiện các mục đích đó, Liên hợp quốc hoạt động theo những nguyên tắc cơ bản, trong đó có nguyên tắc bình đẳng chủ quyền giữa các quốc gia và quyền tự quyết của các dân tộc; giải quyết các tranh chấp quốc tế bằng biện pháp hòa bình.",
-        "statements": {
-          "a": {
-            "text": "Hội nghị thông qua Hiến chương Liên hợp quốc được tổ chức tại Mỹ vào năm 1945 với sự tham gia của đại biểu 50 nước.",
-            "level": "NB",
-            "correct_answer": true
-          },
-          "b": {
-            "text": "Theo đoạn tư liệu, Hiến chương Liên hợp quốc chính thức có hiệu lực ngay sau khi Hội nghị Xan Phran-xi-xcô kết thúc vào tháng 6 năm 1945.",
-            "level": "NB",
-            "correct_answer": false
-          },
-          "c": {
-            "text": "Nội dung tư liệu khẳng định mục tiêu duy nhất của Liên hợp quốc là giải quyết các xung đột quân sự, không đề cập đến việc xây dựng quan hệ hợp tác giữa các nước.",
-            "level": "TH",
-            "correct_answer": false
-          },
-          "d": {
-            "text": "Chủ trương của Nhà nước Việt Nam trong việc giải quyết các tranh chấp ở Biển Đông bằng thương lượng hòa bình là sự vận dụng phù hợp nguyên tắc hoạt động của Liên hợp quốc.",
-            "level": "VD",
-            "correct_answer": true
-          }
-        },
-        "explanation": {
-          "a": "Đúng. Thông tin trong tư liệu nêu rõ: 'Hội nghị Xan Phran-xi-xcô (Mỹ)... 1945... đại biểu 50 nước'.",
-          "b": "Sai. Tư liệu nêu rõ Hiến chương có hiệu lực vào ngày '24-10-1945' sau khi được phê chuẩn, không phải ngay khi hội nghị kết thúc tháng 6.",
-          "c": "Sai. Tư liệu nêu mục đích của Liên hợp quốc còn bao gồm 'phát triển các mối quan hệ hữu nghị giữa các dân tộc', không chỉ là giải quyết xung đột.",
-          "d": "Đúng. Việt Nam vận dụng nguyên tắc 'giải quyết các tranh chấp quốc tế bằng biện pháp hòa bình' được nêu trong Hiến chương để xử lý vấn đề Biển Đông."
-        }
-      },
-      {
         "question_code": "C2",
         "question_type": "DS",
         "lesson_name": "Bài 2. Trật tự thế giới trong Chiến tranh lạnh",
-        "source_text": "Từ ngày 4 đến 11-2-1945, Hội nghị Ianta diễn ra tại Liên Xô với sự tham gia của nguyên thủ ba cường quốc Mỹ, Anh, Liên Xô. Hội nghị đã quyết định tiêu diệt tận gốc chủ nghĩa phát xít Đức và chủ nghĩa quân phiệt Nhật Bản, thành lập tổ chức Liên hợp quốc. Đặc biệt, hội nghị đã thỏa thuận về việc đóng quân tại các nước nhằm giải giáp quân đội phát xít, phân chia phạm vi ảnh hưởng ở châu Âu và châu Á. Toàn bộ những quyết định của Hội nghị Ianta cùng những thỏa thuận sau đó của ba cường quốc đã trở thành khuôn khổ của trật tự thế giới mới, thường được gọi là Trật tự thế giới hai cực Ianta.",
+        "source_text": "Hội nghị Ianta (2-1945) đã đưa ra những quyết định quan trọng về việc phân chia khu vực ảnh hưởng giữa hai cường quốc Liên Xô và Mỹ. Theo đó, ở châu Âu, Liên Xô chiếm đóng miền Đông nước Đức, Đông Béc-lin và các nước Đông Âu; Mỹ và các nước phương Tây chiếm đóng miền Tây nước Đức, Tây Béc-lin và các nước Tây Âu. Ở châu Á, Hội nghị chấp nhận những điều kiện để Liên Xô tham chiến chống Nhật Bản... Những thỏa thuận tại Hội nghị Ianta cùng những thỏa thuận sau đó của ba cường quốc đã trở thành khuôn khổ của trật tự thế giới mới, thường được gọi là Trật tự hai cực Ianta.",
         "statements": {
           "a": {
-            "text": "Theo đoạn tư liệu, Hội nghị Ianta có sự tham gia của nguyên thủ ba cường quốc là Mỹ, Anh và Pháp.",
+            "text": "Đoạn tư liệu đề cập đến quá trình hình thành trật tự thế giới mới thông qua các thỏa thuận phân chia khu vực ảnh hưởng giữa Liên Xô và Mỹ.",
             "level": "NB",
-            "correct_answer": false
+            "correct_answer": true
           },
           "b": {
-            "text": "Đoạn tư liệu cho biết một trong những quyết định quan trọng của hội nghị là thành lập tổ chức Liên hợp quốc.",
+            "text": "Theo quyết định của Hội nghị Ianta được nhắc đến trong tư liệu, Mỹ và các nước phương Tây được quyền chiếm đóng toàn bộ nước Đức và thành phố Béc-lin.",
             "level": "NB",
-            "correct_answer": true
+            "correct_answer": false
           },
           "c": {
-            "text": "Thực chất của Trật tự hai cực Ianta là sự phân chia khu vực đóng quân và phạm vi ảnh hưởng giữa các cường quốc thắng trận, chủ yếu là Mỹ và Liên Xô.",
+            "text": "Nội dung đoạn tư liệu phản ánh bản chất của Trật tự hai cực Ianta là sự thỏa hiệp để bảo vệ quyền lợi tuyệt đối cho tất cả các dân tộc trên thế giới.",
             "level": "TH",
-            "correct_answer": true
+            "correct_answer": false
           },
           "d": {
-            "text": "Việc phân chia phạm vi ảnh hưởng tại Ianta là bài học kinh nghiệm cho thấy các nước lớn có quyền áp đặt vô điều kiện ý chí chính trị lên các nước nhỏ trong quan hệ quốc tế hiện nay.",
+            "text": "Quyết định của Hội nghị Ianta về việc Liên Xô tham chiến chống Nhật Bản đã tạo điều kiện khách quan thuận lợi cho cuộc đấu tranh giành độc lập của nhân dân Việt Nam năm 1945.",
             "level": "VD",
-            "correct_answer": false
+            "correct_answer": true
           }
         },
         "explanation": {
-          "a": "Sai vì theo tư liệu, thành phần tham dự Hội nghị Ianta gồm nguyên thủ ba cường quốc là Mỹ, Anh và Liên Xô (không phải Pháp).",
-          "b": "Đúng vì tư liệu nêu rõ hội nghị đã quyết định 'thành lập tổ chức Liên hợp quốc'.",
-          "c": "Đúng vì việc phân chia phạm vi ảnh hưởng được đề cập trong tư liệu chính là cơ sở tạo nên khuôn khổ của trật tự mới, nơi Mỹ và Liên Xô nắm vai trò chi phối (hai cực).",
-          "d": "Sai vì đây là tư duy áp đặt cường quyền, đi ngược lại với nguyên tắc bình đẳng chủ quyền trong quan hệ quốc tế hiện đại và Hiến chương Liên hợp quốc."
+          "a": "Đúng. Tư liệu nêu rõ Hội nghị đã đưa ra quyết định về phân chia khu vực ảnh hưởng và những thỏa thuận này trở thành khuôn khổ của trật tự thế giới mới.",
+          "b": "Sai. Theo tư liệu, Mỹ và các nước phương Tây chỉ chiếm đóng miền Tây nước Đức và Tây Béc-lin; còn miền Đông nước Đức và Đông Béc-lin do Liên Xô chiếm đóng.",
+          "c": "Sai. Bản chất của sự phân chia này là dựa trên sức mạnh và lợi ích của các nước lớn (đặc biệt là Liên Xô và Mỹ), không phải để bảo vệ quyền lợi tuyệt đối cho tất cả các dân tộc (các nước nhỏ thường bị chi phối).",
+          "d": "Đúng. Việc Liên Xô tham chiến chống Nhật (như tư liệu đề cập) đã góp phần đẩy nhanh sự sụp đổ của phát xít Nhật, tạo ra thời cơ 'ngàn năm có một' để nhân dân Việt Nam tiến hành Tổng khởi nghĩa tháng Tám thắng lợi."
         }
       },
       {
         "question_code": "C3",
         "question_type": "DS",
         "lesson_name": "Bài 3. Trật tự thế giới sau Chiến tranh lạnh",
-        "source_text": "Sau khi Chiến tranh lạnh kết thúc, trật tự hai cực I-an-ta tan rã, một trật tự thế giới mới đang trong quá trình hình thành theo xu hướng đa cực với sự vươn lên của các cường quốc như Mỹ, Liên minh châu Âu, Nhật Bản, Trung Quốc, Liên bang Nga. Các quốc gia đều điều chỉnh chiến lược phát triển, lấy phát triển kinh tế làm trọng tâm. Quan hệ giữa các nước lớn được điều chỉnh theo chiều hướng đối thoại, thỏa hiệp, tránh xung đột trực tiếp nhằm tạo ra môi trường quốc tế thuận lợi giúp họ vươn lên xác lập vị thế ưu thế trong trật tự thế giới mới.",
+        "source_text": "Sau khi Chiến tranh lạnh chấm dứt, trật tự thế giới hai cực I-an-ta tan rã. Một trật tự thế giới mới đang trong quá trình hình thành theo xu thế đa cực với sự vươn lên của các cường quốc như Mỹ, Liên minh châu Âu (EU), Nhật Bản, Trung Quốc và Liên bang Nga. Hầu hết các quốc gia đều điều chỉnh chiến lược phát triển, tập trung vào phát triển kinh tế để xây dựng sức mạnh thực lực của mỗi quốc gia. Tuy hòa bình, hợp tác và phát triển là xu thế chủ đạo, nhưng ở nhiều khu vực vẫn diễn ra nội chiến, xung đột quân sự đẫm máu; chủ nghĩa khủng bố cũng trở thành mối đe dọa với các dân tộc.",
         "statements": {
           "a": {
-            "text": "Theo đoạn tư liệu, sau Chiến tranh lạnh, các quốc gia đều tập trung vào chiến lược lấy phát triển kinh tế làm trọng tâm.",
+            "text": "Đoạn tư liệu cho thấy sau Chiến tranh lạnh, trật tự thế giới hai cực I-an-ta tiếp tục được củng cố và duy trì ổn định.",
+            "level": "NB",
+            "correct_answer": false
+          },
+          "b": {
+            "text": "Theo đoạn trích, một trong những xu thế chính của thế giới sau Chiến tranh lạnh là các nước điều chỉnh chiến lược lấy phát triển kinh tế làm trọng tâm.",
+            "level": "NB",
+            "correct_answer": true
+          },
+          "c": {
+            "text": "Sự vươn lên của các cường quốc như Mỹ, Liên minh châu Âu, Nhật Bản, Trung Quốc, Liên bang Nga được đề cập trong tư liệu là biểu hiện của xu thế đa cực.",
+            "level": "TH",
+            "correct_answer": true
+          },
+          "d": {
+            "text": "Từ nội dung tư liệu có thể khẳng định rằng sau Chiến tranh lạnh, nhân loại đã hoàn toàn thoát khỏi mọi nguy cơ của các cuộc chiến tranh và xung đột quân sự.",
+            "level": "VD",
+            "correct_answer": false
+          }
+        },
+        "explanation": {
+          "a": "Sai vì đoạn tư liệu nêu rõ: 'Sau khi Chiến tranh lạnh chấm dứt, trật tự thế giới hai cực I-an-ta tan rã', không phải được củng cố.",
+          "b": "Đúng vì đoạn tư liệu có thông tin: 'Hầu hết các quốc gia đều điều chỉnh chiến lược phát triển, tập trung vào phát triển kinh tế'.",
+          "c": "Đúng vì tư liệu mô tả trật tự thế giới mới hình thành theo 'xu thế đa cực với sự vươn lên của các cường quốc' liệt kê kèm theo, đây chính là biểu hiện của đa cực (nhiều trung tâm quyền lực).",
+          "d": "Sai vì tư liệu nêu rõ 'ở nhiều khu vực vẫn diễn ra nội chiến, xung đột quân sự đẫm máu', đồng thời thực tiễn quan hệ quốc tế hiện nay cho thấy các thách thức an ninh vẫn hiện hữu."
+        }
+      },
+      {
+        "question_code": "C1",
+        "question_type": "DS",
+        "lesson_name": "Bài 1. Liên Hợp Quốc",
+        "source_text": "Tại Hội nghị Xan Phran-xi-xcô (Mỹ) diễn ra từ ngày 25-4 đến ngày 26-6-1945, đại diện 50 nước đã thông qua Hiến chương Liên hợp quốc và tuyên bố thành lập tổ chức này. Ngày 24-10-1945, sau khi được Quốc hội các nước thành viên phê chuẩn, bản Hiến chương chính thức có hiệu lực. Theo Hiến chương, mục đích của Liên hợp quốc là duy trì hòa bình và an ninh quốc tế, thúc đẩy quan hệ hữu nghị giữa các dân tộc trên cơ sở tôn trọng quyền bình đẳng, quyền tự quyết của các dân tộc và củng cố nền hòa bình thế giới. Để thực hiện các mục đích đó, Liên hợp quốc hoạt động theo những nguyên tắc cơ bản, trong đó có nguyên tắc bình đẳng chủ quyền giữa các quốc gia và quyền dân tộc tự quyết, không can thiệp vào công việc nội bộ của bất kì nước nào.",
+        "statements": {
+          "a": {
+            "text": "Đoạn tư liệu cho biết mục đích của Liên hợp quốc bao gồm việc duy trì hòa bình, an ninh quốc tế và thúc đẩy quan hệ hữu nghị giữa các dân tộc.",
             "level": "NB",
             "correct_answer": true
           },
           "b": {
-            "text": "Đoạn trích cho thấy sau khi trật tự hai cực I-an-ta tan rã, các nước lớn chủ trương giải quyết quan hệ quốc tế thông qua xung đột quân sự trực tiếp.",
+            "text": "Theo tư liệu, một trong những nguyên tắc hoạt động của Liên hợp quốc là cho phép can thiệp vào công việc nội bộ của các nước thành viên để giải quyết xung đột.",
             "level": "NB",
             "correct_answer": false
           },
           "c": {
-            "text": "Nội dung tư liệu khẳng định ngay sau khi Chiến tranh lạnh kết thúc, một trật tự thế giới đơn cực do Mỹ hoàn toàn chi phối đã được thiết lập vững chắc.",
+            "text": "Sự kiện Hiến chương có hiệu lực đánh dấu sự xác lập một khuôn khổ pháp lý quốc tế mới, đề cao quyền bình đẳng và quyền tự quyết của các dân tộc.",
             "level": "TH",
-            "correct_answer": false
+            "correct_answer": true
           },
           "d": {
-            "text": "Xu thế đối thoại và thỏa hiệp giữa các nước lớn được đề cập trong tư liệu tạo ra thời cơ thuận lợi để Việt Nam mở rộng quan hệ đối ngoại và hội nhập quốc tế.",
+            "text": "Nguyên tắc không can thiệp vào công việc nội bộ nêu trong tư liệu đồng nghĩa với việc Việt Nam không được phép tham gia vào các hoạt động gìn giữ hòa bình của Liên hợp quốc tại các quốc gia khác.",
             "level": "VD",
-            "correct_answer": true
+            "correct_answer": false
           }
         },
         "explanation": {
-          "a": "Đúng, vì đoạn tư liệu nêu rõ: 'Các quốc gia đều điều chỉnh chiến lược phát triển, lấy phát triển kinh tế làm trọng tâm'.",
-          "b": "Sai, vì tư liệu nêu quan hệ giữa các nước lớn điều chỉnh theo hướng 'đối thoại, thỏa hiệp, tránh xung đột trực tiếp'.",
-          "c": "Sai, vì tư liệu xác định trật tự thế giới mới 'đang trong quá trình hình thành theo xu hướng đa cực' với sự vươn lên của nhiều cường quốc, không phải là đơn cực đã được thiết lập vững chắc.",
-          "d": "Đúng, vì xu thế hòa hoãn, đối thoại tạo môi trường hòa bình, ổn định, giúp Việt Nam có điều kiện (thời cơ) để thực hiện đường lối đối ngoại đa phương hóa, đa dạng hóa và phát triển đất nước."
+          "a": "Đúng. Thông tin này được nêu trực tiếp trong tư liệu: 'mục đích của Liên hợp quốc là duy trì hòa bình và an ninh quốc tế, thúc đẩy quan hệ hữu nghị giữa các dân tộc...'.",
+          "b": "Sai. Tư liệu nêu rõ nguyên tắc là 'không can thiệp vào công việc nội bộ của bất kì nước nào', trái ngược với mệnh đề.",
+          "c": "Đúng. Việc Hiến chương có hiệu lực và quy định các nguyên tắc như bình đẳng chủ quyền, quyền dân tộc tự quyết cho thấy vai trò của nó trong việc tạo dựng nền tảng pháp lý cho trật tự thế giới sau chiến tranh.",
+          "d": "Sai. Nguyên tắc này ngăn cấm việc áp đặt, can thiệp trái phép vào chủ quyền quốc gia, nhưng không ngăn cản các hoạt động gìn giữ hòa bình hợp pháp theo khuôn khổ LHQ mà Việt Nam đang tham gia với tư cách thành viên có trách nhiệm."
         }
       },
       {
         "question_code": "C4",
         "question_type": "DS",
         "lesson_name": "Bài 4. Sự ra đời và phát triển  của Hiệp hội các quốc gia Đông Nam Á",
-        "source_text": "Ngày 8-8-1967, tại Băng Cốc (Thái Lan), Bộ trưởng Ngoại giao các nước In-đô-nê-xi-a, Ma-lai-xi-a, Phi-líp-pin, Xin-ga-po và Thái Lan đã kí bản Tuyên bố Băng Cốc, đánh dấu sự ra đời của Hiệp hội các quốc gia Đông Nam Á (ASEAN). Tuyên bố xác định mục tiêu của ASEAN là thúc đẩy tăng trưởng kinh tế, tiến bộ xã hội và phát triển văn hóa trong khu vực thông qua các nỗ lực chung; thúc đẩy hòa bình và ổn định khu vực dựa trên sự tôn trọng công lý và quy tắc luật pháp trong quan hệ giữa các quốc gia.",
+        "source_text": "Ngày 8-8-1967, tại Băng Cốc (Thái Lan), Bộ trưởng Ngoại giao các nước In-đô-nê-xi-a, Ma-lai-xi-a, Phi-líp-pin, Xin-ga-po và Thái Lan kí Tuyên bố Băng Cốc, chính thức thành lập Hiệp hội các quốc gia Đông Nam Á (ASEAN). Mục tiêu của ASEAN là thúc đẩy tăng trưởng kinh tế, tiến bộ xã hội và phát triển văn hóa trong khu vực thông qua các nỗ lực chung trên tinh thần bình đẳng và hợp tác; thúc đẩy hòa bình, ổn định khu vực thông qua việc tôn trọng công lý và nguyên tắc luật pháp trong quan hệ giữa các quốc gia trong vùng và tuân thủ các nguyên tắc của Hiến chương Liên hợp quốc.",
         "statements": {
           "a": {
-            "text": "Hiệp hội các quốc gia Đông Nam Á (ASEAN) được chính thức thành lập vào ngày 8-8-1967 tại Thái Lan với sự tham gia của 5 nước sáng lập.",
-            "level": "NB",
-            "correct_answer": true
-          },
-          "b": {
-            "text": "Theo Tuyên bố Băng Cốc, mục tiêu duy nhất của ASEAN khi thành lập là xây dựng một liên minh quân sự để phòng thủ chung.",
+            "text": "Đoạn tư liệu trên đề cập đến sự kiện thành lập Hiệp hội các quốc gia Đông Nam Á (ASEAN) với sự tham gia của đại diện 10 nước trong khu vực.",
             "level": "NB",
             "correct_answer": false
           },
+          "b": {
+            "text": "Theo tư liệu, một trong những mục tiêu chính của ASEAN là thúc đẩy hòa bình và ổn định khu vực dựa trên sự tôn trọng pháp luật và Hiến chương Liên hợp quốc.",
+            "level": "NB",
+            "correct_answer": true
+          },
           "c": {
-            "text": "Tuyên bố Băng Cốc là văn kiện pháp lý quan trọng đặt nền tảng cho sự ra đời và xác định phương hướng hoạt động cơ bản của ASEAN.",
+            "text": "Nội dung tư liệu phản ánh nhu cầu liên kết, hợp tác cùng phát triển và mong muốn duy trì trật tự khu vực dựa trên các chuẩn mực quốc tế của các nước sáng lập.",
             "level": "TH",
             "correct_answer": true
           },
           "d": {
-            "text": "Sự ra đời của ASEAN đã tạo ra cơ chế hợp tác giúp các nước thành viên hạn chế tối đa các xung đột, kiến tạo môi trường hòa bình để phát triển đất nước.",
+            "text": "Những nguyên tắc hoạt động nêu trong tư liệu là cơ sở để khẳng định ASEAN ngay từ khi thành lập đã là một tổ chức liên minh quân sự chặt chẽ nhằm chống lại các thế lực bên ngoài.",
             "level": "VD",
-            "correct_answer": true
+            "correct_answer": false
           }
         },
         "explanation": {
-          "a": "Đúng. Thông tin trong tư liệu nêu rõ ngày 8-8-1967 tại Băng Cốc (Thái Lan), đại diện 5 nước đã kí Tuyên bố thành lập ASEAN.",
-          "b": "Sai. Tư liệu nêu mục tiêu là thúc đẩy tăng trưởng kinh tế, tiến bộ xã hội, văn hóa và hòa bình, ổn định khu vực, không đề cập đến liên minh quân sự.",
-          "c": "Đúng. Việc kí kết Tuyên bố Băng Cốc đánh dấu sự ra đời của ASEAN và nội dung tuyên bố đã xác định các mục tiêu, nguyên tắc hoạt động (phương hướng) của tổ chức.",
-          "d": "Đúng. Từ mục tiêu thúc đẩy hòa bình và ổn định khu vực trong tư liệu, có thể vận dụng để thấy đóng góp của ASEAN là tạo ra khuôn khổ hợp tác, giảm thiểu xung đột và tạo môi trường thuận lợi cho phát triển."
+          "a": "Sai. Tư liệu liệt kê tên 5 nước tham gia sáng lập (In-đô-nê-xi-a, Ma-lai-xi-a, Phi-líp-pin, Xin-ga-po, Thái Lan), không phải 10 nước.",
+          "b": "Đúng. Thông tin này được nêu trực tiếp trong tư liệu: 'thúc đẩy hòa bình, ổn định khu vực thông qua việc tôn trọng công lý và nguyên tắc luật pháp... và tuân thủ các nguyên tắc của Hiến chương Liên hợp quốc'.",
+          "c": "Đúng. Việc đề ra mục tiêu thúc đẩy kinh tế, văn hóa qua 'nỗ lực chung' và tuân thủ 'Hiến chương Liên hợp quốc' phản ánh bản chất liên kết khu vực, hợp tác đa phương và tôn trọng luật pháp quốc tế.",
+          "d": "Sai. Tư liệu nêu mục tiêu về kinh tế, văn hóa, xã hội và hòa bình, không đề cập đến việc thành lập liên minh quân sự. Thực tế lịch sử và tư liệu đều cho thấy ASEAN không phải là một tổ chức liên minh quân sự."
         }
       }
     ]

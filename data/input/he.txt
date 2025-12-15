@@ -1,0 +1,105 @@
+NHIỆM VỤ:
+Xây dựng frontend UI bằng React cho phần mềm trong thư mục client.
+
+YÊU CẦU CÔNG NGHỆ:
+- React
+- Component-based architecture
+- Không dùng UI theo phong cách AI marketing
+- Code sạch, dễ maintain, dễ mở rộng
+
+CẤM TUYỆT ĐỐI:
+- Không hero section
+- Không gradient
+- Không mascot, illustration, emoji
+- Không icon kiểu AI (rocket, spark, magic, brain, robot)
+- Không animation phô trương
+
+PHONG CÁCH UI:
+- Internal tool / admin console
+- Tham khảo:
+  - Google AI Studio
+  - Google Cloud Console
+  - VS Code Web
+- Ưu tiên: clarity, density hợp lý, thao tác nhanh
+
+LAYOUT TỔNG THỂ:
+- App layout (KHÔNG phải landing page)
+- Header mỏng
+- Sidebar trái (collapsible)
+- Main content dạng workspace
+
+CẤU TRÚC COMPONENT:
+
+<AppLayout>
+ ├── <Header />
+ ├── <Sidebar />
+ └── <MainWorkspace />
+
+1️⃣ HEADER
+- Chiều cao nhỏ (48–56px)
+- Chỉ chứa:
+  - Tên ứng dụng (text)
+  - Settings / Help (icon outline tối giản)
+- Không gradient, không shadow lớn
+
+2️⃣ SIDEBAR
+- Menu dạng vertical
+- Các mục:
+  - Ma trận đề
+  - Sinh đề
+  - Quản lý (đề đã sinh)
+- Có thể collapse
+- Icon đơn sắc, kích thước nhỏ
+
+3️⃣ MAIN WORKSPACE – MÀN "SINH ĐỀ"
+Chia layout 2 cột:
+
+<GenerateExamPage>
+ ├── <MatrixInputPanel />
+ └── <ExamPreviewPanel />
+
+📌 MatrixInputPanel (bên trái):
+- Upload file Excel / CSV
+- Hiển thị preview ma trận dạng table
+- Các control:
+  - Số mã đề
+  - Loại câu hỏi
+  - Mức độ khó
+  - Ràng buộc (checkbox)
+- Form gọn, không thừa mô tả
+
+📌 ExamPreviewPanel (bên phải):
+- Tabs:
+  - Đề
+  - Đáp án
+  - Log sinh đề
+- Hiển thị text-based preview
+- Cảnh báo lỗi ma trận nếu có
+
+4️⃣ ACTION BAR
+- Nút chính: "Sinh đề"
+- Nút phụ: "Xuất Word"
+- Loading state rõ ràng (spinner hoặc linear progress)
+- Disable nút khi dữ liệu không hợp lệ
+
+STYLE GUIDE:
+- Font: Inter / Roboto
+- Color:
+  - Background: #f8f9fa / trắng
+  - Text: xám đậm
+  - Accent: xanh nhạt hoặc xám xanh
+- Border radius: 4–6px
+- Border nhẹ, shadow rất ít hoặc không
+- Styling bằng Tailwind CSS
+
+UX / DX YÊU CẦU:
+- State rõ ràng: idle / loading / error / success
+- Error message kỹ thuật, súc tích
+- Không text marketing
+- Không “AI-friendly copy”
+
+OUTPUT BẮT BUỘC:
+- Viết code React rõ ràng
+- Chia component hợp lý
+- Có placeholder data (mock)
+- Có comment ngắn gọn giải thích logic

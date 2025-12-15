@@ -3,12 +3,17 @@ Module sinh câu hỏi tự động sử dụng Vertex AI
 """
 import json
 import re
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, TYPE_CHECKING
 from dataclasses import dataclass, asdict
 
 from .matrix_parser import QuestionSpec, TrueFalseQuestionSpec
-
+from .schemas import (
+    get_multiple_choice_schema,
+    get_multiple_choice_array_schema,
+    get_true_false_schema
+)
 
 @dataclass
 class GeneratedQuestion:
@@ -37,31 +42,25 @@ class GeneratedTrueFalseQuestion:
 class QuestionGenerator:
     """Class sinh câu hỏi tự động"""
     
-    def __init__(self, ai_client, prompt_template_path: str):
+    def __init__(self, ai_client, prompt_template_path: str, verbose: bool = False):
         """
         Khởi tạo Question Generator
         
         Args:
             ai_client: VertexAIClient đã được khởi tạo
             prompt_template_path: Đường dẫn đến file prompt template
+            verbose: Hiển thị logs chi tiết
         """
         self.ai_client = ai_client
         self.prompt_template = self._load_prompt_template(prompt_template_path)
+        self.verbose = verbose
+        self.max_retries = 3
+        self.retry_delay = 2.0
     
     def _load_prompt_template(self, template_path: str) -> str:
-        """
-        Đọc prompt template từ file
-        
-        Args:
-            template_path: Đường dẫn đến file template
-            
-        Returns:
-            str: Nội dung template
-        """
         try:
             with open(template_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            print(f"✓ Đã tải prompt template từ: {template_path}")
             return content
         except Exception as e:
             raise Exception(f"Không thể đọc prompt template: {e}")
@@ -88,183 +87,6 @@ class QuestionGenerator:
         prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
         
         return prompt
-    
-    def _get_multiple_choice_schema(self) -> Dict:
-        """
-        Trả về JSON schema cho câu hỏi Trắc nghiệm
-        
-        Returns:
-            Dict: JSON schema
-        """
-        return {
-            "type": "object",
-            "properties": {
-                "question_stem": {
-                    "type": "string",
-                    "description": "Nội dung câu hỏi"
-                },
-                "options": {
-                    "type": "object",
-                    "properties": {
-                        "A": {"type": "string"},
-                        "B": {"type": "string"},
-                        "C": {"type": "string"},
-                        "D": {"type": "string"}
-                    },
-                    "required": ["A", "B", "C", "D"]
-                },
-                "correct_answer": {
-                    "type": "string",
-                    "description": "Đáp án đúng (A/B/C/D)"
-                },
-                "level": {
-                    "type": "string",
-                    "description": "Cấp độ tư duy (NB/TH/VD/VDC)"
-                },
-                "explanation": {
-                    "type": "string",
-                    "description": "Giải thích đáp án"
-                }
-            },
-            "required": ["question_stem", "options", "correct_answer", "level", "explanation"]
-        }
-    
-    def _get_multiple_choice_array_schema(self) -> Dict:
-        """
-        Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm
-        
-        Returns:
-            Dict: JSON schema cho array questions
-        """
-        return {
-            "type": "object",
-            "properties": {
-                "questions": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "question_stem": {
-                                "type": "string",
-                                "description": "Nội dung câu hỏi"
-                            },
-                            "options": {
-                                "type": "object",
-                                "properties": {
-                                    "A": {"type": "string"},
-                                    "B": {"type": "string"},
-                                    "C": {"type": "string"},
-                                    "D": {"type": "string"}
-                                },
-                                "required": ["A", "B", "C", "D"]
-                            },
-                            "correct_answer": {
-                                "type": "string",
-                                "description": "Đáp án đúng (A/B/C/D)"
-                            },
-                            "level": {
-                                "type": "string",
-                                "description": "Cấp độ tư duy (NB/TH/VD/VDC)"
-                            },
-                            "explanation": {
-                                "type": "string",
-                                "description": "Giải thích đáp án"
-                            }
-                        },
-                        "required": ["question_stem", "options", "correct_answer", "level", "explanation"]
-                    }
-                }
-            },
-            "required": ["questions"]
-        }
-    
-    def generate_questions_for_spec(self, spec: QuestionSpec, prompt_template_path: str = None) -> List[GeneratedQuestion]:
-        """
-        Sinh câu hỏi cho một QuestionSpec
-        
-        Args:
-            spec: QuestionSpec chứa thông tin câu hỏi
-            prompt_template_path: Đường dẫn đến prompt template (nếu khác với default)
-            
-        Returns:
-            List[GeneratedQuestion]: Danh sách câu hỏi đã sinh
-        """
-        # Load template nếu cần
-        if prompt_template_path and prompt_template_path != self.prompt_template:
-            template = self._load_prompt_template(prompt_template_path)
-        else:
-            template = self.prompt_template
-        
-        print(f"\n{'='*80}")
-        print(f"Đang sinh {spec.num_questions} câu hỏi {spec.question_type} - {spec.cognitive_level}")
-        print(f"Bài: {spec.lesson_name}")
-        print(f"Mã câu: {', '.join(spec.question_codes)}")
-        print(f"{'='*80}")
-        
-        generated_questions = []
-        
-        try:
-            # Tạo prompt cho tất cả câu
-            prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
-            prompt_text = prompt_text.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
-            prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-            prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-            
-            print(f"\n🤖 Đang gọi AI để sinh {spec.num_questions} câu...")
-            
-            # Gọi AI với array schema
-            response = self.ai_client.generate_content_with_schema(
-                prompt=prompt_text,
-                response_schema=self._get_multiple_choice_array_schema()
-            )
-            
-            # Parse response
-            data = json.loads(response) if isinstance(response, str) else response
-            questions_data = data.get("questions", [])
-            
-            if len(questions_data) != spec.num_questions:
-                print(f"⚠️ AI trả về {len(questions_data)} câu, mong đợi {spec.num_questions}")
-            
-            # Tạo GeneratedQuestion cho mỗi câu
-            for i, question_data in enumerate(questions_data):
-                question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"Q{i+1}"
-                
-                question = GeneratedQuestion(
-                    question_code=question_code,
-                    question_stem=question_data.get("question_stem", ""),
-                    options=question_data.get("options", {}),
-                    correct_answer=question_data.get("correct_answer", ""),
-                    level=question_data.get("level", spec.cognitive_level),
-                    explanation=question_data.get("explanation", ""),
-                    lesson_name=spec.lesson_name,
-                    question_type=spec.question_type
-                )
-                
-                generated_questions.append(question)
-                print(f"  ✓ Câu {i+1}/{len(questions_data)}: {question_code}")
-            
-            print(f"\n✅ Đã sinh {len(generated_questions)} câu")
-            
-        except Exception as e:
-            print(f"\n❌ Lỗi khi sinh câu hỏi: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # Tạo dummy questions
-            for question_code in spec.question_codes:
-                question = GeneratedQuestion(
-                    question_code=question_code,
-                    question_stem=f"[LỖI] Không thể sinh câu hỏi: {str(e)}",
-                    options={"A": "", "B": "", "C": "", "D": ""},
-                    correct_answer="A",
-                    level=spec.cognitive_level,
-                    explanation=f"Lỗi: {str(e)}",
-                    lesson_name=spec.lesson_name,
-                    question_type=spec.question_type
-                )
-                generated_questions.append(question)
-        
-        return generated_questions
     
     def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str) -> str:
         """
@@ -301,75 +123,119 @@ class QuestionGenerator:
         print("-" * 80)
         return prompt
     
-    def _get_true_false_schema(self) -> Dict:
+    def generate_questions_for_spec(self, spec: QuestionSpec, prompt_template_path: str = None) -> List[GeneratedQuestion]:
         """
-        Trả về JSON schema cho câu hỏi Đúng/Sai
+        Sinh câu hỏi cho một QuestionSpec
         
+        Args:
+            spec: QuestionSpec chứa thông tin câu hỏi
+            prompt_template_path: Đường dẫn đến prompt template (nếu khác với default)
+            
         Returns:
-            Dict: JSON schema
+            List[GeneratedQuestion]: Danh sách câu hỏi đã sinh
         """
-        return {
-            "type": "object",
-            "properties": {
-                "source_text": {
-                    "type": "string",
-                    "description": "Đoạn tư liệu lịch sử"
-                },
-                "statements": {
-                    "type": "object",
-                    "properties": {
-                        "a": {
-                            "type": "object",
-                            "properties": {
-                                "text": {"type": "string"},
-                                "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
-                                "correct_answer": {"type": "boolean"}
-                            },
-                            "required": ["text", "level", "correct_answer"]
-                        },
-                        "b": {
-                            "type": "object",
-                            "properties": {
-                                "text": {"type": "string"},
-                                "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
-                                "correct_answer": {"type": "boolean"}
-                            },
-                            "required": ["text", "level", "correct_answer"]
-                        },
-                        "c": {
-                            "type": "object",
-                            "properties": {
-                                "text": {"type": "string"},
-                                "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
-                                "correct_answer": {"type": "boolean"}
-                            },
-                            "required": ["text", "level", "correct_answer"]
-                        },
-                        "d": {
-                            "type": "object",
-                            "properties": {
-                                "text": {"type": "string"},
-                                "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
-                                "correct_answer": {"type": "boolean"}
-                            },
-                            "required": ["text", "level", "correct_answer"]
-                        }
-                    },
-                    "required": ["a", "b", "c", "d"]
-                },
-                "explanation": {
-                    "type": "object",
-                    "properties": {
-                        "a": {"type": "string"},
-                        "b": {"type": "string"},
-                        "c": {"type": "string"},
-                        "d": {"type": "string"}
-                    },
-                    "required": ["a", "b", "c", "d"]
-                }
-            },
-            "required": ["source_text", "statements", "explanation"]
-        }
+        # Load template nếu cần
+        if prompt_template_path and prompt_template_path != self.prompt_template:
+            template = self._load_prompt_template(prompt_template_path)
+        else:
+            template = self.prompt_template
+        
+        generated_questions = []
+        
+        # Retry logic
+        for attempt in range(self.max_retries):
+            try:
+                # Tạo prompt cho tất cả câu
+                prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
+                prompt_text = prompt_text.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
+                prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
+                
+                # Gọi AI với array schema
+                response = self.ai_client.generate_content_with_schema(
+                    prompt=prompt_text,
+                    response_schema=get_multiple_choice_array_schema()
+                )
+                
+                # Parse response
+                data = json.loads(response) if isinstance(response, str) else response
+                questions_data = data.get("questions", [])
+                
+                # Kiểm tra nếu không có câu hỏi nào được sinh
+                if not questions_data or len(questions_data) == 0:
+                    raise ValueError("AI không trả về câu hỏi nào")
+                
+                # Tạo GeneratedQuestion cho mỗi câu
+                for i, question_data in enumerate(questions_data):
+                    question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"Q{i+1}"
+                    
+                    question = GeneratedQuestion(
+                        question_code=question_code,
+                        question_stem=question_data.get("question_stem", ""),
+                        options=question_data.get("options", {}),
+                        correct_answer=question_data.get("correct_answer", ""),
+                        level=question_data.get("level", spec.cognitive_level),
+                        explanation=question_data.get("explanation", ""),
+                        lesson_name=spec.lesson_name,
+                        question_type=spec.question_type
+                    )
+                    
+                    generated_questions.append(question)
+                
+                # Thành công, thoát retry loop
+                break
+                
+            except Exception as e:
+                if attempt < self.max_retries - 1:
+                    if self.verbose:
+                        print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {str(e)[:80]}")
+                        print(f"   Thử lại sau {self.retry_delay}s...")
+                    time.sleep(self.retry_delay)
+                else:
+                    # Hết retry, throw error
+                    if self.verbose:
+                        print(f"\n❌ Lỗi khi sinh câu hỏi sau {self.max_retries} lần thử: {e}")
+                        import traceback
+                        traceback.print_exc()
+            
+            # Tạo dummy questions
+            for question_code in spec.question_codes:
+                question = GeneratedQuestion(
+                    question_code=question_code,
+                    question_stem=f"[LỖI] Không thể sinh câu hỏi: {str(e)}",
+                    options={"A": "", "B": "", "C": "", "D": ""},
+                    correct_answer="A",
+                    level=spec.cognitive_level,
+                    explanation=f"Lỗi: {str(e)}",
+                    lesson_name=spec.lesson_name,
+                    question_type=spec.question_type
+                )
+                generated_questions.append(question)
+        
+        return generated_questions
+    
+    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str) -> str:
+        """
+        Điền thông tin vào prompt template cho câu Đúng/Sai
+        
+        Args:
+            tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
+            prompt_template: Template prompt DS
+            
+        Returns:
+            str: Prompt đã được điền
+        """
+        # Replace biến chung
+        prompt = prompt_template.replace("{{NUM}}", "1")
+        prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", tf_spec.lesson_name)
+        
+        # Replace cho từng mệnh đề
+        for stmt in tf_spec.statements:
+            label_upper = stmt.label.upper()
+            prompt = prompt.replace(f"{{{{COGNITIVE_LEVEL_{label_upper}}}}}", stmt.cognitive_level)
+            prompt = prompt.replace(f"{{{{EXPECTED_LEARNING_OUTCOME_{label_upper}}}}}", stmt.learning_outcome)
+        
+        return prompt
     
     def generate_true_false_question(self, tf_spec: TrueFalseQuestionSpec, 
                                      prompt_template_path: str) -> GeneratedTrueFalseQuestion:
@@ -383,61 +249,56 @@ class QuestionGenerator:
         Returns:
             GeneratedTrueFalseQuestion: Câu hỏi DS đã sinh
         """
-        print(f"\n{'='*80}")
-        print(f"🎯 SINH CÂU HỎI ĐÚNG/SAI: {tf_spec.question_code}")
-        print(f"{'='*80}")
-        print(f"📚 Bài: {tf_spec.lesson_name}")
-        print(f"🔢 Số mệnh đề: {len(tf_spec.statements)}")
-        print(f"{'='*80}")
-        
-        try:
-            # Load prompt template DS
-            with open(prompt_template_path, 'r', encoding='utf-8') as f:
-                ds_template = f.read()
-            
-            # Fill prompt
-            prompt = self._fill_true_false_prompt(tf_spec, ds_template)
-            
-            # Gọi AI với JSON schema
-            print("\n🤖 Đang gọi AI để sinh câu hỏi...")
-            response = self.ai_client.generate_content_with_schema(
-                prompt=prompt,
-                response_schema=self._get_true_false_schema()
-            )
-            
-            print(f"✅ Đã nhận response từ AI")
-            print(f"📄 Response preview: {response[:200] if response else '(empty)'}...")
-            
-            # Kiểm tra response
-            if not response or response.strip() == "":
-                raise ValueError("Response từ AI trống")
-            
-            # Response đã là JSON từ schema
-            data = json.loads(response) if isinstance(response, str) else response
-            
-            # Tạo GeneratedTrueFalseQuestion
-            question = GeneratedTrueFalseQuestion(
-                question_code=tf_spec.question_code,
-                source_text=data.get("source_text", ""),
-                statements=data.get("statements", {}),
-                explanation=data.get("explanation", {}),
-                lesson_name=tf_spec.lesson_name
-            )
-            
-            print(f"\n✅ Đã sinh câu {tf_spec.question_code}")
-            print(f"📖 Tư liệu: {question.source_text[:100]}...")
-            print(f"📋 Mệnh đề:")
-            for label in ['a', 'b', 'c', 'd']:
-                if label in question.statements:
-                    stmt = question.statements[label]
-                    status = "✓ Đúng" if stmt.get('correct_answer') else "✗ Sai"
-                    print(f"  ({label}) [{stmt.get('level')}] {status}: {stmt.get('text', '')[:60]}...")
-            
-            return question
-            
-        except Exception as e:
-            print(f"\n❌ Lỗi khi sinh câu {tf_spec.question_code}: {e}")
-            raise
+        # Retry logic
+        for attempt in range(self.max_retries):
+            try:
+                # Load prompt template DS
+                with open(prompt_template_path, 'r', encoding='utf-8') as f:
+                    ds_template = f.read()
+                
+                # Fill prompt
+                prompt = self._fill_true_false_prompt(tf_spec, ds_template)
+                
+                # Gọi AI với JSON schema
+                response = self.ai_client.generate_content_with_schema(
+                    prompt=prompt,
+                    response_schema=get_true_false_schema()
+                )
+                
+                # Kiểm tra response
+                if not response or response.strip() == "":
+                    raise ValueError("Response từ AI trống")
+                
+                # Response đã là JSON từ schema
+                data = json.loads(response) if isinstance(response, str) else response
+                
+                # Kiểm tra dữ liệu cần thiết
+                if not data.get("source_text") or not data.get("statements"):
+                    raise ValueError("Response thiếu dữ liệu bắt buộc (source_text hoặc statements)")
+                
+                # Tạo GeneratedTrueFalseQuestion
+                question = GeneratedTrueFalseQuestion(
+                    question_code=tf_spec.question_code,
+                    source_text=data.get("source_text", ""),
+                    statements=data.get("statements", {}),
+                    explanation=data.get("explanation", {}),
+                    lesson_name=tf_spec.lesson_name
+                )
+                
+                # Thành công, return
+                return question
+                
+            except Exception as e:
+                if attempt < self.max_retries - 1:
+                    if self.verbose:
+                        print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {str(e)[:80]}")
+                        print(f"   Thử lại sau {self.retry_delay}s...")
+                    time.sleep(self.retry_delay)
+                else:
+                    # Hết retry, throw error
+                    if self.verbose:
+                        print(f"\n❌ Lỗi khi sinh câu {tf_spec.question_code} sau {self.max_retries} lần thử: {e}")
+                    raise
     
     def generate_questions_batch(self, 
                                 specs: List[QuestionSpec],

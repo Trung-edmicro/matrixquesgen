@@ -36,7 +36,7 @@ MatrixQuesGen/
 ### 2. Vertex AI Client (✓)
 
 - Kết nối với Google Cloud Vertex AI
-- Hỗ trợ các mô hình Gemini (gemini-1.5-pro)
+- Hỗ trợ các mô hình Gemini (gemini-3-pro-preview)
 - Generate nội dung từ prompt
 - Chat session
 - Batch processing
@@ -60,11 +60,7 @@ pip install -r requirements.txt
 
 ### 2. Cấu hình Google Cloud (Optional - cho tính năng AI)
 
-1. Tạo file `.env` từ `.env.example`:
-
-```bash
-cp .env.example .env
-```
+1. Tạo file `.env`:
 
 2. Cấu hình các thông số trong file `.env`:
 

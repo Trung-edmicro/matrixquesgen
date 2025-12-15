@@ -5,10 +5,20 @@ openpyxl==3.1.2
 # Google Cloud / Vertex AI
 google-cloud-aiplatform==1.38.1
 vertexai==0.0.1
+google-genai
 
 # Document generation
 python-docx==1.1.0
 
 # Utilities
 python-dotenv==1.0.0
+
+# API dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+
 
