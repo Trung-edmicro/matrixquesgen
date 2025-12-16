@@ -67,13 +67,15 @@ class QuestionGenerator:
     
     def _fill_prompt_template(self, 
                              spec: QuestionSpec,
-                             num_questions: int = None) -> str:
+                             num_questions: int = None,
+                             question_template: str = "") -> str:
         """
         Điền thông tin vào prompt template
         
         Args:
             spec: QuestionSpec chứa thông tin câu hỏi
             num_questions: Số câu hỏi cần sinh (nếu None, lấy từ spec)
+            question_template: Template câu hỏi mẫu từ file DOCX (optional)
             
         Returns:
             str: Prompt đã được điền
@@ -85,51 +87,20 @@ class QuestionGenerator:
         prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
         prompt = prompt.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
         prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
+        prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
         
         return prompt
     
-    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str) -> str:
-        """
-        Điền thông tin vào prompt template cho câu Đúng/Sai
-        
-        Args:
-            tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
-            prompt_template: Template prompt DS
-            
-        Returns:
-            str: Prompt đã được điền
-        """
-        print("\n" + "="*80)
-        print("📝 CHUẨN BỊ PROMPT ĐÚNG/SAI")
-        print("="*80)
-        
-        print(f"📌 Câu: {tf_spec.question_code}")
-        print(f"📌 Bài học: {tf_spec.lesson_name}")
-        print(f"📌 Số mệnh đề: {len(tf_spec.statements)}")
-        
-        # Replace biến chung
-        prompt = prompt_template.replace("{{NUM}}", "1")
-        prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", tf_spec.lesson_name)
-        
-        # Replace cho từng mệnh đề
-        for stmt in tf_spec.statements:
-            label_upper = stmt.label.upper()
-            prompt = prompt.replace(f"{{{{COGNITIVE_LEVEL_{label_upper}}}}}", stmt.cognitive_level)
-            prompt = prompt.replace(f"{{{{EXPECTED_LEARNING_OUTCOME_{label_upper}}}}}", stmt.learning_outcome)
-            
-            print(f"  ({stmt.label}) [{stmt.cognitive_level}] {stmt.statement_code}")
-            print(f"      {stmt.learning_outcome[:80]}...")
-        
-        print("-" * 80)
-        return prompt
-    
-    def generate_questions_for_spec(self, spec: QuestionSpec, prompt_template_path: str = None) -> List[GeneratedQuestion]:
+    def generate_questions_for_spec(self, spec: QuestionSpec, 
+                                   prompt_template_path: str = None,
+                                   question_template: str = "") -> List[GeneratedQuestion]:
         """
         Sinh câu hỏi cho một QuestionSpec
         
         Args:
             spec: QuestionSpec chứa thông tin câu hỏi
             prompt_template_path: Đường dẫn đến prompt template (nếu khác với default)
+            question_template: Template câu hỏi mẫu từ file DOCX (optional)
             
         Returns:
             List[GeneratedQuestion]: Danh sách câu hỏi đã sinh
@@ -150,7 +121,11 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-                
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
+
+                print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars)")
+                print(f"--- PROMPT START ---\n{prompt_text}\n--- PROMPT END ---")
+
                 # Gọi AI với array schema
                 response = self.ai_client.generate_content_with_schema(
                     prompt=prompt_text,
@@ -214,13 +189,14 @@ class QuestionGenerator:
         
         return generated_questions
     
-    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str) -> str:
+    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str, question_template: str = "") -> str:
         """
         Điền thông tin vào prompt template cho câu Đúng/Sai
         
         Args:
             tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
             prompt_template: Template prompt DS
+            question_template: Template câu hỏi mẫu từ DOCX (optional)
             
         Returns:
             str: Prompt đã được điền
@@ -228,6 +204,7 @@ class QuestionGenerator:
         # Replace biến chung
         prompt = prompt_template.replace("{{NUM}}", "1")
         prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", tf_spec.lesson_name)
+        prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
         
         # Replace cho từng mệnh đề
         for stmt in tf_spec.statements:
@@ -238,13 +215,15 @@ class QuestionGenerator:
         return prompt
     
     def generate_true_false_question(self, tf_spec: TrueFalseQuestionSpec, 
-                                     prompt_template_path: str) -> GeneratedTrueFalseQuestion:
+                                     prompt_template_path: str,
+                                     question_template: str = "") -> GeneratedTrueFalseQuestion:
         """
         Sinh 1 câu hỏi Đúng/Sai hoàn chỉnh (4 mệnh đề cùng lúc)
         
         Args:
             tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
             prompt_template_path: Đường dẫn đến prompt template DS
+            question_template: Template câu hỏi mẫu từ DOCX (optional)
             
         Returns:
             GeneratedTrueFalseQuestion: Câu hỏi DS đã sinh
@@ -256,8 +235,11 @@ class QuestionGenerator:
                 with open(prompt_template_path, 'r', encoding='utf-8') as f:
                     ds_template = f.read()
                 
-                # Fill prompt
-                prompt = self._fill_true_false_prompt(tf_spec, ds_template)
+                # Fill prompt với question_template
+                prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template)
+                
+                print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars)")
+                print(f"--- PROMPT START ---\n{prompt}\n--- PROMPT END ---")
                 
                 # Gọi AI với JSON schema
                 response = self.ai_client.generate_content_with_schema(

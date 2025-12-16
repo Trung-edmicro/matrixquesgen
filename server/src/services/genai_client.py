@@ -30,7 +30,7 @@ class GenAIClient:
         self.credentials_path = credentials_path
         self.api_key = api_key
         self.client = None
-        self.model_name = None
+        self.model_name = 'gemini-3-pro-preview'
         
         self._initialize()
     
@@ -94,7 +94,7 @@ class GenAIClient:
             
             # Tạo config
             config = types.GenerateContentConfig(
-                temperature=0.7,
+                temperature=1,
                 top_p=0.95,
                 max_output_tokens=8192,
                 system_instruction=system_instruction
@@ -138,7 +138,7 @@ class GenAIClient:
             
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
-                temperature=0.7,
+                temperature=1,
                 top_p=0.95,
                 max_output_tokens=8192,
                 system_instruction=system_instruction,

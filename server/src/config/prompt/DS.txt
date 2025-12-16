@@ -1,5 +1,5 @@
 # ROLE:
-Bạn là chuyên gia biên soạn biên soạn ngân hàng câu hỏi dạng Đúng/Sai môn Lịch sử lớp 12 theo Chương trình GDPT 2018 của Việt Nam, có kinh nghiệm ra đề thi tốt nghiệp THPT.
+Bạn là chuyên gia biên soạn biên soạn ngân hàng câu hỏi dạng Đúng/Sai môn Lịch sử lớp 12 theo Chương trình GDPT 2018 của Việt Nam, có kinh nghiệm ra đề thi.
 
 # TASK:
 Tạo "{{NUM}}" câu hỏi dạng ĐÚNG / SAI theo tư liệu, gồm:
@@ -16,10 +16,9 @@ Học sinh sẽ xác định Đúng hoặc Sai cho từng mệnh đề.
 - Tư liệu chỉ đóng vai trò CUNG CẤP DẪN CHỨNG, không yêu cầu học sinh có kiến thức nền ngoài SGK.
 - Nội dung đánh giá trong các mệnh đề PHẢI nằm trong phạm vi kiến thức đã học theo SGK và ma trận đề.
 - Không kiểm tra chi tiết học thuật, số liệu chuyên sâu, thuật ngữ hàn lâm.
-- Dung lượng độ dài vừa phải:
+- Dung lượng độ dài vừa phải (Số dòng khi in đề -> 10 dòng Word (font 13–14)) gồm một trong 2 dạng sau:
   + 1 tư liệu đơn 90 – 130 từ
   + 2 tư liệu ngắn 40 – 70 từ / tư liệu
-  + Số dòng khi in đề -> 10 dòng Word (font 13–14)
 
 # CẤU TRÚC CẤP ĐỘ TƯ DUY CỦA CÁC MỆNH ĐỀ (BẮT BUỘC) VÀ KẾT QUẢ CẦN ĐẠT (NẾU CÓ):
 
@@ -77,6 +76,9 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
 - Trong 4 mệnh đề phải có cả ĐÚNG và SAI (không được tất cả cùng đúng hoặc cùng sai).
 - Mỗi mệnh đề có độ dài vừa phải, phù hợp thời gian làm bài.
 - Không trùng ý giữa các mệnh đề.
+
+# GỢI Ý CÂU HỎI MẪU (THAM KHẢO CẤU TRÚC, PHONG CÁCH):
+"{{QUESTION_TEMPLATE}}"
 
 # OUTPUT:
 Nội dung tiếng Việt chuẩn mực, đúng thuật ngữ lịch sử, không lỗi font.

@@ -10,9 +10,14 @@ const api = axios.create({
 })
 
 // Generate questions from matrix file
-export const generateQuestions = async (file, config = {}) => {
+export const generateQuestions = async (file, config = {}, templateDocx = null) => {
   const formData = new FormData()
   formData.append('file', file)
+  
+  // Thêm template DOCX nếu có
+  if (templateDocx) {
+    formData.append('template_docx', templateDocx)
+  }
   
   if (config.max_workers) formData.append('max_workers', config.max_workers)
   if (config.min_interval) formData.append('min_interval', config.min_interval)

@@ -1,12 +1,14 @@
 import os
 import json
 import uuid
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -15,6 +17,8 @@ from api.models.schemas import GenerateQuestionsRequest, GenerateResponse
 from services.genai_client import GenAIClient
 from services.matrix_parser import MatrixParser
 from services.question_generator import QuestionGenerator
+from services.template_generator import QuestionGeneratorWithTemplate
+from services.question_parser import QuestionMatrixMapper
 from services.concurrent_generator import (
     generate_tn_questions_parallel,
     generate_ds_questions_parallel
@@ -32,10 +36,11 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 def generate_questions_task(
     session_id: str,
     matrix_file_path: str,
-    config: dict
+    config: dict,
+    template_docx_path: Optional[str] = None
 ):
     """
-    Background task để sinh câu hỏi
+    Background task để sinh câu hỏi (với template DOCX tùy chọn)
     """
     session_file = SESSIONS_DIR / f"{session_id}.json"
     
@@ -62,7 +67,7 @@ def generate_questions_task(
         ai_client.initialize_model(
             model_name="gemini-3-pro-preview",
             generation_config={
-                "temperature": 0.7,
+                "temperature": 1,
                 "top_p": 0.95,
                 "max_output_tokens": 8192,
             }
@@ -76,6 +81,44 @@ def generate_questions_task(
         tn_questions = [q for q in all_questions if q.question_type == "TN"]
         ds_questions = parser.group_true_false_questions()
         
+        # Load template DOCX nếu có
+        template_mapping = {}
+        template_ds_mapping = {}
+        if template_docx_path:
+            try:
+                template_gen = QuestionGeneratorWithTemplate(verbose=False)
+                template_gen.load_template_docx(template_docx_path)
+                
+                # Map TẤT CẢ template TN (C1-C24)
+                question_dict = {q['number']: q for q in template_gen.template_questions}
+                for tn_num, question in question_dict.items():
+                    code = f"C{tn_num}"
+                    template_text = template_gen.question_parser.format_question_as_template(question)
+                    template_mapping[code] = template_text
+                
+                # Map template DS
+                if template_gen.template_ds_questions and ds_questions:
+                    ds_question_dict = {q['number']: q for q in template_gen.template_ds_questions}
+                    for ds_spec in ds_questions:
+                        code = ds_spec.question_code if ds_spec.question_code else ''
+                        match = re.search(r'(\d+)', code)
+                        if match:
+                            ds_num = int(match.group(1))
+                            if ds_num in ds_question_dict:
+                                template_text = template_gen.question_parser.format_ds_question_as_template(ds_question_dict[ds_num])
+                                template_ds_mapping[code] = template_text
+                
+                session_data['template_info'] = {
+                    'total_tn_parsed': len(template_gen.template_questions),
+                    'total_ds_parsed': len(template_gen.template_ds_questions),
+                    'tn_mapped_count': len(template_mapping),
+                    'ds_mapped_count': len(template_ds_mapping),
+                    'mapping_mode': 'code'
+                }
+                
+            except Exception as e:
+                session_data['template_warning'] = f"Không thể load template: {str(e)}"
+        
         # Update progress
         session_data['total_questions'] = len(tn_questions) + len(ds_questions)
         session_data['tn_count'] = len(tn_questions)
@@ -85,38 +128,90 @@ def generate_questions_task(
         with open(session_file, 'w', encoding='utf-8') as f:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
         
-        # Sinh câu hỏi TN
+        # Sinh câu hỏi TN (với template nếu có)
+        # Chuẩn bị template mapping cho mỗi spec
+        spec_templates = {}
+        if template_mapping:
+            for spec in tn_questions:
+                template_parts = []
+                for code in spec.question_codes:
+                    if code in template_mapping:
+                        template_parts.append(template_mapping[code])
+                spec_templates[id(spec)] = "\n\n".join(template_parts) if template_parts else ""
+        
+        # Sinh song song với 10 workers
         generator = QuestionGenerator(
             ai_client=ai_client,
-            prompt_template_path=config.get('prompt_template_tn')
+            prompt_template_path=config.get('prompt_template_tn'),
+            verbose=False
         )
         
-        generated_tn = generate_tn_questions_parallel(
-            generator=generator,
-            tn_specs=tn_questions,
-            prompt_template_path=config.get('prompt_template_tn'),
-            max_workers=config.get('max_workers', 5),
-            min_interval=config.get('min_interval', 0.2),
-            verbose=config.get('verbose', False),
-            max_retries=config.get('max_retries', 3),
-            retry_delay=config.get('retry_delay', 2.0)
-        )
+        generated_tn = []
+        max_workers = config.get('max_workers', 10)
+        min_interval = config.get('min_interval', 0.3)
+        
+        print(f"\nBắt đầu sinh {len(tn_questions)} câu TN với {max_workers} workers...")
+        
+        def generate_with_template(spec):
+            template_text = spec_templates.get(id(spec), "")
+                        
+            return generator.generate_questions_for_spec(
+                spec=spec,
+                question_template=template_text
+            )
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(generate_with_template, spec): spec for spec in tn_questions}
+            
+            for future in as_completed(futures):
+                try:
+                    results = future.result()
+                    if results:
+                        generated_tn.extend(results)
+                    time.sleep(min_interval)
+                except Exception as e:
+                    spec = futures[future]
+                    print(f"❌ Lỗi sinh câu {spec.question_codes}: {e}")
         
         session_data['progress'] = 50
         with open(session_file, 'w', encoding='utf-8') as f:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
         
-        # Sinh câu hỏi DS
-        generated_ds = generate_ds_questions_parallel(
-            generator=generator,
-            ds_specs=ds_questions,
+        # Sinh câu hỏi DS song song với template
+        generator_ds = QuestionGenerator(
+            ai_client=ai_client,
             prompt_template_path=config.get('prompt_template_ds'),
-            max_workers=config.get('max_workers', 5),
-            min_interval=config.get('min_interval', 0.2),
-            verbose=config.get('verbose', False),
-            max_retries=config.get('max_retries', 3),
-            retry_delay=config.get('retry_delay', 2.0)
+            verbose=False
         )
+        
+        generated_ds = []
+        
+        print(f"\nBắt đầu sinh {len(ds_questions)} câu DS với {max_workers} workers...")
+        
+        def generate_ds_with_template(spec):
+            code = spec.question_code if spec.question_code else ''
+            template_text = template_ds_mapping.get(code, "")
+                        
+            if hasattr(spec, 'statements'):
+                return generator_ds.generate_true_false_question(
+                    tf_spec=spec,
+                    prompt_template_path=config.get('prompt_template_ds'),
+                    question_template=template_text
+                )
+            return None
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(generate_ds_with_template, spec): spec for spec in ds_questions}
+            
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    if result:
+                        generated_ds.append(result)
+                    time.sleep(min_interval)
+                except Exception as e:
+                    spec = futures[future]
+                    print(f"❌ Lỗi sinh DS {spec.question_code}: {e}")
         
         # Lưu kết quả
         output_data = {
@@ -177,15 +272,17 @@ def generate_questions_task(
 async def generate_questions(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    max_workers: int = 5,
-    min_interval: float = 0.2,
+    template_docx: Optional[UploadFile] = File(None),
+    max_workers: int = 10,
+    min_interval: float = 0.3,
     max_retries: int = 3,
     retry_delay: float = 2.0
 ):
     """
-    Upload file Excel ma trận và sinh câu hỏi
+    Upload file Excel ma trận và sinh câu hỏi (với template DOCX tùy chọn)
     
     - **file**: File Excel ma trận (.xlsx)
+    - **template_docx**: (Optional) File DOCX đề mẫu để AI tham khảo
     - **max_workers**: Số threads xử lý song song (default: 5)
     - **min_interval**: Delay tối thiểu giữa requests (default: 0.2s)
     - **max_retries**: Số lần retry khi lỗi (default: 3)
@@ -212,6 +309,20 @@ async def generate_questions(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể lưu file: {str(e)}")
     
+    # Lưu template DOCX nếu có
+    template_path = None
+    if template_docx:
+        if not template_docx.filename.endswith('.docx'):
+            raise HTTPException(status_code=400, detail="Template phải là file .docx")
+        
+        template_path = upload_dir / f"{session_id}_template_{template_docx.filename}"
+        try:
+            with open(template_path, 'wb') as f:
+                template_content = await template_docx.read()
+                f.write(template_content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Không thể lưu template: {str(e)}")
+    
     # Đường dẫn tuyệt đối đến thư mục config
     api_dir = Path(__file__).parent.parent
     project_root = api_dir.parent
@@ -235,7 +346,8 @@ async def generate_questions(
         generate_questions_task,
         session_id,
         str(file_path),
-        config
+        config,
+        str(template_path) if template_path else None
     )
     
     return GenerateResponse(

@@ -12,6 +12,7 @@ import {
 
 export default function GenerateExamPage() {
   const [matrixData, setMatrixData] = useState(null)
+  const [templateDocx, setTemplateDocx] = useState(null)
   const [generatedExam, setGeneratedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -32,6 +33,11 @@ export default function GenerateExamPage() {
     setIsDirty(false)
   }
 
+  const handleTemplateUpload = (file) => {
+    setTemplateDocx({ file, filename: file.name })
+    setError(null)
+  }
+
   const handleDataChange = (newData) => {
     setGeneratedExam(newData)
     setIsDirty(false)
@@ -50,7 +56,7 @@ export default function GenerateExamPage() {
     
     try {
       // Upload file và bắt đầu generate
-      const result = await generateQuestions(matrixData.file, generationConfig)
+      const result = await generateQuestions(matrixData.file, generationConfig, templateDocx?.file)
       const newSessionId = result.session_id
       setSessionId(newSessionId)
 
@@ -155,6 +161,8 @@ export default function GenerateExamPage() {
         <MatrixInputPanel 
           onMatrixUpload={handleMatrixUpload}
           matrixData={matrixData}
+          onTemplateUpload={handleTemplateUpload}
+          templateDocx={templateDocx}
         />
         
         <ActionBar

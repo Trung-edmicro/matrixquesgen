@@ -172,8 +172,8 @@ class ConcurrentGenerator:
 def generate_tn_questions_parallel(generator, 
                                    tn_specs: List,
                                    prompt_template_path: str,
-                                   max_workers: int = 5,
-                                   min_interval: float = 0.2,
+                                   max_workers: int = 10,
+                                   min_interval: float = 0.3,
                                    verbose: bool = False,
                                    max_retries: int = 3,
                                    retry_delay: float = 2.0) -> List:

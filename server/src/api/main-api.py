@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routes import generate, questions, export
+from routes import generate, questions, export, docx_reader
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +40,7 @@ app.add_middleware(
 app.include_router(generate.router)
 app.include_router(questions.router)
 app.include_router(export.router)
+app.include_router(docx_reader.router)
 
 
 @app.get("/")

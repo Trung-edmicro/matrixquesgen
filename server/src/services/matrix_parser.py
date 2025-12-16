@@ -261,7 +261,6 @@ class MatrixParser:
                     
                     question_specs.append(spec)
         
-        print(f"✓ Đã parse {len(question_specs)} nhóm câu hỏi loại {question_type}")
         return question_specs
     
     def group_true_false_questions(self) -> List[TrueFalseQuestionSpec]:
@@ -271,10 +270,6 @@ class MatrixParser:
         Returns:
             List[TrueFalseQuestionSpec]: Danh sách câu hỏi DS hoàn chỉnh (4 mệnh đề)
         """
-        print("\n" + "="*80)
-        print("📊 GROUPING CÂU HỎI ĐÚNG/SAI")
-        print("="*80)
-        
         # Parse tất cả statements từ ma trận
         all_specs = self.parse_matrix(question_type="DS")
         
@@ -319,13 +314,11 @@ class MatrixParser:
             
             # Kiểm tra có đủ 4 mệnh đề không
             if len(statements) != 4:
-                print(f"⚠️  Câu {question_code}: Chỉ có {len(statements)}/4 mệnh đề - {[s.statement_code for s in statements]}")
                 continue
             
             # Kiểm tra có đủ a, b, c, d không
             labels = [s.label for s in statements]
             if labels != ['a', 'b', 'c', 'd']:
-                print(f"⚠️  Câu {question_code}: Thiếu mệnh đề - có {labels}")
                 continue
             
             tf_question = TrueFalseQuestionSpec(
@@ -335,13 +328,6 @@ class MatrixParser:
             )
             
             tf_questions.append(tf_question)
-            
-            print(f"✓ {question_code}: {lesson_name}")
-            for stmt in statements:
-                print(f"  ({stmt.label}) [{stmt.cognitive_level}] {stmt.statement_code}")
-        
-        print(f"\n✓ Đã tạo {len(tf_questions)} câu hỏi DS hoàn chỉnh")
-        print("="*80 + "\n")
         
         return tf_questions
     
