@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { updateQuestion } from '../../services/api'
 
-export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) {
+export default function ExamPreviewPanel({ examData, isGenerating, sessionId, onDataChange }) {
   const [activeTab, setActiveTab] = useState('questions')
+  const [editedData, setEditedData] = useState(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const tabs = [
     { id: 'questions', label: 'Đề' },
@@ -9,26 +13,103 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) 
   ]
 
   // Get questions from examData structure
-  const questions = examData?.questions || { TN: [], DS: [] }
+  const questions = editedData?.questions || examData?.questions || { TN: [], DS: [] }
   const metadata = examData?.metadata || {}
+
+  // Reset edited data when examData changes
+  useEffect(() => {
+    if (examData) {
+      setEditedData(JSON.parse(JSON.stringify(examData)))
+      setIsDirty(false)
+    }
+  }, [examData])
+
+  const handleSave = async () => {
+    if (!sessionId || !isDirty) return
+
+    setIsSaving(true)
+    try {
+      // Update all TN questions
+      for (const q of editedData.questions.TN) {
+        await updateQuestion(sessionId, 'TN', q.question_code, q)
+      }
+      
+      // Update all DS questions
+      for (const q of editedData.questions.DS) {
+        await updateQuestion(sessionId, 'DS', q.question_code, q)
+      }
+      
+      setIsDirty(false)
+      if (onDataChange) {
+        onDataChange(editedData)
+      }
+    } catch (err) {
+      alert('Lỗi khi lưu: ' + err.message)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleFieldChange = (type, code, field, value) => {
+    setEditedData(prev => {
+      const newData = JSON.parse(JSON.stringify(prev))
+      const questionList = newData.questions[type]
+      const question = questionList.find(q => q.question_code === code)
+      if (question) {
+        if (field.includes('.')) {
+          const parts = field.split('.')
+          if (parts.length === 2) {
+            const [parent, child] = parts
+            if (!question[parent]) question[parent] = {}
+            question[parent][child] = value
+          } else if (parts.length === 3) {
+            // Handle nested like statements.a.text
+            const [parent, key, prop] = parts
+            if (!question[parent]) question[parent] = {}
+            if (!question[parent][key]) question[parent][key] = {}
+            question[parent][key][prop] = value
+          }
+        } else {
+          question[field] = value
+        }
+      }
+      return newData
+    })
+    setIsDirty(true)
+  }
 
   return (
     <div className="h-full panel flex flex-col overflow-hidden">
-      {/* Tabs */}
-      <div className="border-b border-gray-200 flex">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-sm border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs and Save Button */}
+      <div className="border-b border-gray-200 flex items-center justify-between">
+        <div className="flex">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-base border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary-600 text-primary-700'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        {isDirty && examData && (
+          <div className="px-4 flex items-center gap-3">
+            <span className="text-sm text-orange-600">● Có thay đổi chưa lưu</span>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="btn-primary text-sm px-4 py-1.5 disabled:opacity-50"
+            >
+              {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -37,9 +118,9 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) 
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <div className="inline-block w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-              <div className="text-sm text-gray-600">Đang sinh câu hỏi...</div>
+              <div className="text-base text-gray-600">Đang sinh câu hỏi...</div>
               {sessionId && (
-                <div className="text-xs text-gray-500 mt-2">Session: {sessionId.slice(0, 8)}</div>
+                <div className="text-sm text-gray-500 mt-2">Session: {sessionId.slice(0, 8)}</div>
               )}
             </div>
           </div>
@@ -47,7 +128,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) 
           <div className="space-y-4">
             {/* Metadata info */}
             {metadata.total_questions > 0 && (
-              <div className="bg-gray-50 p-3 rounded text-xs text-gray-600">
+              <div className="bg-gray-50 p-3 rounded text-sm text-gray-600">
                 <div>Tổng: {metadata.total_questions} câu ({metadata.tn_count} TN, {metadata.ds_count} DS)</div>
                 {metadata.generated_at && (
                   <div className="text-gray-500 mt-1">
@@ -58,7 +139,11 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) 
             )}
 
             {activeTab === 'questions' && (
-              <QuestionsList questions={questions} />
+              <QuestionsList 
+                questions={questions} 
+                onFieldChange={handleFieldChange}
+                sessionId={sessionId}
+              />
             )}
             {activeTab === 'answers' && (
               <AnswersList questions={questions} />
@@ -76,7 +161,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId }) 
   )
 }
 
-function QuestionsList({ questions }) {
+function QuestionsList({ questions, onFieldChange, sessionId }) {
   const getLevelColor = (level) => {
     switch(level) {
       case 'NB': return 'bg-green-100 text-green-800'
@@ -96,29 +181,86 @@ function QuestionsList({ questions }) {
   const sortedTN = [...(questions.TN || [])].sort(sortByQuestionCode)
   const sortedDS = [...(questions.DS || [])].sort(sortByQuestionCode)
 
+  const handleBlur = (type, code, field, e) => {
+    const newValue = e.target.textContent
+    if (onFieldChange) {
+      onFieldChange(type, code, field, newValue)
+    }
+  }
+
+  const handleLevelChange = (type, code, field, newLevel) => {
+    if (onFieldChange) {
+      onFieldChange(type, code, field, newLevel)
+    }
+  }
+
+  const handleCorrectAnswerToggle = (type, code, field, value) => {
+    if (onFieldChange) {
+      onFieldChange(type, code, field, value)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* TN Questions */}
       {sortedTN.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
           {sortedTN.map((q, idx) => (
-            <div key={q.question_code} className="mb-4 text-sm border-b border-gray-100 pb-4">
-              <div className="mb-2">
+            <div key={q.question_code} className="mb-5 text-base border-b border-gray-100 pb-5">
+              <div className="mb-2 flex items-center gap-2">
                 <span className="font-medium">Câu {idx + 1}</span>
-                <span className={`ml-2 px-2 py-0.5 text-xs rounded ${getLevelColor(q.level)}`}>
-                  {q.level}
-                </span>
-                <span className="ml-2 text-xs text-gray-500">[{q.question_code}]</span>
+                {sessionId ? (
+                  <select
+                    value={q.level}
+                    onChange={(e) => handleLevelChange('TN', q.question_code, 'level', e.target.value)}
+                    className={`px-2 py-0.5 text-sm rounded border-0 cursor-pointer ${getLevelColor(q.level)}`}
+                  >
+                    <option value="NB">NB</option>
+                    <option value="TH">TH</option>
+                    <option value="VD">VD</option>
+                  </select>
+                ) : (
+                  <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                    {q.level}
+                  </span>
+                )}
+                <span className="text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div className="mb-2 text-gray-700">{q.question_stem}</div>
+              <div 
+                contentEditable={!!sessionId}
+                suppressContentEditableWarning
+                onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
+                className="mb-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+              >
+                {q.question_stem}
+              </div>
               <div className="space-y-1 pl-4">
                 {Object.entries(q.options || {}).map(([key, value]) => (
                   <div 
                     key={key} 
-                    className={q.correct_answer === key ? 'text-red-600 font-medium' : 'text-gray-600'}
+                    className="flex items-start gap-2"
                   >
-                    {key}. {value}
+                    {sessionId && (
+                      <input
+                        type="radio"
+                        name={`correct-${q.question_code}`}
+                        checked={q.correct_answer === key}
+                        onChange={() => handleCorrectAnswerToggle('TN', q.question_code, 'correct_answer', key)}
+                        className="mt-1 w-4 h-4 text-red-600 cursor-pointer"
+                      />
+                    )}
+                    <div className={q.correct_answer === key ? 'text-red-600 font-medium flex-1' : 'text-gray-600 flex-1'}>
+                      <span>{key}. </span>
+                      <span
+                        contentEditable={!!sessionId}
+                        suppressContentEditableWarning
+                        onBlur={(e) => handleBlur('TN', q.question_code, `options.${key}`, e)}
+                        className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                      >
+                        {value}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -130,25 +272,58 @@ function QuestionsList({ questions }) {
       {/* DS Questions */}
       {sortedDS.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
           {sortedDS.map((q, idx) => (
-            <div key={q.question_code} className="mb-6 text-sm border-b border-gray-100 pb-4">
+            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
               <div className="mb-2">
                 <span className="font-medium">Câu {idx + 1}</span>
-                <span className="ml-2 text-xs text-gray-500">[{q.question_code}]</span>
+                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div className="mb-3 text-gray-600 italic text-xs bg-gray-50 p-2 rounded">
+              <div 
+                contentEditable={!!sessionId}
+                suppressContentEditableWarning
+                onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
+                className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary-300"
+              >
                 {q.source_text}
               </div>
               <div className="space-y-2 pl-4">
                 {Object.entries(q.statements || {}).map(([key, stmt]) => (
-                  <div key={key}>
-                    <span className={`px-2 py-0.5 text-xs rounded ${getLevelColor(stmt.level)}`}>
-                      {stmt.level}
-                    </span>
-                    <span className={`ml-2 ${stmt.correct_answer ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
-                      {key}. {stmt.text}
-                    </span>
+                  <div key={key} className="flex items-start gap-2">
+                    {sessionId && (
+                      <input
+                        type="checkbox"
+                        checked={stmt.correct_answer}
+                        onChange={() => handleCorrectAnswerToggle('DS', q.question_code, `statements.${key}.correct_answer`, !stmt.correct_answer)}
+                        className="mt-1 w-4 h-4 text-red-600 cursor-pointer"
+                      />
+                    )}
+                    {sessionId ? (
+                      <select
+                        value={stmt.level}
+                        onChange={(e) => handleLevelChange('DS', q.question_code, `statements.${key}.level`, e.target.value)}
+                        className={`px-2 py-0.5 text-sm rounded border-0 cursor-pointer ${getLevelColor(stmt.level)}`}
+                      >
+                        <option value="NB">NB</option>
+                        <option value="TH">TH</option>
+                        <option value="VD">VD</option>
+                      </select>
+                    ) : (
+                      <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(stmt.level)}`}>
+                        {stmt.level}
+                      </span>
+                    )}
+                    <div className="flex-1">
+                      <span>{key}. </span>
+                      <span
+                        contentEditable={!!sessionId}
+                        suppressContentEditableWarning
+                        onBlur={(e) => handleBlur('DS', q.question_code, `statements.${key}.text`, e)}
+                        className={`focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 ${stmt.correct_answer ? 'text-red-600 font-medium' : 'text-gray-600'}`}
+                      >
+                        {stmt.text}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -175,8 +350,8 @@ function AnswersList({ questions }) {
     <div className="space-y-6">
       {sortedTN.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
-          <div className="text-sm space-y-2">
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
+          <div className="text-base space-y-2">
             {sortedTN.map((q, idx) => (
               <div key={q.question_code} className="border-b border-gray-100 pb-2">
                 <div className="flex items-start gap-2 mb-1">
@@ -184,7 +359,7 @@ function AnswersList({ questions }) {
                   <span className="text-red-600 font-medium">{q.correct_answer}</span>
                 </div>
                 {q.explanation && (
-                  <div className="text-xs text-gray-600 pl-16">{q.explanation}</div>
+                  <div className="text-sm text-gray-600 pl-16">{q.explanation}</div>
                 )}
               </div>
             ))}
@@ -194,14 +369,14 @@ function AnswersList({ questions }) {
 
       {sortedDS.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
-          <div className="text-sm space-y-3">
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
+          <div className="text-base space-y-3">
             {sortedDS.map((q, idx) => (
               <div key={q.question_code} className="border-b border-gray-100 pb-3">
                 <div className="font-medium mb-2">Câu {idx + 1}:</div>
                 <div className="pl-4 space-y-1">
                   {Object.entries(q.statements || {}).map(([key, stmt]) => (
-                    <div key={key} className="text-xs">
+                    <div key={key} className="text-sm">
                       <span className="font-medium">{key}.</span>{' '}
                       <span className="text-red-600">{stmt.correct_answer ? 'Đúng' : 'Sai'}</span>
                       {q.explanation?.[key] && (

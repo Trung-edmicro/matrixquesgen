@@ -3,7 +3,6 @@ import AppLayout from './components/layout/AppLayout'
 import GenerateExamPage from './pages/GenerateExamPage'
 import ManageExamsPage from './pages/ManageExamsPage'
 import MatrixLibraryPage from './pages/MatrixLibraryPage'
-import TestPreview from './components/generate/TestPreview'
 
 function App() {
   return (
@@ -14,7 +13,6 @@ function App() {
           <Route path="/generate" element={<GenerateExamPage />} />
           <Route path="/manage" element={<ManageExamsPage />} />
           <Route path="/library" element={<MatrixLibraryPage />} />
-          <Route path="/test-preview" element={<TestPreview />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

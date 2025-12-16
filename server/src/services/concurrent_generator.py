@@ -20,7 +20,7 @@ class TaskResult:
 class ConcurrentGenerator:
     """Class quản lý việc sinh câu hỏi song song với threading"""
     
-    def __init__(self, max_workers: int = 5, min_interval: float = 0.2):
+    def __init__(self, max_workers: int = 10, min_interval: float = 0.3):
         """
         Khởi tạo Concurrent Generator
         

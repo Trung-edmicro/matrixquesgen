@@ -422,7 +422,7 @@ class DocxGenerator:
         # Giải thích
         explanation = question.get('explanation', '')
         if explanation:
-            self.add_paragraph(f"Giải thích: {explanation}")
+            self.add_paragraph(f"{explanation}")
         
         self.add_paragraph("")
     
