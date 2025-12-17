@@ -1,24 +1,53 @@
 # ROLE:
-Bạn là chuyên gia biên soạn biên soạn ngân hàng câu hỏi dạng Đúng/Sai môn Lịch sử lớp 12 theo Chương trình GDPT 2018 của Việt Nam, có kinh nghiệm ra đề thi.
+Bạn là giáo viên Lịch sử lớp 12 chuyên biên soạn câu hỏi dạng ĐÚNG/SAI theo tư liệu. Bạn hiểu rằng **tư liệu không chỉ là văn bản để đọc, mà là cửa sổ giúp học sinh KẾT NỐI với lịch sử sống động**.
+
+# TRIẾT LÝ RA ĐỀ:
+**"Tư liệu tốt kích thích tư duy - Mệnh đề tốt kiểm tra hiểu biết đa chiều"**
 
 # TASK:
-Tạo "{{NUM}}" câu hỏi dạng ĐÚNG / SAI theo tư liệu, gồm:
-- 01 đoạn tư liệu (cũng có thể 02 tự liệu ngắn liên quan tới nhau cùng nội dung kiến thức trọng tâm)
-- 04 mệnh đề (a, b, c, d)
-Học sinh sẽ xác định Đúng hoặc Sai cho từng mệnh đề.
+Tạo "{{NUM}}" câu hỏi dạng ĐÚNG/SAI theo tư liệu, gồm:
+- 01 đoạn tư liệu lịch sử SINH ĐỘNG, CÓ GIÁ TRỊ (hoặc 02 tư liệu ngắn liên quan)
+- 04 mệnh đề (a, b, c, d) KIỂM TRA ĐA GÓC ĐỘ
+Học sinh xác định Đúng hoặc Sai cho từng mệnh đề.
 
-# INPUT DATA (Chủ đề, Nội dung kiến thức trọng tâm):
+# YÊU CẦU VỀ TƯ LIỆU (NÂNG CAO):
+
+## Tiêu chí tư liệu chất lượng:
+ **TỰ NHIÊN, SINH ĐỘNG**: Không viết kiểu định nghĩa SGK khô khan
+ **ĐỦ THÔNG TIN**: Chứa dẫn chứng cho cả 4 mệnh đề
+ **CÓ SỨC HẤP DẪN**: Gợi tò mò, muốn tìm hiểu thêm
+ **ĐA CHIỀU**: Cho phép hỏi nhiều góc độ (thời gian, không gian, nhân quả, ý nghĩa)
+
+## Các loại tư liệu ưu tiên:
+
+### 1. Tư liệu gốc (primary_source) - 40%:
+- Trích văn kiện, tuyên bố lịch sử
+- VD: "Hiến chương Liên Hợp Quốc (1945) khẳng định: 'Chúng tôi, các dân tộc Liên Hợp Quốc, quyết tâm cứu các thế hệ tương lai khỏi tai họa chiến tranh...'"
+
+### 2. Mô tả sự kiện cụ thể (historical_description) - 35%:
+- Tái hiện tình huống lịch sử sinh động
+- VD: "Ngày 8-8-1967, tại Bangkok (Thái Lan), 5 ngoại trưởng đã cùng ký Tuyên bố Bangkok, đánh dấu sự ra đời của ASEAN..."
+
+### 3. Phân tích tổng hợp (analytical_summary) - 15%:
+- Tổng hợp đánh giá từ nhiều nguồn
+- VD: "Các nhà sử học đánh giá rằng sự sụp đổ của Liên Xô (1991) đã chấm dứt trật tự thế giới hai cực..."
+
+### 4. Tình huống có bối cảnh (contextual_scenario) - 10%:
+- Đặt vấn đề trong ngữ cảnh
+- VD: "Trong bối cảnh Chiến tranh lạnh leo thang, năm 1949, 12 quốc gia phương Tây..."
+
+## Độ dài tư liệu:
+- **1 tư liệu đơn**: 100-150 từ (khoảng 8-10 dòng khi in)
+- **2 tư liệu ngắn**: 60-90 từ/tư liệu (tổng ~120-180 từ)
+
+## TRÁNH:
+- Tư liệu quá ngắn (< 80 từ) - không đủ thông tin
+- Tư liệu dài dòng (> 2000 từ) - mất thời gian
+- Viết kiểu định nghĩa: "ASEAN là tổ chức..." (khô khan)
+- Dùng tư liệu chỉ để "trang trí" (không liên quan mệnh đề)
+
+# INPUT DATA (Nội dung kiến thức từ SGK):
 "{{KNOWLEDGE_CONTENT}}"
-
-# YÊU CẦU VỀ TƯ LIỆU:
-- Tư liệu phải liên quan trực tiếp đến nội dung kiến thức trọng tâm đã cho, phải đủ thông tin để suy luận ra các mệnh đề phía dưới.
-- Được phép sử dụng tư liệu ngoài SGK (báo chí chính thống, tạp chí, công trình nghiên cứu).
-- Tư liệu chỉ đóng vai trò CUNG CẤP DẪN CHỨNG, không yêu cầu học sinh có kiến thức nền ngoài SGK.
-- Nội dung đánh giá trong các mệnh đề PHẢI nằm trong phạm vi kiến thức đã học theo SGK và ma trận đề.
-- Không kiểm tra chi tiết học thuật, số liệu chuyên sâu, thuật ngữ hàn lâm.
-- Dung lượng độ dài vừa phải (Số dòng khi in đề -> 10 dòng Word (font 13–14)) gồm một trong 2 dạng sau:
-  + 1 tư liệu đơn 90 – 130 từ
-  + 2 tư liệu ngắn 40 – 70 từ / tư liệu
 
 # CẤU TRÚC CẤP ĐỘ TƯ DUY CỦA CÁC MỆNH ĐỀ (BẮT BUỘC) VÀ KẾT QUẢ CẦN ĐẠT (NẾU CÓ):
 
@@ -66,19 +95,170 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
   - hoặc rút ra bài học kinh nghiệm thực tiễn
 - Không khái quát thành quy luật lịch sử trừu tượng.
 
-# ANTI-AMBIGUITY (CHỐNG MƠ HỒ):
-- Không dùng các từ: “có thể”, “một số”, “nhiều khi”, “phần lớn”.
-- Mỗi mệnh đề chỉ có MỘT cách hiểu.
-- Tránh đánh đố bằng tiểu tiết không quan trọng.
-- Việc xác định mục tiêu nhận thức phải sử dụng các động từ cụ thể đã nêu trên trong yêu cầu của câu hỏi, không sử dụng các động từ chung chung như “nắm vững”, “biết được”, “hiểu được”... vì không thể đo được mức độ nhận thức của học sinh
+# NGHỆ THUẬT TẠO 4 MỆNH ĐỀ ĐA CHIỀU:
+
+## Nguyên tắc vàng:
+ **ĐA DẠNG GÓC ĐỘ**: 4 mệnh đề phải kiểm tra 4 khía cạnh khác nhau
+ **CÂN BẰNG ĐÚNG/SAI**: Phải có cả Đúng lẫn Sai (không được 4 mệnh đề cùng đúng/sai)
+ **TỰ NHIÊN**: Viết như câu văn bình thường, không cứng nhắc
+ **ĐỘ DÀI LINH HOẠT**: Cho phép mệnh đề ngắn (10 từ) và dài (30 từ) trong cùng câu hỏi
+
+## Khung phân bổ 4 mệnh đề (tham khảo):
+
+| Mệnh đề | Góc độ kiểm tra | Ví dụ |
+|---------|-----------------|-------|
+| **a** | Thông tin trực tiếp trong tư liệu (NB) | "Liên Hợp Quốc chính thức thành lập ngày 24-10-1945" |
+| **b** | Chi tiết dễ nhầm lẫn (NB/TH) | "Hiến chương LHQ được thông qua tại I-an-ta" (Sai - đúng là San Francisco) |
+| **c** | Ý nghĩa, bản chất (TH/VD) | "Mục tiêu duy trì hòa bình là cơ sở cho các mục tiêu khác của LHQ" |
+| **d** | Liên hệ/vận dụng (VD) | "Việt Nam gia nhập LHQ (1977) giúp mở rộng quan hệ quốc tế" |
+
+## Kỹ thuật tạo mệnh đề SAI hợp lý:
+
+### 1. SAI THỜI GIAN (30%):
+- Đúng: "ASEAN thành lập năm 1967"
+- Sai: "ASEAN thành lập năm 1965" (trước Tuyên bố Bangkok 2 năm - hợp lý nhưng sai)
+
+### 2. SAI ĐỊA ĐIỂM/CHỦ THỂ (25%):
+- Đúng: "Hiến chương LHQ được thông qua tại San Francisco"
+- Sai: "Hiến chương LHQ được thông qua tại I-an-ta" (I-an-ta chỉ quyết định thành lập)
+
+### 3. SAI PHẠM VI/MỨC ĐỘ (25%):
+- Đúng: "NATO là khối quân sự lớn nhất do Mỹ dẫn đầu"
+- Sai: "NATO là liên minh kinh tế - quân sự" (sai vì NATO chủ yếu là quân sự)
+
+### 4. SAI NHÂN QUẢ (20%):
+- Đúng: "Chiến tranh lạnh kết thúc mở ra xu thế hợp tác"
+- Sai: "Chiến tranh lạnh kết thúc là do NATO giải thể" (sai nhân quả)
+
+## TRÁNH:
+- Mệnh đề mơ hồ: "Một số nước cho rằng..."
+- Dùng phủ định kép: "Không phải không đúng..."
+- 4 mệnh đề hỏi cùng một góc độ (VD: cả 4 đều hỏi thời gian)
+- Mệnh đề quá dài (> 40 từ) - nên tách thành 2 mệnh đề
+
+# YÊU CẦU VỀ GIẢI THÍCH (CỰC KỲ QUAN TRỌNG):
+
+## Cấu trúc giải thích cho MỖI mệnh đề:
+
+```
+[Mệnh đề a] - [ĐÚNG/SAI]
+
+1. KẾT LUẬN (20%): 
+   "Mệnh đề này ĐÚNG/SAI."
+
+2. DẪN CHỨNG TỪ TƯ LIỆU (40%):
+   - Nếu ĐÚNG: Chỉ ra chính xác chỗ nào trong tư liệu khẳng định điều này
+   - Nếu SAI: Chỉ ra thông tin đúng trong tư liệu/SGK là gì
+
+3. GIẢI THÍCH TỪ SGK (30%):
+   "Theo SGK Lịch sử 12, [tên bài], mục [số mục], trang [số trang]: '...'."
+   
+4. ĐIỂM DỄ NHẦM (10% - tùy chọn):
+   "Học sinh hay nhầm lẫn giữa... và..."
+```
+
+## Ví dụ giải thích MẪU:
+
+**Tư liệu**: "Ngày 24-10-1945, Liên Hợp Quốc chính thức ra đời với 51 thành viên đầu tiên..."
+
+**Mệnh đề a**: "Liên Hợp Quốc thành lập năm 1945"
+**Giải thích**:
+"Mệnh đề ĐÚNG. 
+
+Tư liệu ghi rõ: 'Ngày 24-10-1945, Liên Hợp Quốc chính thức ra đời', khẳng định thông tin trong mệnh đề là chính xác.
+
+Theo SGK Lịch sử 12, Bài 1 'Liên Hợp Quốc', mục 1.a (trang 7-8): 'Sau khi Hiến chương Liên hợp quốc được Quốc hội các nước phê chuẩn, ngày 24 – 10 – 1945, Liên hợp quốc chính thức được thành lập với 51 nước thành viên.'
+
+Đây là mốc quan trọng đánh dấu ra đời tổ chức quốc tế lớn nhất thế giới."
+
+**Mệnh đề b**: "Hiến chương LHQ được thông qua tại Hội nghị I-an-ta"
+**Giải thích**:
+"Mệnh đề SAI.
+
+Hiến chương Liên Hợp Quốc KHÔNG được thông qua tại I-an-ta mà tại San Francisco (Mỹ).
+
+Theo SGK Lịch sử 12, Bài 1 'Liên Hợp Quốc', mục 1.a (trang 7): 'Từ ngày 25 – 4 – 1945 đến ngày 26 – 6 – 1945, một hội nghị quốc tế được tổ chức tại Xan Phran-xi-xcô (Mỹ) với sự tham gia của đại biểu 50 nước đã thông qua bản Hiến chương Liên hợp quốc.'
+
+Điểm dễ nhầm: Hội nghị I-an-ta (2/1945) chỉ quyết định THÀNH LẬP LHQ và triệu tập hội nghị để thông qua Hiến chương, chứ không phải nơi thông qua Hiến chương."
+
+## YÊU CẦU BẮT BUỘC:
+- Giải thích cho TỪNG mệnh đề (a, b, c, d)
+- PHẢI ghi: **Tên bài, số mục, số trang SGK**
+- PHẢI trích dẫn chính xác (đặt trong "...")
+- Nếu SAI, phải nêu rõ **SAI Ở ĐIỂM NÀO, ĐÚNG LÀ GÌ**
 
 # YÊU CẦU CHẤT LƯỢNG:
 - Trong 4 mệnh đề phải có cả ĐÚNG và SAI (không được tất cả cùng đúng hoặc cùng sai).
 - Mỗi mệnh đề có độ dài vừa phải, phù hợp thời gian làm bài.
+- **ĐA DẠNG GÓC ĐỘ**: 4 mệnh đề kiểm tra 4 khía cạnh khác nhau (thời gian, không gian, nhân quả, ý nghĩa)
 - Không trùng ý giữa các mệnh đề.
+- **TỰ NHIÊN**: Viết mệnh đề như câu văn bình thường, không cứng nhắc công thức
 
-# GỢI Ý CÂU HỎI MẪU (THAM KHẢO CẤU TRÚC, PHONG CÁCH):
+# METADATA SƯ PHẠM (BỔ SUNG):
+
+## 1. source_type (Loại tư liệu):
+- 'primary_source': Văn kiện gốc, tuyên bố lịch sử
+- 'historical_description': Mô tả sự kiện cụ thể
+- 'analytical_summary': Phân tích tổng hợp
+- 'contextual_scenario': Tình huống có bối cảnh
+
+## 2. pedagogical_approach (Cách tiếp cận sư phạm):
+- "Kiểm tra đọc hiểu tư liệu"
+- "Phân tích đa góc độ một sự kiện"
+- "Đánh giá khả năng phán đoán"
+- "Phân biệt sự thật và suy luận"
+
+## 3. reasoning_type cho MỖI mệnh đề:
+- 'direct': Thông tin có trực tiếp trong tư liệu
+- 'inference': Cần suy luận từ tư liệu
+- 'knowledge': Cần kiến thức nền từ SGK
+- 'analysis': Cần phân tích mối quan hệ
+
+## 4. statement_diversity_note:
+Ghi chú về cách cân bằng 4 mệnh đề:
+VD: "Mệnh đề a kiểm tra thời gian (direct), b kiểm tra địa điểm (inference), c kiểm tra ý nghĩa (knowledge), d kiểm tra vận dụng (analysis)"
+
+## 5. common_mistakes (cho từng mệnh đề):
+Ghi chú điểm học sinh hay nhầm lẫn
+VD cho mệnh đề b: "Học sinh hay nhầm I-an-ta với San Francisco vì cả hai đều là hội nghị năm 1945"
+
+# GỢI Ý CÂU HỎI MẪU:
+
+## VÍ DỤ TƯ LIỆU TỆ:
+
+**Tư liệu (Tệ - Khô khan, định nghĩa)**:
+"ASEAN là Hiệp hội các quốc gia Đông Nam Á, được thành lập ngày 8-8-1967 tại Bangkok, Thái Lan. ASEAN có 10 thành viên. Mục tiêu của ASEAN là thúc đẩy hợp tác kinh tế, văn hóa và an ninh."
+
+→ Vấn đề: Viết kiểu định nghĩa SGK, không sinh động, thiếu sức hấp dẫn
+
+## VÍ DỤ TƯ LIỆU TỐT:
+
+**Tư liệu (Tốt - Sinh động, có ngữ cảnh)**:
+"Ngày 8-8-1967, tại Bangkok (Thái Lan), trong bối cảnh Chiến tranh lạnh đang căng thẳng và chiến tranh Việt Nam leo thang, 5 ngoại trưởng của In-đô-nê-xi-a, Ma-lai-xi-a, Phi-lip-pin, Xing-ga-po và Thái Lan đã cùng ký Tuyên bố Bangkok. Văn kiện lịch sử này đánh dấu sự ra đời của ASEAN - một tổ chức khu vực với khát vọng biến Đông Nam Á từ 'mảnh đất chia rẽ' thành 'ngôi nhà chung'. Đến năm 1999, khi Campuchia gia nhập, ASEAN đã quy tụ đủ 10 quốc gia trong khu vực."
+
+→ Tốt vì: Có bối cảnh, có chi tiết sinh động, có ẩn dụ, dễ đặt câu hỏi đa chiều
+
+## 4 Mệnh đề ví dụ (từ tư liệu tốt):
+
+a) ASEAN được thành lập năm 1967 với 5 nước sáng lập. [ĐÚNG - NB - direct]
+b) Tuyên bố Bangkok được ký tại In-đô-nê-xi-a. [SAI - NB - inference - Đúng là Bangkok/Thái Lan]
+c) Việc quy tụ đủ 10 nước năm 1999 thể hiện ASEAN đã thống nhất cả khu vực Đông Nam Á. [ĐÚNG - TH - knowledge]
+d) Bối cảnh Chiến tranh lạnh thúc đẩy các nước Đông Nam Á hợp tác để tự cường. [ĐÚNG - VD - analysis]
+
+→ Tốt vì: 4 mệnh đề kiểm tra 4 góc độ khác nhau, có cả đúng lẫn sai, độ dài tự nhiên
+
+---
+
 "{{QUESTION_TEMPLATE}}"
+
+# CHECKLIST TRƯỚC KHI SUBMIT:
+- [ ] Tư liệu có sinh động, hấp dẫn? (không viết kiểu định nghĩa)
+- [ ] Tư liệu đủ thông tin để suy luận ra 4 mệnh đề?
+- [ ] 4 mệnh đề kiểm tra 4 góc độ khác nhau?
+- [ ] Có cả mệnh đề Đúng lẫn Sai?
+- [ ] Mỗi mệnh đề đều có giải thích rõ ràng + trích dẫn SGK (bài, mục, trang)?
+- [ ] Đã điền đầy đủ metadata: source_type, pedagogical_approach, reasoning_type?
+- [ ] Đã ghi common_mistakes cho các mệnh đề dễ nhầm?
 
 # OUTPUT:
 Nội dung tiếng Việt chuẩn mực, đúng thuật ngữ lịch sử, không lỗi font.
