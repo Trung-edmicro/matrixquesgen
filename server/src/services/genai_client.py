@@ -6,6 +6,7 @@ import json
 from typing import Dict, List, Optional, Any
 from google import genai
 from google.genai import types
+from google.oauth2 import service_account
 
 
 class GenAIClient:
@@ -37,19 +38,32 @@ class GenAIClient:
     def _initialize(self):
         """Khởi tạo kết nối với GenAI"""
         try:
-            # Set credentials path nếu có
+            # Load credentials từ file nếu có
+            credentials = None
             if self.credentials_path and os.path.exists(self.credentials_path):
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = self.credentials_path
+                # Tạo credentials object từ service account file
+                credentials = service_account.Credentials.from_service_account_file(
+                    self.credentials_path,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
             
             # Tạo client
             if self.api_key:
-                # Express mode
+                # Express mode với API key
                 self.client = genai.Client(
                     vertexai=True,
                     api_key=self.api_key
                 )
+            elif credentials:
+                # Standard mode với explicit credentials
+                self.client = genai.Client(
+                    vertexai=True,
+                    project=self.project_id,
+                    location=self.location,
+                    credentials=credentials
+                )
             else:
-                # Standard mode
+                # Fallback: dùng Application Default Credentials
                 self.client = genai.Client(
                     vertexai=True,
                     project=self.project_id,
@@ -77,13 +91,15 @@ class GenAIClient:
     
     def generate_content(self, 
                         prompt: str,
-                        system_instruction: Optional[str] = None) -> str:
+                        system_instruction: Optional[str] = None,
+                        enable_search: bool = False) -> str:
         """
         Tạo nội dung từ prompt
         
         Args:
             prompt (str): Prompt đầu vào
             system_instruction (str, optional): Hướng dẫn hệ thống
+            enable_search (bool): Bật Google Search (mặc định: False)
             
         Returns:
             str: Nội dung được tạo
@@ -92,12 +108,18 @@ class GenAIClient:
             if self.client is None:
                 self._initialize()
             
+            # Tạo tools nếu enable_search
+            tools = None
+            if enable_search:
+                tools = [types.Tool(google_search=types.GoogleSearch())]
+            
             # Tạo config
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
                 max_output_tokens=8192,
-                system_instruction=system_instruction
+                system_instruction=system_instruction,
+                tools=tools if tools else None
             )
             
             # Generate content
@@ -116,7 +138,8 @@ class GenAIClient:
     def generate_content_with_schema(self, 
                                     prompt: str,
                                     response_schema: Dict,
-                                    system_instruction: Optional[str] = None) -> str:
+                                    system_instruction: Optional[str] = None,
+                                    enable_search: bool = False) -> str:
         """
         Tạo nội dung với JSON schema để đảm bảo output đúng format
         
@@ -124,6 +147,7 @@ class GenAIClient:
             prompt (str): Prompt đầu vào
             response_schema (Dict): JSON schema cho response
             system_instruction (str, optional): Hướng dẫn hệ thống
+            enable_search (bool): Bật Google Search (mặc định: False)
             
         Returns:
             str: Nội dung JSON được tạo
@@ -136,6 +160,12 @@ class GenAIClient:
             json_instruction = "\n\n**QUAN TRỌNG**: Trả về kết quả dưới dạng JSON thuần (raw JSON), KHÔNG bọc trong markdown code block (```json), KHÔNG thêm bất kỳ text nào khác ngoài JSON object."
             enhanced_prompt = prompt + json_instruction
             
+            # Tạo tools nếu enable_search
+            tools = None
+            if enable_search:
+                tools = [types.Tool(google_search=types.GoogleSearch())]
+                print("🔍 Google Search enabled cho request này")
+            
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
                 temperature=1,
@@ -143,7 +173,8 @@ class GenAIClient:
                 max_output_tokens=8192,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
-                response_schema=response_schema
+                response_schema=response_schema,
+                tools=tools if tools else None
             )
             
             # Generate content
@@ -153,7 +184,25 @@ class GenAIClient:
                 config=config
             )
             
-            return response.text
+            # Extract text from response
+            text = response.text if hasattr(response, 'text') else ""
+            
+            # Clean markdown code fences if present (Google Search returns markdown-wrapped JSON)
+            if text.strip().startswith("```"):
+                # Remove ```json or ``` prefix
+                text = text.strip()
+                if text.startswith("```json"):
+                    text = text[7:]  # Remove ```json
+                elif text.startswith("```"):
+                    text = text[3:]  # Remove ```
+                
+                # Remove ``` suffix
+                if text.endswith("```"):
+                    text = text[:-3]
+                
+                text = text.strip()
+            
+            return text
         
         except Exception as e:
             print(f"✗ Lỗi khi tạo nội dung với schema: {str(e)}")

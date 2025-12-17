@@ -1,0 +1,243 @@
+"""
+Trả về JSON schema cho câu hỏi Đúng/Sai
+
+Returns:
+    Dict: JSON schema cho câu hỏi Đúng/Sai với 4 mệnh đề - Phong phú và tự nhiên hơn
+"""
+return {
+    "type": "object",
+    "properties": {
+        # === PHẦN TƯ LIỆU ===
+        "source_text": {
+            "type": "string",
+            "description": """Đoạn tư liệu lịch sử - ƯU TIÊN LẤY TỪ NGUỒN HỌC THUẬT NGOÀI SGK:
+            
+            **KHUYẾN KHÍCH MẠNH**:
+            - Tư liệu từ tạp chí khoa học (Lịch sử, Lí luận Chính trị, Nghiên cứu Quốc tế...)
+            - Trích từ sách chuyên khảo của các nhà sử học uy tín
+            - Bài phân tích chuyên sâu từ báo chí uy tín
+            - Văn kiện/tuyên bố chính thức (UN, ASEAN, Chính phủ...)
+            
+            **YÊU CẦU**:
+            - Phải phù hợp với nội dung kiến thức SGK (không sai lệch)
+            - Đủ thông tin để đặt 4 mệnh đề đa chiều
+            - Tự nhiên, có phân tích chuyên sâu hơn SGK
+            - Có góc nhìn mới, cập nhật
+            
+            **CHỈ DÙNG TƯ LIỆU TỪ SGK KHI**:
+            - Không tìm được nguồn ngoài phù hợp
+            - Hoặc khi kết hợp với nguồn ngoài để làm phong phú"""
+        },
+        
+        "source_citation": {
+            "type": "string",
+            "description": """TRÍCH DẪN NGUỒN - BẮT BUỘC PHẢI ĐIỀN KHI DÙNG TƯ LIỆU NGOÀI SGK:
+            
+            **QUY TẮC BẮT BUỘC**:
+            - Nếu source_origin = 'academic_journal', 'scholarly_book', 'official_document', 'reputable_media', hoặc 'combined' 
+                → PHẢI điền trường này với format chuẩn
+            - Chỉ được để null/trống khi source_origin = 'textbook' (tổng hợp từ SGK)
+            
+            **Định dạng chuẩn**:
+            (Tác giả, "Tên bài/sách", Tên tạp chí/NXB số X (tháng/năm), tr. Y)
+            
+            **Ví dụ ĐÚNG**:
+            - Tạp chí: (Nguyễn Viết Thảo, "Bối cảnh hình thành và đặc điểm nổi bật của cục diện thế giới hiện nay", Tạp chí Lí luận Chính trị số 541 (3/2023), tr. 151)
+            - Sách: (Phan Huy Lê, "Lịch sử Việt Nam", NXB Giáo dục, 2020, tr. 234)
+            - Văn kiện: (Tuyên bố ASEAN, Bangkok, 08/08/1967, ASEAN Secretariat)
+            - Web chính thống: (ASEAN, "Charter", asean.org, truy cập 2024)
+            
+            **Ví dụ SAI (không chấp nhận)**:
+            - "Wikipedia"
+            - "Nguồn internet"  
+            - "SGK Lịch sử 12" (nếu dùng SGK thì để null, đừng điền)
+            
+            **QUAN TRỌNG**: Việc ghi nguồn chuẩn xác thể hiện tính học thuật và giúp kiểm chứng chất lượng tư liệu!"""
+        },
+        
+        "source_origin": {
+            "type": "string",
+            "description": """NGUỒN GỐC TƯ LIỆU (Bắt buộc phải điền - Quyết định có cần source_citation hay không):
+            
+            **Ưu tiên từ CAO xuống THẤP**:
+            1. 'academic_journal': Tạp chí khoa học (Ưu tiên cao nhất - 40%)
+                → Ví dụ: Tạp chí Lí luận Chính trị, Nghiên cứu Lịch sử, Nghiên cứu Quốc tế...
+                → BẮT BUỘC điền source_citation
+            
+            2. 'scholarly_book': Sách chuyên khảo (30%)
+                → Ví dụ: Sách của các nhà sử học, sách nghiên cứu chuyên sâu
+                → BẮT BUỘC điền source_citation
+            
+            3. 'official_document': Văn kiện chính thức (20%)
+                → Ví dụ: Hiến chương UN, Tuyên bố ASEAN, Nghị quyết Chính phủ...
+                → BẮT BUỘC điền source_citation
+            
+            4. 'reputable_media': Báo chí uy tín (10%)
+                → Ví dụ: Nhân Dân, VnExpress, BBC (chỉ bài phân tích chuyên sâu)
+                → BẮT BUỘC điền source_citation
+            
+            5. 'combined': Tổng hợp từ nhiều nguồn (cả SGK + nguồn ngoài)
+                → BẮT BUỘC điền source_citation nếu có nguồn ngoài
+            
+            6. 'textbook': Chỉ từ SGK (Chỉ dùng khi KHÔNG tìm được nguồn ngoài)
+                → KHÔNG cần điền source_citation (để null)
+            
+            **LƯU Ý**: Luôn ưu tiên nguồn học thuật (1-2) hơn nguồn khác!"""
+        },
+        
+        "source_type": {
+            "type": "string",
+            "description": """Loại tư liệu (giúp AI hiểu cách xử lý):
+            - 'primary_source': Tư liệu gốc (văn kiện, thư, hồi ký, tuyên bố chính thức...)
+            - 'historical_description': Mô tả sự kiện lịch sử (tái hiện sinh động)
+            - 'analytical_summary': Phân tích tổng hợp (từ các nhà nghiên cứu)
+            - 'contextual_scenario': Tình huống có bối cảnh (đặt vấn đề trong ngữ cảnh)"""
+        },
+        
+        "pedagogical_approach": {
+            "type": "string", 
+            "description": """Cách tiếp cận sư phạm cho bộ câu hỏi Đ/S:
+            - Kiểm tra đọc hiểu tư liệu học thuật
+            - Phân tích đa góc độ một sự kiện
+            - Đánh giá khả năng phán đoán dựa trên tư liệu chuyên sâu
+            - Phân biệt sự thật và suy luận
+            - Rèn kỹ năng làm việc với nguồn học thuật"""
+        },
+        
+        "search_evidence": {
+            "type": "string",
+            "description": """GHI CHÚ QUÁ TRÌNH TÌM KIẾM (Khuyến khích điền để minh bạch):
+            
+            **Nên ghi**:
+            - Query đã search: "Ví dụ: 'ASEAN thành lập 1967 Bangkok tuyên bố nguyên văn'"
+            - Tại sao chọn tư liệu này: "Nguồn từ tạp chí khoa học uy tín, phân tích sâu hơn SGK"
+            - So sánh với INPUT DATA: "Phù hợp với nội dung SGK về thành lập ASEAN, bổ sung góc nhìn mới"
+            - Nguồn khác đã xem xét: "Đã xem Wikipedia nhưng không đủ uy tín"
+            
+            **Lợi ích**:
+            - Giúp kiểm chứng chất lượng search
+            - Minh bạch quy trình tạo câu hỏi
+            - Dễ debug nếu có vấn đề"""
+        },
+        
+        # === PHẦN 4 MỆNH ĐỀ ===
+        "statements": {
+            "type": "object",
+            "properties": {
+                "a": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": """Mệnh đề a - Viết tự nhiên như phát biểu thông thường:
+                            - Không cần bắt đầu bằng công thức giống nhau
+                            - Có thể ngắn hoặc dài tùy nội dung
+                            - Đa dạng cách diễn đạt"""
+                        },
+                        "level": {
+                            "type": "string", 
+                            "enum": ["NB", "TH", "VD", "VDC"]
+                        },
+                        "correct_answer": {"type": "boolean"},
+                        "reasoning_type": {
+                            "type": "string",
+                            "description": """Loại suy luận cần để trả lời:
+                            - 'direct': Có trực tiếp trong tư liệu
+                            - 'inference': Cần suy luận từ tư liệu
+                            - 'knowledge': Cần kiến thức nền
+                            - 'analysis': Cần phân tích mối quan hệ"""
+                        }
+                    },
+                    "required": ["text", "level", "correct_answer"]
+                },
+                "b": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
+                        "correct_answer": {"type": "boolean"},
+                        "reasoning_type": {"type": "string"}
+                    },
+                    "required": ["text", "level", "correct_answer"]
+                },
+                "c": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
+                        "correct_answer": {"type": "boolean"},
+                        "reasoning_type": {"type": "string"}
+                    },
+                    "required": ["text", "level", "correct_answer"]
+                },
+                "d": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
+                        "correct_answer": {"type": "boolean"},
+                        "reasoning_type": {"type": "string"}
+                    },
+                    "required": ["text", "level", "correct_answer"]
+                }
+            },
+            "required": ["a", "b", "c", "d"]
+        },
+        
+        "statement_diversity_note": {
+            "type": "string",
+            "description": """(Tùy chọn) Ghi chú về tính đa dạng của 4 mệnh đề:
+            - Đã kiểm tra các góc độ nào (thời gian, không gian, nhân quả, ý nghĩa...)
+            - Tại sao chọn 4 mệnh đề này
+            - Cách cân bằng độ khó"""
+        },
+        
+        # === PHẦN GIẢI THÍCH ===
+        "explanation": {
+            "type": "object",
+            "properties": {
+                "a": {
+                    "type": "string",
+                    "description": """Giải thích mệnh đề a - Như giáo viên chấm bài:
+                    - Tại sao đúng/sai
+                    - Dẫn chứng từ tư liệu hoặc kiến thức"""
+                },
+                "b": {"type": "string"},
+                "c": {"type": "string"},
+                "d": {"type": "string"}
+            },
+            "required": ["a", "b", "c", "d"]
+        },
+        
+        # === METADATA BỔ SUNG ===
+        "common_mistakes": {
+            "type": "object",
+            "description": """(Tùy chọn) Sai lầm thường gặp cho từng mệnh đề:
+            - Học sinh hay nhầm lẫn điểm nào
+            - Tại sao dễ nhầm""",
+            "properties": {
+                "a": {"type": "string"},
+                "b": {"type": "string"},
+                "c": {"type": "string"},
+                "d": {"type": "string"}
+            }
+        },
+        
+        "source_quality_note": {
+            "type": "string",
+            "description": """ĐÁNH GIÁ CHẤT LƯỢNG TƯ LIỆU (Nên điền khi dùng nguồn ngoài):
+            
+            **Nên đánh giá**:
+            - Giá trị học thuật: "Bài phân tích từ tạp chí uy tín, có tham khảo nhiều nguồn"
+            - So với SGK: "Bổ sung góc nhìn phân tích chuyên sâu hơn, cập nhật hơn"
+            - Độ tin cậy: "Tác giả là chuyên gia về lịch sử thế giới hiện đại"
+            - Phù hợp học sinh: "Ngôn ngữ học thuật nhưng dễ hiểu, phù hợp lớp 12"
+            
+            **Mục đích**:
+            - Giúp đánh giá xem tư liệu có đủ chất lượng không
+            - Đảm bảo tư liệu phù hợp với trình độ học sinh
+            - Xác nhận tư liệu có giá trị sư phạm cao"""
+        }
+        },
+        "required": ["source_text", "statements", "explanation"]
+    }

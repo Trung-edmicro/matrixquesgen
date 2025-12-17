@@ -18,6 +18,7 @@ class QuestionSpec:
     question_codes: List[str]  # Danh sách mã câu (C1, C2, ...)
     learning_outcome: str  # Đặc tả ma trận (đã lọc theo cấp độ)
     row_index: int  # Vị trí hàng trong Excel
+    supplementary_materials: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
 
 
 @dataclass
@@ -28,6 +29,7 @@ class StatementSpec:
     cognitive_level: str  # Cấp độ (NB, TH, VD, VDC)
     learning_outcome: str  # Đặc tả cho mệnh đề này
     competency_level: Optional[int] = None  # Thành phần năng lực
+    supplementary_materials: str = ""  # Tài liệu bổ sung
 
 
 @dataclass
@@ -37,6 +39,7 @@ class TrueFalseQuestionSpec:
     lesson_name: str  # Tên chương - bài
     statements: List[StatementSpec]  # Danh sách 4 mệnh đề (a, b, c, d)
     question_type: str = "DS"  # Loại câu hỏi
+    supplementary_materials: str = ""  # Tài liệu bổ sung chung cho câu hỏi
 
 
 class MatrixParser:
@@ -62,6 +65,10 @@ class MatrixParser:
     COL_TLN_NB = 11  # Nhận biết
     COL_TLN_TH = 12  # Thông hiểu
     COL_TLN_VD = 13  # Vận dụng
+    
+    # Cột tài liệu bổ sung
+    COL_SUPPLEMENTARY_1 = 14  # Tài liệu bổ sung phần 1
+    COL_SUPPLEMENTARY_2 = 15  # Tài liệu bổ sung phần 2
     
     # Mapping cấp độ
     COGNITIVE_LEVEL_MAP = {
@@ -234,6 +241,26 @@ class MatrixParser:
             if pd.notna(row[self.COL_SPEC]):
                 self.current_spec = str(row[self.COL_SPEC]).strip()
             
+            supplementary_parts = []
+            
+            try:
+                if self.COL_SUPPLEMENTARY_1 < len(row) and pd.notna(row[self.COL_SUPPLEMENTARY_1]):
+                    content = str(row[self.COL_SUPPLEMENTARY_1]).strip()
+                    if content and content != 'nan':
+                        supplementary_parts.append(content)
+            except (IndexError, KeyError):
+                pass
+            
+            try:
+                if self.COL_SUPPLEMENTARY_2 < len(row) and pd.notna(row[self.COL_SUPPLEMENTARY_2]):
+                    content = str(row[self.COL_SUPPLEMENTARY_2]).strip()
+                    if content and content != 'nan':
+                        supplementary_parts.append(content)
+            except (IndexError, KeyError):
+                pass
+            
+            supplementary = "\n\n---\n\n".join(supplementary_parts) if supplementary_parts else ""
+            
             # Xử lý các cột câu hỏi
             for col_idx in cols_to_process:
                 num_questions, question_codes = self.parse_question_cell(row[col_idx])
@@ -256,7 +283,8 @@ class MatrixParser:
                         num_questions=num_questions,
                         question_codes=question_codes,
                         learning_outcome=learning_outcome,
-                        row_index=row_idx
+                        row_index=row_idx,
+                        supplementary_materials=supplementary
                     )
                     
                     question_specs.append(spec)
@@ -292,12 +320,14 @@ class MatrixParser:
                         label=label,
                         cognitive_level=spec.cognitive_level,
                         learning_outcome=spec.learning_outcome,
-                        competency_level=spec.competency_level
+                        competency_level=spec.competency_level,
+                        supplementary_materials=spec.supplementary_materials
                     )
                     
                     grouped[base_code].append({
                         'statement': statement,
-                        'lesson_name': spec.lesson_name
+                        'lesson_name': spec.lesson_name,
+                        'supplementary_materials': spec.supplementary_materials
                     })
         
         # Tạo TrueFalseQuestionSpec cho mỗi câu
@@ -311,6 +341,7 @@ class MatrixParser:
             
             statements = [item['statement'] for item in items]
             lesson_name = items[0]['lesson_name']  # Lấy lesson_name từ statement đầu tiên
+            supplementary_materials = items[0]['supplementary_materials']  # Lấy tài liệu bổ sung
             
             # Kiểm tra có đủ 4 mệnh đề không
             if len(statements) != 4:
@@ -324,7 +355,8 @@ class MatrixParser:
             tf_question = TrueFalseQuestionSpec(
                 question_code=question_code,
                 lesson_name=lesson_name,
-                statements=statements
+                statements=statements,
+                supplementary_materials=supplementary_materials
             )
             
             tf_questions.append(tf_question)

@@ -81,6 +81,17 @@ def generate_questions_task(
         tn_questions = [q for q in all_questions if q.question_type == "TN"]
         ds_questions = parser.group_true_false_questions()
         
+        # DEBUG: Kiểm tra supplementary_materials
+        print(f"\n🔍 DEBUG: Kiểm tra tài liệu bổ sung trong specs")
+        tn_with_materials = sum(1 for q in tn_questions if q.supplementary_materials)
+        ds_with_materials = sum(1 for q in ds_questions if q.supplementary_materials)
+        print(f"   TN: {tn_with_materials}/{len(tn_questions)} câu có tài liệu bổ sung")
+        print(f"   DS: {ds_with_materials}/{len(ds_questions)} câu có tài liệu bổ sung")
+        if tn_questions and tn_questions[0].supplementary_materials:
+            print(f"   Mẫu TN: {tn_questions[0].supplementary_materials[:80]}...")
+        if ds_questions and ds_questions[0].supplementary_materials:
+            print(f"   Mẫu DS: {ds_questions[0].supplementary_materials[:80]}...")
+        
         # Load template DOCX nếu có
         template_mapping = {}
         template_ds_mapping = {}

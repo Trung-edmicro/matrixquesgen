@@ -153,6 +153,27 @@ def get_multiple_choice_array_schema() -> Dict:
         "properties": {
             "questions": {
                 "type": "array",
+                "description": """YÊU CẦU ĐA DẠNG - TRÁNH LẶP:
+                
+                **BẮT BUỘC khi sinh nhiều câu hỏi**:
+                - Mỗi câu hỏi phải hỏi về GÓC ĐỘ KHÁC NHAU của cùng kiến thức
+                - KHÔNG được lặp lại nội dung câu hỏi (dù diễn đạt khác)
+                - KHÔNG được lặp lại đáp án giữa các câu
+                - KHÔNG được dùng cùng pattern/cấu trúc cho tất cả câu
+                
+                **Ví dụ ĐÚNG** (sinh 2 câu về ASEAN):
+                Câu 1: "Ngày 8-8-1967, tại Bangkok, sự kiện lịch sử nào đã diễn ra?" (hỏi về sự kiện)
+                Câu 2: "Mục tiêu chính của ASEAN khi thành lập là gì?" (hỏi về mục đích)
+                
+                **Ví dụ SAI** (lặp nội dung):
+                Câu 1: "ASEAN được thành lập năm nào?"
+                Câu 2: "Hiệp hội ASEAN ra đời vào thời gian nào?" (cùng hỏi về thời gian)
+                
+                **Chiến lược đa dạng hóa**:
+                - Câu 1: Thời gian/Địa điểm (When/Where)
+                - Câu 2: Nguyên nhân/Bối cảnh (Why)
+                - Câu 3: Kết quả/Tác động (What happened)
+                - Câu 4: Ý nghĩa/Đánh giá (Significance)""",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -269,30 +290,119 @@ def get_true_false_schema() -> Dict:
             # === PHẦN TƯ LIỆU ===
             "source_text": {
                 "type": "string",
-                "description": """Đoạn tư liệu lịch sử - Hãy chọn/tạo tư liệu có giá trị:
-                - Có thể là trích dẫn từ sử liệu gốc
-                - Có thể là mô tả tình huống lịch sử cụ thể
-                - Có thể là tổng hợp từ nhiều nguồn
+                "description": """Đoạn tư liệu lịch sử - ƯU TIÊN LẤY TỪ NGUỒN HỌC THUẬT NGOÀI SGK:
+                
+                **KHUYẾN KHÍCH MẠNH**:
+                - Tư liệu từ tạp chí khoa học (Lịch sử, Lí luận Chính trị, Nghiên cứu Quốc tế...)
+                - Trích từ sách chuyên khảo của các nhà sử học uy tín
+                - Bài phân tích chuyên sâu từ báo chí uy tín
+                - Văn kiện/tuyên bố chính thức (UN, ASEAN, Chính phủ...)
+                
+                **YÊU CẦU**:
+                - Phải phù hợp với nội dung kiến thức SGK (không sai lệch)
                 - Đủ thông tin để đặt 4 mệnh đề đa chiều
-                - Tự nhiên, không gò bó công thức"""
+                - Tự nhiên, có phân tích chuyên sâu hơn SGK
+                - Có góc nhìn mới, cập nhật
+                
+                **GHI NGUỒN Ở CUỐI (BẮT BUỘC nếu dùng nguồn ngoài)**:
+                - Nếu source_origin != 'textbook' → PHẢI thêm citation trong dấu () ở CUỐI đoạn tư liệu
+                - Định dạng: (Tác giả, \"Tên bài\", Tạp chí số X (tháng/năm), tr. Y)
+                - Ví dụ: \"...ASEAN đã quy tụ đủ 10 quốc gia.\\n(Nguyễn Viết Thảo, \"Bối cảnh hình thành...\", Tạp chí Lí luận Chính trị số 541 (3/2023), tr. 151)\"
+                
+                **CHỈ DÙNG TƯ LIỆU TỪ SGK KHI**:
+                - Không tìm được nguồn ngoài phù hợp
+                - Hoặc khi kết hợp với nguồn ngoài để làm phong phú"""
+            },
+            
+            "source_citation": {
+                "type": "string",
+                "description": """🔴 TRÍCH DẪN NGUỒN - BẮT BUỘC LUÔN PHẢI ĐIỀN:
+                
+                **QUY TẮC BẮT BUỘC**:
+                - 100% câu hỏi phải có tư liệu từ nguồn ngoài SGK
+                  → PHẢI điền trường này với format chuẩn
+                - KHÔNG BAO GIỜ được để null/trống
+                
+                **Định dạng chuẩn**:
+                (Tác giả, "Tên bài/sách", Tên tạp chí/NXB số X (tháng/năm), tr. Y)
+                
+                **Ví dụ ĐÚNG**:
+                - Tạp chí: (Nguyễn Viết Thảo, "Bối cảnh hình thành và đặc điểm nổi bật của cục diện thế giới hiện nay", Tạp chí Lí luận Chính trị số 541 (3/2023), tr. 151)
+                - Sách: (Phan Huy Lê, "Lịch sử Việt Nam", NXB Giáo dục, 2020, tr. 234)
+                - Văn kiện: (Tuyên bố ASEAN, Bangkok, 08/08/1967, ASEAN Secretariat)
+                - Web chính thống: (ASEAN, "Charter", asean.org, truy cập 2024)
+                
+                **Ví dụ SAI (không chấp nhận)**:
+                - "Wikipedia"
+                - "Nguồn internet"  
+                - "SGK Lịch sử 12" (nếu dùng SGK thì để null, đừng điền)
+                
+                **QUAN TRỌNG**: Việc ghi nguồn chuẩn xác thể hiện tính học thuật và giúp kiểm chứng chất lượng tư liệu!"""
+            },
+            
+            "source_origin": {
+                "type": "string",
+                "enum": ["academic_journal", "scholarly_book", "official_document", "reputable_media"],
+                "description": """NGUỒN GỐC TƯ LIỆU (Bắt buộc phải điền - 100% phải từ nguồn ngoài SGK):
+                
+                **🔴 BẮT BUỘC chọn 1 trong 4 loại nguồn học thuật**:
+                1. 'academic_journal': Tạp chí khoa học (Ưu tiên cao nhất - 40%)
+                   → Ví dụ: Tạp chí Lí luận Chính trị, Nghiên cứu Lịch sử, Nghiên cứu Quốc tế...
+                   → BẮT BUỘC điền source_citation
+                
+                2. 'scholarly_book': Sách chuyên khảo (30%)
+                   → Ví dụ: Sách của các nhà sử học, sách nghiên cứu chuyên sâu
+                   → BẮT BUỘC điền source_citation
+                
+                3. 'official_document': Văn kiện chính thức (20%)
+                   → Ví dụ: Hiến chương UN, Tuyên bố ASEAN, Nghị quyết Chính phủ...
+                   → BẮT BUỘC điền source_citation
+                
+                4. 'reputable_media': Báo chí uy tín (10%)
+                   → Ví dụ: Nhân Dân, VnExpress, BBC (chỉ bài phân tích chuyên sâu)
+                   → BẮT BUỘC điền source_citation
+                
+                **🚫 CẤM TUYỆT ĐỐI**:
+                - KHÔNG được dùng 'textbook' (đã bị loại bỏ)
+                - KHÔNG được dùng 'combined' nếu có thành phần SGK
+                - 100% tư liệu phải từ nguồn ngoài đã search được
+                
+                **LƯU Ý**: Luôn ưu tiên nguồn học thuật (1-2) hơn nguồn khác!"""
             },
             
             "source_type": {
                 "type": "string",
                 "description": """Loại tư liệu (giúp AI hiểu cách xử lý):
-                - 'primary_source': Tư liệu gốc (văn kiện, thư, hồi ký...)
-                - 'historical_description': Mô tả sự kiện lịch sử
-                - 'analytical_summary': Phân tích tổng hợp
-                - 'contextual_scenario': Tình huống có bối cảnh"""
+                - 'primary_source': Tư liệu gốc (văn kiện, thư, hồi ký, tuyên bố chính thức...)
+                - 'historical_description': Mô tả sự kiện lịch sử (tái hiện sinh động)
+                - 'analytical_summary': Phân tích tổng hợp (từ các nhà nghiên cứu)
+                - 'contextual_scenario': Tình huống có bối cảnh (đặt vấn đề trong ngữ cảnh)"""
             },
             
             "pedagogical_approach": {
                 "type": "string", 
                 "description": """Cách tiếp cận sư phạm cho bộ câu hỏi Đ/S:
-                - Kiểm tra đọc hiểu tư liệu
+                - Kiểm tra đọc hiểu tư liệu học thuật
                 - Phân tích đa góc độ một sự kiện
-                - Đánh giá khả năng phán đoán
-                - Phân biệt sự thật và suy luận"""
+                - Đánh giá khả năng phán đoán dựa trên tư liệu chuyên sâu
+                - Phân biệt sự thật và suy luận
+                - Rèn kỹ năng làm việc với nguồn học thuật"""
+            },
+            
+            "search_evidence": {
+                "type": "string",
+                "description": """GHI CHÚ QUÁ TRÌNH TÌM KIẾM (Khuyến khích điền để minh bạch):
+                
+                **Nên ghi**:
+                - Query đã search: "Ví dụ: 'ASEAN thành lập 1967 Bangkok tuyên bố nguyên văn'"
+                - Tại sao chọn tư liệu này: "Nguồn từ tạp chí khoa học uy tín, phân tích sâu hơn SGK"
+                - So sánh với INPUT DATA: "Phù hợp với nội dung SGK về thành lập ASEAN, bổ sung góc nhìn mới"
+                - Nguồn khác đã xem xét: "Đã xem Wikipedia nhưng không đủ uy tín"
+                
+                **Lợi ích**:
+                - Giúp kiểm chứng chất lượng search
+                - Minh bạch quy trình tạo câu hỏi
+                - Dễ debug nếu có vấn đề"""
             },
             
             # === PHẦN 4 MỆNH ĐỀ ===
@@ -398,12 +508,21 @@ def get_true_false_schema() -> Dict:
                 }
             },
             
-            "overall_difficulty": {
+            "source_quality_note": {
                 "type": "string",
-                "description": """(Tùy chọn) Đánh giá độ khó tổng thể:
-                - Dễ/Trung bình/Khó
-                - Yếu tố gây khó (tư liệu phức tạp, cần kiến thức sâu, phân tích đa chiều...)"""
+                "description": """ĐÁNH GIÁ CHẤT LƯỢNG TƯ LIỆU (Nên điền khi dùng nguồn ngoài):
+                
+                **Nên đánh giá**:
+                - Giá trị học thuật: "Bài phân tích từ tạp chí uy tín, có tham khảo nhiều nguồn"
+                - So với SGK: "Bổ sung góc nhìn phân tích chuyên sâu hơn, cập nhật hơn"
+                - Độ tin cậy: "Tác giả là chuyên gia về lịch sử thế giới hiện đại"
+                - Phù hợp học sinh: "Ngôn ngữ học thuật nhưng dễ hiểu, phù hợp lớp 12"
+                
+                **Mục đích**:
+                - Giúp đánh giá xem tư liệu có đủ chất lượng không
+                - Đảm bảo tư liệu phù hợp với trình độ học sinh
+                - Xác nhận tư liệu có giá trị sư phạm cao"""
             }
         },
-        "required": ["source_text", "statements", "explanation", "source_type"]
+        "required": ["source_text", "statements", "explanation"]
     }

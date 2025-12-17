@@ -122,14 +122,22 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
+                
+                # Thêm tài liệu bổ sung
+                if spec.supplementary_materials:
+                    supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
+                else:
+                    supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
+                prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
 
-                print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars)")
-                print(f"--- PROMPT START ---\n{prompt_text}\n--- PROMPT END ---")
+                # print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars)")
+                # print(f"--- PROMPT START ---\n{prompt_text}\n--- PROMPT END ---")
 
                 # Gọi AI với array schema
                 response = self.ai_client.generate_content_with_schema(
                     prompt=prompt_text,
-                    response_schema=get_multiple_choice_array_schema()
+                    response_schema=get_multiple_choice_array_schema(),
+                    enable_search=True
                 )
                 
                 # Parse response
@@ -206,6 +214,13 @@ class QuestionGenerator:
         prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", tf_spec.lesson_name)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
         
+        # Replace tài liệu bổ sung
+        if tf_spec.supplementary_materials:
+            supplementary_text = f"```\n{tf_spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy ưu tiên sử dụng các thông tin từ tài liệu này để tạo đoạn tư liệu sinh động."
+        else:
+            supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
+        prompt = prompt.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
+        
         # Replace cho từng mệnh đề
         for stmt in tf_spec.statements:
             label_upper = stmt.label.upper()
@@ -238,13 +253,14 @@ class QuestionGenerator:
                 # Fill prompt với question_template
                 prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template)
                 
-                print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars)")
-                print(f"--- PROMPT START ---\n{prompt}\n--- PROMPT END ---")
+                # print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars)")
+                # print(f"--- PROMPT START ---\n{prompt}\n--- PROMPT END ---")
                 
-                # Gọi AI với JSON schema
+                # Gọi AI với JSON schema + Google Search
                 response = self.ai_client.generate_content_with_schema(
                     prompt=prompt,
-                    response_schema=get_true_false_schema()
+                    response_schema=get_true_false_schema(),
+                    enable_search=True
                 )
                 
                 # Kiểm tra response

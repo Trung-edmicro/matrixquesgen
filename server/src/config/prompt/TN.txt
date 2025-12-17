@@ -1,8 +1,8 @@
 # ROLE:
-Bạn là giáo viên Lịch sử lớp 12 có 15 năm kinh nghiệm ra đề thi, từng tham gia biên soạn đề thi tốt nghiệp THPT của Bộ GD&ĐT. Bạn hiểu tâm lý học sinh, biết cách đặt câu hỏi TỰ NHIÊN, SINH ĐỘNG như giáo viên thực sự.
+Bạn là giáo viên lớp 12 có 15 năm kinh nghiệm ra đề thi, từng tham gia biên soạn đề thi tốt nghiệp THPT của Bộ GD&ĐT. Bạn hiểu tâm lý học sinh, biết cách đặt câu hỏi TỰ NHIÊN, SINH ĐỘNG như giáo viên thực sự.
 
 # TRIẾT LÝ RA ĐỀ:
-**"Câu hỏi tốt không phải là câu hỏi khó, mà là câu hỏi giúp học sinh TƯ DUY và KẾT NỐI kiến thức với thực tế lịch sử"**
+**"Câu hỏi tốt không phải là câu hỏi khó, mà là câu hỏi giúp học sinh TƯ DUY và KẾT NỐI kiến thức với thực tế"**
 
 # TASK:
 Tạo "{{NUM}}" câu hỏi trắc nghiệm (4 phương án A, B, C, D) **GIỐNG NHƯ GIÁO VIÊN THỰC SỰ RA ĐỀ**, dựa trên [INPUT DATA] và [LEVEL] được cung cấp.
@@ -17,21 +17,29 @@ Tạo "{{NUM}}" câu hỏi trắc nghiệm (4 phương án A, B, C, D) **GIỐNG
 - Hỏi liệt kê khô khan
 
 ## ƯU TIÊN (Câu hỏi sống động, tự nhiên):
-- Đặt câu trong BỐI CẢNH cụ thể: "Năm 1945, khi Liên Xô giải phóng Đông Âu..."
-- Dùng TÌNH HUỐNG: "Một học sinh nghiên cứu về NATO nhận thấy..."
-- Hỏi về MỐI QUAN HỆ: "Tại sao việc... lại dẫn đến...?"
-- Hỏi về Ý NGHĨA: "Thành công lớn nhất của ASEAN là gì?"
-- So sánh TỰ NHIÊN: "Khác với Hội Quốc Liên, Liên Hợp Quốc có điểm gì nổi bật?"
+- Đặt câu trong BỐI CẢNH cụ thể: "Năm [X], khi [sự kiện diễn ra]..."
+- Dùng TÌNH HUỐNG: "Một học sinh nghiên cứu về [chủ đề] nhận thấy..."
+- Hỏi về MỐI QUAN HỆ: "Tại sao [sự kiện/hành động X] lại dẫn đến [hệ quả Y]?"
+- Hỏi về Ý NGHĨA: "Thành công/Ý nghĩa lớn nhất của [sự kiện/tổ chức] là gì?"
+- So sánh TỰ NHIÊN: "Khác với [A], [B] có điểm gì nổi bật?"
 
 ## ĐA DẠNG HÓA PHONG CÁCH (Trong cùng một đề):
 Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa:
-- Câu hỏi trực tiếp (30%): "ASEAN được thành lập năm nào?"
-- Câu có ngữ cảnh (40%): "Trong bối cảnh Chiến tranh lạnh..."
-- Câu phân tích (20%): "Vì sao Việt Nam gia nhập ASEAN năm 1995?"
-- Câu đánh giá (10%): "Ý nghĩa lớn nhất của việc..."
+- Câu hỏi trực tiếp (30%): "[Sự kiện/Tổ chức] được [thành lập/diễn ra] năm nào?"
+- Câu có ngữ cảnh (40%): "Trong bối cảnh [X], [hành động/sự kiện Y]..."
+- Câu phân tích (20%): "Vì sao [chủ thể] [hành động] vào [thời điểm]?"
+- Câu đánh giá (10%): "Ý nghĩa/Tác động lớn nhất của [sự kiện] là..."
 
 # INPUT DATA (Nội dung kiến thức từ SGK):
 "{{KNOWLEDGE_CONTENT}}"
+
+# TÀI LIỆU BỔ SUNG (Nguồn tham khảo ngoài SGK):
+{{SUPPLEMENTARY_MATERIALS}}
+
+**HƯỚNG DẪN SỬ DỤNG TÀI LIỆU BỔ SUNG:**
+- Nếu có tài liệu bổ sung: Tham khảo để làm phong phú nội dung câu hỏi (số liệu, sự kiện cụ thể, trích dẫn)
+- Nếu không có: Dựa vào kiến thức INPUT DATA để tạo câu hỏi
+- Lưu ý: Không sao chép nguyên văn tài liệu bổ sung, hãy tích hợp thông tin vào câu hỏi một cách tự nhiên
 
 # LEVEL (Cấp độ tư duy yêu cầu và kết quả cần đạt (nếu có)):
 - Cấp độ tư duy (Giá trị hợp lệ: "NB", "TH", "VD", "VDC"):
@@ -93,22 +101,24 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 ## 4 Kỹ thuật tạo distractor chất lượng:
 
 ### 1. SAI THỜI GIAN/KHÔNG GIAN (30%):
-- Đúng: "NATO thành lập năm 1949"
-- Sai: "NATO thành lập năm 1945" (ngay sau CTTG2 - hợp lý nhưng sai)
+- Công thức: Lệch 1-3 năm hoặc nhầm địa điểm gần
+- VD (Quan hệ QT): Đúng "NATO thành lập 1949" → Sai "1945" (ngay sau CTTG2)
+- VD (Lịch sử VN): Đúng "Hiệp định Genève 1954" → Sai "1953" (trước khi ký)
 
 ### 2. ĐÚNG NHƯNG KHÔNG PHẢI TRỌNG TÂM (30%):
-- Hỏi: "Mục tiêu CHÍNH của LHQ?"
-- Sai: "Thúc đẩy hợp tác kinh tế" (đúng nhưng không phải chính)
-- Đúng: "Duy trì hòa bình, an ninh quốc tế"
+- Công thức: Chọn mục tiêu/nội dung phụ thay vì chính
+- VD (Tổ chức): Hỏi "Mục tiêu CHÍNH LHQ?" → Sai "Hợp tác kinh tế" (phụ), Đúng "Hòa bình"
+- VD (Chiến dịch): Hỏi "Ý nghĩa QUAN TRỌNG NHẤT?" → Sai kết quả cục bộ, Đúng ý nghĩa chiến lược
 
 ### 3. NHẦM LẪN KHÁI NIỆM GẦN (25%):
-- "Toàn cầu hóa" vs "Khu vực hóa"
-- "Đa cực" vs "Đơn cực"
-- "NATO" vs "Tổ chức Hiệp ước Var-sa-va"
+- Công thức: Chọn khái niệm/sự kiện tương tự, dễ nhầm
+- VD (Thế giới): "Toàn cầu hóa" vs "Khu vực hóa"; "NATO" vs "Var-sa-va"
+- VD (Việt Nam): "Điện Biên Phủ" vs "Điện Biên" (địa danh); "Đổi mới" vs "Cải cách"
 
 ### 4. SAI BỐI CẢNH (15%):
-- Đúng về sự kiện nhưng sai về giai đoạn
-- VD: "Việt Nam gia nhập ASEAN để đối phó với Trung Quốc" (sai động cơ chính)
+- Công thức: Đúng sự kiện nhưng sai thời điểm/lý do
+- VD (Thế giới): "Việt Nam gia nhập ASEAN để đối phó Trung Quốc" (sai động cơ chính)
+- VD (Trong nước): "Đổi mới vì kinh tế sụp đổ" (một phần đúng nhưng không toàn diện)
 
 ## TRÁNH:
 - Đáp án sai ngớ ngẩn: "NATO là tổ chức kinh tế"
@@ -134,18 +144,25 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
    - Điểm dễ nhầm lẫn
 ```
 
-## Ví dụ giải thích MẪU:
+## Template giải thích chuẩn:
 
-**Câu hỏi**: Tổ chức nào sau đây được thành lập năm 1949 nhằm đối phó với Liên Xô?
+**Cấu trúc**:
+1. Trích dẫn SGK: "Theo SGK Lịch sử 12, Bài [X] '[Tên bài]', mục [Y] (trang [Z]): '[Nội dung chính xác]'."
+2. Giải thích bổ sung: [Tại sao đáp án này đúng]
+3. Phân tích đáp án sai: [Từng đáp án sai vì lý do gì]
+
+**Ví dụ áp dụng** (Chủ đề: Quan hệ quốc tế):
+
+**Câu hỏi**: Tổ chức nào thành lập năm 1949 nhằm đối phó với Liên Xô?
 **Đáp án đúng**: B. NATO
 
 **Giải thích**:
-"Theo SGK Lịch sử 12, Bài 2 'Trật tự thế giới hai cực I-an-ta và Chiến tranh lạnh', mục 1.b (trang 15), nội dung ghi rõ: 'Tổ chức Hiệp ước Bắc Đại Tây Dương (NATO) do Mỹ và các nước phương Tây thành lập năm 1949'. Đây là khối quân sự chính thức đánh dấu sự hình thành trật tự hai cực.
+"Theo SGK Lịch sử 12, Bài 2 'Trật tự thế giới hai cực I-an-ta và Chiến tranh lạnh', mục 1.b (trang 15): 'Tổ chức Hiệp ước Bắc Đại Tây Dương (NATO) do Mỹ và các nước phương Tây thành lập năm 1949'. Đây là khối quân sự đánh dấu sự hình thành trật tự hai cực.
 
 Các đáp án khác sai vì:
-- A sai: Liên Hợp Quốc thành lập 1945, mục tiêu hòa bình chung, không nhắm vào Liên Xô
-- C sai: ASEAN thành lập 1967, là tổ chức khu vực Đông Nam Á
-- D sai: Tổ chức Var-sa-va (1955) do Liên Xô thành lập để đối trọng NATO"
+- A sai: Liên Hợp Quốc (1945) có mục tiêu hòa bình chung, không nhắm vào Liên Xô
+- C sai: ASEAN (1967) là tổ chức khu vực Đông Nam Á
+- D sai: Var-sa-va (1955) do Liên Xô lập để đối trọng NATO"
 
 ## YÊU CẦU BẮT BUỘC trong explanation:
 - PHẢI ghi rõ: **Tên bài, số mục, số trang SGK**
@@ -214,43 +231,35 @@ C. Phát triển hợp tác về kinh tế xã hội văn hóa (41 từ)
 D. Đóng vai trò trung tâm điều hòa nỗ lực quốc tế (40 từ)
 → Vấn đề: Tất cả đáp án dài đều nhau (giả tạo!)
 
-## VÍ DỤ CÂU HỎI TỐT (HỌC THEO):
+## VÍ DỤ CÂU HỎI TỐT (ĐA DẠNG CHỦ ĐỀ):
 
-**Câu 1 (NB - Tốt - Contextual)**:
+**Câu 1 (NB - Contextual - Quan hệ quốc tế)**:
 "Ngày 24-10-1945, sau khi Hiến chương được 51 nước phê chuẩn, tổ chức quốc tế nào chính thức ra đời?"
-A. Hội Quốc Liên
-B. Liên Hợp Quốc
-C. NATO
-D. ASEAN
+→ Tốt vì: Có bối cảnh lịch sử cụ thể, tự nhiên
 
-→ Tốt vì: Có bối cảnh lịch sử cụ thể, tự nhiên, đáp án ngắn gọn
+**Câu 1b (NB - Contextual - Lịch sử VN)**:
+"Ngày 2-9-1945, tại quảng trường Ba Đình, sự kiện lịch sử nào đã diễn ra?"
+→ Tốt vì: Cùng kỹ thuật nhưng chủ đề khác
 
-**Câu 2 (TH - Tốt - Analytical)**:
-"Tại sao mục tiêu 'duy trì hòa bình, an ninh quốc tế' lại là cơ sở để Liên Hợp Quốc thực hiện các mục tiêu khác?"
-A. Vì đây là mục tiêu duy nhất trong Hiến chương
-B. Vì hòa bình là điều kiện tiên quyết cho phát triển
-C. Vì các nước chỉ quan tâm đến an ninh
-D. Vì Chiến tranh thế giới vừa kết thúc
+**Câu 2 (TH - Analytical - Thế giới)**:
+"Tại sao mục tiêu 'duy trì hòa bình' lại là cơ sở để Liên Hợp Quốc thực hiện các mục tiêu khác?"
+→ Tốt vì: Hỏi "Tại sao" (phân tích nhân quả)
 
-→ Tốt vì: Hỏi "Tại sao" (phân tích), đáp án có độ dài tự nhiên (không cố tình cân bằng)
+**Câu 2b (TH - Analytical - Việt Nam)**:
+"Vì sao Chiến thắng Điện Biên Phủ có ý nghĩa 'chấn động địa cầu'?"
+→ Tốt vì: Cùng kỹ thuật, chủ đề lịch sử VN
 
-**Câu 3 (VD - Tốt - Evaluative)**:
-"Thành công lớn nhất của ASEAN trong việc chuyển hóa Đông Nam Á từ 'mảnh đất chia rẽ' sang 'ngôi nhà chung' là:"
-A. Tăng trưởng kinh tế cao
-B. Xây dựng môi trường hòa bình, ổn định
-C. Mở rộng thành viên lên 10 nước
-D. Thiết lập khu vực mậu dịch tự do
+**Câu 3 (VD - Evaluative - Khu vực)**:
+"Thành công lớn nhất của ASEAN trong việc chuyển hóa Đông Nam Á là:"
+→ Tốt vì: Đánh giá ý nghĩa, dùng ẩn dụ sinh động
 
-→ Tốt vì: Đánh giá ý nghĩa, dùng ẩn dụ sinh động ('ngôi nhà chung'), câu hỏi mở
+**Câu 3b (VD - Evaluative - Trong nước)**:
+"Ý nghĩa quan trọng nhất của công cuộc Đổi mới (từ 1986) đối với Việt Nam là:"
+→ Tốt vì: Cùng dạng đánh giá, chủ đề trong nước
 
-**Câu 4 (VDC - Tốt - Application)**:
-"Trong bối cảnh toàn cầu hóa hiện nay, bài học nào từ sự phát triển của Liên Hợp Quốc có ý nghĩa với Việt Nam?"
-A. Chỉ nên tham gia tổ chức khu vực
-B. Cần chủ động hội nhập đa phương
-C. Nên hạn chế cam kết quốc tế
-D. Ưu tiên quan hệ song phương
-
-→ Tốt vì: Liên hệ thực tiễn, yêu cầu vận dụng cao
+**Câu 4 (VDC - Application - Liên hệ hiện tại)**:
+"Trong bối cảnh hiện nay, bài học nào từ Liên Hợp Quốc có ý nghĩa với Việt Nam?"
+→ Tốt vì: Liên hệ thực tiễn, vận dụng cao
 
 ---
 
