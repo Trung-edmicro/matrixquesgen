@@ -68,7 +68,8 @@ class QuestionGenerator:
     def _fill_prompt_template(self, 
                              spec: QuestionSpec,
                              num_questions: int = None,
-                             question_template: str = "") -> str:
+                             question_template: str = "",
+                             content: str = "") -> str:
         """
         Điền thông tin vào prompt template
         
@@ -76,6 +77,7 @@ class QuestionGenerator:
             spec: QuestionSpec chứa thông tin câu hỏi
             num_questions: Số câu hỏi cần sinh (nếu None, lấy từ spec)
             question_template: Template câu hỏi mẫu từ file DOCX (optional)
+            content: Nội dung từ PDF đã extract (optional)
             
         Returns:
             str: Prompt đã được điền
@@ -84,16 +86,18 @@ class QuestionGenerator:
         
         # Replace các biến trong template
         prompt = self.prompt_template.replace("{{NUM}}", str(num))
-        prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
+        prompt = prompt.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt = prompt.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
         prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
+        prompt = prompt.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
         
         return prompt
     
     def generate_questions_for_spec(self, spec: QuestionSpec, 
                                    prompt_template_path: str = None,
-                                   question_template: str = "") -> List[GeneratedQuestion]:
+                                   question_template: str = "",
+                                   content: str = "") -> List[GeneratedQuestion]:
         """
         Sinh câu hỏi cho một QuestionSpec
         
@@ -101,6 +105,7 @@ class QuestionGenerator:
             spec: QuestionSpec chứa thông tin câu hỏi
             prompt_template_path: Đường dẫn đến prompt template (nếu khác với default)
             question_template: Template câu hỏi mẫu từ file DOCX (optional)
+            content: Nội dung từ PDF đã extract (optional)
             
         Returns:
             List[GeneratedQuestion]: Danh sách câu hỏi đã sinh
@@ -118,10 +123,11 @@ class QuestionGenerator:
             try:
                 # Tạo prompt cho tất cả câu
                 prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
-                prompt_text = prompt_text.replace("{{KNOWLEDGE_CONTENT}}", spec.lesson_name)
+                prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
+                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
                 
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
@@ -130,7 +136,11 @@ class QuestionGenerator:
                     supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
                 prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
 
-                # print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars)")
+                # Debug: Kiểm tra content từ PDF
+                content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
+                print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars, {content_info})")
+                if content:
+                    print(f"📄 Preview content: {content[:200]}...")
                 # print(f"--- PROMPT START ---\n{prompt_text}\n--- PROMPT END ---")
 
                 # Gọi AI với array schema
@@ -197,7 +207,7 @@ class QuestionGenerator:
         
         return generated_questions
     
-    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str, question_template: str = "") -> str:
+    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str, question_template: str = "", content: str = "") -> str:
         """
         Điền thông tin vào prompt template cho câu Đúng/Sai
         
@@ -205,14 +215,16 @@ class QuestionGenerator:
             tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
             prompt_template: Template prompt DS
             question_template: Template câu hỏi mẫu từ DOCX (optional)
+            content: Nội dung từ PDF đã extract (optional)
             
         Returns:
             str: Prompt đã được điền
         """
         # Replace biến chung
         prompt = prompt_template.replace("{{NUM}}", "1")
-        prompt = prompt.replace("{{KNOWLEDGE_CONTENT}}", tf_spec.lesson_name)
+        prompt = prompt.replace("{{LESSON_NAME}}", tf_spec.lesson_name)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
+        prompt = prompt.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
         
         # Replace tài liệu bổ sung
         if tf_spec.supplementary_materials:
@@ -231,7 +243,8 @@ class QuestionGenerator:
     
     def generate_true_false_question(self, tf_spec: TrueFalseQuestionSpec, 
                                      prompt_template_path: str,
-                                     question_template: str = "") -> GeneratedTrueFalseQuestion:
+                                     question_template: str = "",
+                                     content: str = "") -> GeneratedTrueFalseQuestion:
         """
         Sinh 1 câu hỏi Đúng/Sai hoàn chỉnh (4 mệnh đề cùng lúc)
         
@@ -239,6 +252,7 @@ class QuestionGenerator:
             tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
             prompt_template_path: Đường dẫn đến prompt template DS
             question_template: Template câu hỏi mẫu từ DOCX (optional)
+            content: Nội dung từ PDF đã extract (optional)
             
         Returns:
             GeneratedTrueFalseQuestion: Câu hỏi DS đã sinh
@@ -250,10 +264,14 @@ class QuestionGenerator:
                 with open(prompt_template_path, 'r', encoding='utf-8') as f:
                     ds_template = f.read()
                 
-                # Fill prompt với question_template
-                prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template)
+                # Fill prompt với question_template và content
+                prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template, content)
                 
-                # print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars)")
+                # Debug: Kiểm tra content từ PDF
+                content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
+                print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars, {content_info})")
+                if content:
+                    print(f"📄 Preview content: {content[:200]}...")
                 # print(f"--- PROMPT START ---\n{prompt}\n--- PROMPT END ---")
                 
                 # Gọi AI với JSON schema + Google Search

@@ -31,7 +31,8 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 - Câu đánh giá (10%): "Ý nghĩa/Tác động lớn nhất của [sự kiện] là..."
 
 # INPUT DATA (Nội dung kiến thức từ SGK):
-"{{KNOWLEDGE_CONTENT}}"
+"{{LESSON_NAME}}"
+"{{CONTENT}}"
 
 # TÀI LIỆU BỔ SUNG (Nguồn tham khảo ngoài SGK):
 {{SUPPLEMENTARY_MATERIALS}}
@@ -91,8 +92,8 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 - VD: Không khái quát thành quy luật hay đánh giá trừu tượng.
 - VDC: Không hỏi kiến thức nhớ – hiểu đơn thuần.
 - Việc xác định mục tiêu nhận thức phải sử dụng các động từ cụ thể đã nêu trên trong yêu cầu của câu hỏi, không sử dụng các động từ chung chung như “nắm vững”, “biết được”, “hiểu được”... vì không thể đo được mức độ nhận thức của học sinh
-# NGHỆ THUẬT TẠO ĐÁP ÁN NHIỄU (DISTRACTOR):
 
+# TẠO ĐÁP ÁN NHIỄU (DISTRACTOR):
 ## Nguyên tắc chung:
 - Đáp án nhiễu PHẢI HỢP LÝ, không sai quá rõ ràng
 - Học sinh phải SUY NGHĨ mới phân biệt được đúng/sai
@@ -261,9 +262,9 @@ D. Đóng vai trò trung tâm điều hòa nỗ lực quốc tế (40 từ)
 "Trong bối cảnh hiện nay, bài học nào từ Liên Hợp Quốc có ý nghĩa với Việt Nam?"
 → Tốt vì: Liên hệ thực tiễn, vận dụng cao
 
+"{{QUESTION_TEMPLATE}}"
 ---
 
-"{{QUESTION_TEMPLATE}}"
 
 # LƯU Ý CUỐI CÙNG:
 

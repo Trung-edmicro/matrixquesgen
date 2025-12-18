@@ -4,7 +4,7 @@ import uuid
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,10 +37,11 @@ def generate_questions_task(
     session_id: str,
     matrix_file_path: str,
     config: dict,
-    template_docx_path: Optional[str] = None
+    template_docx_path: Optional[str] = None,
+    pdf_paths: Optional[List[str]] = None
 ):
     """
-    Background task để sinh câu hỏi (với template DOCX tùy chọn)
+    Background task để sinh câu hỏi (với template DOCX và PDFs tùy chọn)
     """
     session_file = SESSIONS_DIR / f"{session_id}.json"
     
@@ -80,6 +81,52 @@ def generate_questions_task(
         
         tn_questions = [q for q in all_questions if q.question_type == "TN"]
         ds_questions = parser.group_true_false_questions()
+        
+        # Process PDFs nếu có và tạo lesson_name -> content mapping
+        pdf_content_mapping = {}
+        if pdf_paths:
+            try:
+                from services.pdf_processing_service import PDFProcessingService
+                
+                # Lấy tất cả lesson names từ specs
+                all_lesson_names = list(set(
+                    [q.lesson_name for q in tn_questions] + 
+                    [q.lesson_name for q in ds_questions]
+                ))
+                
+                pdf_service = PDFProcessingService()
+                pdf_results = pdf_service.process_multiple_pdfs(
+                    pdf_paths=pdf_paths,
+                    lesson_names=all_lesson_names
+                )
+                
+                # Tạo mapping: lesson_name -> content
+                for result in pdf_results:
+                    if result.get('matched_lesson'):
+                        lesson_name = result['matched_lesson']
+                        content = result.get('content', '')
+                        # Lấy nội dung ngắn gọn hơn (tối đa 3000 ký tự)
+                        pdf_content_mapping[lesson_name] = content[:3000] if len(content) > 3000 else content
+                
+                session_data['pdf_info'] = {
+                    'total_pdfs': len(pdf_paths),
+                    'matched_lessons': len(pdf_content_mapping),
+                    'mapping': {k: f"{len(v)} chars" for k, v in pdf_content_mapping.items()}
+                }
+                
+                print(f"\n📚 Đã xử lý {len(pdf_paths)} PDFs, map được {len(pdf_content_mapping)} lessons")
+                for lesson, content in pdf_content_mapping.items():
+                    print(f"   - {lesson}: {len(content)} chars")
+                
+                # DEBUG: Hiển thị toàn bộ mapping
+                print(f"\n🔍 DEBUG PDF_CONTENT_MAPPING:")
+                print(f"   Total keys: {len(pdf_content_mapping)}")
+                for k in pdf_content_mapping.keys():
+                    print(f"   - Key: '{k}'")
+                
+            except Exception as e:
+                print(f"⚠️  Lỗi khi xử lý PDFs: {e}")
+                session_data['pdf_warning'] = f"Không thể xử lý PDFs: {str(e)}"
         
         # DEBUG: Kiểm tra supplementary_materials
         print(f"\n🔍 DEBUG: Kiểm tra tài liệu bổ sung trong specs")
@@ -165,10 +212,18 @@ def generate_questions_task(
         
         def generate_with_template(spec):
             template_text = spec_templates.get(id(spec), "")
+            content_text = pdf_content_mapping.get(spec.lesson_name, "")
+            
+            # DEBUG: Kiểm tra content cho từng spec
+            print(f"\n🔍 DEBUG generate_with_template:")
+            print(f"   Spec lesson_name: '{spec.lesson_name}'")
+            print(f"   Content found: {'YES - ' + str(len(content_text)) + ' chars' if content_text else 'NO'}")
+            print(f"   PDF mapping keys: {list(pdf_content_mapping.keys())}")
                         
             return generator.generate_questions_for_spec(
                 spec=spec,
-                question_template=template_text
+                question_template=template_text,
+                content=content_text
             )
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -202,12 +257,19 @@ def generate_questions_task(
         def generate_ds_with_template(spec):
             code = spec.question_code if spec.question_code else ''
             template_text = template_ds_mapping.get(code, "")
+            content_text = pdf_content_mapping.get(spec.lesson_name, "")
+            
+            # DEBUG: Kiểm tra content cho DS
+            print(f"\n🔍 DEBUG generate_ds_with_template:")
+            print(f"   Spec lesson_name: '{spec.lesson_name}'")
+            print(f"   Content found: {'YES - ' + str(len(content_text)) + ' chars' if content_text else 'NO'}")
                         
             if hasattr(spec, 'statements'):
                 return generator_ds.generate_true_false_question(
                     tf_spec=spec,
                     prompt_template_path=config.get('prompt_template_ds'),
-                    question_template=template_text
+                    question_template=template_text,
+                    content=content_text
                 )
             return None
         
@@ -284,18 +346,20 @@ async def generate_questions(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     template_docx: Optional[UploadFile] = File(None),
+    pdf_files: Optional[List[UploadFile]] = File(None),
     max_workers: int = 10,
     min_interval: float = 0.3,
     max_retries: int = 3,
     retry_delay: float = 2.0
 ):
     """
-    Upload file Excel ma trận và sinh câu hỏi (với template DOCX tùy chọn)
+    Upload file Excel ma trận và sinh câu hỏi (với template DOCX và PDFs tùy chọn)
     
     - **file**: File Excel ma trận (.xlsx)
     - **template_docx**: (Optional) File DOCX đề mẫu để AI tham khảo
-    - **max_workers**: Số threads xử lý song song (default: 5)
-    - **min_interval**: Delay tối thiểu giữa requests (default: 0.2s)
+    - **pdf_files**: (Optional) Danh sách file PDF chứa nội dung SGK
+    - **max_workers**: Số threads xử lý song song (default: 10)
+    - **min_interval**: Delay tối thiểu giữa requests (default: 0.3s)
     - **max_retries**: Số lần retry khi lỗi (default: 3)
     - **retry_delay**: Delay giữa các lần retry (default: 2.0s)
     """
@@ -334,6 +398,22 @@ async def generate_questions(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Không thể lưu template: {str(e)}")
     
+    # Lưu PDF files nếu có
+    pdf_paths = []
+    if pdf_files:
+        for pdf_file in pdf_files:
+            if not pdf_file.filename.endswith('.pdf'):
+                raise HTTPException(status_code=400, detail=f"File {pdf_file.filename} không phải PDF")
+            
+            pdf_path = upload_dir / f"{session_id}_pdf_{pdf_file.filename}"
+            try:
+                with open(pdf_path, 'wb') as f:
+                    pdf_content = await pdf_file.read()
+                    f.write(pdf_content)
+                pdf_paths.append(str(pdf_path))
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Không thể lưu PDF {pdf_file.filename}: {str(e)}")
+    
     # Đường dẫn tuyệt đối đến thư mục config
     api_dir = Path(__file__).parent.parent
     project_root = api_dir.parent
@@ -358,7 +438,8 @@ async def generate_questions(
         session_id,
         str(file_path),
         config,
-        str(template_path) if template_path else None
+        str(template_path) if template_path else None,
+        pdf_paths if pdf_paths else None
     )
     
     return GenerateResponse(

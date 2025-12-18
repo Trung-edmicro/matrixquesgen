@@ -10,13 +10,20 @@ const api = axios.create({
 })
 
 // Generate questions from matrix file
-export const generateQuestions = async (file, config = {}, templateDocx = null) => {
+export const generateQuestions = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
   const formData = new FormData()
   formData.append('file', file)
   
   // Thêm template DOCX nếu có
   if (templateDocx) {
     formData.append('template_docx', templateDocx)
+  }
+  
+  // Thêm PDF files nếu có
+  if (pdfFiles && pdfFiles.length > 0) {
+    for (const pdf of pdfFiles) {
+      formData.append('pdf_files', pdf)
+    }
   }
   
   if (config.max_workers) formData.append('max_workers', config.max_workers)
