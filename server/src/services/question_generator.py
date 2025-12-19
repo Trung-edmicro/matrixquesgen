@@ -42,7 +42,7 @@ class GeneratedTrueFalseQuestion:
 class QuestionGenerator:
     """Class sinh câu hỏi tự động"""
     
-    def __init__(self, ai_client, prompt_template_path: str, verbose: bool = False):
+    def __init__(self, ai_client, prompt_template_path: str, verbose: bool = False, matrix_parser=None):
         """
         Khởi tạo Question Generator
         
@@ -50,12 +50,14 @@ class QuestionGenerator:
             ai_client: VertexAIClient đã được khởi tạo
             prompt_template_path: Đường dẫn đến file prompt template
             verbose: Hiển thị logs chi tiết
+            matrix_parser: MatrixParser (optional) - để access SampleQuestionBank
         """
         self.ai_client = ai_client
         self.prompt_template = self._load_prompt_template(prompt_template_path)
         self.verbose = verbose
         self.max_retries = 3
         self.retry_delay = 2.0
+        self.matrix_parser = matrix_parser
     
     def _load_prompt_template(self, template_path: str) -> str:
         try:
@@ -90,7 +92,7 @@ class QuestionGenerator:
         prompt = prompt.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
         prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+        prompt = prompt.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
         
         return prompt
     
@@ -110,6 +112,26 @@ class QuestionGenerator:
         Returns:
             List[GeneratedQuestion]: Danh sách câu hỏi đã sinh
         """
+        # Tự động lấy câu hỏi mẫu từ SampleQuestionBank nếu có
+        print(f"\n🔍 DEBUG AUTO-FETCH TN:")
+        print(f"   question_template empty? {not question_template}")
+        print(f"   matrix_parser exists? {self.matrix_parser is not None}")
+        if self.matrix_parser:
+            print(f"   has_sample_questions()? {self.matrix_parser.has_sample_questions()}")
+        
+        if not question_template and self.matrix_parser and self.matrix_parser.has_sample_questions():
+            print(f"   → Đang auto-fetch câu mẫu TN (lesson={spec.lesson_name}, type={spec.question_type}, level={spec.cognitive_level})")
+            sample = self.matrix_parser.get_sample_question(
+                spec.lesson_name,
+                spec.question_type,
+                spec.cognitive_level
+            )
+            print(f"   → Kết quả: {sample.stt if sample else 'None'}")
+            if sample:
+                question_template = sample.content
+                print(f"✓ Sử dụng câu hỏi mẫu TN từ ngân hàng (STT {sample.stt}, {len(question_template)} chars)")
+        else:
+            print(f"   → Không auto-fetch (điều kiện không thỏa)")
         # Load template nếu cần
         if prompt_template_path and prompt_template_path != self.prompt_template:
             template = self._load_prompt_template(prompt_template_path)
@@ -127,7 +149,7 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
                 
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
@@ -137,11 +159,11 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
 
                 # Debug: Kiểm tra content từ PDF
-                content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
-                print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars, {content_info})")
-                if content:
-                    print(f"📄 Preview content: {content[:200]}...")
-                # print(f"--- PROMPT START ---\n{prompt_text}\n--- PROMPT END ---")
+                # content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
+                # print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars, {content_info})")
+                # if content:
+                #     print(f"📄 Preview content: {content[:200]}...")
+                print(f"--- PROMPT START TN ---\nquestion_template: {question_template}\n--- PROMPT END ---")
 
                 # Gọi AI với array schema
                 response = self.ai_client.generate_content_with_schema(
@@ -224,7 +246,7 @@ class QuestionGenerator:
         prompt = prompt_template.replace("{{NUM}}", "1")
         prompt = prompt.replace("{{LESSON_NAME}}", tf_spec.lesson_name)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", content if content else "User không thêm nội dung SGK, hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+        prompt = prompt.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
         
         # Replace tài liệu bổ sung
         if tf_spec.supplementary_materials:
@@ -257,6 +279,27 @@ class QuestionGenerator:
         Returns:
             GeneratedTrueFalseQuestion: Câu hỏi DS đã sinh
         """
+        # Tự động lấy câu hỏi mẫu DS từ SampleQuestionBank nếu có
+        print(f"\n🔍 DEBUG AUTO-FETCH DS:")
+        print(f"   question_template empty? {not question_template}")
+        print(f"   matrix_parser exists? {self.matrix_parser is not None}")
+        if self.matrix_parser:
+            print(f"   has_sample_questions()? {self.matrix_parser.has_sample_questions()}")
+        
+        if not question_template and self.matrix_parser and self.matrix_parser.has_sample_questions():
+            print(f"   → Đang auto-fetch câu mẫu DS (lesson={tf_spec.lesson_name}, type=DS, level=ALL)")
+            # Đối với DS, lấy mẫu với cấp độ bất kỳ (vì 4 mệnh đề có cấp độ khác nhau)
+            sample = self.matrix_parser.get_sample_question(
+                tf_spec.lesson_name,
+                "DS",
+                "ALL"  # Lấy mẫu DS không phân biệt cấp độ
+            )
+            print(f"   → Kết quả: {sample.stt if sample else 'None'}")
+            if sample:
+                question_template = sample.content
+                print(f"✓ Sử dụng câu hỏi mẫu DS từ ngân hàng (STT {sample.stt}, {len(question_template)} chars)")
+        else:
+            print(f"   → Không auto-fetch (điều kiện không thỏa)")
         # Retry logic
         for attempt in range(self.max_retries):
             try:
@@ -268,11 +311,11 @@ class QuestionGenerator:
                 prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template, content)
                 
                 # Debug: Kiểm tra content từ PDF
-                content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
-                print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars, {content_info})")
-                if content:
-                    print(f"📄 Preview content: {content[:200]}...")
-                # print(f"--- PROMPT START ---\n{prompt}\n--- PROMPT END ---")
+                # content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
+                # print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars, {content_info})")
+                # if content:
+                #     print(f"📄 Preview content: {content[:200]}...")
+                print(f"--- PROMPT START DS ---\nquestion_template: {question_template}\n--- PROMPT END ---")
                 
                 # Gọi AI với JSON schema + Google Search
                 response = self.ai_client.generate_content_with_schema(

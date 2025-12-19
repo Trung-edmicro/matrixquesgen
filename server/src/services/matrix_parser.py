@@ -5,6 +5,8 @@ import pandas as pd
 import re
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
+from .sample_question_bank import SampleQuestionBank
+from .matrix_template_detector import MatrixTemplateDetector, MatrixTemplate
 
 
 @dataclass
@@ -89,17 +91,42 @@ class MatrixParser:
         self.current_competency = None
         self.current_lesson = None
         self.current_spec = None
+        self.sample_question_bank: Optional[SampleQuestionBank] = None
+        self.template: Optional[MatrixTemplate] = None
+        self.template_metadata: dict = {}
+        self.file_path: Optional[str] = None
     
-    def load_excel(self, file_path: str, sheet_name: str = "Sử 12"):
+    def load_excel(self, file_path: str, sheet_name: str = None):
         """
         Đọc file Excel
         
         Args:
             file_path: Đường dẫn file Excel
-            sheet_name: Tên sheet cần đọc
+            sheet_name: Tên sheet cần đọc (None = tự động phát hiện)
         """
+        self.file_path = file_path
+        
+        # Phát hiện template
+        detector = MatrixTemplateDetector()
+        self.template, self.template_metadata = detector.detect(file_path)
+        detector.print_detection_result(self.template, self.template_metadata)
+        
+        # Xác định sheet name
+        if sheet_name is None:
+            sheet_name = self.template_metadata.get('matrix_sheet', 'Sử 12')
+        
+        # Đọc sheet ma trận
         self.df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
-        print(f"✓ Đã tải ma trận từ sheet '{sheet_name}': {self.df.shape[0]} hàng x {self.df.shape[1]} cột")
+        print(f"\n✓ Đã tải ma trận từ sheet '{sheet_name}': {self.df.shape[0]} hàng x {self.df.shape[1]} cột")
+        
+        # Load câu hỏi mẫu nếu có
+        if self.template == MatrixTemplate.TEMPLATE_2:
+            self.sample_question_bank = SampleQuestionBank()
+            sample_sheet = self.template_metadata.get('sample_sheet')
+            if sample_sheet:
+                success = self.sample_question_bank.load_from_excel(file_path, sample_sheet)
+                if success:
+                    self.sample_question_bank.print_statistics()
     
     def parse_question_cell(self, cell_value) -> Tuple[int, List[str]]:
         """
@@ -375,6 +402,31 @@ class MatrixParser:
             "DS": self.parse_matrix("DS"),
             "TLN": self.parse_matrix("TLN")
         }
+    
+    def has_sample_questions(self) -> bool:
+        """Kiểm tra xem có ngân hàng câu hỏi mẫu không"""
+        return self.sample_question_bank is not None and self.sample_question_bank.has_samples()
+    
+    def get_sample_question(self, lesson_name: str, question_type: str, cognitive_level: str):
+        """
+        Lấy câu hỏi mẫu ngẫu nhiên
+        
+        Args:
+            lesson_name: Tên bài
+            question_type: Loại câu hỏi (TN, DS, TLN)
+            cognitive_level: Cấp độ (NB, TH, VD, VDC)
+            
+        Returns:
+            SampleQuestion hoặc None
+        """
+        if not self.has_sample_questions():
+            return None
+        
+        return self.sample_question_bank.get_random_sample(
+            lesson_name,
+            question_type,
+            cognitive_level
+        )
     
     def print_specs_summary(self, specs: List[QuestionSpec]):
         """In tóm tắt các đặc tả"""

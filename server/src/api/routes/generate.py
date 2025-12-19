@@ -198,11 +198,21 @@ def generate_questions_task(
                 spec_templates[id(spec)] = "\n\n".join(template_parts) if template_parts else ""
         
         # Sinh song song với 10 workers
+        print(f"\n🔍 DEBUG TN Generator creation:")
+        print(f"   parser có SampleQuestionBank? {parser.has_sample_questions() if parser else 'parser is None'}")
+        if parser and parser.has_sample_questions():
+            print(f"   → SampleQuestionBank có sẵn: {len(parser.sample_question_bank.questions)} câu")
+        
         generator = QuestionGenerator(
             ai_client=ai_client,
             prompt_template_path=config.get('prompt_template_tn'),
-            verbose=False
+            verbose=False,
+            matrix_parser=parser  # 👈 Truyền parser để access SampleQuestionBank
         )
+        
+        print(f"   generator.matrix_parser is not None? {generator.matrix_parser is not None}")
+        if generator.matrix_parser:
+            print(f"   generator.matrix_parser.has_sample_questions()? {generator.matrix_parser.has_sample_questions()}")
         
         generated_tn = []
         max_workers = config.get('max_workers', 10)
@@ -214,6 +224,22 @@ def generate_questions_task(
             template_text = spec_templates.get(id(spec), "")
             content_text = pdf_content_mapping.get(spec.lesson_name, "")
             
+            # Nếu KHÔNG có template từ DOCX, để trống để tự động lấy từ SampleQuestionBank
+            # Chỉ sử dụng template từ DOCX nếu thực sự có
+            final_template = template_text if template_text else ""
+            
+            # DEBUG: Kiểm tra template source
+            if not final_template and parser.has_sample_questions():
+                sample = parser.get_sample_question(
+                    spec.lesson_name,
+                    spec.question_type,
+                    spec.cognitive_level
+                )
+                if sample:
+                    print(f"\n✓ Sẽ dùng câu mẫu từ ngân hàng (STT {sample.stt}) cho {spec.question_codes}")
+            elif final_template:
+                print(f"\n✓ Dùng template từ DOCX cho {spec.question_codes}")
+            
             # DEBUG: Kiểm tra content cho từng spec
             print(f"\n🔍 DEBUG generate_with_template:")
             print(f"   Spec lesson_name: '{spec.lesson_name}'")
@@ -222,7 +248,7 @@ def generate_questions_task(
                         
             return generator.generate_questions_for_spec(
                 spec=spec,
-                question_template=template_text,
+                question_template=final_template,  # Truyền "" nếu không có từ DOCX
                 content=content_text
             )
         
@@ -244,11 +270,21 @@ def generate_questions_task(
             json.dump(session_data, f, ensure_ascii=False, indent=2)
         
         # Sinh câu hỏi DS song song với template
+        print(f"\n🔍 DEBUG DS Generator creation:")
+        print(f"   parser có SampleQuestionBank? {parser.has_sample_questions() if parser else 'parser is None'}")
+        if parser and parser.has_sample_questions():
+            print(f"   → SampleQuestionBank có sẵn: {len(parser.sample_question_bank.questions)} câu")
+        
         generator_ds = QuestionGenerator(
             ai_client=ai_client,
             prompt_template_path=config.get('prompt_template_ds'),
-            verbose=False
+            verbose=False,
+            matrix_parser=parser  # 👈 Truyền parser để access SampleQuestionBank
         )
+        
+        print(f"   generator_ds.matrix_parser is not None? {generator_ds.matrix_parser is not None}")
+        if generator_ds.matrix_parser:
+            print(f"   generator_ds.matrix_parser.has_sample_questions()? {generator_ds.matrix_parser.has_sample_questions()}")
         
         generated_ds = []
         
