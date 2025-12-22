@@ -405,7 +405,7 @@ class DocxGenerator:
                 self._set_run_background(run_level, level)
                 
                 # " label. text" - tô đỏ nếu đúng
-                run_content = para.add_run(f" {label}. {text}")
+                run_content = para.add_run(f" {label}) {text}")
                 if is_correct:
                     run_content.font.color.rgb = RGBColor(255, 0, 0)
     

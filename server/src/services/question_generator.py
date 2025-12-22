@@ -55,8 +55,8 @@ class QuestionGenerator:
         self.ai_client = ai_client
         self.prompt_template = self._load_prompt_template(prompt_template_path)
         self.verbose = verbose
-        self.max_retries = 3
-        self.retry_delay = 2.0
+        self.max_retries = 5
+        self.retry_delay = 5.0
         self.matrix_parser = matrix_parser
     
     def _load_prompt_template(self, template_path: str) -> str:
@@ -139,6 +139,7 @@ class QuestionGenerator:
             template = self.prompt_template
         
         generated_questions = []
+        last_error = None
         
         # Retry logic
         for attempt in range(self.max_retries):
@@ -201,32 +202,33 @@ class QuestionGenerator:
                 break
                 
             except Exception as e:
+                last_error = e
                 if attempt < self.max_retries - 1:
                     if self.verbose:
                         print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {str(e)[:80]}")
                         print(f"   Thử lại sau {self.retry_delay}s...")
                     time.sleep(self.retry_delay)
                 else:
-                    # Hết retry, throw error
+                    # Hết retry, tạo dummy questions
                     if self.verbose:
                         print(f"\n❌ Lỗi khi sinh câu hỏi sau {self.max_retries} lần thử: {e}")
                         import traceback
                         traceback.print_exc()
-            
-            # Tạo dummy questions
-            for question_code in spec.question_codes:
-                question = GeneratedQuestion(
-                    question_code=question_code,
-                    question_stem=f"[LỖI] Không thể sinh câu hỏi: {str(e)}",
-                    options={"A": "", "B": "", "C": "", "D": ""},
-                    correct_answer="A",
-                    level=spec.cognitive_level,
-                    explanation=f"Lỗi: {str(e)}",
-                    lesson_name=spec.lesson_name,
-                    question_type=spec.question_type
-                )
-                generated_questions.append(question)
-        
+                    
+                    # Tạo dummy questions với error message
+                    for question_code in spec.question_codes:
+                        question = GeneratedQuestion(
+                            question_code=question_code,
+                            question_stem=f"[LỖI] Không thể sinh câu hỏi: {str(e)}",
+                            options={"A": "", "B": "", "C": "", "D": ""},
+                            correct_answer="A",
+                            level=spec.cognitive_level,
+                            explanation=f"Lỗi: {str(e)}",
+                            lesson_name=spec.lesson_name,
+                            question_type=spec.question_type
+                        )
+                        generated_questions.append(question)
+                    break  # Thoát loop sau khi tạo dummy questions
         return generated_questions
     
     def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str, question_template: str = "", content: str = "") -> str:

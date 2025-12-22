@@ -20,7 +20,7 @@ class TaskResult:
 class ConcurrentGenerator:
     """Class quản lý việc sinh câu hỏi song song với threading"""
     
-    def __init__(self, max_workers: int = 10, min_interval: float = 0.3):
+    def __init__(self, max_workers: int = 10, min_interval: float = 1.0):
         """
         Khởi tạo Concurrent Generator
         
@@ -173,10 +173,10 @@ def generate_tn_questions_parallel(generator,
                                    tn_specs: List,
                                    prompt_template_path: str,
                                    max_workers: int = 10,
-                                   min_interval: float = 0.3,
+                                   min_interval: float = 1.0,
                                    verbose: bool = False,
-                                   max_retries: int = 3,
-                                   retry_delay: float = 2.0) -> List:
+                                   max_retries: int = 5,
+                                   retry_delay: float = 5.0) -> List:
     """
     Sinh câu hỏi TN song song
     
@@ -240,10 +240,10 @@ def generate_ds_questions_parallel(generator,
                                    ds_specs: List,
                                    prompt_template_path: str,
                                    max_workers: int = 5,
-                                   min_interval: float = 0.2,
+                                   min_interval: float = 1.0,
                                    verbose: bool = False,
-                                   max_retries: int = 3,
-                                   retry_delay: float = 2.0) -> List:
+                                   max_retries: int = 5,
+                                   retry_delay: float = 5.0) -> List:
     """
     Sinh câu hỏi DS song song
     

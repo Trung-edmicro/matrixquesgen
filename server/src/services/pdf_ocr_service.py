@@ -90,7 +90,7 @@ Hãy bắt đầu trích xuất:"""
         
         # Generate content
         response = self.client.models.generate_content(
-            model='gemini-2.5-flash',
+            model=os.getenv('OCR_MODEL', 'gemini-2.5-flash'),
             contents=[
                 prompt,
                 types.Part.from_bytes(

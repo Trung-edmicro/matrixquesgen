@@ -316,7 +316,7 @@ def get_true_false_schema() -> Dict:
             
             "source_citation": {
                 "type": "string",
-                "description": """🔴 TRÍCH DẪN NGUỒN - BẮT BUỘC LUÔN PHẢI ĐIỀN:
+                "description": """TRÍCH DẪN NGUỒN - BẮT BUỘC LUÔN PHẢI ĐIỀN:
                 
                 **QUY TẮC BẮT BUỘC**:
                 - 100% câu hỏi phải có tư liệu từ nguồn ngoài SGK
@@ -345,7 +345,7 @@ def get_true_false_schema() -> Dict:
                 "enum": ["academic_journal", "scholarly_book", "official_document", "reputable_media"],
                 "description": """NGUỒN GỐC TƯ LIỆU (Bắt buộc phải điền - 100% phải từ nguồn ngoài SGK):
                 
-                **🔴 BẮT BUỘC chọn 1 trong 4 loại nguồn học thuật**:
+                **BẮT BUỘC chọn 1 trong 4 loại nguồn học thuật**:
                 1. 'academic_journal': Tạp chí khoa học (Ưu tiên cao nhất - 40%)
                    → Ví dụ: Tạp chí Lí luận Chính trị, Nghiên cứu Lịch sử, Nghiên cứu Quốc tế...
                    → BẮT BUỘC điền source_citation
@@ -362,7 +362,7 @@ def get_true_false_schema() -> Dict:
                    → Ví dụ: Nhân Dân, VnExpress, BBC (chỉ bài phân tích chuyên sâu)
                    → BẮT BUỘC điền source_citation
                 
-                **🚫 CẤM TUYỆT ĐỐI**:
+                **CẤM TUYỆT ĐỐI**:
                 - KHÔNG được dùng 'textbook' (đã bị loại bỏ)
                 - KHÔNG được dùng 'combined' nếu có thành phần SGK
                 - 100% tư liệu phải từ nguồn ngoài đã search được

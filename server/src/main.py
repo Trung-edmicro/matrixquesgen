@@ -55,7 +55,6 @@ def main():
         )
         
         ai_client.initialize_model(
-            model_name="gemini-3-pro-preview",
             generation_config={
                 "temperature": 1,
                 "top_p": 0.95,

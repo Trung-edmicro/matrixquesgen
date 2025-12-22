@@ -31,7 +31,7 @@ class GenAIClient:
         self.credentials_path = credentials_path
         self.api_key = api_key
         self.client = None
-        self.model_name = 'gemini-3-pro-preview'
+        self.model_name = os.getenv('GENAI_MODEL', 'gemini-3-pro-preview')
         
         self._initialize()
     
@@ -77,17 +77,17 @@ class GenAIClient:
             raise
     
     def initialize_model(self, 
-                        model_name: str = "gemini-3-pro-preview",
+                        model_name: Optional[str] = None,
                         generation_config: Optional[Dict] = None):
         """
         Khởi tạo mô hình
         
         Args:
-            model_name (str): Tên mô hình (mặc định: gemini-3-pro-preview)
+            model_name (str, optional): Tên mô hình (mặc định lấy từ GENAI_MODEL env)
             generation_config (Dict, optional): Cấu hình generation (không dùng trong SDK mới)
         """
-        self.model_name = model_name
-        print(f"✓ Đã khởi tạo mô hình: {model_name}")
+        self.model_name = model_name or os.getenv('GENAI_MODEL', 'gemini-3-pro-preview')
+        print(f"✓ Đã khởi tạo mô hình: {self.model_name}")
     
     def generate_content(self, 
                         prompt: str,

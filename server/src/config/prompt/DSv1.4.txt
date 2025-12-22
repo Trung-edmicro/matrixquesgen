@@ -109,7 +109,7 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
  **ĐA DẠNG GÓC ĐỘ**: 4 mệnh đề phải kiểm tra 4 khía cạnh khác nhau
  **CÂN BẰNG ĐÚNG/SAI**: Phải có cả Đúng lẫn Sai (không được 4 mệnh đề cùng đúng/sai)
  **TỰ NHIÊN**: Viết như câu văn bình thường, không cứng nhắc
- **ĐỘ DÀI LINH HOẠT**: Các ý hỏi có độ dài ngang nhau (khoảng 2 dòng).
+ **ĐỘ DÀI LINH HOẠT**: Cho phép mệnh đề ngắn (10 từ) và dài (30 từ) trong cùng câu hỏi
 
 ## Khung phân bổ 4 mệnh đề (tham khảo):
 
@@ -222,7 +222,7 @@ Theo SGK Lịch sử 12, Bài 1, mục 2.c (trang 11): 'Liên hợp quốc đón
 - Trong 4 mệnh đề phải có cả ĐÚNG và SAI (không được tất cả cùng đúng hoặc cùng sai).
 - Mỗi mệnh đề có độ dài vừa phải, phù hợp thời gian làm bài.
 - **ĐA DẠNG GÓC ĐỘ**: 4 mệnh đề kiểm tra 4 khía cạnh khác nhau (thời gian, không gian, nhân quả, ý nghĩa)
-- Không trùng ý giữa các mệnh đề, mệnh đề thuộc mức độ vận dụng (VD) không đề cập đến tư liệu
+- Không trùng ý giữa các mệnh đề.
 - **TỰ NHIÊN**: Viết mệnh đề như câu văn bình thường, không cứng nhắc công thức
 
 # METADATA SƯ PHẠM (BỔ SUNG):
