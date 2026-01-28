@@ -10,25 +10,28 @@ Tạo "{{NUM}}" câu hỏi trắc nghiệm (4 phương án A, B, C, D) **GIỐNG
 # NGUYÊN TẮC ĐẶT CÂU HỎI:
 
 ## NỘI DUNG:
+### CÂU HỎI
 - Đặt vấn đề trực tiếp, rõ ràng, không trích nguyên văn SGK. 
+- Tránh đưa các chi tiết quá vụn vặt, ghi nhớ máy móc hoặc kiến thức ngoài phạm vi yêu cầu cần đạt của bài học. 
+### ĐÁP ÁN
+- Đáp án phải liên quan đến nội dung câu hỏi
 - Nội dung đáp án đúng kiến thức SGK. Tránh các câu hỏi dựa trên quan điểm cá nhân hoặc những vấn đề chưa có kết luận thống nhất, mang tính suy đoán, cảm tính hoặc còn tranh cãi. 
 - Các đáp án lựa chọn trong câu hỏi không được phủ định nhau hoặc gợi ý để có thể biết được đáp án lựa chọn đúng với câu hỏi đặt ra. 
 - Không sử dụng câu phủ định trong phương án lựa chọn khi câu hỏi ở dạng phủ định. 
-- Nội dung câu hỏi này không được là gợi ý cho câu hỏi khác trong cùng một đề thi. 
-- Không để hai đáp án có ý nghĩa hoàn toàn giống nhau hoặc bao hàm nhau. 
-- Tránh đưa các chi tiết quá vụn vặt, ghi nhớ máy móc hoặc kiến thức ngoài phạm vi yêu cầu cần đạt của bài học.  
+- Không để hai đáp án có ý nghĩa hoàn toàn giống nhau hoặc bao hàm nhau.  
 
 ## HÌNH THỨC:
-- Tránh lặp lại các cụm từ ở phần dẫn trong tất cả các phương án lựa chọn. 
-- Độ dài mỗi câu hỏi: chỉ 1,2 dòng (tương đương 16 - 32 từ)
+### CÂU HỎI
 - Không đặt câu hỏi có chữ "gì" ở cuối
+- Tránh dùng từ tuyệt đối: luôn luôn, tất cả, nhất định, không bao giờ, chỉ, duy nhất, hầu hết,… 
+### ĐÁP ÁN
+- Tránh lặp lại các cụm từ ở phần dẫn trong tất cả các phương án lựa chọn. 
 - Câu hỏi cần có chữ "sau đây", hoặc "dưới đây" (ví dụ: Yếu tố khách quan nào sau đây đã tạo nên áp lực lớn nhất, trực tiếp đe dọa nền độc lập vừa giành được của nước Việt Nam Dân chủ Cộng hòa)
 - Nếu câu hỏi kết thúc là dấu "?", đáp án in hoa chữ cái đầu. Nếu không kết thúc là dấu "?", đáp án viết thường
 - Cuối mỗi đáp án phải có dấu "."  
 - Mỗi câu chỉ có 1 đáp án đúng duy nhất. Phương án nhiễu phải hợp lý, dựa trên lỗi sai phổ biến. 
-- Tránh dùng từ tuyệt đối: luôn luôn, tất cả, nhất định, không bao giờ, chỉ, duy nhất, hầu hết,… 
 - Tuyệt đối không dùng đáp án “Tất cả các đáp án trên đều đúng/sai” hoặc “Không có đáp án nào đúng”,… 
-- Các đáp án phải tương đồng về cấu trúc ngữ pháp, độ dài và thuộc cùng một phạm vi kiến thức. 
+- Các đáp án phải có độ dài tương đương nhau
 - Nếu dùng câu phủ định, phải in đậm/gạch chân từ đó: sai, không, ngoại trừ. 
 
 ## MỘT SỐ DẠNG CÂU HỎI:
@@ -49,7 +52,7 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 "{{LESSON_NAME}}"
 "{{CONTENT}}"
 
-# TÀI LIỆU BỔ SUNG (Nguồn tham khảo ngoài SGK):
+# TÀI LIỆU BỔ SUNG (Nguồn tham khảo ngoài SGK nếu có):
 {{SUPPLEMENTARY_MATERIALS}}
 
 **HƯỚNG DẪN SỬ DỤNG TÀI LIỆU BỔ SUNG:**
@@ -69,6 +72,7 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 ## 1. Level "NB" – Nhận biết:
 - Học sinh nhớ được (bản chất) những khái niệm cơ bản của chủ đề và có thể nêu hoặc nhận ra các khái niệm khi được yêu cầu.
 - Đây là bậc thấp nhất của nhận thức, khi học sinh kể tên, nêu lại, nhớ lại một sự kiện, hiện tượng. Ví dụ: Học sinh nhớ được ngày, tháng của một sự kiện lịch sử, tên một nhân vật lịch sử cụ thể.
+- Độ dài câu hỏi: 15 đến 20 từ
 - Dạng hỏi: với các động từ nêu, liệt kê, trình bày, khái quát, kể tên ...
 - Tuyệt đối KHÔNG hỏi: nguyên nhân, ý nghĩa, tác động, bài học, đánh giá
 - Không bắt đầu câu hỏi với "Vì", "Vì sao", "Tại sao"...
@@ -76,12 +80,14 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 
 ## 2. Level "TH" – Thông hiểu:
 - Ở bậc nhận thức này, học sinh hiểu các khái niệm cơ bản, có thể giải thích được một sự kiện, hiện tượng lịch sử, tóm tắt được diễn biến một sự kiện, nghe và trả lời được câu hỏi có liên quan. Ví dụ: Học sinh có thể giải thích được sự kiện lịch sử diễn ra như thế nào.
+- Độ dài câu hỏi: 20 đến 30 từ
 - Hỏi về: Nguyên nhân (bên trong/bên ngoài), bản chất, ý nghĩa lịch sử.
 - Dạng hỏi: với các động từ giải thích, phân biệt, tại sao, vì sao, hãy lí giải, vì sao nói ...
 - KHÔNG yêu cầu liên hệ Việt Nam hoặc so sánh ngoài phạm vi nội dung.
 
 ## 3. Level "VD" – Vận dụng:
 - Học sinh vượt qua cấp độ hiểu đơn thuần và có thể sử dụng các khái niệm của chủ đề trong các tình huống tương tự nhưng không hoàn toàn giống như tình huống đã gặp trên lớp.
+- Độ dài câu hỏi: 20 đến 36 từ
 - Ở bậc nhận thức này, học sinh có thể sử dụng được kiến thức để giải quyết 1 tình huống cụ thể. Ví dụ: Áp dụng một sự kiện lịch sử này để lý giải một sự kiện khác.
 - Gồm các dạng hỏi sau (chọn phù hợp nội dung):
   + So sánh: tìm điểm giống/khác với một sự kiện khác cùng thời kỳ.
@@ -91,6 +97,7 @@ Không để quá 3 câu liên tiếp có cùng cấu trúc. Luân phiên giữa
 
 ## 4. Level "VDC" – Vận dụng cao:
 - Học sinh có khả năng sử dụng các khái niệm cơ bản để giải quyết một vấn đề mới hoặc không quen thuộc chưa từng được học hoặc trải nghiệm trước đây, nhưng có thể giải quyết bằng các kỹ năng và kiến thức đã được dạy ở mức độ tương đương. Các vấn đề này tương tự như các tình huống thực tế học sinh sẽ gặp ngoài môi trường lớp học.
+- Độ dài câu hỏi: khoảng 30 đến 36 từ
 - Ở bậc này học sinh phải xác định được những thành tố trong 1 tổng thể và mối quan hệ qua lại giữa chúng; phát biểu ý kiến cá nhân và bảo vệ được ý kiến đó về 1 sự kiện, hiện tượng hay nhân vật lịch sử nào đó. Ví dụ: Tìm hiểu một sự kiện, hiện tượng, nhân vật lịch sử, học sinh phải phân biệt, phân tích được các sự kiện, hiện tượng, nhân vật lịch sử khác nhau,...
 - Nội dung hướng tới:
   + Quy luật lịch sử
@@ -281,7 +288,6 @@ D. Đóng vai trò trung tâm điều hòa nỗ lực quốc tế (40 từ)
 ## Ưu tiên sử dụng câu hỏi mẫu như sau (Ưu tiên 80%):
 "{{QUESTION_TEMPLATE}}"
 ---
-
 
 # LƯU Ý CUỐI CÙNG:
 

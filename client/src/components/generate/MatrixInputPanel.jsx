@@ -72,7 +72,7 @@ export default function MatrixInputPanel({ onMatrixUpload, matrixData, onTemplat
       </div>
 
       {/* Template DOCX (tùy chọn) */}
-      <div className="flex items-center gap-3">
+      {/* <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-gray-900">Đề mẫu (DOCX):</span>
         
         {templateFile ? (
@@ -100,10 +100,10 @@ export default function MatrixInputPanel({ onMatrixUpload, matrixData, onTemplat
         >
           Chọn file
         </button>
-      </div>
+      </div> */}
 
       {/* PDFs (tùy chọn) */}
-      <div className="flex flex-col gap-2">
+      {/* <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-900">Tài liệu PDF:</span>
           
@@ -154,7 +154,7 @@ export default function MatrixInputPanel({ onMatrixUpload, matrixData, onTemplat
             ))}
           </div>
         )}
-      </div>
+      </div> */}
     </div>
   )
 }

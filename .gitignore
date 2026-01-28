@@ -27,3 +27,9 @@ data/
 # IDE
 .vscode/
 .history/
+
+# Additional ignores
+*.log
+*.ps1
+*.spec
+modular_cli.md

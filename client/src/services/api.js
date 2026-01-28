@@ -53,7 +53,7 @@ export const listSessions = async (params = {}) => {
 
 // Get session detail
 export const getSessionDetail = async (sessionId) => {
-  const response = await api.get(`/api/questions/${sessionId}`)
+  const response = await api.get(`/api/generate/${sessionId}/result`)
   return response.data
 }
 

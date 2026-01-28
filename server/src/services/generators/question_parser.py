@@ -4,7 +4,6 @@ Service phân tích và trích xuất câu hỏi trắc nghiệm từ file DOCX
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import re
-from services.docx_reader import DocxReader
 
 
 class QuestionParser:
@@ -12,7 +11,7 @@ class QuestionParser:
     
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
-        self.reader = DocxReader(verbose=verbose)
+        # DocxReader removed
         self.questions = []
     
     def load_docx(self, file_path: str) -> bool:

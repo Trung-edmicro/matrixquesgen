@@ -5,7 +5,7 @@ import pandas as pd
 import re
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
-from .sample_question_bank import SampleQuestionBank
+from pathlib import Path
 from .matrix_template_detector import MatrixTemplateDetector, MatrixTemplate
 
 
@@ -20,6 +20,7 @@ class QuestionSpec:
     question_codes: List[str]  # Danh sách mã câu (C1, C2, ...)
     learning_outcome: str  # Đặc tả ma trận (đã lọc theo cấp độ)
     row_index: int  # Vị trí hàng trong Excel
+    chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
     supplementary_materials: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
 
 
@@ -41,17 +42,19 @@ class TrueFalseQuestionSpec:
     lesson_name: str  # Tên chương - bài
     statements: List[StatementSpec]  # Danh sách 4 mệnh đề (a, b, c, d)
     question_type: str = "DS"  # Loại câu hỏi
+    chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
     supplementary_materials: str = ""  # Tài liệu bổ sung chung cho câu hỏi
 
 
 class MatrixParser:
     """Class phân tích ma trận câu hỏi"""
     
-    # Mapping cột trong Excel
-    COL_STT = 1
-    COL_COMPETENCY = 2
-    COL_LESSON = 3
-    COL_SPEC = 4
+    # Mapping cột trong Excel (0-indexed, structure mới)
+    COL_STT = 0
+    COL_COMPETENCY = 1  # Thường empty/merged
+    COL_CHAPTER = 2  # Tên Chủ đề - Chương
+    COL_LESSON = 3  # Tên Bài
+    COL_SPEC = 4  # Đặc tả ma trận
     
     # Cột cho câu hỏi trắc nghiệm nhiều lựa chọn
     COL_TN_NB = 5   # Nhận biết
@@ -63,38 +66,49 @@ class MatrixParser:
     COL_DS_TH = 9   # Thông hiểu
     COL_DS_VD = 10  # Vận dụng
     
-    # Cột cho câu hỏi trả lời ngắn
+    # Cột cho câu hỏi trả lời ngắn (TN dạng điền khuyết)
     COL_TLN_NB = 11  # Nhận biết
     COL_TLN_TH = 12  # Thông hiểu
     COL_TLN_VD = 13  # Vận dụng
+
+    # Cột cho câu hỏi tự luận
+    COL_TL_NB = 14  # Nhận biết
+    COL_TL_TH = 15  # Thông hiểu
+    COL_TL_VD = 16  # Vận dụng
     
     # Cột tài liệu bổ sung
-    COL_SUPPLEMENTARY_1 = 14  # Tài liệu bổ sung phần 1
-    COL_SUPPLEMENTARY_2 = 15  # Tài liệu bổ sung phần 2
+    COL_SUPPLEMENTARY = 17  # Tài liệu bổ sung
     
     # Mapping cấp độ
     COGNITIVE_LEVEL_MAP = {
         COL_TN_NB: "NB", COL_TN_TH: "TH", COL_TN_VD: "VD",
         COL_DS_NB: "NB", COL_DS_TH: "TH", COL_DS_VD: "VD",
-        COL_TLN_NB: "NB", COL_TLN_TH: "TH", COL_TLN_VD: "VD"
+        COL_TLN_NB: "NB", COL_TLN_TH: "TH", COL_TLN_VD: "VD",
+        COL_TL_NB: "NB", COL_TL_TH: "TH", COL_TL_VD: "VD"
     }
     
     # Mapping loại câu hỏi
     QUESTION_TYPE_MAP = {
         COL_TN_NB: "TN", COL_TN_TH: "TN", COL_TN_VD: "TN",
         COL_DS_NB: "DS", COL_DS_TH: "DS", COL_DS_VD: "DS",
-        COL_TLN_NB: "TLN", COL_TLN_TH: "TLN", COL_TLN_VD: "TLN"
+        COL_TLN_NB: "TLN", COL_TLN_TH: "TLN", COL_TLN_VD: "TLN",
+        COL_TL_NB: "TL", COL_TL_TH: "TL", COL_TL_VD: "TL"
     }
     
     def __init__(self):
         self.df = None
         self.current_competency = None
+        self.current_chapter = None
         self.current_lesson = None
         self.current_spec = None
-        self.sample_question_bank: Optional[SampleQuestionBank] = None
         self.template: Optional[MatrixTemplate] = None
         self.template_metadata: dict = {}
         self.file_path: Optional[str] = None
+        
+        # Thông tin từ tên file
+        self.subject = None  # Môn học (LICHSU, TOAN, etc.)
+        self.curriculum = None  # Bộ sách (KNTT, etc.)
+        self.grade = None  # Lớp (C12, C11, etc.)
     
     def load_excel(self, file_path: str, sheet_name: str = None):
         """
@@ -106,10 +120,14 @@ class MatrixParser:
         """
         self.file_path = file_path
         
+        # Parse thông tin từ tên file
+        filename = Path(file_path).name
+        self.subject, self.curriculum, self.grade = self.parse_matrix_filename(filename)
+                
         # Phát hiện template
         detector = MatrixTemplateDetector()
         self.template, self.template_metadata = detector.detect(file_path)
-        detector.print_detection_result(self.template, self.template_metadata)
+        # detector.print_detection_result(self.template, self.template_metadata)
         
         # Xác định sheet name
         if sheet_name is None:
@@ -118,15 +136,6 @@ class MatrixParser:
         # Đọc sheet ma trận
         self.df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
         print(f"\n✓ Đã tải ma trận từ sheet '{sheet_name}': {self.df.shape[0]} hàng x {self.df.shape[1]} cột")
-        
-        # Load câu hỏi mẫu nếu có
-        if self.template == MatrixTemplate.TEMPLATE_2:
-            self.sample_question_bank = SampleQuestionBank()
-            sample_sheet = self.template_metadata.get('sample_sheet')
-            if sample_sheet:
-                success = self.sample_question_bank.load_from_excel(file_path, sample_sheet)
-                if success:
-                    self.sample_question_bank.print_statistics()
     
     def parse_question_cell(self, cell_value) -> Tuple[int, List[str]]:
         """
@@ -168,6 +177,181 @@ class MatrixParser:
             return num, codes
         
         return 0, []
+    
+    def parse_chapter_number(self, chapter_text: str) -> Optional[int]:
+        """
+        Parse số chương từ chuỗi tên chương (hỗ trợ cả số La Mã)
+        
+        Args:
+            chapter_text: Chuỗi tên chương (VD: "Chương I. ...", "Chủ đề 1. ...")
+            
+        Returns:
+            Optional[int]: Số chương hoặc None nếu không parse được
+        """
+        if pd.isna(chapter_text):
+            return None
+        
+        chapter_str = str(chapter_text).strip()
+        
+        # Thử parse số Arabic trước: "Chủ đề 1" hoặc "Chương 2"
+        pattern_arabic = r'(?:Chủ đề|Chương)\s*(\d+)'
+        match = re.search(pattern_arabic, chapter_str, re.IGNORECASE)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                pass
+        
+        # Nếu không có số Arabic, thử parse số La Mã: "Chương I", "Chương II"
+        pattern_roman = r'(?:Chủ đề|Chương)\s*([IVXLCDM]+)'
+        match = re.search(pattern_roman, chapter_str, re.IGNORECASE)
+        if match:
+            roman = match.group(1).upper()
+            # Convert Roman to Arabic
+            roman_map = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+            result = 0
+            prev_value = 0
+            for char in reversed(roman):
+                value = roman_map.get(char, 0)
+                if value < prev_value:
+                    result -= value
+                else:
+                    result += value
+                prev_value = value
+            return result if result > 0 else None
+        
+        return None
+    
+    def parse_matrix_filename(self, filename: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse tên file ma trận để trích xuất môn, bộ và lớp
+        
+        Args:
+            filename: Tên file (VD: "Ma trận_LICHSU_KNTT_C12.xlsx" hoặc "Ma trận_TOAN_C12.xlsx")
+            
+        Returns:
+            Tuple[subject, curriculum, grade]: (môn, bộ, lớp)
+        """
+        # Pattern: Ma trận_[môn]_[bộ]_[lớp].xlsx hoặc Ma trận_[môn]_[lớp].xlsx
+        # VD: Ma trận_LICHSU_KNTT_C12.xlsx hoặc Ma trận_TOAN_C12.xlsx
+        pattern = r'Ma trận_([A-Z]+)(?:_([A-Z]+))?_([A-Z]\d+)\.xlsx?'
+        match = re.search(pattern, filename, re.IGNORECASE)
+        
+        if match:
+            subject = match.group(1).upper()  # LICHSU, TOAN
+            curriculum = match.group(2).upper() if match.group(2) else None  # KNTT (có thể None)
+            grade = match.group(3).upper()  # C12
+            return subject, curriculum, grade
+        
+        return None, None, None
+    
+    def parse_lesson_number(self, lesson_text: str) -> Optional[int]:
+        """
+        Parse số bài từ tên bài
+        
+        Args:
+            lesson_text: Tên bài (VD: "Bài 10. Khái quát về công cuộc Đổi mới từ năm 1986 đến nay")
+            
+        Returns:
+            Optional[int]: Số bài hoặc None
+        """
+        if pd.isna(lesson_text):
+            return None
+        
+        lesson_str = str(lesson_text).strip()
+        
+        # Pattern để tìm số sau "Bài"
+        # VD: "Bài 10." -> 10
+        pattern = r'Bài\s*(\d+)'
+        match = re.search(pattern, lesson_str, re.IGNORECASE)
+        
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                pass
+        
+        return None
+    
+    def generate_drive_path(self, chapter_number: Optional[int] = None, lesson_number: Optional[int] = None) -> List[str]:
+        """
+        Tạo path cho Google Drive từ thông tin đã parse
+        
+        Args:
+            chapter_number: Số chương (nếu không truyền sẽ tự detect)
+            lesson_number: Số bài (nếu không truyền sẽ tự detect)
+            
+        Returns:
+            List[str]: Path segments ['grade', 'subject', 'folder_name']
+        """
+        if not self.grade or not self.subject:
+            raise ValueError("Cannot generate path: missing grade or subject info from filename")
+        
+        # Nếu không truyền chapter/lesson number, tự detect từ data
+        if chapter_number is None or lesson_number is None:
+            # Tìm chapter và lesson number từ data
+            detected_chapter = None
+            detected_lesson = None
+            
+            if self.df is not None:
+                # Duyệt qua tất cả rows (không bỏ qua header như trong parse_matrix)
+                for row_idx in range(len(self.df)):
+                    row = self.df.iloc[row_idx]
+                    
+                    # Parse chapter - sử dụng tên cột hoặc index
+                    try:
+                        # Thử dùng tên cột trước
+                        if 'Chủ đề - Chương' in self.df.columns:
+                            chapter_col = 'Chủ đề - Chương'
+                        else:
+                            chapter_col = self.COL_CHAPTER
+                        
+                        if pd.notna(row[chapter_col]):
+                            chapter_text = str(row[chapter_col]).strip()
+                            detected_chapter = self.parse_chapter_number(chapter_text)
+                    except (KeyError, IndexError):
+                        pass
+                    
+                    # Parse lesson - sử dụng tên cột hoặc index
+                    try:
+                        if 'Bài' in self.df.columns:
+                            lesson_col = 'Bài'
+                        else:
+                            lesson_col = self.COL_LESSON
+                            
+                        if pd.notna(row[lesson_col]):
+                            lesson_text = str(row[lesson_col]).strip()
+                            detected_lesson = self.parse_lesson_number(lesson_text)
+                    except (KeyError, IndexError):
+                        pass
+                    
+                    # Nếu đã tìm thấy cả hai, dừng
+                    if detected_chapter is not None and detected_lesson is not None:
+                        break
+            
+            if chapter_number is None:
+                chapter_number = detected_chapter
+            if lesson_number is None:
+                lesson_number = detected_lesson
+        
+        # Tạo folder name theo format: {subject}_{curriculum}_{grade}_{chapter}_{lesson}
+        # VD: LICHSU_KNTT_C12_4_10
+        folder_parts = [self.subject]
+        if self.curriculum:
+            folder_parts.append(self.curriculum)
+        folder_parts.append(self.grade)
+        
+        if chapter_number is not None:
+            folder_parts.append(str(chapter_number))
+        if lesson_number is not None:
+            folder_parts.append(str(lesson_number))
+        
+        folder_name = "_".join(folder_parts)
+        
+        # Tạo path: [grade, subject, folder_name]
+        path = [self.grade, self.subject, folder_name]
+        
+        return path
     
     def extract_learning_outcome_by_level(self, spec_text: str, cognitive_level: str) -> str:
         """
@@ -241,6 +425,9 @@ class MatrixParser:
         
         question_specs = []
         
+        # Track processed question codes per lesson to avoid duplicates
+        processed_codes_per_lesson = {}
+        
         # Xác định các cột cần xử lý theo loại câu hỏi
         if question_type == "TN":
             cols_to_process = [self.COL_TN_NB, self.COL_TN_TH, self.COL_TN_VD]
@@ -248,6 +435,8 @@ class MatrixParser:
             cols_to_process = [self.COL_DS_NB, self.COL_DS_TH, self.COL_DS_VD]
         elif question_type == "TLN":
             cols_to_process = [self.COL_TLN_NB, self.COL_TLN_TH, self.COL_TLN_VD]
+        elif question_type == "TL":
+            cols_to_process = [self.COL_TL_NB, self.COL_TL_TH, self.COL_TL_VD]
         else:
             raise ValueError(f"Loại câu hỏi không hợp lệ: {question_type}")
         
@@ -262,6 +451,10 @@ class MatrixParser:
                 except:
                     pass
             
+            if pd.notna(row[self.COL_CHAPTER]):
+                chapter_text = str(row[self.COL_CHAPTER]).strip()
+                self.current_chapter = self.parse_chapter_number(chapter_text)
+            
             if pd.notna(row[self.COL_LESSON]):
                 self.current_lesson = str(row[self.COL_LESSON]).strip()
             
@@ -270,23 +463,21 @@ class MatrixParser:
             
             supplementary_parts = []
             
+            # Chỉ có 1 cột tài liệu bổ sung
             try:
-                if self.COL_SUPPLEMENTARY_1 < len(row) and pd.notna(row[self.COL_SUPPLEMENTARY_1]):
-                    content = str(row[self.COL_SUPPLEMENTARY_1]).strip()
-                    if content and content != 'nan':
-                        supplementary_parts.append(content)
-            except (IndexError, KeyError):
-                pass
-            
-            try:
-                if self.COL_SUPPLEMENTARY_2 < len(row) and pd.notna(row[self.COL_SUPPLEMENTARY_2]):
-                    content = str(row[self.COL_SUPPLEMENTARY_2]).strip()
+                if self.COL_SUPPLEMENTARY < len(row) and pd.notna(row[self.COL_SUPPLEMENTARY]):
+                    content = str(row[self.COL_SUPPLEMENTARY]).strip()
                     if content and content != 'nan':
                         supplementary_parts.append(content)
             except (IndexError, KeyError):
                 pass
             
             supplementary = "\n\n---\n\n".join(supplementary_parts) if supplementary_parts else ""
+            
+            # Initialize tracking for this lesson if not exists
+            lesson_key = f"{self.current_chapter}_{self.current_lesson}"
+            if lesson_key not in processed_codes_per_lesson:
+                processed_codes_per_lesson[lesson_key] = set()
             
             # Xử lý các cột câu hỏi
             for col_idx in cols_to_process:
@@ -295,22 +486,32 @@ class MatrixParser:
                 if num_questions > 0:
                     cognitive_level = self.COGNITIVE_LEVEL_MAP[col_idx]
                     
-                    # Trích xuất đặc tả theo cấp độ
-                    learning_outcome = self.extract_learning_outcome_by_level(
-                        self.current_spec, 
-                        cognitive_level
-                    )
+                    # Filter out duplicate question codes for this lesson
+                    new_codes = []
+                    for code in question_codes:
+                        if code not in processed_codes_per_lesson[lesson_key]:
+                            new_codes.append(code)
+                            processed_codes_per_lesson[lesson_key].add(code)
                     
-                    # Tạo QuestionSpec
+                    # Skip if all codes were duplicates
+                    if not new_codes:
+                        continue
+                    
+                    # Lấy learning_outcome trực tiếp từ cột Đặc tả ma trận của hàng hiện tại
+                    # Không còn tách theo cấp độ nữa
+                    learning_outcome = self.current_spec if self.current_spec else ""
+                    
+                    # Tạo QuestionSpec với số câu và mã câu đã được deduplicate
                     spec = QuestionSpec(
                         lesson_name=self.current_lesson,
                         competency_level=self.current_competency,
                         cognitive_level=cognitive_level,
                         question_type=question_type,
-                        num_questions=num_questions,
-                        question_codes=question_codes,
+                        num_questions=len(new_codes),  # Cập nhật số câu thực tế
+                        question_codes=new_codes,  # Chỉ giữ các mã chưa xử lý
                         learning_outcome=learning_outcome,
                         row_index=row_idx,
+                        chapter_number=self.current_chapter,
                         supplementary_materials=supplementary
                     )
                     
@@ -354,6 +555,7 @@ class MatrixParser:
                     grouped[base_code].append({
                         'statement': statement,
                         'lesson_name': spec.lesson_name,
+                        'chapter_number': spec.chapter_number,
                         'supplementary_materials': spec.supplementary_materials
                     })
         
@@ -369,6 +571,7 @@ class MatrixParser:
             statements = [item['statement'] for item in items]
             lesson_name = items[0]['lesson_name']  # Lấy lesson_name từ statement đầu tiên
             supplementary_materials = items[0]['supplementary_materials']  # Lấy tài liệu bổ sung
+            chapter_number = items[0]['chapter_number']  # Lấy chapter_number từ item đầu tiên
             
             # Kiểm tra có đủ 4 mệnh đề không
             if len(statements) != 4:
@@ -383,6 +586,7 @@ class MatrixParser:
                 question_code=question_code,
                 lesson_name=lesson_name,
                 statements=statements,
+                chapter_number=chapter_number,
                 supplementary_materials=supplementary_materials
             )
             
@@ -395,17 +599,18 @@ class MatrixParser:
         Lấy tất cả đặc tả câu hỏi theo loại
         
         Returns:
-            Dict[str, List[QuestionSpec]]: Dict với key là loại câu hỏi (TN, DS, TLN)
+            Dict[str, List[QuestionSpec]]: Dict với key là loại câu hỏi (TN, DS, TLN, TL)
         """
         return {
             "TN": self.parse_matrix("TN"),
             "DS": self.parse_matrix("DS"),
-            "TLN": self.parse_matrix("TLN")
+            "TLN": self.parse_matrix("TLN"),
+            "TL": self.parse_matrix("TL")
         }
     
     def has_sample_questions(self) -> bool:
         """Kiểm tra xem có ngân hàng câu hỏi mẫu không"""
-        return self.sample_question_bank is not None and self.sample_question_bank.has_samples()
+        return False
     
     def get_sample_question(self, lesson_name: str, question_type: str, cognitive_level: str):
         """
@@ -422,11 +627,7 @@ class MatrixParser:
         if not self.has_sample_questions():
             return None
         
-        return self.sample_question_bank.get_random_sample(
-            lesson_name,
-            question_type,
-            cognitive_level
-        )
+        return None  # Sample question bank removed
     
     def print_specs_summary(self, specs: List[QuestionSpec]):
         """In tóm tắt các đặc tả"""
@@ -435,7 +636,8 @@ class MatrixParser:
         print("=" * 100)
         
         for idx, spec in enumerate(specs, 1):
-            print(f"\n[{idx}] {spec.lesson_name}")
+            chapter_info = f" | Chương: {spec.chapter_number}" if spec.chapter_number else ""
+            print(f"\n[{idx}] {spec.lesson_name}{chapter_info}")
             print(f"    Loại: {spec.question_type} | Cấp độ: {spec.cognitive_level} | Số câu: {spec.num_questions}")
             print(f"    Mã câu: {', '.join(spec.question_codes)}")
             print(f"    Đặc tả: {spec.learning_outcome[:100]}...")

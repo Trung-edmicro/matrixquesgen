@@ -12,14 +12,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from api.models.schemas import ExportResponse
-from services.docx_generator import DocxGenerator
+from services.exporters.docx_generator import DocxGenerator
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
 
 
-SESSIONS_DIR = Path("data/sessions")
-EXPORTS_DIR = Path("data/exports")
+SESSIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "sessions"
+SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+EXPORTS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "exports"
 EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -39,13 +41,27 @@ async def export_docx(session_id: str):
     with open(session_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    metadata = data.get('metadata', {})
-    
-    if metadata.get('status') != 'completed':
+    # Kiểm tra status từ session data
+    status = data.get('status')
+    if status != 'completed':
         raise HTTPException(
             status_code=400,
-            detail=f"Session chưa hoàn thành. Status: {metadata.get('status')}"
+            detail=f"Session chưa hoàn thành. Status: {status}"
         )
+    
+    # Lấy metadata từ questions file
+    results_file = data.get('results_file')
+    if not results_file:
+        raise HTTPException(status_code=404, detail="Results file không được chỉ định trong session")
+    
+    questions_file = Path(__file__).parent.parent.parent.parent / "data" / "questions" / results_file
+    if not questions_file.exists():
+        raise HTTPException(status_code=404, detail=f"Questions file không tồn tại: {results_file}")
+    
+    with open(questions_file, 'r', encoding='utf-8') as f:
+        questions_data = json.load(f)
+    
+    metadata = questions_data.get('metadata', {})
     
     # Tạo tên file
     matrix_filename = Path(metadata.get('matrix_file', 'questions')).stem
@@ -57,7 +73,7 @@ async def export_docx(session_id: str):
     try:
         generator = DocxGenerator(verbose=False)
         generator.generate_questions_document(
-            json_data=data,
+            json_data=questions_data,
             output_path=str(output_path)
         )
     except Exception as e:

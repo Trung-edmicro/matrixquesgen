@@ -15,7 +15,7 @@ export default function AppLayout({ children }) {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
         />
         
-        <main className="flex-1 overflow-auto bg-gray-50">
+        <main className="flex-1 overflow-hidden bg-gray-50">
           {children}
         </main>
       </div>

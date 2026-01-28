@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { updateQuestion } from '../../services/api'
+import LaTeXRenderer from '../common/LaTeXRenderer'
 
 export default function ExamPreviewPanel({ examData, isGenerating, sessionId, onDataChange }) {
   const [activeTab, setActiveTab] = useState('questions')
@@ -13,7 +14,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   ]
 
   // Get questions from examData structure
-  const questions = editedData?.questions || examData?.questions || { TN: [], DS: [] }
+  const questions = editedData?.questions || examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
   const metadata = examData?.metadata || {}
 
   // Reset edited data when examData changes
@@ -37,6 +38,16 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       // Update all DS questions
       for (const q of editedData.questions.DS) {
         await updateQuestion(sessionId, 'DS', q.question_code, q)
+      }
+      
+      // Update all TLN questions
+      for (const q of editedData.questions.TLN || []) {
+        await updateQuestion(sessionId, 'TLN', q.question_code, q)
+      }
+      
+      // Update all TL questions
+      for (const q of editedData.questions.TL || []) {
+        await updateQuestion(sessionId, 'TL', q.question_code, q)
       }
       
       setIsDirty(false)
@@ -79,9 +90,9 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   }
 
   return (
-    <div className="h-full panel flex flex-col overflow-hidden">
+    <div className="h-full panel flex flex-col">
       {/* Tabs and Save Button */}
-      <div className="border-b border-gray-200 flex items-center justify-between">
+      <div className="border-b border-gray-200 flex items-center justify-between flex-shrink-0">
         <div className="flex">
           {tabs.map((tab) => (
             <button
@@ -113,7 +124,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 min-h-0">
         {isGenerating ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
@@ -125,11 +136,11 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
             </div>
           </div>
         ) : examData ? (
-          <div className="space-y-4">
+          <>
             {/* Metadata info */}
             {metadata.total_questions > 0 && (
-              <div className="bg-gray-50 p-3 rounded text-sm text-gray-600">
-                <div>Tổng: {metadata.total_questions} câu ({metadata.tn_count} TN, {metadata.ds_count} DS)</div>
+              <div className="bg-gray-50 p-3 rounded text-sm text-gray-600 mb-4">
+                <div>Tổng: {metadata.total_questions} câu ({metadata.tn_count || 0} TN, {metadata.ds_count || 0} DS, {metadata.tln_count || 0} TLN, {metadata.tl_count || 0} TL)</div>
                 {metadata.generated_at && (
                   <div className="text-gray-500 mt-1">
                     Thời gian: {new Date(metadata.generated_at).toLocaleString('vi-VN')}
@@ -148,7 +159,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
             {activeTab === 'answers' && (
               <AnswersList questions={questions} />
             )}
-          </div>
+          </>
         ) : (
           <div className="h-full flex items-center justify-center">
             <div className="text-sm text-gray-500">
@@ -177,9 +188,11 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
     return getNumber(a.question_code) - getNumber(b.question_code)
   }
 
-  // Sort TN và DS questions
+  // Sort all question types
   const sortedTN = [...(questions.TN || [])].sort(sortByQuestionCode)
   const sortedDS = [...(questions.DS || [])].sort(sortByQuestionCode)
+  const sortedTLN = [...(questions.TLN || [])].sort(sortByQuestionCode)
+  const sortedTL = [...(questions.TL || [])].sort(sortByQuestionCode)
 
   const handleBlur = (type, code, field, e) => {
     const newValue = e.target.textContent
@@ -201,10 +214,10 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* TN Questions */}
       {sortedTN.length > 0 && (
-        <div>
+        <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
           {sortedTN.map((q, idx) => (
             <div key={q.question_code} className="mb-5 text-base border-b border-gray-100 pb-5">
@@ -227,13 +240,14 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 )}
                 <span className="text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div 
-                contentEditable={!!sessionId}
-                suppressContentEditableWarning
-                onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
-                className="mb-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
-              >
-                {q.question_stem}
+              <div className="mb-2 text-gray-700">
+                <LaTeXRenderer
+                  contentEditable={!!sessionId}
+                  onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
+                  className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline-block w-full"
+                >
+                  {q.question_stem}
+                </LaTeXRenderer>
               </div>
               <div className="space-y-1 pl-4">
                 {Object.entries(q.options || {}).map(([key, value]) => (
@@ -252,14 +266,13 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                     )}
                     <div className={q.correct_answer === key ? 'text-red-600 font-medium flex-1' : 'text-gray-600 flex-1'}>
                       <span>{key}. </span>
-                      <span
+                      <LaTeXRenderer
                         contentEditable={!!sessionId}
-                        suppressContentEditableWarning
                         onBlur={(e) => handleBlur('TN', q.question_code, `options.${key}`, e)}
-                        className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                        className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline"
                       >
                         {value}
-                      </span>
+                      </LaTeXRenderer>
                     </div>
                   </div>
                 ))}
@@ -271,21 +284,22 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
 
       {/* DS Questions */}
       {sortedDS.length > 0 && (
-        <div>
-          <h3 className="text-base font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần II: Đúng/Sai</h3>
           {sortedDS.map((q, idx) => (
             <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
               <div className="mb-2">
                 <span className="font-medium">Câu {idx + 1}</span>
                 <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div 
-                contentEditable={!!sessionId}
-                suppressContentEditableWarning
-                onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
-                className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-2 rounded focus:outline-none focus:ring-2 focus:ring-primary-300"
-              >
-                {q.source_text}
+              <div className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-2 rounded">
+                <LaTeXRenderer
+                  contentEditable={!!sessionId}
+                  onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
+                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  {q.source_text}
+                </LaTeXRenderer>
               </div>
               <div className="space-y-2 pl-4">
                 {Object.entries(q.statements || {}).map(([key, stmt]) => (
@@ -315,17 +329,70 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                     )}
                     <div className="flex-1">
                       <span>{key}. </span>
-                      <span
+                      <LaTeXRenderer
                         contentEditable={!!sessionId}
-                        suppressContentEditableWarning
                         onBlur={(e) => handleBlur('DS', q.question_code, `statements.${key}.text`, e)}
-                        className={`focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 ${stmt.correct_answer ? 'text-red-600 font-medium' : 'text-gray-600'}`}
+                        className={`focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline ${stmt.correct_answer ? 'text-red-600 font-medium' : 'text-gray-600'}`}
                       >
                         {stmt.text}
-                      </span>
+                      </LaTeXRenderer>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* TLN Questions */}
+      {sortedTLN.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần III: Trả lời ngắn</h3>
+          {sortedTLN.map((q, idx) => (
+            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="font-medium">Câu {idx + 1}</span>
+                <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                  {q.level}
+                </span>
+                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+              </div>
+              <div className="text-gray-700">
+                <LaTeXRenderer
+                  contentEditable={!!sessionId}
+                  onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
+                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  {q.question_stem}
+                </LaTeXRenderer>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* TL Questions */}
+      {sortedTL.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần IV: Tự luận</h3>
+          {sortedTL.map((q, idx) => (
+            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="font-medium">Câu {idx + 1}</span>
+                <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                  {q.level}
+                </span>
+                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+              </div>
+              <div className="text-gray-700">
+                <LaTeXRenderer
+                  contentEditable={!!sessionId}
+                  onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
+                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                >
+                  {q.question_stem}
+                </LaTeXRenderer>
               </div>
             </div>
           ))}
@@ -342,14 +409,16 @@ function AnswersList({ questions }) {
     return getNumber(a.question_code) - getNumber(b.question_code)
   }
 
-  // Sort TN và DS questions
+  // Sort all question types
   const sortedTN = [...(questions.TN || [])].sort(sortByQuestionCode)
   const sortedDS = [...(questions.DS || [])].sort(sortByQuestionCode)
+  const sortedTLN = [...(questions.TLN || [])].sort(sortByQuestionCode)
+  const sortedTL = [...(questions.TL || [])].sort(sortByQuestionCode)
 
   return (
-    <div className="space-y-6">
+    <div>
       {sortedTN.length > 0 && (
-        <div>
+        <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
           <div className="text-base space-y-2">
             {sortedTN.map((q, idx) => (
@@ -359,7 +428,9 @@ function AnswersList({ questions }) {
                   <span className="text-red-600 font-medium">{q.correct_answer}</span>
                 </div>
                 {q.explanation && (
-                  <div className="text-sm text-gray-600 pl-16">{q.explanation}</div>
+                  <div className="text-sm text-gray-600 pl-16">
+                    <LaTeXRenderer>{q.explanation}</LaTeXRenderer>
+                  </div>
                 )}
               </div>
             ))}
@@ -368,7 +439,7 @@ function AnswersList({ questions }) {
       )}
 
       {sortedDS.length > 0 && (
-        <div>
+        <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3">Phần II: Đúng/Sai</h3>
           <div className="text-base space-y-3">
             {sortedDS.map((q, idx) => (
@@ -380,10 +451,64 @@ function AnswersList({ questions }) {
                       <span className="font-medium">{key}.</span>{' '}
                       <span className="text-red-600">{stmt.correct_answer ? 'Đúng' : 'Sai'}</span>
                       {q.explanation?.[key] && (
-                        <div className="text-gray-600 pl-4 mt-1">{q.explanation[key]}</div>
+                        <div className="text-gray-600 pl-4 mt-1">
+                          <LaTeXRenderer>{q.explanation[key]}</LaTeXRenderer>
+                        </div>
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sortedTLN.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần III: Trả lời ngắn</h3>
+          <div className="text-base space-y-2">
+            {sortedTLN.map((q, idx) => (
+              <div key={q.question_code} className="border-b border-gray-100 pb-2">
+                <div className="flex items-start gap-2 mb-1">
+                  <span className="font-medium">Câu {idx + 1}:</span>
+                  <span className="text-red-600 font-medium">{q.correct_answer}</span>
+                </div>
+                {q.explanation && (
+                  <div className="text-sm text-gray-600 pl-16">
+                    <LaTeXRenderer>{q.explanation}</LaTeXRenderer>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sortedTL.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3">Phần IV: Tự luận</h3>
+          <div className="text-base space-y-3">
+            {sortedTL.map((q, idx) => (
+              <div key={q.question_code} className="border-b border-gray-100 pb-3">
+                <div className="font-medium mb-2">Câu {idx + 1}:</div>
+                <div className="pl-4">
+                  {q.correct_answer && (
+                    <div className="mb-2">
+                      <span className="font-medium text-red-600">Đáp án mẫu:</span>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <LaTeXRenderer>{q.correct_answer}</LaTeXRenderer>
+                      </div>
+                    </div>
+                  )}
+                  {q.explanation && (
+                    <div>
+                      <span className="font-medium">Hướng dẫn chấm điểm:</span>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <LaTeXRenderer>{q.explanation}</LaTeXRenderer>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

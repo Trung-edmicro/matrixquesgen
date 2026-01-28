@@ -1,6 +1,10 @@
-# Matrix Question Generator
+# MatrixQuesGen - Matrix Question Generator
 
-Hệ thống tạo câu hỏi trắc nghiệm tự động từ file Excel sử dụng Vertex AI của Google Cloud.
+Hệ thống tạo câu hỏi trắc nghiệm tự động từ ma trận đề thi sử dụng Google AI.
+
+**Version**: 1.0.0  
+**Build Status**: ✅ Ready for Production  
+**Platform**: Windows 10+
 
 ## Cấu trúc dự án
 
@@ -42,7 +46,15 @@ MatrixQuesGen/
 - Batch processing
 - Tích hợp với dữ liệu JSON
 
-### 3. DOCX Generator (✓)
+### 3. Google Drive Integration (✓)
+
+- **Tích hợp Google Drive API** để tải content từ Drive
+- **Tự động kiểm tra version file** - Phát hiện và tải bản mới nhất
+- Tự động tạo và quản lý metadata
+- Tiết kiệm bandwidth - Chỉ tải khi có cập nhật mới
+- Xem chi tiết: [DRIVE_VERSION_CHECKING.md](docs/DRIVE_VERSION_CHECKING.md)
+
+### 4. DOCX Generator (✓)
 
 - Tạo file Word (.docx) từ dữ liệu JSON
 - Hỗ trợ heading, paragraph, table

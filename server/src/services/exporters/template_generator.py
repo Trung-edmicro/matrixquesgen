@@ -3,9 +3,9 @@ Service tích hợp để sinh câu hỏi với template từ file DOCX
 """
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from services.question_parser import QuestionParser, QuestionMatrixMapper
-from services.matrix_parser import MatrixParser, QuestionSpec
-from services.question_generator import QuestionGenerator
+from ..generators.question_parser import QuestionParser, QuestionMatrixMapper
+from ..core.matrix_parser import MatrixParser, QuestionSpec
+from ..generators.question_generator import QuestionGenerator
 
 
 class QuestionGeneratorWithTemplate:
@@ -197,7 +197,7 @@ class QuestionGeneratorWithTemplate:
         """
         # Tùy thuộc vào cấu trúc row, tạo QuestionSpec phù hợp
         # Đây là ví dụ cơ bản
-        from services.matrix_parser import QuestionSpec
+        from services.core.matrix_parser import QuestionSpec
         
         return QuestionSpec(
             question_codes=row.get('question_codes', [row.get('row_number', 'Q1')]),

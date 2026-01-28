@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import KaTeX CSS for LaTeX rendering */
+@import 'katex/dist/katex.min.css';
+
 @layer base {
   * {
     @apply border-gray-300;
@@ -32,4 +35,33 @@
   .panel {
     @apply bg-white border border-gray-200 rounded;
   }
+}
+
+/* Custom styles for LaTeX rendering */
+.latex-renderer {
+  @apply inline-block;
+}
+
+.latex-renderer .latex-formula {
+  @apply inline-block;
+}
+
+/* Make LaTeX math display nicely inline */
+.latex-renderer .katex {
+  font-size: inherit;
+}
+
+.latex-renderer .katex-display {
+  margin: 0.5em 0;
+}
+
+/* When editable, show cursor */
+[contenteditable="true"].latex-renderer {
+  cursor: text;
+  min-height: 1.2em;
+}
+
+[contenteditable="true"].latex-renderer:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
 }

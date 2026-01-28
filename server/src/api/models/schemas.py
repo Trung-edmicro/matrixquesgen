@@ -55,6 +55,17 @@ class QuestionDS(BaseModel):
     explanation: Dict[str, str]
 
 
+class QuestionTLN(BaseModel):
+    """Câu hỏi trắc nghiệm luận (trả lời ngắn)"""
+    question_code: str
+    question_type: str
+    lesson_name: str
+    level: str
+    question_stem: str
+    correct_answer: str
+    explanation: str
+
+
 class SessionMetadata(BaseModel):
     """Metadata của một session sinh câu hỏi"""
     session_id: str
@@ -62,6 +73,8 @@ class SessionMetadata(BaseModel):
     total_questions: int
     tn_count: int
     ds_count: int
+    tln_count: int = 0
+    tl_count: int = 0
     generated_at: datetime
     status: str  # 'processing', 'completed', 'failed'
 

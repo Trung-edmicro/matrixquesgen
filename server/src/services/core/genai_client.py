@@ -117,7 +117,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=8192,
+                max_output_tokens=16384,
                 system_instruction=system_instruction,
                 tools=tools if tools else None
             )
@@ -164,13 +164,13 @@ class GenAIClient:
             tools = None
             if enable_search:
                 tools = [types.Tool(google_search=types.GoogleSearch())]
-                print("🔍 Google Search enabled cho request này")
+                # print("🔍 Google Search enabled cho request này")
             
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=8192,
+                max_output_tokens=16384,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
@@ -184,8 +184,23 @@ class GenAIClient:
                 config=config
             )
             
+            # Log usage metadata for debugging
+            if hasattr(response, 'usage_metadata'):
+                usage = response.usage_metadata
+                print(f"📊 Token usage: prompt={usage.prompt_token_count}, "
+                      f"candidates={usage.candidates_token_count}, "
+                      f"total={usage.total_token_count}")
+            
+            # Check finish reason
+            if hasattr(response, 'candidates') and response.candidates:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason != 'STOP':
+                    print(f"⚠️ Response finished with reason: {finish_reason}")
+                    if finish_reason == 'MAX_TOKENS':
+                        print(f"⚠️ Response was truncated due to MAX_TOKENS limit!")
+            
             # Extract text from response
-            text = response.text if hasattr(response, 'text') else ""
+            text = response.text if hasattr(response, 'text') and response.text is not None else ""
             
             # Clean markdown code fences if present (Google Search returns markdown-wrapped JSON)
             if text.strip().startswith("```"):
@@ -206,4 +221,79 @@ class GenAIClient:
         
         except Exception as e:
             print(f"✗ Lỗi khi tạo nội dung với schema: {str(e)}")
+            raise
+    
+    def generate_content_with_schema_with_model(self, 
+                                               prompt: str,
+                                               response_schema: Dict,
+                                               model_name: str,
+                                               system_instruction: Optional[str] = None,
+                                               enable_search: bool = False) -> str:
+        """
+        Tạo nội dung với JSON schema và model cụ thể
+        
+        Args:
+            prompt (str): Prompt đầu vào
+            response_schema (Dict): JSON schema cho response
+            model_name (str): Tên model cần sử dụng
+            system_instruction (str, optional): Hướng dẫn hệ thống
+            enable_search (bool): Bật Google Search (mặc định: False)
+            
+        Returns:
+            str: Nội dung JSON được tạo
+        """
+        try:
+            if self.client is None:
+                self._initialize()
+            
+            # Thêm instruction vào prompt để yêu cầu JSON output
+            json_instruction = "\n\n**QUAN TRỌNG**: Trả về kết quả dưới dạng JSON thuần (raw JSON), KHÔNG bọc trong markdown code block (```json), KHÔNG thêm bất kỳ text nào khác ngoài JSON object."
+            enhanced_prompt = prompt + json_instruction
+            
+            # Tạo tools nếu enable_search
+            tools = None
+            if enable_search:
+                tools = [types.Tool(google_search=types.GoogleSearch())]
+                # print("🔍 Google Search enabled cho request này")
+            
+            # Tạo config với response MIME type
+            config = types.GenerateContentConfig(
+                temperature=1,
+                top_p=0.95,
+                max_output_tokens=16384,
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+                response_schema=response_schema,
+                tools=tools if tools else None
+            )
+            
+            # Generate content với model cụ thể
+            response = self.client.models.generate_content(
+                model=model_name,
+                contents=enhanced_prompt,
+                config=config
+            )
+            
+            # Extract text from response
+            text = response.text if hasattr(response, 'text') and response.text is not None else ""
+            
+            # Clean markdown code fences if present (Google Search returns markdown-wrapped JSON)
+            if text.strip().startswith("```"):
+                # Remove ```json or ``` prefix
+                text = text.strip()
+                if text.startswith("```json"):
+                    text = text[7:]  # Remove ```json
+                elif text.startswith("```"):
+                    text = text[3:]  # Remove ```
+                
+                # Remove ``` suffix
+                if text.endswith("```"):
+                    text = text[:-3]
+                
+                text = text.strip()
+            
+            return text
+        
+        except Exception as e:
+            print(f"✗ Lỗi khi tạo nội dung với schema (model: {model_name}): {str(e)}")
             raise

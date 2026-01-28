@@ -20,11 +20,31 @@ export default function GenerateExamPage() {
   const [error, setError] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
   const [successMessage, setSuccessMessage] = useState(null)
+  const [generationProgress, setGenerationProgress] = useState({
+    percentage: 0,
+    phase: '',
+    status: 'idle'
+  })
   const generationConfig = {
     max_workers: 10,
     min_interval: 0.2,
     max_retries: 3,
     retry_delay: 2.0
+  }
+
+  const getPhaseDisplayName = (phase) => {
+    const phaseNames = {
+      'initializing': 'Khởi tạo...',
+      'phase1_matrix_processing': 'Xử lý ma trận đề',
+      'phase2_content_acquisition': 'Thu thập nội dung',
+      'phase3_content_mapping': 'Xử lý nội dung liên quan',
+      'phase4_question_generation': 'Sinh câu hỏi',
+      'saving_results': 'Lưu kết quả',
+      'completed': 'Hoàn thành',
+      'failed': 'Lỗi',
+      'error': 'Lỗi'
+    }
+    return phaseNames[phase] || 'Đang xử lý...'
   }
 
   const handleMatrixUpload = (file) => {
@@ -55,6 +75,37 @@ export default function GenerateExamPage() {
     setTimeout(() => setSuccessMessage(null), 3000)
   }
 
+  const handleExport = async () => {
+    if (!generatedExam || !sessionId) {
+      setError('Không có dữ liệu để xuất')
+      return
+    }
+
+    try {
+      setError(null)
+      // Export to DOCX
+      const exportResult = await exportToDocx(sessionId)
+      
+      if (exportResult && exportResult.file_path) {
+        // Download the file
+        const downloadUrl = downloadDocx(sessionId)
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = exportResult.file_name || `questions_${sessionId}.docx`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        setSuccessMessage('Đã xuất file DOCX thành công')
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        setError('Lỗi khi xuất file: ' + (exportResult?.error || 'Unknown error'))
+      }
+    } catch (err) {
+      setError('Lỗi khi xuất file: ' + err.message)
+    }
+  }
+
   const handleGenerate = async () => {
     if (!matrixData?.file) {
       setError('Vui lòng chọn file ma trận')
@@ -63,6 +114,11 @@ export default function GenerateExamPage() {
 
     setIsGenerating(true)
     setError(null)
+    setGenerationProgress({
+      percentage: 0,
+      phase: 'initializing',
+      status: 'processing'
+    })
     
     try {
       // Upload file và bắt đầu generate
@@ -80,15 +136,32 @@ export default function GenerateExamPage() {
           
           console.log('Progress response:', progress) // Debug log
           
+          // Cập nhật progress state
+          setGenerationProgress({
+            percentage: progress.progress || 0,
+            phase: progress.current_phase || '',
+            status: progress.status || 'processing'
+          })
+          
           if (progress.status === 'completed') {
             // Load generated questions
             const detail = await getSessionDetail(newSessionId)
             setGeneratedExam(detail)
             setIsGenerating(false)
             setIsDirty(false)
+            setGenerationProgress({
+              percentage: 0, // Reset to 0% to hide progress bar
+              phase: 'completed',
+              status: 'completed'
+            })
           } else if (progress.status === 'failed') {
             setError(progress.error || 'Lỗi khi sinh câu hỏi')
             setIsGenerating(false)
+            setGenerationProgress({
+              percentage: 0,
+              phase: 'failed',
+              status: 'failed'
+            })
           } else {
             // Tăng delay dần (exponential backoff)
             pollDelay = Math.min(pollDelay * 1.2, maxDelay)
@@ -97,6 +170,11 @@ export default function GenerateExamPage() {
         } catch (err) {
           setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
           setIsGenerating(false)
+          setGenerationProgress({
+            percentage: 0,
+            phase: 'error',
+            status: 'error'
+          })
         }
       }
       
@@ -109,34 +187,12 @@ export default function GenerateExamPage() {
     }
   }
 
-  const handleExport = async () => {
-    if (!sessionId) {
-      setError('Không có session để export')
-      return
-    }
-
-    if (isDirty) {
-      setError('Vui lòng lưu thay đổi trước khi xuất file')
-      return
-    }
-
-    try {
-      await exportToDocx(sessionId)
-      
-      // Download file
-      const downloadUrl = downloadDocx(sessionId)
-      window.open(downloadUrl, '_blank')
-      
-      setSuccessMessage('File DOCX đã được tạo và đang tải xuống')
-      setTimeout(() => setSuccessMessage(null), 3000)
-      
-    } catch (err) {
-      setError('Lỗi khi export DOCX: ' + err.message)
-    }
+  const handleTestProgress = () => {
+    // Removed mock progress simulation
   }
 
   return (
-    <div className="h-full p-2 flex flex-col">
+    <div className="h-full p-2 flex flex-col overflow-hidden">
       {/* Error banner */}
       {error && (
         <div className="bg-red-50 border-b border-red-200 px-4 py-3 flex items-center justify-between">
@@ -185,6 +241,28 @@ export default function GenerateExamPage() {
           canExport={!!generatedExam && !isDirty}
         />
       </div>
+
+      {isGenerating && (
+        <div className="progress-bar w-full rounded-full h-1 bg-gray-200">
+          <div 
+            className="bg-[#0369a1] h-1 rounded-full transition-all duration-300 ease-out" 
+            style={{width: `${generationProgress.percentage}%`}}
+          ></div>
+        </div>
+      )}
+      
+      {isGenerating && (
+        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-blue-800">
+              Đang xử lý: {getPhaseDisplayName(generationProgress.phase)}
+            </span>
+            <span className="text-blue-600 font-medium">
+              {generationProgress.percentage}%
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-hidden">
         <ExamPreviewPanel 

@@ -12,8 +12,7 @@ from dataclasses import dataclass
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from services.pdf_processing_service import PDFProcessingService
-from services.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
+from services.core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
 
 @dataclass
@@ -39,7 +38,7 @@ class PromptBuilderService:
         """
         if prompt_dir is None:
             base_dir = Path(__file__).parent.parent
-            prompt_dir = base_dir / "config" / "prompt"
+            prompt_dir = base_dir.parent / "data" / "prompts"
         
         self.prompt_dir = Path(prompt_dir)
         

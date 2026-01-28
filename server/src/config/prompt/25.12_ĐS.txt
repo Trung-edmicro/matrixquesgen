@@ -9,12 +9,11 @@ Tạo "{{NUM}}" câu hỏi dạng ĐÚNG/SAI theo tư liệu, gồm:
 - 04 mệnh đề (a, b, c, d) KIỂM TRA ĐA GÓC ĐỘ
 Học sinh xác định Đúng hoặc Sai cho từng mệnh đề.
 
+
 # INPUT DATA (Nội dung kiến thức từ SGK):
 "{{LESSON_NAME}}"
 "{{CONTENT}}"
 
-# TÀI LIỆU BỔ SUNG (Nguồn tham khảo ngoài SGK nếu có):
-{{SUPPLEMENTARY_MATERIALS}}
 
 # CẤU TRÚC CẤP ĐỘ TƯ DUY CỦA CÁC MỆNH ĐỀ (BẮT BUỘC) VÀ KẾT QUẢ CẦN ĐẠT (NẾU CÓ):
 
@@ -49,7 +48,7 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
 - Mệnh đề rõ ràng, không suy diễn.
 
 ## 2. Level "TH" - Thông hiểu:
-- học sinh hiểu các khái niệm cơ bản, có thể giải thích được một sự kiện, hiện tượng lịch sử, tóm tắt được diễn biến một sự kiện, nghe và trả lời được câu hỏi có liên quan. Ví dụ: Học sinh có thể giải thích được sự kiện lịch sử diễn ra như thế nào.
+- học sinh có thể giải thích được một sự kiện, hiện tượng lịch sử, tóm tắt được diễn biến một sự kiện, nghe và trả lời được câu hỏi có liên quan. Ví dụ: Học sinh có thể giải thích được sự kiện lịch sử diễn ra như thế nào, với mục đích gì
 - Yêu cầu hiểu và giải thích nội dung tư liệu.
 - Thể hiện mối quan hệ nhân – quả hoặc bản chất vấn đề.
 - Không liên hệ ngoài phạm vi tư liệu.
@@ -58,12 +57,13 @@ Yêu cầu kết quả cần đạt: "{{EXPECTED_LEARNING_OUTCOME_D}}"
 - Học sinh vượt qua cấp độ hiểu đơn thuần và có thể sử dụng các khái niệm của chủ đề trong các tình huống tương tự nhưng không hoàn toàn giống như tình huống đã gặp trên lớp.
 - Ở bậc nhận thức này, học sinh có thể sử dụng được kiến thức để giải quyết 1 tình huống cụ thể, tập trung vào việc phân tích sâu kiến thức, không chỉ nhớ sự kiện mà phải hiểu bản chất, nguyên nhân-kết quả, mối liên hệ các giai đoạn, và kết hợp nhiều mốc thời gian/nhân vật để tạo câu hỏi đòi hỏi tư duy phản biện, không chỉ là ghi nhớ máy móc, nhằm đánh giá khả năng nhận xét và đánh giá của học sinh. 
 - Có thể không liên quan đến nội dung tư liệu nhưng vẫn cần liên quan đến nội dung bài học
-- Một số dạng câu hỏi phổ biến
+- Nội dung câu hỏi: liên hệ tới Việt Nam, thế giới hiện nay...
+Một số dạng câu hỏi phổ biến
   + Việc [A] dẫn đến [kết quả/ ảnh hưởng B]
   + Bối cảnh [X] thúc đẩy [hành động/quyết định Y]
   + Việc [X] dẫn tới bài học [Y]
   + [Việc/ bối cảnh/ chương trình A,B,C...] có đặc điểm chung là [Y]
-  + liên hệ tới Việt Nam, thế giới hiện nay...
+
 
 # NGHỆ THUẬT TẠO 4 MỆNH ĐỀ ĐA CHIỀU:
 
@@ -208,9 +208,6 @@ VD: "Mệnh đề a kiểm tra thời gian (direct), b kiểm tra địa điểm
 ## 5. common_mistakes (cho từng mệnh đề):
 Ghi chú điểm học sinh hay nhầm lẫn
 VD cho mệnh đề b: "Học sinh hay nhầm I-an-ta với San Francisco vì cả hai đều là hội nghị năm 1945"
-
-# GỢI Ý TƯ LIỆU MẪU:
-{{MATERIALS}}
 
 # GỢI Ý CÂU HỎI MẪU:
 

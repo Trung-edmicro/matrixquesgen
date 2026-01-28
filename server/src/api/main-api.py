@@ -2,16 +2,19 @@ import sys
 import os
 from pathlib import Path
 
-# Add API directory to Python path
-api_dir = Path(__file__).parent
-sys.path.insert(0, str(api_dir))
+# Add server/src directory to Python path
+server_src_dir = Path(__file__).parent.parent  # server/src
+sys.path.insert(0, str(server_src_dir))
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routes import generate, questions, export, docx_reader
+# Use absolute imports
+from api.routes import generate, questions, export, google_drive
+from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
+from api.custom_prompts_api import router as custom_prompts_router
 
 # Load environment variables
 load_dotenv()
@@ -40,7 +43,17 @@ app.add_middleware(
 app.include_router(generate.router)
 app.include_router(questions.router)
 app.include_router(export.router)
-app.include_router(docx_reader.router)
+app.include_router(google_drive.router)
+
+# Include phase-specific routers
+app.include_router(phase1_router)
+app.include_router(phase2_router)
+app.include_router(phase3_router)
+app.include_router(phase4_router)
+app.include_router(workflow_router)
+
+# Include custom prompts router (Case 2)
+app.include_router(custom_prompts_router, prefix="/api")
 
 
 @app.get("/")

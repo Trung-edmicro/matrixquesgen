@@ -29,8 +29,8 @@ def main():
     CREDENTIALS_PATH = os.getenv("GCP_CREDENTIALS_PATH", None)
     
     MATRIX_FILE = r"data\input\07. SỬ 12. ma trận KSCL lần 1 (1).xlsx"
-    PROMPT_TEMPLATE_TN = r"server\src\config\prompt\TN.txt"
-    PROMPT_TEMPLATE_DS = r"server\src\config\prompt\DS.txt"
+    PROMPT_TEMPLATE_TN = r"data\prompts\TN.txt"
+    PROMPT_TEMPLATE_DS = r"data\prompts\DS.txt"
     OUTPUT_DIR = r"data\output"
     
     # Tạo tên file output dựa trên input + timestamp
@@ -58,7 +58,7 @@ def main():
             generation_config={
                 "temperature": 1,
                 "top_p": 0.95,
-                "max_output_tokens": 8192,
+                "max_output_tokens": 16384,
             }
         )
         
