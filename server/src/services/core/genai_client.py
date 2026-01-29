@@ -117,7 +117,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=16384,
+                max_output_tokens=65536,
                 system_instruction=system_instruction,
                 tools=tools if tools else None
             )
@@ -170,7 +170,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=16384,
+                max_output_tokens=65536,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
@@ -260,7 +260,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=16384,
+                max_output_tokens=65536,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,

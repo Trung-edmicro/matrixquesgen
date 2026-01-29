@@ -240,6 +240,16 @@ class ContentMappingService:
             if tn_data and 'TN' in lesson_data:
                 questions_mapped += self._map_tn_questions(lesson_data['TN'], tn_data)
 
+            # Map TLN questions with random selection
+            tln_data = data.get('TLN', {})
+            if tln_data and 'TLN' in lesson_data:
+                questions_mapped += self._map_tn_questions(lesson_data['TLN'], tln_data)
+
+            # Map TL questions with random selection
+            tl_data = data.get('TL', {})
+            if tl_data and 'TL' in lesson_data:
+                questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data)
+
             # Map DS questions with random selection
             ds_data = data.get('DS', {})
             if 'DS' in lesson_data and lesson_data['DS']:

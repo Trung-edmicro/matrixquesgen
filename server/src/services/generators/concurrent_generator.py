@@ -20,12 +20,12 @@ class TaskResult:
 class ConcurrentGenerator:
     """Class quản lý việc sinh câu hỏi song song với threading"""
     
-    def __init__(self, max_workers: int = 10, min_interval: float = 1.0):
+    def __init__(self, max_workers: int = 3, min_interval: float = 1.0):
         """
         Khởi tạo Concurrent Generator
         
         Args:
-            max_workers: Số lượng threads tối đa chạy đồng thời
+            max_workers: Số lượng threads tối đa chạy đồng thời (default 3 để tránh rate limit)
             min_interval: Khoảng thời gian tối thiểu giữa 2 lần bắt đầu request (giây)
         """
         self.max_workers = max_workers

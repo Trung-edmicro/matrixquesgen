@@ -22,6 +22,7 @@ class QuestionSpec:
     row_index: int  # Vị trí hàng trong Excel
     chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
     supplementary_materials: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
+    rich_content_types: Optional[Dict[str, List[str]]] = None  # Rich content types per question code: {"C1": ["BD"], "C2": ["BK", "TT"]}
 
 
 @dataclass
@@ -137,46 +138,138 @@ class MatrixParser:
         self.df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
         print(f"\n✓ Đã tải ma trận từ sheet '{sheet_name}': {self.df.shape[0]} hàng x {self.df.shape[1]} cột")
     
-    def parse_question_cell(self, cell_value) -> Tuple[int, List[str]]:
+    def parse_question_cell(self, cell_value) -> Tuple[int, List[str], Dict[str, List[str]]]:
         """
-        Parse giá trị trong ô để lấy số câu hỏi và mã câu
+        Parse giá trị trong ô để lấy số câu hỏi, mã câu và rich content types
         
         Args:
-            cell_value: Giá trị ô (VD: "2 (C1,2)" hoặc "1 (C10)")
+            cell_value: Giá trị ô 
+                VD: "2 (C1,2)" hoặc "1 (C10)"
+                VD với rich content: "1 (C3-[BK])" hoặc "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
             
         Returns:
-            Tuple[int, List[str]]: (số câu hỏi, danh sách mã câu)
+            Tuple[int, List[str], Dict[str, List[str]]]: (số câu hỏi, danh sách mã câu, rich_content_types)
+                rich_content_types: {"C1": ["BD"], "C2": ["BK", "TT"]}
         """
         if pd.isna(cell_value):
-            return 0, []
+            return 0, [], {}
         
         cell_str = str(cell_value).strip()
         
-        # Pattern: số (mã1, mã2, ...) hoặc số (mã)
-        # VD: "2 (C1,2)" hoặc "1 (C10)" hoặc "2 (C1a, 1b)"
-        pattern = r'(\d+)\s*\((.*?)\)'
-        match = re.search(pattern, cell_str)
+        # Pattern mới: số (mã1-[type1,type2], mã2-[type3], ...)
+        # VD: "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
+        pattern_with_types = r'(\d+)\s*\((.*?)\)'
+        match = re.search(pattern_with_types, cell_str)
         
         if match:
             num = int(match.group(1))
             codes_str = match.group(2)
             
-            # Tách các mã câu
-            # Xử lý các định dạng: "C1,2", "C1a, 1b", "C6,7"
             codes = []
-            parts = [p.strip() for p in codes_str.split(',')]
+            rich_types = {}
+            
+            # Split by comma nhưng phải cẩn thận với [] bên trong
+            # Parse từng phần: "C4-[BD]", "C5-[BK]", "C1-[BK,TT]"
+            parts = []
+            current_part = ""
+            bracket_level = 0
+            
+            for char in codes_str:
+                if char == '[':
+                    bracket_level += 1
+                elif char == ']':
+                    bracket_level -= 1
+                elif char == ',' and bracket_level == 0:
+                    parts.append(current_part.strip())
+                    current_part = ""
+                    continue
+                current_part += char
+            
+            if current_part.strip():
+                parts.append(current_part.strip())
             
             for part in parts:
-                # Nếu có chữ C ở đầu
-                if part.upper().startswith('C'):
-                    codes.append(part.upper())
-                # Nếu chỉ có số hoặc số+chữ (1b, 2a)
+                # Check if has rich content type: "C4-[BD]" hoặc "C1-[BK,TT]"
+                match_with_type = re.match(r'([Cc]?\d+[A-Za-z]*)-\[([^\]]+)\]', part)
+                
+                if match_with_type:
+                    # Có rich content type
+                    code_part = match_with_type.group(1)
+                    types_str = match_with_type.group(2)
+                    
+                    # Normalize code
+                    if not code_part.upper().startswith('C'):
+                        code = 'C' + code_part.upper()
+                    else:
+                        code = code_part.upper()
+                    
+                    codes.append(code)
+                    
+                    # Parse types: "BD" hoặc "BK,TT"
+                    types = [t.strip().upper() for t in types_str.split(',')]
+                    rich_types[code] = types
                 else:
-                    codes.append('C' + part.upper())
+                    # Không có rich content type, format cũ
+                    if part.upper().startswith('C'):
+                        code = part.upper()
+                    else:
+                        code = 'C' + part.upper()
+                    codes.append(code)
             
-            return num, codes
+            return num, codes, rich_types
         
-        return 0, []
+        return 0, [], {}
+    
+    def parse_rich_content_types_sheet(self) -> Dict[str, Dict[str, str]]:
+        """
+        Parse sheet "Loại" để lấy định nghĩa các loại câu hỏi với rich content
+        
+        Returns:
+            Dict[str, Dict[str, str]]: Dictionary mapping mã loại -> {name, description}
+            Example: {
+                "LT": {"name": "Lý thuyết", "description": "Câu hỏi lý thuyết cơ bản"},
+                "TT": {"name": "Tính toán", "description": "Câu hỏi có công thức tính toán"},
+                "BD": {"name": "Biểu đồ", "description": "Câu hỏi có biểu đồ"},
+                "BK": {"name": "Bảng khảo", "description": "Câu hỏi có bảng số liệu"},
+                "HA": {"name": "Hình ảnh", "description": "Câu hỏi có hình ảnh"}
+            }
+        """
+        if not self.file_path:
+            return {}
+        
+        try:
+            # Đọc sheet "Loại"
+            df_types = pd.read_excel(self.file_path, sheet_name="Loại", header=None)
+            
+            rich_types = {}
+            
+            # Parse từng hàng (bỏ qua header nếu có)
+            for idx in range(len(df_types)):
+                row = df_types.iloc[idx]
+                
+                # Bỏ qua hàng trống hoặc header
+                if pd.isna(row[0]) or str(row[0]).strip().upper() in ['MÃ', 'STT', '']:
+                    continue
+                
+                # Column 0: Mã (LT, TT, BD, BK, HA)
+                # Column 1: Tên loại
+                # Column 2: Mô tả (nếu có)
+                code = str(row[0]).strip().upper()
+                name = str(row[1]).strip() if len(row) > 1 and pd.notna(row[1]) else ""
+                description = str(row[2]).strip() if len(row) > 2 and pd.notna(row[2]) else ""
+                
+                if code and name:
+                    rich_types[code] = {
+                        "name": name,
+                        "description": description
+                    }
+            
+            print(f"✓ Đã parse {len(rich_types)} loại câu hỏi từ sheet 'Loại': {list(rich_types.keys())}")
+            return rich_types
+            
+        except Exception as e:
+            print(f"⚠️  Không thể đọc sheet 'Loại': {e}")
+            return {}
     
     def parse_chapter_number(self, chapter_text: str) -> Optional[int]:
         """
@@ -455,6 +548,10 @@ class MatrixParser:
                 chapter_text = str(row[self.COL_CHAPTER]).strip()
                 self.current_chapter = self.parse_chapter_number(chapter_text)
             
+            # Default chapter to 0 for subjects without chapters (like DIALY)
+            if self.current_chapter is None:
+                self.current_chapter = 0
+            
             if pd.notna(row[self.COL_LESSON]):
                 self.current_lesson = str(row[self.COL_LESSON]).strip()
             
@@ -481,17 +578,21 @@ class MatrixParser:
             
             # Xử lý các cột câu hỏi
             for col_idx in cols_to_process:
-                num_questions, question_codes = self.parse_question_cell(row[col_idx])
+                num_questions, question_codes, rich_types = self.parse_question_cell(row[col_idx])
                 
                 if num_questions > 0:
                     cognitive_level = self.COGNITIVE_LEVEL_MAP[col_idx]
                     
                     # Filter out duplicate question codes for this lesson
                     new_codes = []
+                    filtered_rich_types = {}
                     for code in question_codes:
                         if code not in processed_codes_per_lesson[lesson_key]:
                             new_codes.append(code)
                             processed_codes_per_lesson[lesson_key].add(code)
+                            # Preserve rich content types for non-duplicate codes
+                            if code in rich_types:
+                                filtered_rich_types[code] = rich_types[code]
                     
                     # Skip if all codes were duplicates
                     if not new_codes:
@@ -512,7 +613,8 @@ class MatrixParser:
                         learning_outcome=learning_outcome,
                         row_index=row_idx,
                         chapter_number=self.current_chapter,
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=filtered_rich_types if filtered_rich_types else None
                     )
                     
                     question_specs.append(spec)

@@ -1,7 +1,250 @@
 """
 Module quản lý JSON schemas cho các loại câu hỏi
+Hỗ trợ Rich Content: text, image, table, chart (ECharts), latex, mixed
 """
 from typing import Dict
+
+
+def get_rich_content_schema() -> Dict:
+    """
+    Trả về JSON schema cho Rich Content hỗ trợ 4 loại: TEXT, BK, BD, HA
+    
+    - TEXT: string thuần (mặc định)
+    - BK (Bảng biểu): table structure với headers/rows
+    - BD (Biểu đồ): ECharts config object
+    - HA (Hình ảnh): URL hoặc path
+    - MIXED: kết hợp text + table/chart/image
+    
+    Returns:
+        Dict: JSON schema với properties strict và explicit types
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["text", "table", "chart", "image", "mixed"],
+                "description": "Loại content: 'text' (text thuần), 'table' (bảng), 'chart' (biểu đồ), 'image' (hình ảnh), 'mixed' (text + rich content)"
+            },
+            "content": {
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "description": "String cho type='text' hoặc type='image'"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "headers": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Headers của bảng - array of strings"
+                            },
+                            "rows": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                },
+                                "description": "Rows của bảng - array of arrays of strings"
+                            }
+                        },
+                        "required": ["headers", "rows"],
+                        "description": "Object structure cho type='table' - PHẢI CÓ headers và rows"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "chartType": {
+                                "type": "string",
+                                "enum": ["bar", "line", "pie", "scatter", "combo"],
+                                "description": "Loại biểu đồ"
+                            },
+                            "echarts": {
+                                "type": "object",
+                                "description": "ECharts config object - PHẢI là object, KHÔNG PHẢI JSON string"
+                            }
+                        },
+                        "required": ["chartType", "echarts"],
+                        "description": "Object structure cho type='chart' - PHẢI CÓ chartType và echarts"
+                    },
+                    {
+                        "type": "array",
+                        "description": "Array cho type='mixed' - chứa strings và objects xen kẽ"
+                    }
+                ],
+                "description": """⚠️ QUY TẮC QUAN TRỌNG - PHẢI TUÂN THỦ:
+
+1. type="text" → content PHẢI LÀ STRING:
+   {"type": "text", "content": "ASEAN được thành lập năm 1967"}
+
+2. type="table" → content PHẢI LÀ OBJECT (KHÔNG PHẢI STRING):
+   {
+     "type": "table",
+     "content": {
+       "headers": ["Năm", "GDP"],
+       "rows": [["2020", "100"], ["2021", "120"]]
+     }
+   }
+   ❌ SAI: "content": "{\\"headers\\":...}" (JSON string)
+   ✅ ĐÚNG: "content": {"headers": [...], "rows": [...]} (object thực)
+
+3. type="chart" → content PHẢI LÀ OBJECT (KHÔNG PHẢI STRING):
+   {
+     "type": "chart",
+     "content": {
+       "chartType": "bar",
+       "echarts": {"xAxis": {...}, "yAxis": {...}, "series": [...]}
+     }
+   }
+   ❌ SAI: "echarts": "{\\"xAxis\\":...}" (JSON string)
+   ✅ ĐÚNG: "echarts": {"xAxis": {...}} (object thực)
+
+4. type="image" → content PHẢI LÀ STRING (URL):
+   {"type": "image", "content": "https://example.com/map.png"}
+
+5. type="mixed" → content PHẢI LÀ ARRAY chứa string và object xen kẽ:
+   {
+     "type": "mixed",
+     "content": [
+       "Dựa vào bảng:",
+       {"type": "table", "content": {"headers": [...], "rows": [...]}},
+       "Hãy cho biết kết quả?"
+     ]
+   }
+   ❌ SAI: Nested object có content là JSON string
+   ✅ ĐÚNG: Nested object có content là object thực"""
+            },
+            "metadata": {
+                "type": "object",
+                "description": "Metadata tùy chọn",
+                "properties": {
+                    "caption": {"type": "string", "description": "Chú thích (VD: 'Bảng 1: Dân số')"},
+                    "source": {"type": "string", "description": "Nguồn dữ liệu"},
+                    "width": {"type": "number", "description": "Chiều rộng (px)"},
+                    "height": {"type": "number", "description": "Chiều cao (px)"}
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": """Rich Content Structure - BẮT BUỘC tuân thủ format:
+
+**1. TEXT THUẦN** (mặc định - khi KHÔNG có rich_content_types):
+{
+  "type": "text",
+  "content": "ASEAN được thành lập năm 1967 tại Bangkok"
+}
+
+**2. BẢNG (type: "table")** - KHI câu hỏi có rich_content_types="BK":
+{
+  "type": "table",
+  "content": {
+    "headers": ["Quốc gia", "Năm gia nhập", "Dân số (triệu)"],
+    "rows": [
+      ["Thái Lan", "1967", "70"],
+      ["Việt Nam", "1995", "98"],
+      ["Singapore", "1967", "5.8"]
+    ]
+  },
+  "metadata": {
+    "caption": "Bảng 1: Thông tin các nước ASEAN",
+    "source": "Nguồn: UN Statistics 2021"
+  }
+}
+
+**3. BIỂU ĐỒ (type: "chart")** - KHI câu hỏi có rich_content_types="BD":
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "title": {"text": "DÂN SỐ THÀNH THỊ 2010-2021", "left": "center"},
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": {"type": "value", "name": "triệu người"},
+      "series": [{
+        "name": "Dân số thành thị",
+        "type": "bar",
+        "data": [26.5, 30.9, 36.6],
+        "label": {"show": true, "position": "top"}
+      }],
+      "legend": {"data": ["Dân số thành thị"], "bottom": 20}
+    }
+  },
+  "metadata": {
+    "caption": "Hình 1: Dân số thành thị",
+    "width": 800,
+    "height": 500,
+    "source": "Nguồn: Niên giám thống kê 2021"
+  }
+}
+
+**4. HÌNH ẢNH (type: "image")** - KHI câu hỏi có rich_content_types="HA":
+{
+  "type": "image",
+  "content": "https://example.com/map.png",
+  "metadata": {
+    "caption": "Hình 1: Bản đồ khu vực Đông Nam Á",
+    "alt": "Bản đồ ASEAN",
+    "width": 600,
+    "height": 400
+  }
+}
+
+**5. MIXED (type: "mixed")** - KHI câu hỏi có CẢ text + BK/BD/HA:
+VD 1 - Câu hỏi TN có biểu đồ:
+{
+  "type": "mixed",
+  "content": [
+    "Dựa vào biểu đồ nhiệt độ trung bình năm:",
+    {
+      "type": "chart",
+      "content": {
+        "chartType": "bar",
+        "echarts": {"xAxis": {...}, "yAxis": {...}, "series": [...]}
+      },
+      "metadata": {"caption": "Hình 1: Nhiệt độ trung bình"}
+    },
+    "Nhận xét nào sau đây ĐÚNG về xu hướng nhiệt độ?"
+  ]
+}
+
+VD 2 - Câu hỏi TLN có bảng:
+{
+  "type": "mixed",
+  "content": [
+    "Dựa vào bảng số liệu dưới đây:",
+    {
+      "type": "table",
+      "content": {
+        "headers": ["Năm", "Tỉ trọng (%)"],
+        "rows": [["2010", "42.1"], ["2020", "50.5"]]
+      },
+      "metadata": {"caption": "Bảng 1: Cơ cấu GDP"}
+    },
+    "Hãy tính tỉ lệ tăng trưởng giữa hai năm?"
+  ]
+}
+
+**LƯU Ý QUAN TRỌNG - ĐẶC BIỆT CHO DẠNG TN (Trắc nghiệm)**:
+- Câu hỏi TN CÓ bảng/biểu đồ: PHẢI dùng type="mixed" với content là array [text_câu_hỏi, rich_object]
+- VD đúng: 
+  question_stem: {
+    "type": "mixed",
+    "content": [
+      "Dựa vào biểu đồ:",
+      {"type": "chart", "content": {...}},
+      "Nhận xét nào sau đây đúng?"
+    ]
+  }
+- KHÔNG được chỉ có biểu đồ/bảng mà thiếu text câu hỏi!
+
+**LƯU Ý KHÁC**:
+- CHỈ dùng rich content KHI câu hỏi được đánh dấu rich_content_types (BK/BD/HA)
+- KHÔNG dùng field "raw_content", "rich_content" hoặc tên field tự nghĩ
+- Content PHẢI đúng type: text→string, table→object, chart→object, image→string, mixed→array
+- KHÔNG trả về null, KHÔNG trả về JSON string, PHẢI là object/array thực
+- Với câu hỏi TN: options (A/B/C/D) thường là text thuần, CHỈ question_stem mới có rich content"""
+    }
 
 
 def get_multiple_choice_schema() -> Dict:
@@ -144,132 +387,74 @@ def get_multiple_choice_schema() -> Dict:
 def get_multiple_choice_array_schema() -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm
+    HỖ TRỢ RICH CONTENT: Ảnh, Bảng, Biểu đồ ECharts, Công thức LaTeX
     
     Returns:
-        Dict: JSON schema cho array questions với metadata sư phạm phong phú
+        Dict: JSON schema cho array questions với metadata sư phạm phong phú và rich content
     """
+    
+    # Get rich content schema một lần duy nhất
+    rich_content_def = get_rich_content_schema()
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
                 "type": "array",
-                "description": """YÊU CẦU ĐA DẠNG - TRÁNH LẶP:
-                
-                **BẮT BUỘC khi sinh nhiều câu hỏi**:
-                - Mỗi câu hỏi phải hỏi về GÓC ĐỘ KHÁC NHAU của cùng kiến thức
-                - KHÔNG được lặp lại nội dung câu hỏi (dù diễn đạt khác)
-                - KHÔNG được lặp lại đáp án giữa các câu
-                - KHÔNG được dùng cùng pattern/cấu trúc cho tất cả câu
-                
-                **Ví dụ ĐÚNG** (sinh 2 câu về ASEAN):
-                Câu 1: "Ngày 8-8-1967, tại Bangkok, sự kiện lịch sử nào đã diễn ra?" (hỏi về sự kiện)
-                Câu 2: "Mục tiêu chính của ASEAN khi thành lập là gì?" (hỏi về mục đích)
-                
-                **Ví dụ SAI** (lặp nội dung):
-                Câu 1: "ASEAN được thành lập năm nào?"
-                Câu 2: "Hiệp hội ASEAN ra đời vào thời gian nào?" (cùng hỏi về thời gian)
-                
-                **Chiến lược đa dạng hóa**:
-                - Câu 1: Thời gian/Địa điểm (When/Where)
-                - Câu 2: Nguyên nhân/Bối cảnh (Why)
-                - Câu 3: Kết quả/Tác động (What happened)
-                - Câu 4: Ý nghĩa/Đánh giá (Significance)""",
+                "description": """Mảng các câu hỏi trắc nghiệm. Mỗi câu hỏi phải khác nhau về nội dung và góc độ tiếp cận.""",
                 "items": {
                     "type": "object",
                     "properties": {
                         # === PHẦN CỐT LÕI CÂU HỎI ===
                         "question_stem": {
-                            "type": "string",
-                            "description": """Nội dung câu hỏi - Hãy đặt câu hỏi tự nhiên như giáo viên thực sự:
-                            - Có thể dùng ngữ cảnh/tình huống thực tế để dẫn dắt
-                            - Đa dạng cách hỏi: Tại sao, Như thế nào, Ý nghĩa gì, Hậu quả ra sao...
-                            - Tránh công thức hóa: thay vì "Điều nào sau đây đúng?" hãy hỏi cụ thể hơn
-                            - Có thể đặt trong context lịch sử cụ thể"""
-                        },
-                        
-                        # Metadata hỗ trợ tư duy sáng tạo
-                        "question_style": {
-                            "type": "string",
-                            "description": """Phong cách câu hỏi:
-                            - 'factual': Hỏi kiến thức trực tiếp
-                            - 'analytical': Phân tích mối quan hệ nhân quả
-                            - 'contextual': Đặt trong tình huống lịch sử cụ thể
-                            - 'comparative': So sánh các sự kiện/nhân vật
-                            - 'evaluative': Đánh giá ý nghĩa/tác động
-                            - 'application': Áp dụng kiến thức vào tình huống mới"""
-                        },
-                        
-                        "historical_context": {
-                            "type": "string",
-                            "description": """(Tùy chọn) Bối cảnh lịch sử cụ thể nếu câu hỏi đặt trong tình huống:
-                            - Trích dẫn sử liệu, tư liệu
-                            - Mô tả tình huống lịch sử
-                            - Giúp câu hỏi sinh động, gần với thực tế hơn"""
-                        },
-                        
-                        "pedagogical_purpose": {
-                            "type": "string",
-                            "description": """Mục đích sư phạm của câu hỏi - Giúp AI hiểu "tại sao ra câu hỏi này" """
+                            "description": "Nội dung câu hỏi - có thể là text, table, chart, image, hoặc mixed",
+                            **rich_content_def
                         },
                         
                         # === PHẦN ĐÁP ÁN ===
                         "options": {
                             "type": "object",
                             "properties": {
-                                "A": {"type": "string"},
-                                "B": {"type": "string"},
-                                "C": {"type": "string"},
-                                "D": {"type": "string"}
+                                "A": {
+                                    "type": "string",
+                                    "description": "Đáp án A - text thuần"
+                                },
+                                "B": {
+                                    "type": "string",
+                                    "description": "Đáp án B - text thuần"
+                                },
+                                "C": {
+                                    "type": "string",
+                                    "description": "Đáp án C - text thuần"
+                                },
+                                "D": {
+                                    "type": "string",
+                                    "description": "Đáp án D - text thuần"
+                                }
                             },
                             "required": ["A", "B", "C", "D"]
                         },
                         
-                        "distractor_rationale": {
-                            "type": "object",
-                            "description": "Lý do tại sao các đáp án sai vẫn hợp lý",
-                            "properties": {
-                                "A": {"type": "string"},
-                                "B": {"type": "string"},
-                                "C": {"type": "string"},
-                                "D": {"type": "string"}
-                            }
-                        },
-                        
                         "correct_answer": {
                             "type": "string",
-                            "description": "Đáp án đúng (A/B/C/D)"
+                            "enum": ["A", "B", "C", "D"],
+                            "description": "Đáp án đúng"
                         },
                         
                         # === PHẦN PHÂN LOẠI ===
                         "level": {
                             "type": "string",
-                            "description": "Cấp độ tư duy (NB/TH/VD/VDC)"
-                        },
-                        
-                        "bloom_taxonomy": {
-                            "type": "string",
-                            "description": """Phân loại Bloom: Remember/Understand/Apply/Analyze/Evaluate/Create"""
+                            "enum": ["NB", "TH", "VD", "VDC"],
+                            "description": "Cấp độ nhận thức"
                         },
                         
                         # === PHẦN GIẢI THÍCH ===
                         "explanation": {
                             "type": "string",
-                            "description": """Giải thích đáp án - Viết như giáo viên giải đáp"""
-                        },
-                        
-                        # === METADATA BỔ SUNG ===
-                        "alternative_questions": {
-                            "type": "array",
-                            "description": "(Tùy chọn) Các cách hỏi khác về cùng kiến thức",
-                            "items": {"type": "string"}
-                        },
-                        
-                        "difficulty_note": {
-                            "type": "string",
-                            "description": "(Tùy chọn) Ghi chú về độ khó, điểm dễ nhầm lẫn"
+                            "description": "Giải thích đáp án - text thuần, có thể có công thức inline nếu cần"
                         }
                     },
-                    "required": ["question_stem", "options", "correct_answer", "level", "explanation", "question_style"]
+                    "required": ["question_stem", "options", "correct_answer", "level", "explanation"]
                 }
             }
         },
@@ -486,42 +671,27 @@ def get_essay_schema() -> Dict:
 def get_essay_array_schema() -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Tự luận (TL)
+    HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa tư liệu ảnh, bảng, biểu đồ
     
     Returns:
-        Dict: JSON schema cho array questions TL với hướng dẫn đa dạng hóa
+        Dict: JSON schema cho array questions TL với hướng dẫn đa dạng hóa và rich content
     """
+    
+    # Get rich content schema cho question_stem
+    rich_content_def = get_rich_content_schema()
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
                 "type": "array",
-                "description": """YÊU CẦU ĐA DẠNG - TRÁNH LẶP CHO CÂU HỎI TỰ LUẬN:
-                
-                **BẮT BUỘC khi sinh nhiều câu hỏi**:
-                - Mỗi câu hỏi phải có GÓC ĐỘ TIẾP CẬN KHÁC NHAU
-                - KHÔNG được lặp lại cùng một dạng câu hỏi (phân tích, so sánh, đánh giá...)
-                - Đa dạng về question_type (analysis/comparison/evaluation/explanation/synthesis/argumentation)
-                - Cân bằng độ khó và phạm vi kiến thức
-                
-                **Ví dụ ĐÚNG** (sinh 3 câu về ASEAN):
-                Câu 1: "Phân tích các yếu tố thúc đẩy sự ra đời của ASEAN năm 1967" (analysis)
-                Câu 2: "So sánh vai trò của ASEAN trước và sau Chiến tranh lạnh" (comparison)
-                Câu 3: "Đánh giá ý nghĩa của việc thành lập ASEAN đối với Đông Nam Á" (evaluation)
-                
-                **Ví dụ SAI** (lặp dạng câu hỏi):
-                Câu 1: "Phân tích nguyên nhân thành lập ASEAN" (analysis)
-                Câu 2: "Phân tích ý nghĩa của ASEAN" (analysis - trùng dạng)
-                
-                **Chiến lược đa dạng hóa**:
-                - Ưu tiên các question_type khác nhau
-                - Hỏi về nhiều khía cạnh: nguyên nhân, quá trình, kết quả, ý nghĩa, bài học
-                - Kết hợp các góc nhìn: lịch sử, chính trị, kinh tế, xã hội, văn hóa""",
+                "description": "Mảng câu hỏi Tự luận. Mỗi câu phải khác nhau về góc độ tiếp cận (analysis/comparison/evaluation).",
                 "items": {
                     "type": "object",
                     "properties": {
                         "question_stem": {
-                            "type": "string",
-                            "description": "Nội dung câu hỏi tự luận - Yêu cầu trả lời dài, có lập luận"
+                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ tư liệu",
+                            **rich_content_def
                         },
                         "question_type": {
                             "type": "string",
@@ -551,7 +721,7 @@ def get_essay_array_schema() -> Dict:
                         },
                         "sample_answer": {
                             "type": "string",
-                            "description": "Câu trả lời mẫu đầy đủ"
+                            "description": "Bài làm mẫu - text thuần, có thể có cấu trúc markdown"
                         },
                         "key_points": {
                             "type": "array",
@@ -627,39 +797,17 @@ def get_essay_array_schema() -> Dict:
 def get_true_false_schema() -> Dict:
     """
     Trả về JSON schema cho câu hỏi Đúng/Sai
+    HỖ TRỢ RICH CONTENT: Tư liệu có thể chứa bảng, biểu đồ, ảnh
     
     Returns:
-        Dict: JSON schema cho câu hỏi Đúng/Sai với 4 mệnh đề - Phong phú và tự nhiên hơn
+        Dict: JSON schema cho câu hỏi Đúng/Sai với 4 mệnh đề và rich content support
     """
+    
     return {
         "type": "object",
         "properties": {
-            # === PHẦN TƯ LIỆU ===
-            "source_text": {
-                "type": "string",
-                "description": """Đoạn tư liệu lịch sử - ƯU TIÊN LẤY TỪ NGUỒN HỌC THUẬT NGOÀI SGK:
-                
-                **KHUYẾN KHÍCH MẠNH**:
-                - Tư liệu từ tạp chí khoa học (Lịch sử, Lí luận Chính trị, Nghiên cứu Quốc tế...)
-                - Trích từ sách chuyên khảo của các nhà sử học uy tín
-                - Bài phân tích chuyên sâu từ báo chí uy tín
-                - Văn kiện/tuyên bố chính thức (UN, ASEAN, Chính phủ...)
-                
-                **YÊU CẦU**:
-                - Phải phù hợp với nội dung kiến thức SGK (không sai lệch)
-                - Đủ thông tin để đặt 4 mệnh đề đa chiều
-                - Tự nhiên, có phân tích chuyên sâu hơn SGK
-                - Có góc nhìn mới, cập nhật
-                
-                **GHI NGUỒN Ở CUỐI (BẮT BUỘC nếu dùng nguồn ngoài)**:
-                - Nếu source_origin != 'textbook' → PHẢI thêm citation trong dấu () ở CUỐI đoạn tư liệu
-                - Định dạng: (Tác giả, \"Tên bài\", Tạp chí số X (tháng/năm), tr. Y)
-                - Ví dụ: \"...ASEAN đã quy tụ đủ 10 quốc gia.\\n(Nguyễn Viết Thảo, \"Bối cảnh hình thành...\", Tạp chí Lí luận Chính trị số 541 (3/2023), tr. 151)\"
-                
-                **CHỈ DÙNG TƯ LIỆU TỪ SGK KHI**:
-                - Không tìm được nguồn ngoài phù hợp
-                - Hoặc khi kết hợp với nguồn ngoài để làm phong phú"""
-            },
+            # === PHẦN TƯ LIỆU (Rich Content Support) ===
+            "source_text": get_rich_content_schema(),
             
             "source_citation": {
                 "type": "string",
@@ -1010,42 +1158,27 @@ def get_short_answer_schema() -> Dict:
 def get_short_answer_array_schema() -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm luận (TLN)
+    HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa ảnh, bảng, biểu đồ
     
     Returns:
-        Dict: JSON schema cho array questions TLN với hướng dẫn đa dạng hóa
+        Dict: JSON schema cho array questions TLN với hướng dẫn đa dạng hóa và rich content
     """
+    
+    # Get rich content schema một lần
+    rich_content_def = get_rich_content_schema()
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
                 "type": "array",
-                "description": """YÊU CẦU ĐA DẠNG - TRÁNH LẶP CHO CÂU HỎI TLN:
-                
-                **BẮT BUỘC khi sinh nhiều câu hỏi**:
-                - Mỗi câu hỏi phải hỏi về YẾU TỐ KHÁC NHAU (thời gian/địa điểm/nhân vật/ý nghĩa...)
-                - KHÔNG được lặp lại cùng một kiểu câu hỏi
-                - Đa dạng về question_type (time/location/name/concept/meaning/cause/result)
-                - Cân bằng độ khó (NB/TH/VD)
-                
-                **Ví dụ ĐÚNG** (sinh 3 câu về thành lập ASEAN):
-                Câu 1: "ASEAN được thành lập vào ngày nào?" (question_type: time, level: NB)
-                Câu 2: "Thành phố nào là nơi diễn ra lễ ký tuyên bố Bangkok?" (question_type: location, level: NB)
-                Câu 3: "Mục đích chính của ASEAN khi thành lập là gì?" (question_type: meaning, level: TH)
-                
-                **Ví dụ SAI** (lặp kiểu câu hỏi):
-                Câu 1: "ASEAN được thành lập năm nào?" (time)
-                Câu 2: "Tuyên bố Bangkok được ký vào năm nào?" (time - trùng kiểu)
-                
-                **Chiến lược đa dạng hóa**:
-                - Ưu tiên các question_type khác nhau
-                - Trộn các cấp độ NB, TH, VD
-                - Hỏi về nhiều khía cạnh: thời gian, không gian, nhân vật, ý nghĩa, nguyên nhân, kết quả""",
+                "description": "Mảng câu hỏi TLN. Mỗi câu phải khác nhau về loại (time/location/name/concept).",
                 "items": {
                     "type": "object",
                     "properties": {
                         "question_stem": {
-                            "type": "string",
-                            "description": "Nội dung câu hỏi - Yêu cầu trả lời ngắn gọn, cụ thể"
+                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ",
+                            **rich_content_def
                         },
                         "question_type": {
                             "type": "string",
@@ -1058,7 +1191,7 @@ def get_short_answer_array_schema() -> Dict:
                         },
                         "correct_answer": {
                             "type": "string",
-                            "description": "Đáp án đúng - Ngắn gọn chỉ 2-3 từ, cụ thể"
+                            "description": "Đáp án đúng - CHỈ GHI SỐ (không có đơn vị, không có chữ). VD: '38', '177', '2.5' - không viết '38%' hay '177 lần'"
                         },
                         "alternative_answers": {
                             "type": "array",
@@ -1081,7 +1214,8 @@ def get_short_answer_array_schema() -> Dict:
                         },
                         "explanation": {
                             "type": "string",
-                            "description": "(Tùy chọn) Giải thích đáp án"
+                            "description": "Giải thích đáp án - Chỉ ghi công thức và cách tính (tối đa 500 ký tự)",
+                            "maxLength": 500
                         },
                         "pedagogical_purpose": {
                             "type": "string",

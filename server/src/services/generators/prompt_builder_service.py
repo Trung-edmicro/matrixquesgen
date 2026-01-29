@@ -12,14 +12,14 @@ from dataclasses import dataclass
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from services.core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
+from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
 
 @dataclass
 class PreparedPrompt:
     """Prepared prompt ready for AI generation"""
     prompt_text: str
-    question_type: str  # TN, DS, TLN
+    question_type: str  # TN, DS, TLN, TL
     lesson_name: str
     question_spec: any  # QuestionSpec or TrueFalseQuestionSpec
     has_content: bool
@@ -46,15 +46,24 @@ class PromptBuilderService:
         self.templates = {}
         self.load_templates()
         
-        # PDF processing service
-        self.pdf_service = PDFProcessingService()
+        # Load rich content guide
+        self.rich_content_guide = self.load_rich_content_guide()
+    
+    def load_rich_content_guide(self) -> str:
+        """Load rich content guide template"""
+        guide_path = self.prompt_dir / "rich_content_guide.txt"
+        if guide_path.exists():
+            with open(guide_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        return ""
     
     def load_templates(self):
         """Load all prompt templates"""
         template_files = {
             'TN': 'TN.txt',
             'DS': 'DS.txt',
-            'TLN': 'TLN.txt'  # Nếu có
+            'TLN': 'TLN.txt',
+            'TL': 'TL.txt'
         }
         
         for q_type, filename in template_files.items():
@@ -86,6 +95,70 @@ class PromptBuilderService:
         
         return result
     
+    def _format_rich_content_types(self, spec: QuestionSpec) -> str:
+        """
+        Format rich content types for prompt
+        
+        Args:
+            spec: Question specification with rich_content_types
+            
+        Returns:
+            Formatted string for prompt
+        """
+        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+            return "Không có yêu cầu đặc biệt về loại nội dung."
+        
+        # Build formatted string
+        lines = ["Các câu hỏi yêu cầu loại nội dung sau:"]
+        for code, types in spec.rich_content_types.items():
+            type_list = []
+            for t in types:
+                if isinstance(t, dict):
+                    # New format: {"code": "BK", "name": "...", "description": "..."}
+                    type_name = f"{t['code']} ({t['name']})"
+                else:
+                    # Old format: just string "BK"
+                    type_name = t
+                type_list.append(type_name)
+            
+            lines.append(f"- Câu {code}: {', '.join(type_list)}")
+        
+        lines.append("")
+        lines.append("Lưu ý: Hãy tạo nội dung phù hợp với loại yêu cầu (bảng số liệu, biểu đồ, hình ảnh...) theo đúng schema đã cung cấp.")
+        
+        return "\n".join(lines)
+    
+    def _format_rich_content_types_tf(self, spec: TrueFalseQuestionSpec) -> str:
+        """
+        Format rich content types for True/False questions
+        
+        Args:
+            spec: TrueFalseQuestionSpec with rich_content_types
+            
+        Returns:
+            Formatted string for prompt
+        """
+        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+            return "Không có yêu cầu đặc biệt về loại nội dung."
+        
+        # Build formatted string
+        lines = ["Các câu hỏi yêu cầu loại nội dung sau:"]
+        for code, types in spec.rich_content_types.items():
+            type_list = []
+            for t in types:
+                if isinstance(t, dict):
+                    type_name = f"{t['code']} ({t['name']})"
+                else:
+                    type_name = t
+                type_list.append(type_name)
+            
+            lines.append(f"- Câu {code}: {', '.join(type_list)}")
+        
+        lines.append("")
+        lines.append("Lưu ý: Hãy tạo nội dung phù hợp với loại yêu cầu (bảng số liệu, biểu đồ, hình ảnh...) theo đúng schema đã cung cấp.")
+        
+        return "\n".join(lines)
+    
     def build_prompt_for_tn(self, spec: QuestionSpec, content: str = "") -> PreparedPrompt:
         """
         Build prompt for TN (Trắc nghiệm) questions
@@ -99,6 +172,9 @@ class PromptBuilderService:
         """
         template = self.templates.get('TN', '')
         
+        # Format rich content types if available
+        rich_content_str = self._format_rich_content_types(spec)
+        
         # Prepare variables
         variables = {
             'NUM': str(spec.num_questions),
@@ -107,11 +183,16 @@ class PromptBuilderService:
             'SUPPLEMENTARY_MATERIALS': spec.supplementary_materials if spec.supplementary_materials else '[Không có tài liệu bổ sung]',
             'COGNITIVE_LEVEL': spec.cognitive_level,
             'EXPECTED_LEARNING_OUTCOME': spec.learning_outcome if spec.learning_outcome else '[Không có yêu cầu cụ thể]',
-            'QUESTION_TEMPLATE': ''  # Để trống, AI sẽ tự sinh
+            'QUESTION_TEMPLATE': '',  # Để trống, AI sẽ tự sinh
+            'RICH_CONTENT_TYPES': rich_content_str
         }
         
         # Replace variables in template
         prompt_text = self.replace_variables(template, variables)
+        
+        # Inject rich content guide
+        if self.rich_content_guide and (spec.rich_content_types or "BK" in str(spec) or "BD" in str(spec) or "HA" in str(spec)):
+            prompt_text = f"{prompt_text}\n\n{self.rich_content_guide}"
         
         return PreparedPrompt(
             prompt_text=prompt_text,
@@ -135,6 +216,9 @@ class PromptBuilderService:
         """
         template = self.templates.get('DS', '')
         
+        # Format rich content types if available
+        rich_content_str = self._format_rich_content_types_tf(spec)
+        
         # Get cognitive levels and learning outcomes for each statement
         statements = spec.statements  # List of 4 StatementSpec (a, b, c, d)
         
@@ -144,6 +228,7 @@ class PromptBuilderService:
             'LESSON_NAME': spec.lesson_name,
             'CONTENT': content if content else '[Nội dung chưa có - cần bổ sung]',
             'SUPPLEMENTARY_MATERIALS': spec.supplementary_materials if spec.supplementary_materials else '[Không có tài liệu bổ sung]',
+            'RICH_CONTENT_TYPES': rich_content_str,
             
             # Statement a
             'COGNITIVE_LEVEL_A': statements[0].cognitive_level if len(statements) > 0 else 'NB',
@@ -167,9 +252,99 @@ class PromptBuilderService:
         # Replace variables in template
         prompt_text = self.replace_variables(template, variables)
         
+        # Inject rich content guide
+        if self.rich_content_guide and (spec.rich_content_types or "BK" in str(spec) or "BD" in str(spec)):
+            prompt_text = f"{prompt_text}\n\n{self.rich_content_guide}"
+        
         return PreparedPrompt(
             prompt_text=prompt_text,
             question_type='DS',
+            lesson_name=spec.lesson_name,
+            question_spec=spec,
+            has_content=bool(content),
+            content_length=len(content)
+        )
+    
+    def build_prompt_for_tln(self, spec: QuestionSpec, content: str = "") -> PreparedPrompt:
+        """
+        Build prompt for TLN (Trả lời ngắn) questions
+        
+        Args:
+            spec: Question specification from matrix
+            content: Content from PDF (optional)
+            
+        Returns:
+            PreparedPrompt object
+        """
+        template = self.templates.get('TLN', '')
+        
+        # Format rich content types if available
+        rich_content_str = self._format_rich_content_types(spec)
+        
+        # Prepare variables
+        variables = {
+            'NUM': str(spec.num_questions),
+            'LESSON_NAME': spec.lesson_name,
+            'CONTENT': content if content else '[Nội dung chưa có - cần bổ sung]',
+            'DATA_TABLE_OR_INFORMATION': spec.supplementary_materials if spec.supplementary_materials else '[Không có dữ liệu bổ sung]',
+            'LEVEL': spec.cognitive_level,
+            'EXPECTED_LEARNING_OUTCOME': spec.learning_outcome if spec.learning_outcome else '[Không có yêu cầu cụ thể]',
+            'RICH_CONTENT_TYPES': rich_content_str
+        }
+        
+        # Replace variables in template
+        prompt_text = self.replace_variables(template, variables)
+        
+        # Inject rich content guide
+        if self.rich_content_guide and (spec.rich_content_types or "BK" in str(spec) or "BD" in str(spec)):
+            prompt_text = f"{prompt_text}\n\n{self.rich_content_guide}"
+        
+        return PreparedPrompt(
+            prompt_text=prompt_text,
+            question_type='TLN',
+            lesson_name=spec.lesson_name,
+            question_spec=spec,
+            has_content=bool(content),
+            content_length=len(content)
+        )
+    
+    def build_prompt_for_tl(self, spec: QuestionSpec, content: str = "") -> PreparedPrompt:
+        """
+        Build prompt for TL (Tự luận) questions
+        
+        Args:
+            spec: Question specification from matrix
+            content: Content from PDF (optional)
+            
+        Returns:
+            PreparedPrompt object
+        """
+        template = self.templates.get('TL', '')
+        
+        # Format rich content types if available
+        rich_content_str = self._format_rich_content_types(spec)
+        
+        # Prepare variables
+        variables = {
+            'NUM': str(spec.num_questions),
+            'CONTENT': content if content else '[Nội dung chưa có - cần bổ sung]',
+            'DATA_OR_CONTEXT': spec.supplementary_materials if spec.supplementary_materials else '[Không có dữ liệu/tình huống]',
+            'COGNITIVE_LEVEL': spec.cognitive_level,
+            'EXPECTED_LEARNING_OUTCOME': spec.learning_outcome if spec.learning_outcome else '[Không có yêu cầu cụ thể]',
+            'QUESTION_TEMPLATE': '',
+            'RICH_CONTENT_TYPES': rich_content_str
+        }
+        
+        # Replace variables in template
+        prompt_text = self.replace_variables(template, variables)
+        
+        # Inject rich content guide
+        if self.rich_content_guide and (spec.rich_content_types or "BK" in str(spec) or "BD" in str(spec)):
+            prompt_text = f"{prompt_text}\n\n{self.rich_content_guide}"
+        
+        return PreparedPrompt(
+            prompt_text=prompt_text,
+            question_type='TL',
             lesson_name=spec.lesson_name,
             question_spec=spec,
             has_content=bool(content),
@@ -204,12 +379,13 @@ class PromptBuilderService:
         result = {
             'TN': [],
             'DS': [],
-            'TLN': []
+            'TLN': [],
+            'TL': []
         }
         
         # Use PDF content map if available
         if pdf_content_map is None:
-            pdf_content_map = self.pdf_service.pdf_content_map
+            pdf_content_map = self.pdf_service.pdf_content_map if self.pdf_service else {}
         
         # Build prompts for TN questions
         print("\n📝 Building TN prompts...")
@@ -232,6 +408,26 @@ class PromptBuilderService:
             status = "✓" if prompt.has_content else "⚠️"
             print(f"  {status} {spec.lesson_name} - {spec.question_code}")
         
+        # Build prompts for TLN questions
+        print("\n📝 Building TLN prompts...")
+        for spec in all_specs.get('TLN', []):
+            content = pdf_content_map.get(spec.lesson_name, '')
+            prompt = self.build_prompt_for_tln(spec, content)
+            result['TLN'].append(prompt)
+            
+            status = "✓" if prompt.has_content else "⚠️"
+            print(f"  {status} {spec.lesson_name} - {spec.num_questions} câu - {spec.cognitive_level}")
+        
+        # Build prompts for TL questions
+        print("\n📝 Building TL prompts...")
+        for spec in all_specs.get('TL', []):
+            content = pdf_content_map.get(spec.lesson_name, '')
+            prompt = self.build_prompt_for_tl(spec, content)
+            result['TL'].append(prompt)
+            
+            status = "✓" if prompt.has_content else "⚠️"
+            print(f"  {status} {spec.lesson_name} - {spec.num_questions} câu - {spec.cognitive_level}")
+        
         # Summary
         print("\n" + "="*70)
         print("SUMMARY")
@@ -243,6 +439,14 @@ class PromptBuilderService:
         print(f"\nDS prompts: {len(result['DS'])}")
         print(f"  - With content: {sum(1 for p in result['DS'] if p.has_content)}")
         print(f"  - Without content: {sum(1 for p in result['DS'] if not p.has_content)}")
+        
+        print(f"\nTLN prompts: {len(result['TLN'])}")
+        print(f"  - With content: {sum(1 for p in result['TLN'] if p.has_content)}")
+        print(f"  - Without content: {sum(1 for p in result['TLN'] if not p.has_content)}")
+        
+        print(f"\nTL prompts: {len(result['TL'])}")
+        print(f"  - With content: {sum(1 for p in result['TL'] if p.has_content)}")
+        print(f"  - Without content: {sum(1 for p in result['TL'] if not p.has_content)}")
         
         return result
     
@@ -299,48 +503,3 @@ class PromptBuilderService:
         
         return saved_files
 
-
-def main():
-    """Test the prompt builder service"""
-    
-    # Initialize service
-    builder = PromptBuilderService()
-    
-    # Paths
-    base_dir = Path(__file__).parent.parent.parent.parent
-    matrix_file = base_dir / "data" / "input" / "07. SỬ 12. ma trận KSCL lần 1 (1).xlsx"
-    
-    # First, process PDFs to get content
-    print("Step 1: Processing PDFs...")
-    pdf_service = PDFProcessingService()
-    
-    pdf_files = list((base_dir / "data" / "input").glob("*.pdf"))
-    
-    if pdf_files and matrix_file.exists():
-        pdf_results = pdf_service.process_multiple_pdfs(
-            pdf_files=[str(p) for p in pdf_files],
-            matrix_file=str(matrix_file)
-        )
-        
-        # Use the content map
-        content_map = pdf_service.pdf_content_map
-    else:
-        content_map = {}
-    
-    # Build prompts
-    print("\n\nStep 2: Building prompts...")
-    prompts = builder.build_prompts_from_matrix(
-        matrix_file=str(matrix_file),
-        pdf_content_map=content_map
-    )
-    
-    # Save prompts to files
-    print("\n\nStep 3: Saving prompts...")
-    saved_files = builder.save_prompts_to_files(prompts)
-    
-    print("\n✅ Complete!")
-    print(f"Generated {sum(len(v) for v in prompts.values())} prompts")
-
-
-if __name__ == "__main__":
-    main()

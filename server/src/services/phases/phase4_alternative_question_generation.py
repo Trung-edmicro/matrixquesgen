@@ -18,6 +18,12 @@ from ..core.genai_client import GenAIClient
 from ..generators.question_generator import QuestionGenerator
 from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
+# Import rich content support
+from data.rich_content import (
+    ContentBlock, ContentType,
+    text as text_block, mixed as mixed_block
+)
+
 
 @dataclass
 class GeneratedQuestion:
@@ -529,7 +535,7 @@ class AlternativeQuestionGenerationService:
             print(f"ALTERNATIVE: Starting parallel generation of {len(generation_tasks)} question tasks...")
 
             # Use fewer workers to avoid rate limiting (429 errors)
-            max_workers = min(3, len(generation_tasks))  # Reduced from 10 to 3
+            max_workers = min(5, len(generation_tasks))  # Reduced from 10 to 3
             print(f"   Using {max_workers} parallel workers to avoid API rate limits")
             
             with ThreadPoolExecutor(max_workers=max_workers) as executor:

@@ -78,13 +78,15 @@ class WorkflowOrchestrator:
 
     def execute_phase1_matrix_processing(self, matrix_file_path: Path) -> Tuple[MatrixMetadata, List[LessonInfo], List[str], Path]:
         """Execute Phase 1: Matrix Processing"""
-        metadata, lessons, drive_paths, all_specs, true_false_specs = self.matrix_service.process_matrix_file(matrix_file_path)
+        metadata, lessons, drive_paths, all_specs, true_false_specs, rich_content_type_definitions = self.matrix_service.process_matrix_file(matrix_file_path)
 
         # Store metadata for use in later phases
         self.matrix_metadata = metadata
 
         # Save matrix data to organized directory
-        matrix_output_path = self.matrix_service.save_matrix_data(metadata, lessons, all_specs, true_false_specs)
+        matrix_output_path = self.matrix_service.save_matrix_data(
+            metadata, lessons, all_specs, true_false_specs, rich_content_type_definitions
+        )
 
         return metadata, lessons, drive_paths, matrix_output_path
 

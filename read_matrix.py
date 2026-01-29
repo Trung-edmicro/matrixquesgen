@@ -1,8 +1,8 @@
 import pandas as pd
 import sys
 
-# Đọc file Excel
-file_path = r'E:\App\matrixquesgen\data\input\Ma trận_VATLY_KNTT_C12.xlsx'
+# Đọc file Excel với rich_content note
+file_path = r'E:\App\matrixquesgen\data\input\Ma trận_DIALY_KNTT_C12.xlsx'
 df_dict = pd.read_excel(file_path, sheet_name=None, header=None)
 
 print('=' * 100)

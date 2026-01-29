@@ -156,6 +156,9 @@ class MatrixProcessingService:
         self.matrix_parser.load_excel(str(file_path))
         all_specs = self.matrix_parser.get_all_question_specs()
         true_false_specs = self.matrix_parser.group_true_false_questions()
+        
+        # Parse rich content types from "Loại" sheet
+        rich_content_type_definitions = self.matrix_parser.parse_rich_content_types_sheet()
 
         # Extract lesson info from matrix
         df = self.load_matrix_file(file_path)
@@ -167,10 +170,44 @@ class MatrixProcessingService:
         # Generate drive paths
         drive_paths = self.generate_drive_paths(metadata, lessons)
 
-        return metadata, lessons, drive_paths, all_specs, true_false_specs
+        return metadata, lessons, drive_paths, all_specs, true_false_specs, rich_content_type_definitions
 
+    def _expand_rich_content_types(self, rich_types: Dict[str, List[str]], 
+                                   definitions: Dict[str, Dict[str, str]]) -> Dict[str, List[Dict]]:
+        """Expand rich content type codes to full definitions
+        
+        Args:
+            rich_types: {"C3": ["BK", "BD"]}
+            definitions: {"BK": {"name": "Bảng khảo", "description": ""}}
+        
+        Returns:
+            {"C3": [{"code": "BK", "name": "Bảng khảo", "description": ""}, ...]}
+        """
+        if not definitions:
+            return rich_types
+        
+        expanded = {}
+        for code, types in rich_types.items():
+            expanded[code] = []
+            for type_code in types:
+                if type_code in definitions:
+                    expanded[code].append({
+                        'code': type_code,
+                        'name': definitions[type_code]['name'],
+                        'description': definitions[type_code]['description']
+                    })
+                else:
+                    # If definition not found, just use the code
+                    expanded[code].append({
+                        'code': type_code,
+                        'name': type_code,
+                        'description': ''
+                    })
+        return expanded
+    
     def save_matrix_data(self, metadata: MatrixMetadata, lessons: List[LessonInfo],
                         all_specs: Dict[str, List], true_false_specs: List,
+                        rich_content_type_definitions: Dict[str, Dict[str, str]] = None,
                         output_dir: Path = Path("data/matrix")) -> Path:
         """Save matrix processing results to JSON file with question specs"""
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -206,12 +243,18 @@ class MatrixProcessingService:
                     if spec.chapter_number == int(lesson.chapter_number) and spec_lesson_num == int(lesson.lesson_number):
                         level_key = spec.cognitive_level
                         if level_key in lesson_data['TN']:
-                            lesson_data['TN'][level_key].append({
+                            tn_item = {
                                 'num': spec.num_questions,
                                 'code': spec.question_codes,
                                 'learning_outcome': spec.learning_outcome,
                                 'question_template': []
-                            })
+                            }
+                            # Add rich_content_types if available (expanded with definitions)
+                            if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+                                tn_item['rich_content_types'] = self._expand_rich_content_types(
+                                    spec.rich_content_types, rich_content_type_definitions or {}
+                                )
+                            lesson_data['TN'][level_key].append(tn_item)
 
             # Add DS specs for this lesson
             # First, add complete DS questions (4 statements each)
@@ -233,12 +276,18 @@ class MatrixProcessingService:
                                 'statement_code': statement.statement_code
                             })
 
-                        lesson_data['DS'].append({
+                        ds_item = {
                             'question_code': tf_spec.question_code,
                             'statements': statements_data,
                             'supplementary_materials': tf_spec.supplementary_materials,
                             'question_template': []
-                        })
+                        }
+                        # Add rich_content_types if available (expanded with definitions)
+                        if hasattr(tf_spec, 'rich_content_types') and tf_spec.rich_content_types:
+                            ds_item['rich_content_types'] = self._expand_rich_content_types(
+                                tf_spec.rich_content_types, rich_content_type_definitions or {}
+                            )
+                        lesson_data['DS'].append(ds_item)
             
             # Also add individual DS statement groups (not yet complete questions)
             if 'DS' in all_specs:
@@ -248,6 +297,7 @@ class MatrixProcessingService:
                 # Group DS specs by question code
                 from collections import defaultdict
                 ds_by_code = defaultdict(list)
+                ds_rich_types = {}  # Track rich content types per question code
                 
                 for spec in all_specs['DS']:
                     # Extract lesson number
@@ -257,6 +307,16 @@ class MatrixProcessingService:
                         spec_lesson_num = int(lesson_match.group(1)) if lesson_match else None
                     
                     if spec.chapter_number == int(lesson.chapter_number) and spec_lesson_num == int(lesson.lesson_number):
+                        # Store rich content types if available
+                        if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+                            for code, types in spec.rich_content_types.items():
+                                base_match = re.match(r'(C\d+)([A-D])?', code, re.IGNORECASE)
+                                if base_match:
+                                    base_code = base_match.group(1).upper()
+                                    if base_code not in ds_rich_types:
+                                        ds_rich_types[base_code] = {}
+                                    ds_rich_types[base_code][code] = types
+                        
                         # Extract base question code and statement label from each code
                         for code in spec.question_codes:
                             base_match = re.match(r'(C\d+)([A-D])?', code, re.IGNORECASE)
@@ -276,12 +336,18 @@ class MatrixProcessingService:
                 # Add grouped statements that aren't already in complete questions
                 for question_code, statements in ds_by_code.items():
                     if question_code not in existing_codes:
-                        lesson_data['DS'].append({
+                        ds_item = {
                             'question_code': question_code,
                             'statements': statements,
                             'supplementary_materials': statements[0]['supplementary_materials'] if statements else '',
                             'question_template': []
-                        })
+                        }
+                        # Add rich_content_types if available for this question (expanded with definitions)
+                        if question_code in ds_rich_types:
+                            ds_item['rich_content_types'] = self._expand_rich_content_types(
+                                ds_rich_types[question_code], rich_content_type_definitions or {}
+                            )
+                        lesson_data['DS'].append(ds_item)
 
             # Add TLN specs for this lesson
             if 'TLN' in all_specs:
@@ -296,12 +362,18 @@ class MatrixProcessingService:
                     if spec.chapter_number == int(lesson.chapter_number) and spec_lesson_num == int(lesson.lesson_number):
                         level_key = spec.cognitive_level
                         if level_key in lesson_data['TLN']:
-                            lesson_data['TLN'][level_key].append({
+                            tln_item = {
                                 'num': spec.num_questions,
                                 'code': spec.question_codes,
                                 'learning_outcome': spec.learning_outcome,
                                 'question_template': []
-                            })
+                            }
+                            # Add rich_content_types if available (expanded with definitions)
+                            if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+                                tln_item['rich_content_types'] = self._expand_rich_content_types(
+                                    spec.rich_content_types, rich_content_type_definitions or {}
+                                )
+                            lesson_data['TLN'][level_key].append(tln_item)
 
             # Add TL specs for this lesson
             if 'TL' in all_specs:
@@ -316,12 +388,18 @@ class MatrixProcessingService:
                     if spec.chapter_number == int(lesson.chapter_number) and spec_lesson_num == int(lesson.lesson_number):
                         level_key = spec.cognitive_level
                         if level_key in lesson_data['TL']:
-                            lesson_data['TL'][level_key].append({
+                            tl_item = {
                                 'num': spec.num_questions,
                                 'code': spec.question_codes,
                                 'learning_outcome': spec.learning_outcome,
                                 'question_template': []
-                            })
+                            }
+                            # Add rich_content_types if available (expanded with definitions)
+                            if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+                                tl_item['rich_content_types'] = self._expand_rich_content_types(
+                                    spec.rich_content_types, rich_content_type_definitions or {}
+                                )
+                            lesson_data['TL'][level_key].append(tl_item)
 
             lessons_data.append(lesson_data)
 
@@ -332,6 +410,7 @@ class MatrixProcessingService:
                 'grade': metadata.grade,
                 'filename': metadata.filename
             },
+            'rich_content_type_definitions': rich_content_type_definitions if rich_content_type_definitions else {},
             'lessons': lessons_data
         }
 

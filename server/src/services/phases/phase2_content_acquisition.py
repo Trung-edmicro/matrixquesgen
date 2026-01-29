@@ -40,8 +40,10 @@ class ContentAcquisitionService:
         self.content_types = {
             'sgk': ['SGK', 'Sách giáo khoa'],
             'sbt': ['SBT', 'Sách bài tập', 'Bài tập'],
-            'tn': ['TN', 'Trắc nghiệm'],
-            'ds': ['DS', 'ĐS', 'Đúng sai', 'questions'],
+            'tn': ['TN', 'Trắc nghiệm', '_TN_'],
+            'tln': ['TLN', 'Trắc nghiệm luận', '_TLN_'],
+            'tl': ['TL', 'Tự luận', '_TL_'],
+            'ds': ['DS', 'ĐS', 'Đúng sai', 'questions', '_DS_'],
             'material': ['material', 'tư liệu', 'tài liệu']
         }
         # Root folder ID for educational content - should be configured
@@ -342,11 +344,13 @@ class ContentAcquisitionService:
             return []
 
     def categorize_content(self, content_items: List[ContentItem]) -> Dict[str, List[ContentItem]]:
-        """Categorize content items by type (SGK, SBT, TN, DS)"""
+        """Categorize content items by type (SGK, SBT, TN, TLN, TL, DS)"""
         categorized = {
             'sgk': [],
             'sbt': [],
             'tn': [],
+            'tln': [],
+            'tl': [],
             'ds': [],
             'material': []
         }
@@ -410,6 +414,54 @@ class ContentAcquisitionService:
                 vd_questions = self.parse_questions_from_content(content)
                 questions['VD'].extend(vd_questions)
             # Note: If filename doesn't match any pattern, skip it (don't try to parse unknown format)
+
+        return questions
+
+    def parse_tln_from_separate_files(self, tln_content_items: List[ContentItem], subject: str, grade: str, chapter: str, lesson: str) -> Dict[str, List[str]]:
+        """Parse TLN content from separate NB, TH, VD files (similar to TN)"""
+        questions = {'NB': [], 'TH': [], 'VD': []}
+
+        for item in tln_content_items:
+            filename = item.name
+            content = item.content or ""
+
+            if not content.strip():
+                continue
+
+            # Check filename pattern for TLN
+            if '_TLN_NB' in filename or filename.endswith('_TLN_NB.txt'):
+                nb_questions = self.parse_questions_from_content(content)
+                questions['NB'].extend(nb_questions)
+            elif '_TLN_TH' in filename or filename.endswith('_TLN_TH.txt'):
+                th_questions = self.parse_questions_from_content(content)
+                questions['TH'].extend(th_questions)
+            elif '_TLN_VD' in filename or filename.endswith('_TLN_VD.txt'):
+                vd_questions = self.parse_questions_from_content(content)
+                questions['VD'].extend(vd_questions)
+
+        return questions
+
+    def parse_tl_from_separate_files(self, tl_content_items: List[ContentItem], subject: str, grade: str, chapter: str, lesson: str) -> Dict[str, List[str]]:
+        """Parse TL content from separate NB, TH, VD files (similar to TN)"""
+        questions = {'NB': [], 'TH': [], 'VD': []}
+
+        for item in tl_content_items:
+            filename = item.name
+            content = item.content or ""
+
+            if not content.strip():
+                continue
+
+            # Check filename pattern for TL
+            if '_TL_NB' in filename or filename.endswith('_TL_NB.txt'):
+                nb_questions = self.parse_questions_from_content(content)
+                questions['NB'].extend(nb_questions)
+            elif '_TL_TH' in filename or filename.endswith('_TL_TH.txt'):
+                th_questions = self.parse_questions_from_content(content)
+                questions['TH'].extend(th_questions)
+            elif '_TL_VD' in filename or filename.endswith('_TL_VD.txt'):
+                vd_questions = self.parse_questions_from_content(content)
+                questions['VD'].extend(vd_questions)
 
         return questions
 
@@ -552,13 +604,38 @@ class ContentAcquisitionService:
             sbt_content = categorized_content['sbt'][0].content or ""
 
         # Parse TN content from separate files
-        tn_data = self.parse_tn_from_separate_files(categorized_content.get('tn', []), subject, grade, chapter, lesson)
+        tn_files = categorized_content.get('tn', [])
+        print(f"🔍 Parsing TN from {len(tn_files)} files")
+        tn_data = self.parse_tn_from_separate_files(tn_files, subject, grade, chapter, lesson)
+        print(f"   NB: {len(tn_data.get('NB', []))} questions")
+        print(f"   TH: {len(tn_data.get('TH', []))} questions")
+        print(f"   VD: {len(tn_data.get('VD', []))} questions")
 
         # Parse DS content from separate files
+        ds_files = categorized_content.get('ds', []) + categorized_content.get('material', [])
+        print(f"🔍 Parsing DS from {len(ds_files)} files")
         ds_data = self.parse_ds_from_separate_files(
-            categorized_content.get('ds', []) + categorized_content.get('material', []),
+            ds_files,
             subject, grade, chapter, lesson
         )
+        print(f"   Material: {len(ds_data.get('material', []))} items")
+        print(f"   Questions: {len(ds_data.get('questions', []))} items")
+
+        # Parse TLN content (similar to TN)
+        tln_files = categorized_content.get('tln', [])
+        print(f"🔍 Parsing TLN from {len(tln_files)} files")
+        tln_data = self.parse_tln_from_separate_files(tln_files, subject, grade, chapter, lesson)
+        print(f"   NB: {len(tln_data.get('NB', []))} questions")
+        print(f"   TH: {len(tln_data.get('TH', []))} questions")
+        print(f"   VD: {len(tln_data.get('VD', []))} questions")
+
+        # Parse TL content (similar to TN)
+        tl_files = categorized_content.get('tl', [])
+        print(f"🔍 Parsing TL from {len(tl_files)} files")
+        tl_data = self.parse_tl_from_separate_files(tl_files, subject, grade, chapter, lesson)
+        print(f"   NB: {len(tl_data.get('NB', []))} questions")
+        print(f"   TH: {len(tl_data.get('TH', []))} questions")
+        print(f"   VD: {len(tl_data.get('VD', []))} questions")
 
         data = {
             "content": {
@@ -566,7 +643,9 @@ class ContentAcquisitionService:
                 "SBT": sbt_content
             },
             "TN": tn_data,
-            "DS": ds_data
+            "DS": ds_data,
+            "TLN": tln_data,
+            "TL": tl_data
         }
 
         topic = f"{chapter}_{lesson}"
@@ -664,8 +743,20 @@ class ContentAcquisitionService:
                             continue
                     
                     if content_items:
+                        # Log downloaded files
+                        print(f"📥 Downloaded {len(content_items)} files:")
+                        for item in content_items:
+                            print(f"   - {item.name} ({len(item.content or '')} chars)")
+                        
                         # Categorize and process
                         categorized = self.categorize_content(content_items)
+                        
+                        # Log categorization results
+                        print(f"📂 Categorized content:")
+                        for cat, items in categorized.items():
+                            print(f"   {cat}: {len(items)} files")
+                            for item in items:
+                                print(f"      - {item.name}")
                         
                         # Build structure
                         processed_content = self.build_json_structure(
