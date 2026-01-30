@@ -300,17 +300,16 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                   className="focus:outline-none focus:ring-2 focus:ring-primary-300"
                 />
                 
-                {/* Source Citation */}
-                {q.source_citation && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500">
-                    <span className="font-medium">Nguồn: </span>
+                {/* Source Citation - Ưu tiên source_citation, nếu không có thì dùng source từ metadata */}
+                {(q.source_citation || q.source_text?.metadata?.source) && (
+                  <div className="mt-2 text-right">
                     <span
+                      className="text-xs text-gray-500 italic focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
                       contentEditable={!!sessionId}
                       onBlur={(e) => handleBlur('DS', q.question_code, 'source_citation', e)}
-                      className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
                       suppressContentEditableWarning={true}
                     >
-                      {q.source_citation}
+                      ({q.source_citation || q.source_text?.metadata?.source})
                     </span>
                   </div>
                 )}

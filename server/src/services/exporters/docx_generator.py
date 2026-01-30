@@ -465,9 +465,22 @@ class DocxGenerator:
             
             # Tư liệu - handle as string or dict
             source_text = question.get('source_text', '')
+            source_metadata = None
             if isinstance(source_text, dict):
+                source_metadata = source_text.get('metadata', {})
                 source_text = source_text.get('content', '')
             self.add_paragraph(source_text, italic=True)
+            
+            # Thêm nguồn tư liệu (căn lề phải, bọc trong ngoặc đơn)
+            # Ưu tiên source_citation, nếu không có thì dùng source từ metadata
+            source_citation = question.get('source_citation', '')
+            if not source_citation and source_metadata:
+                source_citation = source_metadata.get('source', '')
+            
+            if source_citation:
+                para_source = self.document.add_paragraph()
+                para_source.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                para_source.add_run(f"({source_citation})").italic = True
             
             statements = question.get('statements', {})
             

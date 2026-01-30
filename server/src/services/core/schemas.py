@@ -75,8 +75,8 @@ def get_rich_content_schema() -> Dict:
                 ],
                 "description": """⚠️ QUY TẮC QUAN TRỌNG - PHẢI TUÂN THỦ:
 
-1. type="text" → content PHẢI LÀ STRING:
-   {"type": "text", "content": "ASEAN được thành lập năm 1967"}
+1. type="text" → content PHẢI LÀ STRING + metadata.source BẮT BUỘC khi dùng tư liệu ngoài SGK:
+   {"type": "text", "content": "ASEAN được thành lập năm 1967 tại Bangkok", "metadata": {"source": "Nguồn: UN Statistics 2021"}},
 
 2. type="table" → content PHẢI LÀ OBJECT (KHÔNG PHẢI STRING):
    {
@@ -117,10 +117,10 @@ def get_rich_content_schema() -> Dict:
             },
             "metadata": {
                 "type": "object",
-                "description": "Metadata tùy chọn",
+                "description": "Metadata tùy chọn - đặc biệt khuyến khích dùng 'source' cho type='text' để trích dẫn nguồn tư liệu",
                 "properties": {
                     "caption": {"type": "string", "description": "Chú thích (VD: 'Bảng 1: Dân số')"},
-                    "source": {"type": "string", "description": "Nguồn dữ liệu"},
+                    "source": {"type": "string", "description": "Nguồn dữ liệu - BẮT BUỘC cho type='text' khi dùng tư liệu ngoài SGK"},
                     "width": {"type": "number", "description": "Chiều rộng (px)"},
                     "height": {"type": "number", "description": "Chiều cao (px)"}
                 }
@@ -132,8 +132,15 @@ def get_rich_content_schema() -> Dict:
 **1. TEXT THUẦN** (mặc định - khi KHÔNG có rich_content_types):
 {
   "type": "text",
-  "content": "ASEAN được thành lập năm 1967 tại Bangkok"
+  "content": "ASEAN được thành lập năm 1967 tại Bangkok",
+  "metadata": {
+    "source": "Nguồn: UN Statistics 2021"
+  }
 }
+
+**LƯU Ý QUAN TRỌNG CHO TEXT**: 
+- Luôn sử dụng metadata.source khi trích dẫn tư liệu ngoài SGK
+- Format nguồn: (Tác giả, "Tên tài liệu", NXB/Nguồn, năm)
 
 **2. BẢNG (type: "table")** - KHI câu hỏi có rich_content_types="BK":
 {

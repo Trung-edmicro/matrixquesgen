@@ -38,13 +38,14 @@ class ContentAcquisitionService:
     def __init__(self, drive_service: GoogleDriveService):
         self.drive_service = drive_service
         self.content_types = {
-            'sgk': ['SGK', 'Sách giáo khoa'],
-            'sbt': ['SBT', 'Sách bài tập', 'Bài tập'],
-            'tn': ['TN', 'Trắc nghiệm', '_TN_'],
-            'tln': ['TLN', 'Trắc nghiệm luận', '_TLN_'],
-            'tl': ['TL', 'Tự luận', '_TL_'],
-            'ds': ['DS', 'ĐS', 'Đúng sai', 'questions', '_DS_'],
-            'material': ['material', 'tư liệu', 'tài liệu']
+            'sgv': ['_SGV', 'Sách giáo viên'],  # Check SGV first to avoid confusion with SGK
+            'sgk': ['_SGK', 'Sách giáo khoa'],
+            'sbt': ['_SBT', 'Sách bài tập', 'Bài tập'],
+            'tn': ['_TN_', 'Trắc nghiệm'],
+            'tln': ['_TLN_', 'Trắc nghiệm luận'],
+            'tl': ['_TL_', 'Tự luận'],
+            'ds': ['_DS_', 'Đúng sai', 'questions'],
+            'material': ['_material', 'material', 'tư liệu', 'tài liệu']
         }
         # Root folder ID for educational content - should be configured
         self.root_folder_id = os.getenv('ROOT_GDRIVE_FOLDER_ID', 'root')
@@ -344,9 +345,10 @@ class ContentAcquisitionService:
             return []
 
     def categorize_content(self, content_items: List[ContentItem]) -> Dict[str, List[ContentItem]]:
-        """Categorize content items by type (SGK, SBT, TN, TLN, TL, DS)"""
+        """Categorize content items by type (SGK, SGV, SBT, TN, TLN, TL, DS)"""
         categorized = {
-            'sgk': [],
+            'sgv': [],  # Sách giáo viên
+            'sgk': [],  # Sách giáo khoa
             'sbt': [],
             'tn': [],
             'tln': [],
@@ -377,6 +379,8 @@ class ContentAcquisitionService:
                 categorized['tn'].append(item)
             elif any(keyword in content_preview for keyword in ['bài tập', 'sách bài tập', 'câu hỏi và bài tập']):
                 categorized['sbt'].append(item)
+            elif any(keyword in content_preview for keyword in ['sách giáo viên', 'hướng dẫn giáo viên']):
+                categorized['sgv'].append(item)
             elif any(keyword in content_preview for keyword in ['## bài', '### bài', 'bài học', 'sách giáo khoa']):
                 categorized['sgk'].append(item)
             else:
@@ -501,7 +505,7 @@ class ContentAcquisitionService:
         result = {'material': [], 'questions': []}
 
         # Build filename pattern for this lesson
-        # Expected patterns: LICHSU_KNTT_C12_3_6_material.txt, LICHSU_KNTT_C12_3_6_questions.txt, etc.
+        # Expected patterns: LICHSU_KNTT_C12_3_6_material.txt/md, LICHSU_KNTT_C12_3_6_questions.txt/md, etc.
         base_pattern = f"{subject}_{grade}_{chapter}_{lesson}_"
 
         for item in ds_content_items:
@@ -512,11 +516,11 @@ class ContentAcquisitionService:
                 continue
 
             # Check filename pattern
-            if 'material' in filename.lower() or filename.endswith('_material.txt'):
+            if 'material' in filename.lower() or filename.endswith(('_material.txt', '_material.md')):
                 # Parse material content
                 materials = self.parse_material_content(content)
                 result['material'].extend(materials)
-            elif 'question' in filename.lower() or filename.endswith('_questions.txt') or 'ds' in filename.lower():
+            elif 'question' in filename.lower() or filename.endswith(('_questions.txt', '_questions.md')) or 'ds' in filename.lower():
                 # Parse questions content using DS parsing logic
                 parsed = self.parse_ds_content(content)
                 result['material'].extend(parsed.get('material', []))
@@ -599,6 +603,10 @@ class ContentAcquisitionService:
         if categorized_content.get('sgk'):
             sgk_content = categorized_content['sgk'][0].content or ""
 
+        sgv_content = ""
+        if categorized_content.get('sgv'):
+            sgv_content = categorized_content['sgv'][0].content or ""
+
         sbt_content = ""
         if categorized_content.get('sbt'):
             sbt_content = categorized_content['sbt'][0].content or ""
@@ -640,6 +648,7 @@ class ContentAcquisitionService:
         data = {
             "content": {
                 "SGK": sgk_content,
+                "SGV": sgv_content,
                 "SBT": sbt_content
             },
             "TN": tn_data,
