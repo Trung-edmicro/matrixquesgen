@@ -129,8 +129,10 @@ class ContentMappingService:
                         content_data = json.load(f)
                     data = content_data.get('data', {})
                     sgk_content = data.get('content', {}).get('SGK', '')
-                    sgv_content = data.get('content', {}).get('SGV', '')
-                    sbt_content = data.get('content', {}).get('SBT', '')
+                    # sgv_content = data.get('content', {}).get('SGV', '')
+                    # sbt_content = data.get('content', {}).get('SBT', '')
+                    sgv_content = ''
+                    sbt_content = ''
                     content_parts = [c for c in [sgk_content, sgv_content, sbt_content] if c]
                     content = "\n\n".join(content_parts)
                 except Exception as e:
@@ -222,8 +224,10 @@ class ContentMappingService:
 
             # Map SGK, SGV and SBT content
             sgk_content = data.get('content', {}).get('SGK', '')
-            sgv_content = data.get('content', {}).get('SGV', '')
-            sbt_content = data.get('content', {}).get('SBT', '')
+            # sgv_content = data.get('content', {}).get('SGV', '')
+            # sbt_content = data.get('content', {}).get('SBT', '')
+            sgv_content = ''
+            sbt_content = ''
 
             combined_content = []
             if sgk_content:

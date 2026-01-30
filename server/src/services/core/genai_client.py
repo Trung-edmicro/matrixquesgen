@@ -117,7 +117,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=65536,
+                max_output_tokens=40000,  # Giới hạn token ở mức 40000
                 system_instruction=system_instruction,
                 tools=tools if tools else None
             )
@@ -170,7 +170,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=65536,
+                max_output_tokens=40000,  # Giới hạn token ở mức 40000
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
@@ -198,6 +198,16 @@ class GenAIClient:
                     print(f"⚠️ Response finished with reason: {finish_reason}")
                     if finish_reason == 'MAX_TOKENS':
                         print(f"⚠️ Response was truncated due to MAX_TOKENS limit!")
+                        raise Exception(f"Response truncated due to MAX_TOKENS limit. Please try with shorter prompt or reduce output requirements.")
+                    elif finish_reason == 'SAFETY':
+                        print(f"⚠️ Response blocked due to safety filters!")
+                        raise Exception(f"Response blocked by safety filters.")
+                    elif finish_reason == 'RECITATION':
+                        print(f"⚠️ Response blocked due to recitation filters!")
+                        raise Exception(f"Response blocked by recitation filters.")
+                    else:
+                        print(f"⚠️ Response finished with unexpected reason: {finish_reason}")
+                        raise Exception(f"Response finished with reason: {finish_reason}")
             
             # Extract text from response
             text = response.text if hasattr(response, 'text') and response.text is not None else ""
@@ -260,7 +270,7 @@ class GenAIClient:
             config = types.GenerateContentConfig(
                 temperature=1,
                 top_p=0.95,
-                max_output_tokens=65536,
+                max_output_tokens=40000,  # Giới hạn token ở mức 40000
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,

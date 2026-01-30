@@ -421,7 +421,12 @@ class DocxGenerator:
             self._set_run_background(run, level)
             
             para.add_run(". ")
-            para.add_run(question.get('question_stem', ''))
+            
+            # Handle question_stem - can be string or dict
+            question_stem = question.get('question_stem', '')
+            if isinstance(question_stem, dict):
+                question_stem = question_stem.get('content', '')
+            para.add_run(question_stem)
             
             # Các lựa chọn
             options = question.get('options', {})
@@ -458,8 +463,11 @@ class DocxGenerator:
             para.add_run(f"Câu {number}. ").bold = True
             para.add_run("Cho đoạn tư liệu sau:")
             
-            # Tư liệu
-            self.add_paragraph(question.get('source_text', ''), italic=True)
+            # Tư liệu - handle as string or dict
+            source_text = question.get('source_text', '')
+            if isinstance(source_text, dict):
+                source_text = source_text.get('content', '')
+            self.add_paragraph(source_text, italic=True)
             
             statements = question.get('statements', {})
             
@@ -560,7 +568,12 @@ class DocxGenerator:
             self._set_run_background(run, level)
             
             para.add_run(". ")
-            para.add_run(question.get('question_stem', ''))
+            
+            # Handle question_stem - can be string or dict
+            question_stem = question.get('question_stem', '')
+            if isinstance(question_stem, dict):
+                question_stem = question_stem.get('content', '')
+            para.add_run(question_stem)
             
         except Exception as e:
             print(f"Error in _add_tl_question {number}: {e}")
@@ -605,7 +618,12 @@ class DocxGenerator:
             self._set_run_background(run, level)
             
             para.add_run(". ")
-            para.add_run(question.get('question_stem', ''))
+            
+            # Handle question_stem - can be string or dict
+            question_stem = question.get('question_stem', '')
+            if isinstance(question_stem, dict):
+                question_stem = question_stem.get('content', '')
+            para.add_run(question_stem)
             
         except Exception as e:
             print(f"Error in _add_tln_question {number}: {e}")

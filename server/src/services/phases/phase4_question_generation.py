@@ -17,7 +17,7 @@ import threading
 # Import existing services
 from ..core.genai_client import GenAIClient
 from ..core.content_validator import clean_all_questions
-from ..generators.question_generator import QuestionGenerator
+from ..generators.question_generator import QuestionGenerator, GeneratedEssayQuestion
 from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
 # Import rich content support
@@ -46,6 +46,12 @@ class GeneratedQuestion:
     # For DS questions
     source_text: Optional[Union[str, Dict[str, Any]]] = None
     statements: Optional[Dict[str, Dict]] = None
+    # DS metadata fields (source citation)
+    source_citation: Optional[str] = None
+    source_origin: Optional[str] = None
+    source_type: Optional[str] = None
+    pedagogical_approach: Optional[str] = None
+    search_evidence: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary, handling rich content serialization"""
@@ -440,7 +446,7 @@ class QuestionGenerationService:
                     "c": explanation_dict.get("c", ""),
                     "d": explanation_dict.get("d", "")
                 }
-                ds_questions.append({
+                ds_question = {
                     'question_code': q_dict.get('question_code', q.id.split('_')[-1]),
                     'question_type': q.type,
                     'lesson_name': q.lesson_name,
@@ -448,7 +454,19 @@ class QuestionGenerationService:
                     'source_text': q_dict.get('source_text', q.source_text),
                     'statements': q_dict.get('statements', q.statements),
                     'explanation': normalized_explanation
-                })
+                }
+                # Add metadata fields if available
+                if q.source_citation:
+                    ds_question['source_citation'] = q.source_citation
+                if q.source_origin:
+                    ds_question['source_origin'] = q.source_origin
+                if q.source_type:
+                    ds_question['source_type'] = q.source_type
+                if q.pedagogical_approach:
+                    ds_question['pedagogical_approach'] = q.pedagogical_approach
+                if q.search_evidence:
+                    ds_question['search_evidence'] = q.search_evidence
+                ds_questions.append(ds_question)
             elif q.type == "TLN":
                 tln_questions.append({
                     'question_code': q_dict.get('question_code', q.id.split('_')[-1]),
@@ -661,7 +679,37 @@ class QuestionGenerationService:
                         lesson_name=gen_q.lesson_name,
                         generated_at=datetime.now().isoformat(),
                         source_text=gen_q.source_text,
-                        statements=gen_q.statements
+                        statements=gen_q.statements,
+                        # Add DS metadata fields
+                        source_citation=gen_q.source_citation,
+                        source_origin=gen_q.source_origin,
+                        source_type=gen_q.source_type,
+                        pedagogical_approach=gen_q.pedagogical_approach,
+                        search_evidence=gen_q.search_evidence
+                    )
+                elif gen_q.question_type == "TL" or getattr(gen_q, 'question_type_main', None) == "TL":  # TL (Essay) question
+                    # Convert TL to standard format - store full essay structure
+                    question = GeneratedQuestion(
+                        id=f"{matrix_data['metadata']['subject']}_{matrix_data['metadata']['grade']}_{gen_q.chapter_number}_{gen_q.lesson_number}_TL_{gen_q.question_code}",
+                        type="TL",
+                        question=gen_q.question_stem,
+                        options=None,  # TL has no options
+                        correct_answer=gen_q.sample_answer,  # Sample answer as correct answer
+                        explanation={
+                            "question_type": gen_q.question_type,
+                            "historical_context": gen_q.historical_context,
+                            "required_elements": gen_q.required_elements,
+                            "answer_structure": gen_q.answer_structure,
+                            "key_points": gen_q.key_points,
+                            "scoring_rubric": gen_q.scoring_rubric
+                        },
+                        difficulty=gen_q.level,
+                        subject=matrix_data['metadata']['subject'],
+                        grade=matrix_data['metadata']['grade'],
+                        chapter=str(gen_q.chapter_number),
+                        lesson=str(gen_q.lesson_number),
+                        lesson_name=gen_q.lesson_name,
+                        generated_at=datetime.now().isoformat()
                     )
                 else:  # TN or TLN question (both have question_stem structure)
                     question = GeneratedQuestion(
@@ -742,7 +790,8 @@ class QuestionGenerationService:
                         learning_outcome=spec_data['learning_outcome'],
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Use question templates if available
@@ -791,7 +840,8 @@ class QuestionGenerationService:
                         statements=statements,
                         question_type="DS",
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Generate DS questions
@@ -822,7 +872,8 @@ class QuestionGenerationService:
                         learning_outcome=spec_data['learning_outcome'],
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Use question templates if available
@@ -859,7 +910,8 @@ class QuestionGenerationService:
                         learning_outcome=spec_data['learning_outcome'],
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Use question templates if available

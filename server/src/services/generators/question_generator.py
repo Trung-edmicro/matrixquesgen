@@ -11,11 +11,10 @@ from dataclasses import dataclass, asdict
 
 from ..core.matrix_parser import QuestionSpec, TrueFalseQuestionSpec
 from ..core.schemas import (
-    get_multiple_choice_schema,
     get_multiple_choice_array_schema,
     get_true_false_schema,
-    get_short_answer_schema,
-    get_short_answer_array_schema
+    get_short_answer_array_schema,
+    get_essay_array_schema
 )
 
 @dataclass
@@ -40,6 +39,31 @@ class GeneratedTrueFalseQuestion:
     explanation: Dict[str, str]  # Giải thích cho mỗi mệnh đề {a: "...", b: "...", ...}
     lesson_name: str  # Tên bài học
     question_type: str = "DS"  # Loại câu hỏi
+    # Metadata fields for source citation (REQUIRED per schema)
+    source_citation: str = ""  # Trích dẫn nguồn học thuật
+    source_origin: str = ""  # Loại nguồn (academic_journal/scholarly_book/official_document/reputable_media)
+    source_type: str = ""  # Loại tư liệu (primary_source/historical_description/analytical_summary/contextual_scenario)
+    pedagogical_approach: str = ""  # Cách tiếp cận sư phạm
+    search_evidence: str = ""  # Ghi chú quá trình tìm kiếm
+
+
+@dataclass
+class GeneratedEssayQuestion:
+    """Câu hỏi Tự luận đã được sinh"""
+    question_code: str  # Mã câu (VD: C1)
+    question_stem: str  # Nội dung câu hỏi
+    question_type: str  # Loại câu hỏi tự luận (analysis/comparison/evaluation/explanation/synthesis/argumentation)
+    historical_context: str  # Bối cảnh lịch sử (optional)
+    required_elements: List[str]  # Các yếu tố bắt buộc
+    answer_structure: Dict  # Cấu trúc câu trả lời mong đợi
+    sample_answer: str  # Câu trả lời mẫu
+    key_points: List[Dict]  # Các điểm kiến thức then chốt
+    scoring_rubric: Dict  # Thang điểm chi tiết
+    level: str  # Cấp độ (NB/TH/VD/VDC)
+    lesson_name: str  # Tên bài học
+    question_type_main: str = "TL"  # Loại câu hỏi chính
+    chapter_number: int = 0  # Số chương
+    lesson_number: int = 0  # Số bài
 
 
 class QuestionGenerator:
@@ -100,6 +124,76 @@ class QuestionGenerator:
         
         return prompt
     
+    def _format_rich_content_types(self, spec: QuestionSpec) -> str:
+        """
+        Format rich content types for prompt injection
+        
+        Args:
+            spec: QuestionSpec with optional rich_content_types attribute
+            
+        Returns:
+            Formatted string describing required rich content types
+        """
+        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+            return """**YÊU CẦU NỘI DUNG**: Câu hỏi này không có đánh dấu BD/BK/HA trong ma trận.
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text"), KHÔNG dùng table/chart/image/mixed.
+⏩ question_stem PHẢI là: {"type": "text", "content": "..."}"""
+        
+        lines = ["**YÊU CẦU:** Các câu hỏi sau cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
+        for code, types in spec.rich_content_types.items():
+            type_list = []
+            for t in types:
+                if isinstance(t, dict):
+                    # Format: {"code": "BK", "name": "Bảng khảo, bảng số liệu", "description": "..."}
+                    type_name = f"{t['code']} - {t['name']}"
+                else:
+                    # Just string like "BK"
+                    type_name = t
+                type_list.append(type_name)
+            lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
+        
+        lines.append("")
+        lines.append("⚠️ **QUAN TRỌNG**: Đối với các câu có yêu cầu rich content:")
+        lines.append("- question_stem PHẢI có cấu trúc: {type: 'table'/'chart'/'image', content: {...}}")
+        lines.append("- KHÔNG dùng {type: 'text', content: '...'} cho những câu này")
+        lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
+        
+        return "\n".join(lines)
+    
+    def _format_rich_content_types_tf(self, spec: TrueFalseQuestionSpec) -> str:
+        """
+        Format rich content types for True/False questions
+        
+        Args:
+            spec: TrueFalseQuestionSpec with optional rich_content_types attribute
+            
+        Returns:
+            Formatted string describing required rich content types
+        """
+        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+            return """**YÊU CẦU NỘI DUNG**: Câu hỏi này không có đánh dấu BD/BK/HA trong ma trận.
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text, KHÔNG dùng table/chart/image/mixed.
+⏩ source_text PHẢI là: {"type": "text", "content": "..."}"""
+        
+        lines = ["**YÊU CẦU:** Câu hỏi này cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
+        for code, types in spec.rich_content_types.items():
+            type_list = []
+            for t in types:
+                if isinstance(t, dict):
+                    type_name = f"{t['code']} - {t['name']}"
+                else:
+                    type_name = t
+                type_list.append(type_name)
+            lines.append(f"  • {', '.join(type_list)}")
+        
+        lines.append("")
+        lines.append("⚠️ **QUAN TRỌNG**: Đối với câu hỏi có yêu cầu rich content:")
+        lines.append("- source_text PHẢI có cấu trúc: {type: 'table'/'chart'/'image', content: {...}}")
+        lines.append("- KHÔNG dùng {type: 'text', content: '...'}")
+        lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
+        
+        return "\n".join(lines)
+    
     def generate_questions_for_spec(self, spec: QuestionSpec, 
                                    prompt_template_path: str = None,
                                    question_template: str = "",
@@ -136,6 +230,10 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
                 prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                
+                # Format rich_content_types if available
+                rich_content_str = self._format_rich_content_types(spec)
+                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
                 
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
@@ -174,6 +272,22 @@ class QuestionGenerator:
                 # Kiểm tra nếu không có câu hỏi nào được sinh
                 if not questions_data or len(questions_data) == 0:
                     raise ValueError("AI không trả về câu hỏi nào")
+                
+                # VALIDATION: Nếu không có rich_content_types, cưỡng chế chuyển sang text-only
+                if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+                    for q_data in questions_data:
+                        if 'question_stem' in q_data and isinstance(q_data['question_stem'], dict):
+                            if q_data['question_stem'].get('type') != 'text':
+                                print(f"⚠️  FORCE TEXT-ONLY: Câu {q_data.get('question_code', '?')} có type={q_data['question_stem'].get('type')}, chuyển sang text")
+                                # Chuyển sang text thuần
+                                if q_data['question_stem'].get('type') == 'mixed':
+                                    # Trích xuất text từ mixed
+                                    content = q_data['question_stem'].get('content', [])
+                                    text_parts = [item if isinstance(item, str) else '' for item in content]
+                                    q_data['question_stem'] = {"type": "text", "content": ' '.join(text_parts).strip()}
+                                else:
+                                    # Có thể là table/chart/image, không thể chuyển đổi -> reject
+                                    raise ValueError(f"Câu hỏi có rich content không mong muốn (type={q_data['question_stem'].get('type')}) khi ma trận không yêu cầu")
                 
                 # Tạo GeneratedQuestion cho mỗi câu
                 for i, question_data in enumerate(questions_data):
@@ -259,6 +373,10 @@ class QuestionGenerator:
         prompt = prompt.replace("{{LESSON_NAME}}", tf_spec.lesson_name)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
         prompt = prompt.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+        
+        # Format rich_content_types if available
+        rich_content_str = self._format_rich_content_types_tf(tf_spec)
+        prompt = prompt.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
         
         # Replace tài liệu bổ sung
         if tf_spec.supplementary_materials:
@@ -346,13 +464,44 @@ class QuestionGenerator:
                     if 'reasoning_type' in statements[key]:
                         del statements[key]['reasoning_type']
                 
-                # Tạo GeneratedTrueFalseQuestion
+                # DEBUG: Kiểm tra source_citation
+                source_citation = data.get("source_citation", "")
+                source_origin = data.get("source_origin", "")
+                if not source_citation or not source_origin:
+                    print(f"⚠️  DS {tf_spec.question_code}: Thiếu source_citation={bool(source_citation)}, source_origin={bool(source_origin)}")
+                    print(f"   AI Response keys: {list(data.keys())}")
+                    # FALLBACK: Tạo citation mặc định nếu thiếu
+                    if not source_citation:
+                        source_citation = "(Nguồn: SGK Lịch sử 12, Chương trình Kết nối tri thức, 2024)"
+                        print(f"   ➡️  Sử dụng citation mặc định")
+                    if not source_origin:
+                        source_origin = "scholarly_book"  # Default to textbook
+                        print(f"   ➡️  Sử dụng origin mặc định: {source_origin}")
+                
+                # VALIDATION: Nếu không có rich_content_types, force text-only cho source_text
+                source_text = data.get("source_text", "")
+                if not hasattr(tf_spec, 'rich_content_types') or not tf_spec.rich_content_types:
+                    if isinstance(source_text, dict) and source_text.get('type') != 'text':
+                        print(f"⚠️  FORCE TEXT-ONLY DS: source_text có type={source_text.get('type')}, chuyển sang text")
+                        if source_text.get('type') == 'mixed':
+                            content = source_text.get('content', [])
+                            text_parts = [item if isinstance(item, str) else '' for item in content]
+                            source_text = {"type": "text", "content": ' '.join(text_parts).strip()}
+                        else:
+                            raise ValueError(f"DS source_text có rich content không mong muốn (type={source_text.get('type')})")
+                
+                # Tạo GeneratedTrueFalseQuestion với tất cả metadata fields
                 question = GeneratedTrueFalseQuestion(
                     question_code=tf_spec.question_code,
-                    source_text=data.get("source_text", ""),
+                    source_text=source_text,
                     statements=statements,
                     explanation=data.get("explanation", {}),
-                    lesson_name=tf_spec.lesson_name
+                    lesson_name=tf_spec.lesson_name,
+                    source_citation=source_citation,
+                    source_origin=source_origin,
+                    source_type=data.get("source_type", ""),
+                    pedagogical_approach=data.get("pedagogical_approach", ""),
+                    search_evidence=data.get("search_evidence", "")
                 )
                 
                 return question
@@ -433,6 +582,10 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
                 prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                
+                # Format rich_content_types if available
+                rich_content_str = self._format_rich_content_types(spec)
+                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
                 
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
@@ -530,6 +683,216 @@ class QuestionGenerator:
                         )
                         generated_questions.append(question)
                     break  # Thoát loop sau khi tạo dummy questions
+        
+        return generated_questions
+
+    def generate_tl_questions(self, 
+                             spec: QuestionSpec,
+                             prompt_template_path: str = None,
+                             question_template: str = "",
+                             content: str = "") -> List[GeneratedEssayQuestion]:
+        """
+        Sinh câu hỏi TL (Tự luận) cho một QuestionSpec
+        
+        Args:
+            spec: QuestionSpec chứa thông tin câu hỏi
+            prompt_template_path: Đường dẫn đến prompt template TL (nếu khác với default)
+            question_template: Template câu hỏi mẫu từ file DOCX (optional)
+            content: Nội dung từ PDF đã extract (optional)
+            
+        Returns:
+            List[GeneratedEssayQuestion]: Danh sách câu hỏi TL đã sinh
+        """        
+        # Load template nếu cần
+        if prompt_template_path and prompt_template_path != self.prompt_template:
+            template = self._load_prompt_template(prompt_template_path)
+        else:
+            template = self.prompt_template
+        
+        generated_questions = []
+        last_error = None
+        tried_fallback = False
+        
+        # Retry logic với fallback model
+        for attempt in range(self.max_retries):
+            try:
+                # Tạo prompt cho tất cả câu TL
+                prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
+                prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
+                prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
+                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                
+                # Format rich_content_types if available
+                rich_content_str = self._format_rich_content_types(spec)
+                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
+                
+                # Thêm tài liệu bổ sung
+                if spec.supplementary_materials:
+                    supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
+                else:
+                    supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
+                prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
+                
+                if self.verbose:
+                    print(f"📝 Generating {spec.num_questions} TL questions for lesson: {spec.lesson_name}")
+                    print(f"🎯 Cognitive level: {spec.cognitive_level}")
+                
+                # Gọi AI với TL array schema - sử dụng fallback model nếu đã thử
+                if tried_fallback:
+                    print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    response = self.ai_client.generate_content_with_schema_with_model(
+                        prompt=prompt_text,
+                        response_schema=get_essay_array_schema(),
+                        model_name=self.fallback_model,
+                        enable_search=True
+                    )
+                else:
+                    response = self.ai_client.generate_content_with_schema(
+                        prompt=prompt_text,
+                        response_schema=get_essay_array_schema(),
+                        enable_search=True
+                    )
+                
+                # Parse response
+                data = json.loads(response) if isinstance(response, str) else response
+                questions_data = data.get("questions", [])
+                
+                # Kiểm tra nếu không có câu hỏi nào được sinh
+                if not questions_data or len(questions_data) == 0:
+                    raise ValueError("AI không trả về câu hỏi nào")
+                
+                # Tạo GeneratedEssayQuestion cho mỗi câu TL
+                for i, question_data in enumerate(questions_data):
+                    question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                    
+                    question = GeneratedEssayQuestion(
+                        question_code=question_code,
+                        question_stem=question_data.get("question_stem", ""),
+                        question_type=question_data.get("question_type", "analysis"),
+                        historical_context=question_data.get("historical_context", ""),
+                        required_elements=question_data.get("required_elements", []),
+                        answer_structure=question_data.get("answer_structure", {}),
+                        sample_answer=question_data.get("sample_answer", ""),
+                        key_points=question_data.get("key_points", []),
+                        scoring_rubric=question_data.get("scoring_rubric", {}),
+                        level=spec.cognitive_level,
+                        lesson_name=spec.lesson_name
+                    )
+                    generated_questions.append(question)
+                    
+                    if self.verbose:
+                        print(f"✅ Generated TL question {i+1}/{len(questions_data)}: {question.question_stem[:50]}...")
+                
+                # Thành công, thoát loop
+                break
+                
+            except Exception as e:
+                error_str = str(e)
+                last_error = error_str
+                
+                if self.verbose:
+                    print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {error_str}")
+                
+                # Thử fallback model nếu chưa thử và còn attempt
+                if not tried_fallback and attempt < self.max_retries - 1 and self.fallback_model:
+                    if self.verbose:
+                        print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    tried_fallback = True
+                    # Temporarily change model
+                    original_model = self.ai_client.model_name
+                    self.ai_client.model_name = self.fallback_model
+                    
+                    try:
+                        # Retry with fallback model using array schema
+                        response = self.ai_client.generate_content_with_schema_with_model(
+                            prompt=prompt_text,
+                            response_schema=get_essay_array_schema(),
+                            model_name=self.fallback_model,
+                            enable_search=True
+                        )
+                        
+                        # Parse response
+                        data = json.loads(response) if isinstance(response, str) else response
+                        questions_data = data.get("questions", [])
+                        
+                        if not questions_data or len(questions_data) == 0:
+                            raise ValueError("AI không trả về câu hỏi nào với fallback model")
+                        
+                        # Tạo GeneratedEssayQuestion cho mỗi câu TL
+                        for i, question_data in enumerate(questions_data):
+                            question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                            
+                            question = GeneratedEssayQuestion(
+                                question_code=question_code,
+                                question_stem=question_data.get("question_stem", ""),
+                                question_type=question_data.get("question_type", "analysis"),
+                                historical_context=question_data.get("historical_context", ""),
+                                required_elements=question_data.get("required_elements", []),
+                                answer_structure=question_data.get("answer_structure", {}),
+                                sample_answer=question_data.get("sample_answer", ""),
+                                key_points=question_data.get("key_points", []),
+                                scoring_rubric=question_data.get("scoring_rubric", {}),
+                                level=spec.cognitive_level,
+                                lesson_name=spec.lesson_name
+                            )
+                            generated_questions.append(question)
+                            
+                            if self.verbose:
+                                print(f"✅ Generated TL question {i+1}/{len(questions_data)} with fallback: {question.question_stem[:50]}...")
+                        
+                        # Thành công với fallback, thoát loop
+                        break
+                        
+                    except Exception as fallback_e:
+                        if self.verbose:
+                            print(f"❌ Fallback cũng thất bại: {str(fallback_e)}")
+                        # Restore original model
+                        self.ai_client.model_name = original_model
+                        continue
+                    
+                    # Restore original model
+                    self.ai_client.model_name = original_model
+                
+                # Chờ trước khi retry
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+        
+        # Nếu tất cả attempts thất bại, tạo dummy question
+        if not generated_questions:
+            if self.verbose:
+                print(f"❌ Tất cả {self.max_retries} lần thử đều thất bại. Tạo dummy TL question.")
+            
+            for i in range(spec.num_questions):
+                question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                question = GeneratedEssayQuestion(
+                    question_code=question_code,
+                    question_stem=f"Câu hỏi tự luận cho bài: {spec.lesson_name} (Cognitive level: {spec.cognitive_level})",
+                    question_type="analysis",
+                    historical_context="",
+                    required_elements=["Nguyên nhân", "Diễn biến", "Ý nghĩa"],
+                    answer_structure={
+                        "introduction": "Giới thiệu vấn đề",
+                        "body": ["Nguyên nhân", "Diễn biến", "Ý nghĩa"],
+                        "conclusion": "Kết luận và bài học"
+                    },
+                    sample_answer="Đây là câu trả lời mẫu cho câu hỏi tự luận.",
+                    key_points=[
+                        {"point": "Nguyên nhân", "weight": 3, "description": "Phân tích nguyên nhân"},
+                        {"point": "Diễn biến", "weight": 4, "description": "Mô tả diễn biến"},
+                        {"point": "Ý nghĩa", "weight": 3, "description": "Đánh giá ý nghĩa"}
+                    ],
+                    scoring_rubric={
+                        "excellent": "Trả lời đầy đủ, logic, có dẫn chứng (9-10 điểm)",
+                        "good": "Trả lời khá đầy đủ, có lập luận (7-8 điểm)",
+                        "average": "Trả lời cơ bản, thiếu lập luận (5-6 điểm)",
+                        "weak": "Trả lời sai hoặc thiếu nhiều (dưới 5 điểm)"
+                    },
+                    level=spec.cognitive_level,
+                    lesson_name=spec.lesson_name
+                )
+                generated_questions.append(question)
         
         return generated_questions
 
@@ -694,14 +1057,19 @@ class QuestionGenerator:
             # Parse response
             data = json.loads(response) if isinstance(response, str) else response
             
-            # Create GeneratedTrueFalseQuestion
+            # Create GeneratedTrueFalseQuestion with all metadata fields
             question = GeneratedTrueFalseQuestion(
                 question_code=question_code,
                 source_text=data.get("source_text", ""),
                 statements=data.get("statements", {}),
                 explanation=data.get("explanation", {}),
                 lesson_name="",  # Will be set by caller
-                question_type="DS"
+                question_type="DS",
+                source_citation=data.get("source_citation", ""),
+                source_origin=data.get("source_origin", ""),
+                source_type=data.get("source_type", ""),
+                pedagogical_approach=data.get("pedagogical_approach", ""),
+                search_evidence=data.get("search_evidence", "")
             )
             
             return question

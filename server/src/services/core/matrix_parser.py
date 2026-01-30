@@ -45,6 +45,7 @@ class TrueFalseQuestionSpec:
     question_type: str = "DS"  # Loại câu hỏi
     chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
     supplementary_materials: str = ""  # Tài liệu bổ sung chung cho câu hỏi
+    rich_content_types: Optional[Dict[str, List[str]]] = None  # Rich content types per question code
 
 
 class MatrixParser:
@@ -602,12 +603,19 @@ class MatrixParser:
                     # Không còn tách theo cấp độ nữa
                     learning_outcome = self.current_spec if self.current_spec else ""
                     
+                    # ⚠️ AUTO-CORRECTION: TN có rich_content_types → chuyển thành TLN
+                    # Vì TN với bảng/biểu đồ thực chất là câu tính toán (TLN)
+                    actual_question_type = question_type
+                    if question_type == "TN" and filtered_rich_types:
+                        actual_question_type = "TLN"
+                        # print(f"🔄 [AUTO-FIX] {', '.join(new_codes)}: TN → TLN (có rich_content_types)")
+                    
                     # Tạo QuestionSpec với số câu và mã câu đã được deduplicate
                     spec = QuestionSpec(
                         lesson_name=self.current_lesson,
                         competency_level=self.current_competency,
                         cognitive_level=cognitive_level,
-                        question_type=question_type,
+                        question_type=actual_question_type,  # Sử dụng type đã được auto-correct
                         num_questions=len(new_codes),  # Cập nhật số câu thực tế
                         question_codes=new_codes,  # Chỉ giữ các mã chưa xử lý
                         learning_outcome=learning_outcome,

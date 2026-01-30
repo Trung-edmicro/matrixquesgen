@@ -396,10 +396,11 @@ class WorkflowOrchestrator:
             content = data['content']
             # Check if has SGK, SGV or SBT content
             sgk_content = content.get('SGK', '')
-            sgv_content = content.get('SGV', '')
-            sbt_content = content.get('SBT', '')
+            # sgv_content = content.get('SGV', '')
+            # sbt_content = content.get('SBT', '')
 
-            if not sgk_content and not sgv_content and not sbt_content:
+            # if not sgk_content and not sgv_content and not sbt_content:
+            if not sgk_content:
                 return False
                 
             # Check metadata matches

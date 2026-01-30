@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { updateQuestion } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
+import RichContentRenderer from '../common/RichContentRenderer'
 
 export default function ExamPreviewPanel({ examData, isGenerating, sessionId, onDataChange }) {
   const [activeTab, setActiveTab] = useState('questions')
@@ -241,13 +242,12 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 <span className="text-sm text-gray-500">[{q.question_code}]</span>
               </div>
               <div className="mb-2 text-gray-700">
-                <LaTeXRenderer
+                <RichContentRenderer
+                  content={q.question_stem}
                   contentEditable={!!sessionId}
                   onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
-                  className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline-block w-full"
-                >
-                  {q.question_stem}
-                </LaTeXRenderer>
+                  className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                />
               </div>
               <div className="space-y-1 pl-4">
                 {Object.entries(q.options || {}).map(([key, value]) => (
@@ -292,14 +292,45 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 <span className="font-medium">Câu {idx + 1}</span>
                 <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-2 rounded">
-                <LaTeXRenderer
+              <div className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-3 rounded">
+                <RichContentRenderer
+                  content={q.source_text}
                   contentEditable={!!sessionId}
                   onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
                   className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  {q.source_text}
-                </LaTeXRenderer>
+                />
+                
+                {/* Source Citation */}
+                {q.source_citation && (
+                  <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500">
+                    <span className="font-medium">Nguồn: </span>
+                    <span
+                      contentEditable={!!sessionId}
+                      onBlur={(e) => handleBlur('DS', q.question_code, 'source_citation', e)}
+                      className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                      suppressContentEditableWarning={true}
+                    >
+                      {q.source_citation}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Source Origin Badge */}
+                {q.source_origin && (
+                  <div className="mt-1">
+                    <span className={`inline-block px-2 py-0.5 text-xs rounded ${
+                      q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
+                      q.source_origin === 'scholarly_book' ? 'bg-blue-100 text-blue-700' :
+                      q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
+                      'bg-orange-100 text-orange-700'
+                    }`}>
+                      {q.source_origin === 'academic_journal' ? '📚 Tạp chí học thuật' :
+                       q.source_origin === 'scholarly_book' ? '📖 Sách chuyên khảo' :
+                       q.source_origin === 'official_document' ? '📜 Văn kiện chính thức' :
+                       '📰 Báo chí uy tín'}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2 pl-4">
                 {Object.entries(q.statements || {}).map(([key, stmt]) => (
@@ -359,13 +390,12 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
               <div className="text-gray-700">
-                <LaTeXRenderer
+                <RichContentRenderer
+                  content={q.question_stem}
                   contentEditable={!!sessionId}
                   onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
                   className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  {q.question_stem}
-                </LaTeXRenderer>
+                />
               </div>
             </div>
           ))}
@@ -386,13 +416,12 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
               <div className="text-gray-700">
-                <LaTeXRenderer
+                <RichContentRenderer
+                  content={q.question_stem}
                   contentEditable={!!sessionId}
                   onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
                   className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                >
-                  {q.question_stem}
-                </LaTeXRenderer>
+                />
               </div>
             </div>
           ))}
