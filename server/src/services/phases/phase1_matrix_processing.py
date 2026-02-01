@@ -342,11 +342,24 @@ class MatrixProcessingService:
                             'supplementary_materials': statements[0]['supplementary_materials'] if statements else '',
                             'question_template': []
                         }
-                        # Add rich_content_types if available for this question (expanded with definitions)
+                        # Aggregate rich_content_types from all statements into a single list for the question
                         if question_code in ds_rich_types:
-                            ds_item['rich_content_types'] = self._expand_rich_content_types(
-                                ds_rich_types[question_code], rich_content_type_definitions or {}
-                            )
+                            # Collect all unique rich content types from all statements
+                            aggregated_types = []
+                            seen_codes = set()
+                            
+                            for stmt_code, types in ds_rich_types[question_code].items():
+                                for type_code in types:
+                                    if type_code not in seen_codes:
+                                        seen_codes.add(type_code)
+                                        aggregated_types.append(type_code)
+                            
+                            # Expand with definitions at question level (not statement level)
+                            if aggregated_types:
+                                ds_item['rich_content_types'] = self._expand_rich_content_types(
+                                    {question_code: aggregated_types}, 
+                                    rich_content_type_definitions or {}
+                                )
                         lesson_data['DS'].append(ds_item)
 
             # Add TLN specs for this lesson

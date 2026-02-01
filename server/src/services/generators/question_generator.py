@@ -14,7 +14,8 @@ from ..core.schemas import (
     get_multiple_choice_array_schema,
     get_true_false_schema,
     get_short_answer_array_schema,
-    get_essay_array_schema
+    get_essay_array_schema,
+    get_content_schema_by_rich_types
 )
 
 @dataclass
@@ -82,6 +83,28 @@ class QuestionGenerator:
         self.ai_client = ai_client
         self.prompt_template = self._load_prompt_template(prompt_template_path)
         self.verbose = verbose
+        self.matrix_parser = matrix_parser
+        self.max_retries = 5
+        self.retry_delay = 5.0  # seconds
+        self.fallback_model = "gemini-2.5-pro"  # Fallback khi rate limit
+    
+    def _convert_content_to_string(self, content) -> str:
+        """
+        Convert content to string, handling list/str/None cases
+        
+        Args:
+            content: Content from PDF/DOCX (can be str, list, or None)
+            
+        Returns:
+            str: Formatted content string
+        """
+        if isinstance(content, list):
+            # Join list items into formatted string
+            return "\n".join(str(item) for item in content)
+        elif content:
+            return str(content)
+        else:
+            return "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_"
         self.max_retries = 5
         self.retry_delay = 5.0
         self.matrix_parser = matrix_parser
@@ -120,7 +143,7 @@ class QuestionGenerator:
         prompt = prompt.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
         prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+        prompt = prompt.replace("{{CONTENT}}", self._convert_content_to_string(content))
         
         return prompt
     
@@ -140,17 +163,43 @@ class QuestionGenerator:
 ⏩ question_stem PHẢI là: {"type": "text", "content": "..."}"""
         
         lines = ["**YÊU CẦU:** Các câu hỏi sau cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
-        for code, types in spec.rich_content_types.items():
-            type_list = []
-            for t in types:
-                if isinstance(t, dict):
-                    # Format: {"code": "BK", "name": "Bảng khảo, bảng số liệu", "description": "..."}
-                    type_name = f"{t['code']} - {t['name']}"
-                else:
-                    # Just string like "BK"
-                    type_name = t
-                type_list.append(type_name)
-            lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
+        try:
+            # Safe iteration with validation
+            if not isinstance(spec.rich_content_types, dict):
+                print(f"⚠️ WARNING: rich_content_types is not a dict: {type(spec.rich_content_types)}")
+                return "**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)"
+            
+            for code, types in spec.rich_content_types.items():
+                # Validate code is hashable
+                if not isinstance(code, (str, int)):
+                    print(f"⚠️ WARNING: Invalid code type: {type(code)}")
+                    continue
+                
+                # Validate types is iterable
+                if not isinstance(types, (list, tuple)):
+                    print(f"⚠️ WARNING: types is not list/tuple for {code}: {type(types)}")
+                    continue
+                
+                type_list = []
+                for t in types:
+                    if isinstance(t, dict):
+                        # Format: {"code": "BK", "name": "Bảng khảo, bảng số liệu", "description": "..."}
+                        type_name = f"{t['code']} - {t['name']}"
+                    elif isinstance(t, str):
+                        # Just string like "BK"
+                        type_name = t
+                    else:
+                        print(f"⚠️ WARNING: Invalid type object: {type(t)}")
+                        continue
+                    type_list.append(type_name)
+                
+                if type_list:  # Only add if we have valid types
+                    lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
+        except Exception as e:
+            print(f"⚠️ ERROR formatting rich content types: {e}")
+            import traceback
+            traceback.print_exc()
+            return "**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)"
         
         lines.append("")
         lines.append("⚠️ **QUAN TRỌNG**: Đối với các câu có yêu cầu rich content:")
@@ -176,15 +225,41 @@ class QuestionGenerator:
 ⏩ source_text PHẢI là: {"type": "text", "content": "..."}"""
         
         lines = ["**YÊU CẦU:** Câu hỏi này cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
-        for code, types in spec.rich_content_types.items():
-            type_list = []
-            for t in types:
-                if isinstance(t, dict):
-                    type_name = f"{t['code']} - {t['name']}"
-                else:
-                    type_name = t
-                type_list.append(type_name)
-            lines.append(f"  • {', '.join(type_list)}")
+        try:
+            # Safe iteration with validation
+            if not isinstance(spec.rich_content_types, dict):
+                print(f"⚠️ WARNING: DS rich_content_types is not a dict: {type(spec.rich_content_types)}")
+                return "**YÊU CẦU NỘI DUNG**: Chỉ dùng text thuần"
+            
+            for code, types in spec.rich_content_types.items():
+                # Validate code is hashable
+                if not isinstance(code, (str, int)):
+                    print(f"⚠️ WARNING: Invalid DS code type: {type(code)}")
+                    continue
+                    
+                # Validate types is iterable
+                if not isinstance(types, (list, tuple)):
+                    print(f"⚠️ WARNING: DS types is not list/tuple for {code}: {type(types)}")
+                    continue
+                
+                type_list = []
+                for t in types:
+                    if isinstance(t, dict):
+                        type_name = f"{t['code']} - {t['name']}"
+                    elif isinstance(t, str):
+                        type_name = t
+                    else:
+                        print(f"⚠️ WARNING: Invalid DS type object: {type(t)}")
+                        continue
+                    type_list.append(type_name)
+                
+                if type_list:  # Only add if we have valid types
+                    lines.append(f"  • {', '.join(type_list)}")
+        except Exception as e:
+            print(f"⚠️ ERROR formatting DS rich content types: {e}")
+            import traceback
+            traceback.print_exc()
+            return "**YÊU CẦU NỘI DUNG**: Chỉ dùng text thuần (do lỗi khi xử lý rich_content_types)"
         
         lines.append("")
         lines.append("⚠️ **QUAN TRỌNG**: Đối với câu hỏi có yêu cầu rich content:")
@@ -229,7 +304,7 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
                 
                 # Format rich_content_types if available
                 rich_content_str = self._format_rich_content_types(spec)
@@ -249,19 +324,24 @@ class QuestionGenerator:
                     # print(f"📄 Preview content: {content[:200]}...")
                 # print(f"--- PROMPT START TN ---\n{prompt_text}\n--- PROMPT END ---")
 
+                # Chọn content schema phù hợp dựa trên rich_content_types
+                content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
+                tn_schema = get_multiple_choice_array_schema(content_schema)
+                
                 # Gọi AI với array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
                     print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    # Gemini-2.5-pro doesn't support controlled generation with Search tool
                     response = self.ai_client.generate_content_with_schema_with_model(
                         prompt=prompt_text,
-                        response_schema=get_multiple_choice_array_schema(),
+                        response_schema=tn_schema,
                         model_name=self.fallback_model,
-                        enable_search=True
+                        enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
-                        response_schema=get_multiple_choice_array_schema(),
+                        response_schema=tn_schema,
                         enable_search=True
                     )
                 
@@ -272,6 +352,11 @@ class QuestionGenerator:
                 # Kiểm tra nếu không có câu hỏi nào được sinh
                 if not questions_data or len(questions_data) == 0:
                     raise ValueError("AI không trả về câu hỏi nào")
+                
+                # ⚠️ VALIDATION: AI có thể generate nhiều hơn yêu cầu → chỉ lấy đúng số lượng
+                if len(questions_data) > spec.num_questions:
+                    print(f"⚠️ WARNING: AI generated {len(questions_data)} TN questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
+                    questions_data = questions_data[:spec.num_questions]
                 
                 # VALIDATION: Nếu không có rich_content_types, cưỡng chế chuyển sang text-only
                 if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
@@ -288,6 +373,23 @@ class QuestionGenerator:
                                 else:
                                     # Có thể là table/chart/image, không thể chuyển đổi -> reject
                                     raise ValueError(f"Câu hỏi có rich content không mong muốn (type={q_data['question_stem'].get('type')}) khi ma trận không yêu cầu")
+                
+                # VALIDATION: Kiểm tra chart content
+                for q_data in questions_data:
+                    if 'question_stem' in q_data and isinstance(q_data['question_stem'], dict):
+                        if q_data['question_stem'].get('type') == 'mixed':
+                            content = q_data['question_stem'].get('content', [])
+                            for idx, item in enumerate(content):
+                                if isinstance(item, dict) and item.get('type') == 'chart':
+                                    chart_content = item.get('content', {})
+                                    echarts = chart_content.get('echarts', {})
+                                    
+                                    # Check if echarts is empty
+                                    if not echarts or len(echarts) == 0:
+                                        print(f"⚠️  WARNING: Câu {q_data.get('question_code', '?')} có chart với echarts rỗng!")
+                                        print(f"   → AI chưa generate được chart data. Có thể cần retry hoặc simplify schema.")
+                                        # Có thể raise error để retry
+                                        raise ValueError(f"Chart echarts rỗng - AI chưa generate được data")
                 
                 # Tạo GeneratedQuestion cho mỗi câu
                 for i, question_data in enumerate(questions_data):
@@ -372,7 +474,7 @@ class QuestionGenerator:
         prompt = prompt_template.replace("{{NUM}}", "1")
         prompt = prompt.replace("{{LESSON_NAME}}", tf_spec.lesson_name)
         prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+        prompt = prompt.replace("{{CONTENT}}", self._convert_content_to_string(content))
         
         # Format rich_content_types if available
         rich_content_str = self._format_rich_content_types_tf(tf_spec)
@@ -431,19 +533,24 @@ class QuestionGenerator:
                 # print("content", content)
                 # print("question_template:", question_template)
 
+                # Chọn content schema phù hợp dựa trên rich_content_types
+                content_schema = get_content_schema_by_rich_types(tf_spec.rich_content_types)
+                ds_schema = get_true_false_schema(content_schema)
+                
                 # Gọi AI với JSON schema + Google Search - sử dụng fallback model nếu đã thử
                 if tried_fallback:
                     print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    # Gemini-2.5-pro doesn't support controlled generation with Search tool
                     response = self.ai_client.generate_content_with_schema_with_model(
                         prompt=prompt,
-                        response_schema=get_true_false_schema(),
+                        response_schema=ds_schema,
                         model_name=self.fallback_model,
-                        enable_search=True
+                        enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt,
-                        response_schema=get_true_false_schema(),
+                        response_schema=ds_schema,
                         enable_search=True
                     )
                 
@@ -581,7 +688,7 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
                 
                 # Format rich_content_types if available
                 rich_content_str = self._format_rich_content_types(spec)
@@ -594,19 +701,24 @@ class QuestionGenerator:
                     supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
                 prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
 
+                # Chọn content schema phù hợp dựa trên rich_content_types
+                content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
+                tln_schema = get_short_answer_array_schema(content_schema)
+                
                 # Gọi AI với TLN array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
                     print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    # Gemini-2.5-pro doesn't support controlled generation with Search tool
                     response = self.ai_client.generate_content_with_schema_with_model(
                         prompt=prompt_text,
-                        response_schema=get_short_answer_array_schema(),
+                        response_schema=tln_schema,
                         model_name=self.fallback_model,
-                        enable_search=True
+                        enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
-                        response_schema=get_short_answer_array_schema(),
+                        response_schema=tln_schema,
                         enable_search=True
                     )
                 
@@ -617,6 +729,11 @@ class QuestionGenerator:
                 # Kiểm tra nếu không có câu hỏi nào được sinh
                 if not questions_data or len(questions_data) == 0:
                     raise ValueError("AI không trả về câu hỏi nào")
+                
+                # ⚠️ VALIDATION: AI có thể generate nhiều hơn yêu cầu → chỉ lấy đúng số lượng
+                if len(questions_data) > spec.num_questions:
+                    print(f"⚠️ WARNING: AI generated {len(questions_data)} TLN questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
+                    questions_data = questions_data[:spec.num_questions]
                 
                 # Tạo GeneratedQuestion cho mỗi câu TLN
                 for i, question_data in enumerate(questions_data):
@@ -722,7 +839,7 @@ class QuestionGenerator:
                 prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
                 prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
                 prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", content if content else "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_")
+                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
                 
                 # Format rich_content_types if available
                 rich_content_str = self._format_rich_content_types(spec)
@@ -739,19 +856,24 @@ class QuestionGenerator:
                     print(f"📝 Generating {spec.num_questions} TL questions for lesson: {spec.lesson_name}")
                     print(f"🎯 Cognitive level: {spec.cognitive_level}")
                 
+                # Chọn content schema phù hợp dựa trên rich_content_types
+                content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
+                tl_schema = get_essay_array_schema(content_schema)
+                
                 # Gọi AI với TL array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
                     print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    # Gemini-2.5-pro doesn't support controlled generation with Search tool
                     response = self.ai_client.generate_content_with_schema_with_model(
                         prompt=prompt_text,
-                        response_schema=get_essay_array_schema(),
+                        response_schema=tl_schema,
                         model_name=self.fallback_model,
-                        enable_search=True
+                        enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
-                        response_schema=get_essay_array_schema(),
+                        response_schema=tl_schema,
                         enable_search=True
                     )
                 
@@ -763,27 +885,85 @@ class QuestionGenerator:
                 if not questions_data or len(questions_data) == 0:
                     raise ValueError("AI không trả về câu hỏi nào")
                 
+                # ⚠️ VALIDATION: AI có thể generate nhiều hơn yêu cầu → chỉ lấy đúng số lượng
+                if self.verbose:
+                    print(f"📊 AI returned {len(questions_data)} TL questions, spec.num_questions={spec.num_questions}")
+                
+                if len(questions_data) > spec.num_questions:
+                    print(f"⚠️ WARNING: AI generated {len(questions_data)} questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
+                    questions_data = questions_data[:spec.num_questions]
+                
                 # Tạo GeneratedEssayQuestion cho mỗi câu TL
                 for i, question_data in enumerate(questions_data):
-                    question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                    try:
+                        question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                        
+                        # Validate question_stem structure to catch unhashable errors early
+                        q_stem = question_data.get("question_stem", "")
+                        if not isinstance(q_stem, (str, dict)):
+                            print(f"⚠️ WARNING: Invalid question_stem type: {type(q_stem)}, converting to string")
+                            q_stem = str(q_stem)
+                        
+                        # Parse scoring_rubric - schema trả về string nhưng dataclass expect Dict
+                        scoring_rubric_raw = question_data.get("scoring_rubric", "")
+                        if isinstance(scoring_rubric_raw, str):
+                            # Convert string to dict format
+                            scoring_rubric = {"description": scoring_rubric_raw}
+                        elif isinstance(scoring_rubric_raw, dict):
+                            scoring_rubric = scoring_rubric_raw
+                        else:
+                            scoring_rubric = {}
+                        
+                        # Validate and sanitize key_points to prevent unhashable errors
+                        key_points_raw = question_data.get("key_points", [])
+                        if isinstance(key_points_raw, list):
+                            key_points = []
+                            for kp in key_points_raw:
+                                if isinstance(kp, dict):
+                                    key_points.append(kp)
+                                else:
+                                    print(f"⚠️ WARNING: Invalid key_point format: {type(kp)}, skipping")
+                        else:
+                            print(f"⚠️ WARNING: key_points is not a list: {type(key_points_raw)}, using empty list")
+                            key_points = []
+                        
+                        # Validate required_elements
+                        required_elements_raw = question_data.get("required_elements", [])
+                        if isinstance(required_elements_raw, list):
+                            required_elements = [str(e) for e in required_elements_raw]
+                        else:
+                            required_elements = []
+                        
+                        # Validate answer_structure
+                        answer_structure_raw = question_data.get("answer_structure", {})
+                        if isinstance(answer_structure_raw, dict):
+                            answer_structure = answer_structure_raw
+                        else:
+                            answer_structure = {}
+                        
+                        # Tạo question object - ĐẶT TRONG TRY-CATCH để bắt mọi lỗi
+                        question = GeneratedEssayQuestion(
+                            question_code=question_code,
+                            question_stem=q_stem,
+                            question_type=question_data.get("question_type", "analysis"),
+                            historical_context=question_data.get("historical_context", ""),
+                            required_elements=required_elements,
+                            answer_structure=answer_structure,
+                            sample_answer=question_data.get("sample_answer", ""),
+                            key_points=key_points,
+                            scoring_rubric=scoring_rubric,
+                            level=spec.cognitive_level,
+                            lesson_name=spec.lesson_name
+                        )
+                        generated_questions.append(question)
+                        
+                        if self.verbose:
+                            print(f"✅ Generated TL question {i+1}/{len(questions_data)}: {question.question_stem[:50]}...")
                     
-                    question = GeneratedEssayQuestion(
-                        question_code=question_code,
-                        question_stem=question_data.get("question_stem", ""),
-                        question_type=question_data.get("question_type", "analysis"),
-                        historical_context=question_data.get("historical_context", ""),
-                        required_elements=question_data.get("required_elements", []),
-                        answer_structure=question_data.get("answer_structure", {}),
-                        sample_answer=question_data.get("sample_answer", ""),
-                        key_points=question_data.get("key_points", []),
-                        scoring_rubric=question_data.get("scoring_rubric", {}),
-                        level=spec.cognitive_level,
-                        lesson_name=spec.lesson_name
-                    )
-                    generated_questions.append(question)
-                    
-                    if self.verbose:
-                        print(f"✅ Generated TL question {i+1}/{len(questions_data)}: {question.question_stem[:50]}...")
+                    except (TypeError, KeyError, AttributeError, ValueError, Exception) as parse_error:
+                        print(f"⚠️ ERROR parsing question {i}: {parse_error}")
+                        # print(f"   Raw data: {question_data}")
+                        # Skip this question - KHÔNG append vào array
                 
                 # Thành công, thoát loop
                 break
@@ -796,21 +976,27 @@ class QuestionGenerator:
                     print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {error_str}")
                 
                 # Thử fallback model nếu chưa thử và còn attempt
-                if not tried_fallback and attempt < self.max_retries - 1 and self.fallback_model:
+                if not tried_fallback and self.fallback_model:
                     if self.verbose:
                         print(f"🔄 Thử fallback model: {self.fallback_model}")
+                    
+                    # Đánh dấu đã thử fallback để không thử lại
                     tried_fallback = True
-                    # Temporarily change model
-                    original_model = self.ai_client.model_name
-                    self.ai_client.model_name = self.fallback_model
                     
                     try:
+                        # Chọn content schema phù hợp dựa trên rich_content_types
+                        content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
+                        tl_schema_fallback = get_essay_array_schema(content_schema)
+                        
                         # Retry with fallback model using array schema
+                        # ⚠️ CRITICAL: gemini-2.5-pro KHÔNG hỗ trợ Search + JSON schema
+                        if self.verbose:
+                            print(f"🔧 Calling fallback with enable_search=False, model={self.fallback_model}")
                         response = self.ai_client.generate_content_with_schema_with_model(
                             prompt=prompt_text,
-                            response_schema=get_essay_array_schema(),
+                            response_schema=tl_schema_fallback,
                             model_name=self.fallback_model,
-                            enable_search=True
+                            enable_search=False
                         )
                         
                         # Parse response
@@ -820,27 +1006,85 @@ class QuestionGenerator:
                         if not questions_data or len(questions_data) == 0:
                             raise ValueError("AI không trả về câu hỏi nào với fallback model")
                         
+                        # ⚠️ VALIDATION: AI có thể generate nhiều hơn yêu cầu → chỉ lấy đúng số lượng
+                        if self.verbose:
+                            print(f"📊 Fallback AI returned {len(questions_data)} TL questions, spec.num_questions={spec.num_questions}")
+                        
+                        if len(questions_data) > spec.num_questions:
+                            print(f"⚠️ WARNING (fallback): AI generated {len(questions_data)} questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
+                            questions_data = questions_data[:spec.num_questions]
+                        
                         # Tạo GeneratedEssayQuestion cho mỗi câu TL
                         for i, question_data in enumerate(questions_data):
-                            question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                            try:
+                                question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"TL{spec.row_index + 1 + i}"
+                                
+                                # Validate question_stem structure to catch unhashable errors early
+                                q_stem = question_data.get("question_stem", "")
+                                if not isinstance(q_stem, (str, dict)):
+                                    print(f"⚠️ WARNING: Invalid question_stem type: {type(q_stem)}, converting to string")
+                                    q_stem = str(q_stem)
+                                
+                                # Parse scoring_rubric - schema trả về string nhưng dataclass expect Dict
+                                scoring_rubric_raw = question_data.get("scoring_rubric", "")
+                                if isinstance(scoring_rubric_raw, str):
+                                    # Convert string to dict format
+                                    scoring_rubric = {"description": scoring_rubric_raw}
+                                elif isinstance(scoring_rubric_raw, dict):
+                                    scoring_rubric = scoring_rubric_raw
+                                else:
+                                    scoring_rubric = {}
+                                
+                                # Validate and sanitize key_points to prevent unhashable errors
+                                key_points_raw = question_data.get("key_points", [])
+                                if isinstance(key_points_raw, list):
+                                    key_points = []
+                                    for kp in key_points_raw:
+                                        if isinstance(kp, dict):
+                                            key_points.append(kp)
+                                        else:
+                                            print(f"⚠️ WARNING (fallback): Invalid key_point format: {type(kp)}, skipping")
+                                else:
+                                    print(f"⚠️ WARNING (fallback): key_points is not a list: {type(key_points_raw)}, using empty list")
+                                    key_points = []
+                                
+                                # Validate required_elements
+                                required_elements_raw = question_data.get("required_elements", [])
+                                if isinstance(required_elements_raw, list):
+                                    required_elements = [str(e) for e in required_elements_raw]
+                                else:
+                                    required_elements = []
+                                
+                                # Validate answer_structure
+                                answer_structure_raw = question_data.get("answer_structure", {})
+                                if isinstance(answer_structure_raw, dict):
+                                    answer_structure = answer_structure_raw
+                                else:
+                                    answer_structure = {}
+                                
+                                # Tạo question object - ĐẶT TRONG TRY-CATCH để bắt mọi lỗi
+                                question = GeneratedEssayQuestion(
+                                    question_code=question_code,
+                                    question_stem=q_stem,
+                                    question_type=question_data.get("question_type", "analysis"),
+                                    historical_context=question_data.get("historical_context", ""),
+                                    required_elements=required_elements,
+                                    answer_structure=answer_structure,
+                                    sample_answer=question_data.get("sample_answer", ""),
+                                    key_points=key_points,
+                                    scoring_rubric=scoring_rubric,
+                                    level=spec.cognitive_level,
+                                    lesson_name=spec.lesson_name
+                                )
+                                generated_questions.append(question)
+                                
+                                if self.verbose:
+                                    print(f"✅ Generated TL question {i+1}/{len(questions_data)} with fallback: {question.question_stem[:50]}...")
                             
-                            question = GeneratedEssayQuestion(
-                                question_code=question_code,
-                                question_stem=question_data.get("question_stem", ""),
-                                question_type=question_data.get("question_type", "analysis"),
-                                historical_context=question_data.get("historical_context", ""),
-                                required_elements=question_data.get("required_elements", []),
-                                answer_structure=question_data.get("answer_structure", {}),
-                                sample_answer=question_data.get("sample_answer", ""),
-                                key_points=question_data.get("key_points", []),
-                                scoring_rubric=question_data.get("scoring_rubric", {}),
-                                level=spec.cognitive_level,
-                                lesson_name=spec.lesson_name
-                            )
-                            generated_questions.append(question)
-                            
-                            if self.verbose:
-                                print(f"✅ Generated TL question {i+1}/{len(questions_data)} with fallback: {question.question_stem[:50]}...")
+                            except (TypeError, KeyError, AttributeError, ValueError, Exception) as parse_error:
+                                print(f"⚠️ ERROR parsing fallback question {i}: {parse_error}")
+                                print(f"   Raw data: {question_data}")
+                                # Skip this question - KHÔNG append vào array
                         
                         # Thành công với fallback, thoát loop
                         break
@@ -848,12 +1092,9 @@ class QuestionGenerator:
                     except Exception as fallback_e:
                         if self.verbose:
                             print(f"❌ Fallback cũng thất bại: {str(fallback_e)}")
-                        # Restore original model
-                        self.ai_client.model_name = original_model
-                        continue
-                    
-                    # Restore original model
-                    self.ai_client.model_name = original_model
+                        # Fallback fail → thoát luôn, tạo dummy questions
+                        last_error = str(fallback_e)
+                        break
                 
                 # Chờ trước khi retry
                 if attempt < self.max_retries - 1:
@@ -893,6 +1134,9 @@ class QuestionGenerator:
                     lesson_name=spec.lesson_name
                 )
                 generated_questions.append(question)
+        
+        if self.verbose:
+            print(f"📤 generate_tl_questions returning {len(generated_questions)} questions (spec.num_questions={spec.num_questions})")
         
         return generated_questions
 
@@ -965,7 +1209,7 @@ class QuestionGenerator:
             
             print(f"✓ Đã lưu {len(question_list)} câu hỏi {question_type} vào: {file_path}")
         
-    def generate_questions_with_custom_prompt(self, prompt_template: str, content: str, num_questions: int) -> List[GeneratedQuestion]:
+    def generate_questions_with_custom_prompt(self, prompt_template: str, content: str, num_questions: int, rich_content_types: Optional[List[str]] = None) -> List[GeneratedQuestion]:
         """
         Generate questions using a custom prompt template
         
@@ -973,15 +1217,20 @@ class QuestionGenerator:
             prompt_template: The full prompt template with placeholders already filled
             content: Lesson content
             num_questions: Number of questions to generate
+            rich_content_types: List of rich content types (e.g. ['BK', 'BD'])
             
         Returns:
             List[GeneratedQuestion]: Generated questions
         """
         try:
+            # Chọn content schema phù hợp dựa trên rich_content_types
+            content_schema = get_content_schema_by_rich_types(rich_content_types)
+            tn_schema = get_multiple_choice_array_schema(content_schema)
+            
             # Call AI with the custom prompt
             response = self.ai_client.generate_content_with_schema(
                 prompt=prompt_template,
-                response_schema=get_multiple_choice_array_schema(),
+                response_schema=tn_schema,
                 enable_search=True
             )
             
@@ -1027,7 +1276,7 @@ class QuestionGenerator:
             print(f"❌ Error generating questions with custom prompt: {e}")
             return []
     
-    def generate_ds_with_custom_prompt(self, prompt_template: str, content: str, question_code: str) -> Optional[GeneratedTrueFalseQuestion]:
+    def generate_ds_with_custom_prompt(self, prompt_template: str, content: str, question_code: str, rich_content_types: Optional[List[str]] = None) -> Optional[GeneratedTrueFalseQuestion]:
         """
         Generate DS question using a custom prompt template
         
@@ -1035,15 +1284,20 @@ class QuestionGenerator:
             prompt_template: The full prompt template with placeholders already filled
             content: Lesson content
             question_code: Question code for the DS question
+            rich_content_types: List of allowed rich content types from matrix (e.g. ['BK', 'BD'])
             
         Returns:
             GeneratedTrueFalseQuestion or None
         """
         try:
+            # Chọn content schema phù hợp dựa trên rich_content_types
+            content_schema = get_content_schema_by_rich_types(rich_content_types)
+            ds_schema = get_true_false_schema(content_schema)
+            
             # Call AI with the custom prompt
             response = self.ai_client.generate_content_with_schema(
                 prompt=prompt_template,
-                response_schema=get_true_false_schema(),
+                response_schema=ds_schema,
                 enable_search=True
             )
             
@@ -1057,10 +1311,29 @@ class QuestionGenerator:
             # Parse response
             data = json.loads(response) if isinstance(response, str) else response
             
+            # VALIDATION: If no rich_content_types specified, force text-only for source_text
+            source_text = data.get("source_text", "")
+            if not rich_content_types:
+                if isinstance(source_text, dict) and source_text.get('type') != 'text':
+                    print(f"⚠️  FORCE TEXT-ONLY DS (alternative): source_text có type={source_text.get('type')}, chuyển sang text")
+                    if source_text.get('type') == 'mixed':
+                        content_items = source_text.get('content', [])
+                        text_parts = []
+                        for item in content_items:
+                            if isinstance(item, str):
+                                text_parts.append(item)
+                            elif isinstance(item, dict) and item.get('type') == 'text':
+                                text_parts.append(item.get('content', ''))
+                        source_text = {"type": "text", "content": ' '.join(text_parts).strip()}
+                    else:
+                        # If it's other rich content type, extract text content or use fallback
+                        if isinstance(source_text, dict):
+                            source_text = {"type": "text", "content": source_text.get('content', '')}
+            
             # Create GeneratedTrueFalseQuestion with all metadata fields
             question = GeneratedTrueFalseQuestion(
                 question_code=question_code,
-                source_text=data.get("source_text", ""),
+                source_text=source_text,
                 statements=data.get("statements", {}),
                 explanation=data.get("explanation", {}),
                 lesson_name="",  # Will be set by caller

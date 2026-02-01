@@ -349,12 +349,14 @@ class AlternativeQuestionGenerationService:
         - Combine NB and TH levels into single request using TN2.txt
         - Use VD with separate prompt TN_VD_case2.txt
         - DS with topic-based prompt selection
+        - Auto-retry missing questions until complete
         """
         print("ALTERNATIVE: Starting alternative question generation logic")
         print("   - TN: NB+TH combined using TN2.txt, VD separate using TN_VD_case2.txt")
         print("   - DS: Topic-based prompt selection (situation vs material)")
         print("   - TLN: Using TLN.txt prompt")
         print("   - TL: Using TLN.txt prompt with extended answer")
+        print("   - Auto-retry missing questions")
         if question_types is None:
             question_types = ["TN", "DS", "TLN", "TL"]
 
@@ -362,7 +364,61 @@ class AlternativeQuestionGenerationService:
             # Load enriched matrix JSON
             with open(enriched_matrix_path, 'r', encoding='utf-8') as f:
                 matrix_data = json.load(f)
+            
+            # First pass: generate all questions
+            question_set = self._generate_questions_from_matrix(matrix_data, question_types)
+            
+            if not question_set:
+                return None
+            
+            # Check and retry missing questions
+            max_retry_attempts = 3
+            retry_attempt = 0
+            
+            while retry_attempt < max_retry_attempts:
+                missing_info = self._check_missing_questions(matrix_data, question_set, question_types)
+                
+                if not missing_info['has_missing']:
+                    print(f"✅ All questions generated successfully!")
+                    break
+                
+                retry_attempt += 1
+                print(f"\n⚠️ Missing questions detected (attempt {retry_attempt}/{max_retry_attempts}):")
+                print(f"   Expected: TN={missing_info['expected']['TN']}, DS={missing_info['expected']['DS']}, "
+                      f"TLN={missing_info['expected']['TLN']}, TL={missing_info['expected']['TL']}")
+                print(f"   Generated: TN={missing_info['generated']['TN']}, DS={missing_info['generated']['DS']}, "
+                      f"TLN={missing_info['generated']['TLN']}, TL={missing_info['generated']['TL']}")
+                print(f"   Missing: TN={missing_info['missing']['TN']}, DS={missing_info['missing']['DS']}, "
+                      f"TLN={missing_info['missing']['TLN']}, TL={missing_info['missing']['TL']}")
+                
+                # Generate missing questions
+                additional_questions = self._generate_missing_questions(matrix_data, missing_info)
+                
+                if additional_questions:
+                    # Merge with existing questions
+                    question_set = self._merge_question_sets(question_set, additional_questions)
+                    print(f"✅ Added {len(additional_questions)} missing questions")
+                else:
+                    print(f"❌ Failed to generate missing questions in attempt {retry_attempt}")
+            
+            # Deduplicate questions before returning
+            question_set = self._deduplicate_questions(question_set)
+            print(f"📊 Final count after deduplication: TN={len([q for q in question_set.questions if q.type == 'TN'])}, "
+                  f"DS={len([q for q in question_set.questions if q.type == 'DS'])}, "
+                  f"TLN={len([q for q in question_set.questions if q.type == 'TLN'])}, "
+                  f"TL={len([q for q in question_set.questions if q.type == 'TL'])}")
+                    
+            return question_set
 
+        except Exception as e:
+            print(f"ALTERNATIVE: Error processing enriched matrix: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _generate_questions_from_matrix(self, matrix_data: Dict, question_types: List[str]) -> Optional[QuestionSet]:
+        """Generate questions from matrix data (original logic)"""
+        try:
             all_questions = []
             generation_tasks = []
 
@@ -643,16 +699,273 @@ class AlternativeQuestionGenerationService:
             # Create question set
             if questions:
                 question_set = self.create_question_set(questions)
-                # print(f"🎉 PHASE 4 ALTERNATIVE: Successfully generated {question_set.total_questions} questions")
                 return question_set
 
             return None
-
+            
         except Exception as e:
-            print(f"ALTERNATIVE: Error processing enriched matrix: {e}")
+            print(f"Error in _generate_questions_from_matrix: {e}")
             import traceback
             traceback.print_exc()
             return None
+    
+    def _check_missing_questions(self, matrix_data: Dict, question_set: QuestionSet, 
+                                 question_types: List[str]) -> Dict:
+        """
+        Check if all expected questions are generated
+        
+        Returns:
+            Dict with keys: has_missing, expected, generated, missing
+        """
+        # Count expected questions from matrix
+        expected_counts = {'TN': 0, 'DS': 0, 'TLN': 0, 'TL': 0}
+        
+        for lesson_data in matrix_data['lessons']:
+            for q_type in question_types:
+                if q_type == 'TN':
+                    tn_specs = lesson_data.get('TN', {})
+                    for level, specs in tn_specs.items():
+                        for spec in specs:
+                            expected_counts['TN'] += spec.get('num', 1)
+                            
+                elif q_type == 'DS':
+                    ds_specs = lesson_data.get('DS', [])
+                    expected_counts['DS'] += len(ds_specs)
+                            
+                elif q_type == 'TLN':
+                    tln_specs = lesson_data.get('TLN', {})
+                    for level, specs in tln_specs.items():
+                        for spec in specs:
+                            expected_counts['TLN'] += spec.get('num', 1)
+                            
+                elif q_type == 'TL':
+                    tl_specs = lesson_data.get('TL', {})
+                    for level, specs in tl_specs.items():
+                        for spec in specs:
+                            expected_counts['TL'] += spec.get('num', 1)
+        
+        # Count generated questions
+        generated_counts = {
+            'TN': len([q for q in question_set.questions if q.type == 'TN']),
+            'DS': len([q for q in question_set.questions if q.type == 'DS']),
+            'TLN': len([q for q in question_set.questions if q.type == 'TLN']),
+            'TL': len([q for q in question_set.questions if q.type == 'TL'])
+        }
+        
+        # Calculate missing
+        missing_counts = {
+            q_type: max(0, expected_counts[q_type] - generated_counts[q_type])
+            for q_type in ['TN', 'DS', 'TLN', 'TL']
+        }
+        
+        has_missing = any(count > 0 for count in missing_counts.values())
+        
+        return {
+            'has_missing': has_missing,
+            'expected': expected_counts,
+            'generated': generated_counts,
+            'missing': missing_counts
+        }
+    
+    def _generate_missing_questions(self, matrix_data: Dict, missing_info: Dict) -> List:
+        """Generate only the missing questions"""
+        missing_counts = missing_info['missing']
+        all_missing_questions = []
+        
+        print(f"\n🔄 Generating missing questions...")
+        
+        for q_type, missing_count in missing_counts.items():
+            if missing_count <= 0:
+                continue
+                
+            print(f"   Generating {missing_count} missing {q_type} questions...")
+            
+            # Find lessons that need more questions
+            for lesson_data in matrix_data['lessons']:
+                if missing_count <= 0:
+                    break
+                    
+                chapter = lesson_data['chapter_number']
+                lesson = lesson_data['lesson_number']
+                content = lesson_data.get('content', '')
+                supplementary = lesson_data.get('supplementary_material', '')
+                
+                if q_type == 'TN':
+                    # Generate missing TN questions
+                    tn_specs = lesson_data.get('TN', {})
+                    for level, specs in tn_specs.items():
+                        if missing_count <= 0:
+                            break
+                        for spec in specs:
+                            if missing_count <= 0:
+                                break
+                            task = {
+                                'type': 'TN_SINGLE',
+                                'lesson_data': lesson_data,
+                                'chapter': chapter,
+                                'lesson': lesson,
+                                'content': content,
+                                'supplementary': supplementary,
+                                'spec_data': spec,
+                                'level': level
+                            }
+                            try:
+                                questions = self._generate_alternative_question_task(task)
+                                if questions:
+                                    all_missing_questions.extend(questions)
+                                    missing_count -= len(questions)
+                            except Exception as e:
+                                print(f"❌ Error generating missing TN: {e}")
+                                
+                elif q_type == 'DS':
+                    # Generate missing DS questions - DS is stored as a list
+                    ds_specs = lesson_data.get('DS', [])
+                    for spec_data in ds_specs:
+                        if missing_count <= 0:
+                            break
+                        
+                        # Select prompt for this DS question
+                        selected_prompt = self.select_ds_prompt(lesson_data)
+                        
+                        task = {
+                            'type': 'DS_TOPIC_BASED',
+                            'lesson_data': lesson_data,
+                            'chapter': chapter,
+                            'lesson': lesson,
+                            'content': content,
+                            'supplementary': spec_data.get('supplementary_materials', ''),
+                            'spec_data': spec_data,
+                            'selected_prompt': selected_prompt
+                        }
+                        try:
+                            questions = self._generate_alternative_question_task(task)
+                            if questions:
+                                all_missing_questions.extend(questions)
+                                missing_count -= len(questions)
+                        except Exception as e:
+                            print(f"❌ Error generating missing DS: {e}")
+                                
+                elif q_type == 'TLN':
+                    # Generate missing TLN questions
+                    tln_specs = lesson_data.get('TLN', {})
+                    for level, specs in tln_specs.items():
+                        if missing_count <= 0:
+                            break
+                        for spec in specs:
+                            if missing_count <= 0:
+                                break
+                            task = {
+                                'type': 'TLN_SINGLE',
+                                'lesson_data': lesson_data,
+                                'chapter': chapter,
+                                'lesson': lesson,
+                                'content': content,
+                                'supplementary': supplementary,
+                                'spec_data': spec,
+                                'level': level
+                            }
+                            try:
+                                questions = self._generate_alternative_question_task(task)
+                                if questions:
+                                    all_missing_questions.extend(questions)
+                                    missing_count -= len(questions)
+                            except Exception as e:
+                                print(f"❌ Error generating missing TLN: {e}")
+                                
+                elif q_type == 'TL':
+                    # Generate missing TL questions
+                    tl_specs = lesson_data.get('TL', {})
+                    for level, specs in tl_specs.items():
+                        if missing_count <= 0:
+                            break
+                        for spec in specs:
+                            if missing_count <= 0:
+                                break
+                            task = {
+                                'type': 'TL_SINGLE',
+                                'lesson_data': lesson_data,
+                                'chapter': chapter,
+                                'lesson': lesson,
+                                'content': content,
+                                'supplementary': supplementary,
+                                'spec_data': spec,
+                                'level': level
+                            }
+                            try:
+                                questions = self._generate_alternative_question_task(task)
+                                if questions:
+                                    all_missing_questions.extend(questions)
+                                    missing_count -= len(questions)
+                            except Exception as e:
+                                print(f"❌ Error generating missing TL: {e}")
+        
+        return all_missing_questions
+    
+    def _merge_question_sets(self, existing_set: QuestionSet, new_questions: List) -> QuestionSet:
+        """Merge new questions into existing question set"""
+        # Convert new questions to GeneratedQuestion format
+        for gen_q in new_questions:
+            if gen_q.question_type == "DS":
+                question = GeneratedQuestion(
+                    id=f"{existing_set.subject}_{existing_set.grade}_{gen_q.chapter_number}_{gen_q.lesson_number}_DS_{gen_q.question_code}",
+                    type="DS",
+                    question=None,
+                    source_text=gen_q.source_text,
+                    statements=gen_q.statements,
+                    correct_answer=None,
+                    explanation=gen_q.explanation,
+                    difficulty=gen_q.level,
+                    subject=existing_set.subject,
+                    grade=existing_set.grade,
+                    chapter=str(gen_q.chapter_number),
+                    lesson=str(gen_q.lesson_number),
+                    lesson_name=gen_q.lesson_name,
+                    generated_at=datetime.now().isoformat(),
+                    source_citation=getattr(gen_q, 'source_citation', None),
+                    source_origin=getattr(gen_q, 'source_origin', None),
+                    source_type=getattr(gen_q, 'source_type', None),
+                    pedagogical_approach=getattr(gen_q, 'pedagogical_approach', None),
+                    search_evidence=getattr(gen_q, 'search_evidence', None)
+                )
+            elif gen_q.question_type == "TL" or getattr(gen_q, 'question_type_main', None) == "TL":
+                question = GeneratedQuestion(
+                    id=f"{existing_set.subject}_{existing_set.grade}_{gen_q.chapter_number}_{gen_q.lesson_number}_TL_{gen_q.question_code}",
+                    type="TL",
+                    question=gen_q.question_stem,
+                    options=None,
+                    correct_answer=gen_q.correct_answer,
+                    explanation=gen_q.explanation,
+                    difficulty=gen_q.level,
+                    subject=existing_set.subject,
+                    grade=existing_set.grade,
+                    chapter=str(gen_q.chapter_number),
+                    lesson=str(gen_q.lesson_number),
+                    lesson_name=gen_q.lesson_name,
+                    generated_at=datetime.now().isoformat()
+                )
+            else:
+                question = GeneratedQuestion(
+                    id=f"{existing_set.subject}_{existing_set.grade}_{gen_q.chapter_number}_{gen_q.lesson_number}_{gen_q.question_type}_{gen_q.question_code}",
+                    type=gen_q.question_type,
+                    question=gen_q.question_stem,
+                    options=gen_q.options,
+                    correct_answer=gen_q.correct_answer,
+                    explanation=gen_q.explanation,
+                    difficulty=gen_q.level,
+                    subject=existing_set.subject,
+                    grade=existing_set.grade,
+                    chapter=str(gen_q.chapter_number),
+                    lesson=str(gen_q.lesson_number),
+                    lesson_name=gen_q.lesson_name,
+                    generated_at=datetime.now().isoformat()
+                )
+            question.question_code = gen_q.question_code
+            existing_set.questions.append(question)
+        
+        # Update total count
+        existing_set.total_questions = len(existing_set.questions)
+        
+        return existing_set
 
     def _generate_alternative_question_task(self, task: Dict) -> List:
         """Generate questions for a single alternative task with model fallback on 429 errors"""
@@ -850,7 +1163,8 @@ class AlternativeQuestionGenerationService:
                         statements=[],  # Will be generated by AI
                         question_type="DS",
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Replace placeholders in DS prompt
@@ -882,7 +1196,8 @@ class AlternativeQuestionGenerationService:
                     generated_ds = self.question_generator.generate_ds_with_custom_prompt(
                         prompt_template=prompt_template,
                         content=content,
-                        question_code=spec.question_code
+                        question_code=spec.question_code,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
                     if generated_ds:
                         generated_ds.chapter_number = int(chapter)
@@ -1218,6 +1533,53 @@ class AlternativeQuestionGenerationService:
                 'TL': tl_questions
             }
         }
+    
+    def _deduplicate_questions(self, question_set: QuestionSet) -> QuestionSet:
+        """
+        Remove duplicate questions based on question_code, lesson_name, and level
+        Keep the first occurrence of each unique question
+        """
+        seen = set()
+        unique_questions = []
+        duplicates_removed = 0
+        
+        for question in question_set.questions:
+            # Create a unique key for each question
+            # Handle both GeneratedQuestion (from phase4, has 'id') and question_generator objects (have 'question_code')
+            try:
+                q_code = question.question_code if hasattr(question, 'question_code') else question.id
+                q_lesson = question.lesson_name if hasattr(question, 'lesson_name') else question.lesson
+                q_level = question.level if hasattr(question, 'level') else question.difficulty
+                q_type = question.type if hasattr(question, 'type') else getattr(question, 'question_type', 'unknown')
+            except AttributeError as e:
+                print(f"⚠️ WARNING: Cannot extract dedup key from question: {e}")
+                # Include all questions that can't be deduplicated
+                unique_questions.append(question)
+                continue
+                
+            key = (q_code, q_lesson, q_level, q_type)
+            
+            if key not in seen:
+                seen.add(key)
+                unique_questions.append(question)
+            else:
+                duplicates_removed += 1
+                print(f"🗑️ Removed duplicate: {q_type} {q_code} - {q_lesson} ({q_level})")
+        
+        if duplicates_removed > 0:
+            print(f"\n✅ Removed {duplicates_removed} duplicate questions")
+        
+        # Create new QuestionSet with unique questions
+        return QuestionSet(
+            subject=question_set.subject,
+            grade=question_set.grade,
+            chapter=question_set.chapter,
+            lesson=question_set.lesson,
+            question_type=question_set.question_type,
+            questions=unique_questions,
+            total_questions=len(unique_questions),
+            generated_at=question_set.generated_at
+        )
 
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(set_dict, f, ensure_ascii=False, indent=2)

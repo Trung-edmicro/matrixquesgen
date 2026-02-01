@@ -2,9 +2,394 @@
 Module quản lý JSON schemas cho các loại câu hỏi
 Hỗ trợ Rich Content: text, image, table, chart (ECharts), latex, mixed
 """
-from typing import Dict
+from typing import Dict, List, Optional
 
 
+# ==================== TÁCH SCHEMAS RIÊNG BIỆT CHO TỪNG TYPE ====================
+# Thay vì dùng anyOf phức tạp → Mỗi type có schema riêng → AI clear hơn, ít token hơn
+
+def get_text_content_schema() -> Dict:
+    """
+    Schema cho content type='text' - Text thuần
+    Sử dụng khi: Câu hỏi không có rich_content_types HOẶC chỉ có LT (lý thuyết text)
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "const": "text",
+                "description": "Loại content: text thuần"
+            },
+            "content": {
+                "type": "string",
+                "description": "Nội dung text thuần - string"
+            },
+            "metadata": {
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "description": "Nguồn trích dẫn (bắt buộc khi dùng tư liệu ngoài SGK)"
+                    }
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": "Text thuần - dùng khi câu hỏi không có bảng/biểu đồ/hình ảnh"
+    }
+
+
+def get_table_content_schema() -> Dict:
+    """
+    Schema cho content type='table' - Bảng biểu
+    Sử dụng khi: rich_content_types chứa 'BK' (bảng)
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "const": "table",
+                "description": "Loại content: table (bảng)"
+            },
+            "content": {
+                "type": "object",
+                "properties": {
+                    "headers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Tiêu đề cột - array of strings"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "description": "Dữ liệu hàng - array of arrays"
+                    }
+                },
+                "required": ["headers", "rows"],
+                "description": "Object chứa headers và rows - KHÔNG PHẢI string"
+            },
+            "metadata": {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string", "description": "Chú thích bảng"},
+                    "source": {"type": "string", "description": "Nguồn dữ liệu"}
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": "Table structure - content PHẢI là object {headers, rows}"
+    }
+
+
+def get_chart_content_schema() -> Dict:
+    """
+    Schema cho content type='chart' - Biểu đồ ECharts (SIMPLIFIED VERSION)
+    Sử dụng khi: rich_content_types chứa 'BD' (biểu đồ)
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "const": "chart",
+                "description": "Loại content: chart (biểu đồ)"
+            },
+            "content": {
+                "type": "object",
+                "properties": {
+                    "chartType": {
+                        "type": "string",
+                        "enum": ["bar", "line", "pie", "scatter", "combo"],
+                        "description": "Loại biểu đồ chính"
+                    },
+                    "echarts": {
+                        "type": "object",
+                        "description": "ECharts config - CHỈ CẦN 5 FIELDS: title, xAxis, yAxis, series, legend",
+                        "properties": {
+                            "title": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "left": {"type": "string"}
+                                },
+                                "description": "Tiêu đề biểu đồ"
+                            },
+                            "xAxis": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string"},
+                                    "data": {"type": "array"}
+                                },
+                                "description": "Trục X"
+                            },
+                            "yAxis": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string"},
+                                    "name": {"type": "string"}
+                                },
+                                "description": "Trục Y"
+                            },
+                            "series": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "type": {"type": "string"},
+                                        "data": {"type": "array"},
+                                        "label": {"type": "object"}
+                                    }
+                                },
+                                "description": "Dữ liệu series"
+                            },
+                            "legend": {
+                                "type": "object",
+                                "properties": {
+                                    "data": {"type": "array"},
+                                    "bottom": {"type": "number"}
+                                },
+                                "description": "Chú giải"
+                            }
+                        }
+                    }
+                },
+                "required": ["chartType", "echarts"],
+                "description": "Object chứa chartType và echarts"
+            },
+            "metadata": {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string"},
+                    "source": {"type": "string"},
+                    "width": {"type": "number"},
+                    "height": {"type": "number"}
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": """Chart ECharts - CHỈ CẦN 5 FIELDS CƠ BẢN:
+
+⚠️ VÍ DỤ:
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "title": {"text": "DÂN SỐ THÀNH THỊ 2010-2021", "left": "center"},
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": {"type": "value", "name": "triệu người"},
+      "series": [{
+        "name": "Dân số thành thị",
+        "type": "bar",
+        "data": [26.5, 30.9, 36.6],
+        "label": {"show": true, "position": "top"}
+      }],
+      "legend": {"data": ["Dân số thành thị"], "bottom": 20}
+    }
+  }
+}"""
+    }
+
+
+def get_image_content_schema() -> Dict:
+    """
+    Schema cho content type='image' - Hình ảnh
+    Sử dụng khi: rich_content_types chứa 'HA' (hình ảnh)
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "const": "image",
+                "description": "Loại content: image (hình ảnh)"
+            },
+            "content": {
+                "type": "string",
+                "description": "URL hoặc path của hình ảnh - string"
+            },
+            "metadata": {
+                "type": "object",
+                "properties": {
+                    "caption": {"type": "string", "description": "Chú thích hình ảnh"},
+                    "alt": {"type": "string", "description": "Alt text"},
+                    "width": {"type": "number", "description": "Chiều rộng (px)"},
+                    "height": {"type": "number", "description": "Chiều cao (px)"}
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": "Image - content PHẢI là URL string"
+    }
+
+
+def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
+    """
+    Schema cho content type='mixed' - Kết hợp text + rich content
+    Sử dụng khi: rich_content_types chứa NHIỀU loại (VD: BK + BD, hoặc text + BK)
+    
+    Args:
+        rich_types: List các loại rich content (VD: ['BK', 'BD'])
+    """
+    # Build description dựa trên rich_types
+    types_hint = ""
+    if rich_types:
+        type_map = {"BK": "table", "BD": "chart", "HA": "image", "TT": "calculation"}
+        available_types = [type_map.get(t, t) for t in rich_types if t in type_map]
+        if available_types:
+            types_hint = f" - Có thể chứa: {', '.join(available_types)}"
+    
+    # Build explicit example based on rich_types
+    example_str = ""
+    if rich_types:
+        if "BD" in rich_types:
+            example_str = """
+
+⚠️ VÍ DỤ cho BIỂU ĐỒ:
+[
+  "Cho biểu đồ dân số thành thị:",
+  {
+    "type": "chart",
+    "content": {
+      "chartType": "bar",
+      "echarts": {
+        "title": {"text": "DÂN SỐ THÀNH THỊ", "left": "center"},
+        "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+        "yAxis": {"type": "value", "name": "triệu người"},
+        "series": [{"name": "Dân số", "type": "bar", "data": [26.5, 30.9, 36.6]}],
+        "legend": {"data": ["Dân số"], "bottom": 20}
+      }
+    }
+  },
+  "Năm nào có dân số cao nhất?"
+]"""
+        elif "BK" in rich_types:
+            example_str = "\n\n⚠️ VÍ DỤ cho BẢNG:\n['Dựa vào bảng:', {\"type\": \"table\", \"content\": {\"headers\": [\"Năm\", \"GDP\"], \"rows\": [[\"2010\", \"100\"], [\"2020\", \"150\"]]}}, 'Hãy cho biết...']"
+    
+    return {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "const": "mixed",
+                "description": "Loại content: mixed (kết hợp text + rich content)"
+            },
+            "content": {
+                "type": "array",
+                "description": f"Array chứa text (string) và rich objects xen kẽ{types_hint}.{example_str}\n\n⚠️ QUAN TRỌNG: PHẢI có ít nhất 1 rich object (table/chart/image) trong array, KHÔNG chỉ có text thuần!",
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "description": "Text thuần"
+                        },
+                        {
+                            "type": "object",
+                            "description": "Rich content object - PHẢI có type và content",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": ["table", "chart", "image"],
+                                    "description": "Loại rich content"
+                                },
+                                "content": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "headers": {"type": "array", "items": {"type": "string"}},
+                                                "rows": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+                                            },
+                                            "required": ["headers", "rows"],
+                                            "description": "Table content - object {headers, rows}"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "chartType": {"type": "string", "enum": ["bar", "line", "pie", "scatter", "combo"]},
+                                                "echarts": {"type": "object"}
+                                            },
+                                            "required": ["chartType", "echarts"],
+                                            "description": "Chart content - object {chartType, echarts}"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "description": "Image content - URL string"
+                                        }
+                                    ]
+                                },
+                                "metadata": {
+                                    "type": "object",
+                                    "properties": {
+                                        "caption": {"type": "string"},
+                                        "source": {"type": "string"}
+                                    }
+                                }
+                            },
+                            "required": ["type", "content"]
+                        }
+                    ]
+                }
+            },
+            "metadata": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "description": "Nguồn dữ liệu"}
+                }
+            }
+        },
+        "required": ["type", "content"],
+        "description": "Mixed content - content PHẢI là array chứa strings và objects đầy đủ"
+    }
+
+
+def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = None) -> Dict:
+    """
+    ⭐ HÀM CHÍNH: Chọn schema phù hợp dựa trên rich_content_types
+    
+    Logic:
+    - None hoặc [] hoặc chỉ ['LT']: → text_content_schema
+    - Chỉ ['BK']: → table_content_schema
+    - Chỉ ['BD']: → chart_content_schema
+    - Chỉ ['HA']: → image_content_schema
+    - Nhiều types (VD: ['BK', 'BD']): → mixed_content_schema
+    
+    Args:
+        rich_content_types: List các loại rich content từ matrix (VD: ['BK'], ['BD'], ['BK', 'BD'])
+    
+    Returns:
+        Dict: Schema phù hợp với loại content
+    """
+    if not rich_content_types:
+        return get_text_content_schema()
+    
+    # Filter out 'LT' (lý thuyết text) và 'TT' (tính toán - vẫn coi như text)
+    actual_rich_types = [t for t in rich_content_types if t not in ['LT', 'TT']]
+    
+    if not actual_rich_types:
+        return get_text_content_schema()
+    
+    # Nếu chỉ có 1 loại rich content → dùng schema riêng
+    if len(actual_rich_types) == 1:
+        rich_type = actual_rich_types[0]
+        if rich_type == 'BK':
+            return get_table_content_schema()
+        elif rich_type == 'BD':
+            return get_chart_content_schema()
+        elif rich_type == 'HA':
+            return get_image_content_schema()
+    
+    # Nhiều loại rich content → dùng mixed
+    return get_mixed_content_schema(actual_rich_types)
+
+
+# ==================== LEGACY FUNCTION (Deprecated) ====================
 def get_rich_content_schema() -> Dict:
     """
     Trả về JSON schema cho Rich Content hỗ trợ 4 loại: TEXT, BK, BD, HA
@@ -253,17 +638,21 @@ VD 2 - Câu hỏi TLN có bảng:
 - Với câu hỏi TN: options (A/B/C/D) thường là text thuần, CHỈ question_stem mới có rich content"""
     }
 
-def get_multiple_choice_array_schema() -> Dict:
+def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm
     HỖ TRỢ RICH CONTENT: Ảnh, Bảng, Biểu đồ ECharts, Công thức LaTeX
+    
+    Args:
+        content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
     
     Returns:
         Dict: JSON schema cho array questions với metadata sư phạm phong phú và rich content
     """
     
-    # Get rich content schema một lần duy nhất
-    rich_content_def = get_rich_content_schema()
+    # Sử dụng content_schema được truyền vào, hoặc mặc định text schema
+    if content_schema is None:
+        content_schema = get_text_content_schema()
     
     return {
         "type": "object",
@@ -277,7 +666,7 @@ def get_multiple_choice_array_schema() -> Dict:
                         # === PHẦN CỐT LÕI CÂU HỎI ===
                         "question_stem": {
                             "description": "Nội dung câu hỏi - có thể là text, table, chart, image, hoặc mixed",
-                            **rich_content_def
+                            **content_schema
                         },
                         
                         # === PHẦN ĐÁP ÁN ===
@@ -335,17 +724,21 @@ def get_multiple_choice_array_schema() -> Dict:
         "required": ["questions"]
     }
 
-def get_essay_array_schema() -> Dict:
+def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Tự luận (TL)
     HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa tư liệu ảnh, bảng, biểu đồ
     
+    Args:
+        content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
+    
     Returns:
-        Dict: JSON schema cho array questions TL với hướng dẫn đa dạng hóa và rich content
+        Dict: JSON schema cho array questions TL - tối ưu hóa độ dài output
     """
     
-    # Get rich content schema cho question_stem
-    rich_content_def = get_rich_content_schema()
+    # Sử dụng content_schema được truyền vào, hoặc mặc định text schema
+    if content_schema is None:
+        content_schema = get_text_content_schema()
     
     return {
         "type": "object",
@@ -358,130 +751,98 @@ def get_essay_array_schema() -> Dict:
                     "properties": {
                         "question_stem": {
                             "description": "Câu hỏi - có thể chứa bảng, biểu đồ tư liệu",
-                            **rich_content_def
+                            **content_schema
                         },
                         "question_type": {
                             "type": "string",
                             "enum": ["analysis", "comparison", "evaluation", "explanation", "synthesis", "argumentation"],
-                            "description": "Loại câu hỏi tự luận"
-                        },
-                        "historical_context": {
-                            "type": "string",
-                            "description": "(Tùy chọn) Bối cảnh lịch sử hoặc tư liệu dẫn dắt",
-                            "maxLength": 300
-                        },
-                        "required_elements": {
-                            "type": "array",
-                            "description": "Các yếu tố bắt buộc phải có trong câu trả lời",
-                            "items": {"type": "string"}
-                        },
-                        "answer_structure": {
-                            "type": "object",
-                            "description": "Cấu trúc câu trả lời mong đợi",
-                            "properties": {
-                                "introduction": {"type": "string"},
-                                "body": {
-                                    "type": "array",
-                                    "items": {"type": "string"}
-                                },
-                                "conclusion": {"type": "string"}
-                            }
-                        },
-                        "sample_answer": {
-                            "type": "string",
-                            "description": """Câu trả lời mẫu (TỐI ĐA 600 ký tự):
-                            - Trình bày logic, có cấu trúc
-                            - Đầy đủ các luận điểm chính
-                            - ⚠️ NẾU CÓ BẢNG/BIỂU ĐỒ/ẢNH: Chỉ dẫn chiếu số liệu quan trọng
-                            - NGHIÊM CẤM: giải thích quá dài, copy toàn bộ số liệu""",
-                            "maxLength": 600
-                        },
-                        "key_points": {
-                            "type": "array",
-                            "description": "Các điểm kiến thức then chốt cần có trong bài làm",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "point": {"type": "string"},
-                                    "weight": {"type": "number"},
-                                    "description": {"type": "string", "maxLength": 200}
-                                }
-                            }
-                        },
-                        "scoring_rubric": {
-                            "type": "object",
-                            "description": "Thang điểm chi tiết để chấm bài",
-                            "properties": {
-                                "excellent": {"type": "string", "maxLength": 300},
-                                "good": {"type": "string", "maxLength": 300},
-                                "average": {"type": "string", "maxLength": 300},
-                                "weak": {"type": "string", "maxLength": 300}
-                            }
+                            "description": "Loại câu hỏi"
                         },
                         "level": {
                             "type": "string",
                             "enum": ["VD", "VDC"],
-                            "description": "Cấp độ tư duy"
+                            "description": "Cấp độ"
                         },
-                        "bloom_taxonomy": {
+                        "historical_context": {
                             "type": "string",
-                            "enum": ["Apply", "Analyze", "Evaluate", "Create"],
-                            "description": "Phân loại Bloom"
+                            "description": "Bối cảnh lịch sử (nếu cần) - TỐI ĐA 200 ký tự",
+                            "maxLength": 200
                         },
-                        "time_limit": {
-                            "type": "number",
-                            "description": "Thời gian làm bài đề xuất (phút)"
+                        "required_elements": {
+                            "type": "array",
+                            "items": {"type": "string", "maxLength": 100},
+                            "description": "Các yếu tố bắt buộc phải có trong câu trả lời (3-5 items)",
+                            "minItems": 3,
+                            "maxItems": 5
                         },
-                        "word_count_range": {
+                        "answer_structure": {
                             "type": "object",
+                            "description": "Cấu trúc câu trả lời - VD: {intro: '...', body: '...', conclusion: '...'}",
                             "properties": {
-                                "min": {"type": "number"},
-                                "max": {"type": "number"}
-                            }
+                                "intro": {"type": "string", "maxLength": 100},
+                                "body": {"type": "string", "maxLength": 150},
+                                "conclusion": {"type": "string", "maxLength": 100}
+                            },
+                            "required": ["intro", "body", "conclusion"]
                         },
-                        "pedagogical_purpose": {
+                        "sample_answer": {
                             "type": "string",
-                            "description": "Mục đích sư phạm",
-                            "maxLength": 200
+                            "description": "Câu trả lời mẫu ngắn gọn - TỐI ĐA 150 ký tự",
+                            "maxLength": 150
                         },
-                        "common_mistakes": {
+                        "key_points": {
                             "type": "array",
-                            "items": {"type": "string", "maxLength": 150}
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "point": {"type": "string", "maxLength": 30},
+                                    "score": {"type": "number"}
+                                },
+                                "required": ["point", "score"]
+                            },
+                            "description": "Điểm kiến thức then chốt (3-4 items) - Mỗi point TỐI ĐA 30 ký tự",
+                            "minItems": 3,
+                            "maxItems": 4
                         },
-                        "tips_for_students": {
-                            "type": "array",
-                            "items": {"type": "string", "maxLength": 150}
-                        },
-                        "difficulty_note": {
+                        "scoring_rubric": {
                             "type": "string",
-                            "maxLength": 200
+                            "description": "Thang điểm tổng quát - TỐI ĐA 100 ký tự. VD: 'Phân tích đúng 3 điểm chính (6đ), kết luận logic (1đ)'",
+                            "maxLength": 100
                         },
-                        "related_topics": {
-                            "type": "array",
-                            "items": {"type": "string", "maxLength": 100}
+                        "explanation": {
+                            "type": "string",
+                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự): Giải thích ngắn ngọn. NGHIÊM CẤM giải dài dòng.",
+                            "maxLength": 300
                         }
                     },
-                    "required": ["question_stem", "question_type", "required_elements", "sample_answer", "key_points", "level"]
+                    "required": ["question_stem", "question_type", "level", "required_elements", "answer_structure", "sample_answer", "key_points", "scoring_rubric", "explanation"]
                 }
             }
         },
         "required": ["questions"]
     }
 
-def get_true_false_schema() -> Dict:
+def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
     """
     Trả về JSON schema cho câu hỏi Đúng/Sai
     HỖ TRỢ RICH CONTENT: Tư liệu có thể chứa bảng, biểu đồ, ảnh
+    
+    Args:
+        content_schema: Schema cho source_text (nếu None → dùng text_content_schema)
     
     Returns:
         Dict: JSON schema cho câu hỏi Đúng/Sai với 4 mệnh đề và rich content support
     """
     
+    # Sử dụng content_schema được truyền vào, hoặc mặc định text schema
+    if content_schema is None:
+        content_schema = get_text_content_schema()
+    
     return {
         "type": "object",
         "properties": {
             # === PHẦN TƯ LIỆU (Rich Content Support) ===
-            "source_text": get_rich_content_schema(),
+            "source_text": content_schema,
             
             "source_citation": {
                 "type": "string",
@@ -721,17 +1082,21 @@ def get_true_false_schema() -> Dict:
         ]
     }
 
-def get_short_answer_array_schema() -> Dict:
+def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm luận (TLN)
     HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa ảnh, bảng, biểu đồ
+    
+    Args:
+        content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
     
     Returns:
         Dict: JSON schema cho array questions TLN với hướng dẫn đa dạng hóa và rich content
     """
     
-    # Get rich content schema một lần
-    rich_content_def = get_rich_content_schema()
+    # Sử dụng content_schema được truyền vào, hoặc mặc định text schema
+    if content_schema is None:
+        content_schema = get_text_content_schema()
     
     return {
         "type": "object",
@@ -744,63 +1109,29 @@ def get_short_answer_array_schema() -> Dict:
                     "properties": {
                         "question_stem": {
                             "description": "Câu hỏi - có thể chứa bảng, biểu đồ",
-                            **rich_content_def
+                            **content_schema
                         },
                         "question_type": {
                             "type": "string",
                             "enum": ["time", "location", "name", "concept", "meaning", "cause", "result", "number"],
-                            "description": "Loại câu hỏi (time/location/name/concept/meaning/cause/result/number)"
-                        },
-                        "historical_context": {
-                            "type": "string",
-                            "description": "(Tùy chọn) Bối cảnh lịch sử dẫn dắt",
-                            "maxLength": 200
+                            "description": "Loại câu hỏi"
                         },
                         "correct_answer": {
                             "type": "string",
-                            "description": "Đáp án đúng - CHỈ GHI SỐ (không có đơn vị, không có chữ). VD: '38', '177', '2.5' - không viết '38%' hay '177 lần'"
-                        },
-                        "alternative_answers": {
-                            "type": "array",
-                            "description": "(Tùy chọn) Các cách diễn đạt khác được chấp nhận",
-                            "items": {"type": "string"}
-                        },
-                        "answer_format": {
-                            "type": "string",
-                            "description": "Định dạng đáp án mong đợi"
+                            "description": "Đáp án đúng - CHỈ GHI SỐ (không có đơn vị, không có chữ). VD: '38', '177', '2.5'"
                         },
                         "level": {
                             "type": "string",
                             "enum": ["NB", "TH", "VD", "VDC"],
                             "description": "Cấp độ tư duy"
                         },
-                        "bloom_taxonomy": {
-                            "type": "string",
-                            "enum": ["Remember", "Understand", "Apply", "Analyze"],
-                            "description": "Phân loại Bloom"
-                        },
                         "explanation": {
                             "type": "string",
-                            "description": "Lời giải ngắn gọn (TỐI ĐA 500 ký tự): CHỈ ghi công thức + các bước tính. NGHIÊM CẤM giải thích dài dòng, lặp lại đề bài, hoặc giải đi giải lại cùng một bước.",
-                            "maxLength": 500
-                        },
-                        "pedagogical_purpose": {
-                            "type": "string",
-                            "description": "Mục đích sư phạm",
-                            "maxLength": 150
-                        },
-                        "common_mistakes": {
-                            "type": "array",
-                            "description": "(Tùy chọn) Sai lầm thường gặp",
-                            "items": {"type": "string", "maxLength": 100}
-                        },
-                        "difficulty_note": {
-                            "type": "string",
-                            "description": "(Tùy chọn) Ghi chú về độ khó",
-                            "maxLength": 150
+                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự - GIẢM TỪ 500): CHỈ ghi công thức + kết quả. NGHIÊM CẤM giải dài dòng.",
+                            "maxLength": 300
                         }
                     },
-                    "required": ["question_stem", "question_type", "correct_answer", "level"]
+                    "required": ["question_stem", "question_type", "correct_answer", "level", "explanation"]
                 }
             }
         },

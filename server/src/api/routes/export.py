@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from api.models.schemas import ExportResponse
 from services.exporters.docx_generator import DocxGenerator
+from config.settings import Config
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
@@ -62,6 +63,21 @@ async def export_docx(session_id: str):
         questions_data = json.load(f)
     
     metadata = questions_data.get('metadata', {})
+    subject = metadata.get('subject', '')
+    
+    # Filter source metadata for subjects that don't need source display
+    if not Config.should_display_source(subject):
+        questions = questions_data.get('questions', {})
+        ds_questions = questions.get('DS', [])
+        for q in ds_questions:
+            # Keep source_text.content but remove metadata.source
+            if 'source_text' in q and isinstance(q['source_text'], dict):
+                if 'metadata' in q['source_text']:
+                    q['source_text']['metadata'].pop('source', None)
+            # Remove source citation fields
+            q.pop('source_citation', None)
+            q.pop('source_origin', None)
+            q.pop('source_type', None)
     
     # Tạo tên file
     matrix_filename = Path(metadata.get('matrix_file', 'questions')).stem

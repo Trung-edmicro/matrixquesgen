@@ -8,6 +8,10 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config.settings import Config
+
 
 class DocxGenerator:
     """Class tạo file DOCX từ dữ liệu JSON"""
@@ -310,6 +314,9 @@ class DocxGenerator:
         
         questions_data = json_data.get('questions', {})
         
+        # Lấy subject từ metadata
+        subject = metadata.get('subject', '')
+        
         # Xuất câu hỏi TN
         tn_questions = questions_data.get('TN', [])
         if tn_questions:
@@ -336,7 +343,7 @@ class DocxGenerator:
             self.add_heading('PHẦN II. Thí sinh trả lời từ câu 1 đến 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.', level=2)
             
             for idx, q in enumerate(ds_questions_sorted, 1):
-                self._add_ds_question(q, idx)
+                self._add_ds_question(q, idx, subject)
             
             self.add_paragraph("")
         
@@ -455,7 +462,7 @@ class DocxGenerator:
             print(f"Question data: {question}")
             raise
     
-    def _add_ds_question(self, question: Dict, number: int):
+    def _add_ds_question(self, question: Dict, number: int, subject: str = ''):
         """Thêm câu hỏi đúng/sai"""
         try:
             # Tiêu đề câu
@@ -463,7 +470,7 @@ class DocxGenerator:
             para.add_run(f"Câu {number}. ").bold = True
             para.add_run("Cho đoạn tư liệu sau:")
             
-            # Tư liệu - handle as string or dict
+            # Always display source_text.content for DS questions
             source_text = question.get('source_text', '')
             source_metadata = None
             if isinstance(source_text, dict):
@@ -471,16 +478,19 @@ class DocxGenerator:
                 source_text = source_text.get('content', '')
             self.add_paragraph(source_text, italic=True)
             
-            # Thêm nguồn tư liệu (căn lề phải, bọc trong ngoặc đơn)
-            # Ưu tiên source_citation, nếu không có thì dùng source từ metadata
-            source_citation = question.get('source_citation', '')
-            if not source_citation and source_metadata:
-                source_citation = source_metadata.get('source', '')
-            
-            if source_citation:
-                para_source = self.document.add_paragraph()
-                para_source.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                para_source.add_run(f"({source_citation})").italic = True
+            # Only display source citation if subject needs source display
+            should_display_source = Config.should_display_source(subject)
+            if should_display_source:
+                # Thêm nguồn tư liệu (căn lề phải, bọc trong ngoặc đơn)
+                # Ưu tiên source_citation, nếu không có thì dùng source từ metadata
+                source_citation = question.get('source_citation', '')
+                if not source_citation and source_metadata:
+                    source_citation = source_metadata.get('source', '')
+                
+                if source_citation:
+                    para_source = self.document.add_paragraph()
+                    para_source.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    para_source.add_run(f"({source_citation})").italic = True
             
             statements = question.get('statements', {})
             

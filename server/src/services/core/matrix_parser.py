@@ -666,7 +666,8 @@ class MatrixParser:
                         'statement': statement,
                         'lesson_name': spec.lesson_name,
                         'chapter_number': spec.chapter_number,
-                        'supplementary_materials': spec.supplementary_materials
+                        'supplementary_materials': spec.supplementary_materials,
+                        'rich_content_types': spec.rich_content_types
                     })
         
         # Tạo TrueFalseQuestionSpec cho mỗi câu
@@ -683,6 +684,24 @@ class MatrixParser:
             supplementary_materials = items[0]['supplementary_materials']  # Lấy tài liệu bổ sung
             chapter_number = items[0]['chapter_number']  # Lấy chapter_number từ item đầu tiên
             
+            # Aggregate rich_content_types from all statements into a single dict at question level
+            aggregated_rich_types = None
+            all_types = []
+            seen_codes = set()
+            
+            for item in items:
+                if item.get('rich_content_types'):
+                    # Each item may have types like {"C1A": ["BK"], "C1B": ["TT"]}
+                    for stmt_code, types in item['rich_content_types'].items():
+                        for type_code in types:
+                            if type_code not in seen_codes:
+                                seen_codes.add(type_code)
+                                all_types.append(type_code)
+            
+            # If we found any types, create aggregated dict at question level
+            if all_types:
+                aggregated_rich_types = {question_code: all_types}
+            
             # Kiểm tra có đủ 4 mệnh đề không
             if len(statements) != 4:
                 continue
@@ -697,7 +716,8 @@ class MatrixParser:
                 lesson_name=lesson_name,
                 statements=statements,
                 chapter_number=chapter_number,
-                supplementary_materials=supplementary_materials
+                supplementary_materials=supplementary_materials,
+                rich_content_types=aggregated_rich_types
             )
             
             tf_questions.append(tf_question)

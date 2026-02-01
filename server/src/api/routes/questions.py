@@ -17,6 +17,7 @@ from api.models.schemas import (
     UpdateQuestionRequest,
     SessionMetadata
 )
+from config.settings import Config
 
 
 router = APIRouter(prefix="/api/questions", tags=["Questions"])
@@ -99,6 +100,22 @@ async def get_session_detail(session_id: str):
             data = json.load(f)
         
         metadata = data.get('metadata', {})
+        subject = metadata.get('subject', '')
+        
+        # Lọc source_text nếu môn không cần hiển thị
+        if not Config.should_display_source(subject):
+            questions = data.get('questions', {})
+            ds_questions = questions.get('DS', [])
+            for q in ds_questions:
+                if 'source_text' in q:
+                    q.pop('source_text', None)
+                if 'source_citation' in q:
+                    q.pop('source_citation', None)
+                if 'source_origin' in q:
+                    q.pop('source_origin', None)
+                if 'source_type' in q:
+                    q.pop('source_type', None)
+        
         return SessionDetail(
             metadata=SessionMetadata(
                 session_id=metadata.get('session_id', session_id),

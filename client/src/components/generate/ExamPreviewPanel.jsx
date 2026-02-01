@@ -17,6 +17,13 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   // Get questions from examData structure
   const questions = editedData?.questions || examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
   const metadata = examData?.metadata || {}
+  
+  // Kiểm tra môn học có cần hiển thị source không
+  const shouldDisplaySource = () => {
+    const subject = metadata?.subject?.toUpperCase() || ''
+    const subjectsWithSource = ['LICHSU'] // Danh sách môn hiển thị source
+    return subjectsWithSource.includes(subject)
+  }
 
   // Reset edited data when examData changes
   useEffect(() => {
@@ -155,6 +162,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
                 questions={questions} 
                 onFieldChange={handleFieldChange}
                 sessionId={sessionId}
+                shouldDisplaySource={shouldDisplaySource()}
+                metadata={metadata}
               />
             )}
             {activeTab === 'answers' && (
@@ -173,7 +182,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   )
 }
 
-function QuestionsList({ questions, onFieldChange, sessionId }) {
+function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySource, metadata }) {
   const getLevelColor = (level) => {
     switch(level) {
       case 'NB': return 'bg-green-100 text-green-800'
@@ -292,45 +301,49 @@ function QuestionsList({ questions, onFieldChange, sessionId }) {
                 <span className="font-medium">Câu {idx + 1}</span>
                 <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
               </div>
-              <div className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-3 rounded">
-                <RichContentRenderer
-                  content={q.source_text}
-                  contentEditable={!!sessionId}
-                  onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
-                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-                
-                {/* Source Citation - Ưu tiên source_citation, nếu không có thì dùng source từ metadata */}
-                {(q.source_citation || q.source_text?.metadata?.source) && (
-                  <div className="mt-2 text-right">
-                    <span
-                      className="text-xs text-gray-500 italic focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
-                      contentEditable={!!sessionId}
-                      onBlur={(e) => handleBlur('DS', q.question_code, 'source_citation', e)}
-                      suppressContentEditableWarning={true}
-                    >
-                      ({q.source_citation || q.source_text?.metadata?.source})
-                    </span>
-                  </div>
-                )}
-                
-                {/* Source Origin Badge */}
-                {q.source_origin && (
-                  <div className="mt-1">
-                    <span className={`inline-block px-2 py-0.5 text-xs rounded ${
-                      q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
-                      q.source_origin === 'scholarly_book' ? 'bg-blue-100 text-blue-700' :
-                      q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
-                      'bg-orange-100 text-orange-700'
-                    }`}>
-                      {q.source_origin === 'academic_journal' ? '📚 Tạp chí học thuật' :
-                       q.source_origin === 'scholarly_book' ? '📖 Sách chuyên khảo' :
-                       q.source_origin === 'official_document' ? '📜 Văn kiện chính thức' :
-                       '📰 Báo chí uy tín'}
-                    </span>
-                  </div>
-                )}
-              </div>
+              
+              {/* Always display source_text.content for DS questions */}
+              {q.source_text && (
+                <div className="mb-3 text-gray-600 italic text-sm bg-gray-50 p-3 rounded">
+                  <RichContentRenderer
+                    content={q.source_text}
+                    contentEditable={!!sessionId}
+                    onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
+                    className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  />
+                  
+                  {/* Source Citation - Only show if subject needs source display */}
+                  {shouldDisplaySource && (q.source_citation || q.source_text?.metadata?.source) && (
+                    <div className="mt-2 text-right">
+                      <span
+                        className="text-xs text-gray-500 italic focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                        contentEditable={!!sessionId}
+                        onBlur={(e) => handleBlur('DS', q.question_code, 'source_citation', e)}
+                        suppressContentEditableWarning={true}
+                      >
+                        ({q.source_citation || q.source_text?.metadata?.source})
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Source Origin Badge - Only show if subject needs source display */}
+                  {shouldDisplaySource && q.source_origin && (
+                    <div className="mt-1">
+                      <span className={`inline-block px-2 py-0.5 text-xs rounded ${
+                        q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
+                        q.source_origin === 'scholarly_book' ? 'bg-blue-100 text-blue-700' :
+                        q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
+                        'bg-orange-100 text-orange-700'
+                      }`}>
+                        {q.source_origin === 'academic_journal' ? '📚 Tạp chí học thuật' :
+                         q.source_origin === 'scholarly_book' ? '📖 Sách chuyên khảo' :
+                         q.source_origin === 'official_document' ? '📜 Văn kiện chính thức' :
+                         '📰 Báo chí uy tín'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="space-y-2 pl-4">
                 {Object.entries(q.statements || {}).map(([key, stmt]) => (
                   <div key={key} className="flex items-start gap-2">

@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import LaTeXRenderer from './LaTeXRenderer'
 import * as echarts from 'echarts'
-import { useEffect, useRef } from 'react'
+
 
 /**
  * Component để render rich content (text, mixed với table/image/chart)
@@ -108,8 +108,8 @@ function TableRenderer({ content }) {
   }
 
   return (
-    <div className="overflow-x-auto my-3">
-      <table className="min-w-full border-collapse border border-gray-300 text-sm">
+    <div className="overflow-x-auto my-3 flex justify-center">
+      <table className="border-collapse border border-gray-300 text-sm table-auto">
         <thead className="bg-gray-50">
           <tr>
             {tableData.headers.map((header, idx) => (
@@ -179,12 +179,26 @@ function ChartRenderer({ content, metadata }) {
     if (!chartRef.current) return
 
     try {
-      // Parse chart options
-      let options
+      // Parse chart data
+      let chartData
       if (typeof content === 'string') {
-        options = JSON.parse(content)
+        chartData = JSON.parse(content)
       } else {
-        options = content
+        chartData = content
+      }
+
+      // Extract ECharts options from nested structure
+      // Expected format: {chartType: "bar", echarts: {...}} or just {...}
+      let options
+      if (chartData.echarts) {
+        options = chartData.echarts
+      } else if (chartData.chartType) {
+        // Legacy format - ignore
+        console.warn('Chart data has chartType but no echarts config')
+        return
+      } else {
+        // Direct ECharts options
+        options = chartData
       }
 
       // Initialize or update chart
@@ -202,16 +216,34 @@ function ChartRenderer({ content, metadata }) {
         }
       }
     } catch (e) {
-      console.error('Failed to render chart:', e)
+      console.error('Failed to render chart:', e, content)
     }
   }, [content])
 
+  // Parse metadata if it's a string
+  const parsedMetadata = useMemo(() => {
+    if (typeof metadata === 'string') {
+      try {
+        return JSON.parse(metadata)
+      } catch (e) {
+        console.error('Failed to parse metadata:', e)
+        return null
+      }
+    }
+    return metadata
+  }, [metadata])
+
   return (
-    <div className="my-3">
-      <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
-      {metadata?.caption && (
-        <div className="text-sm text-gray-600 mt-2">
-          <LaTeXRenderer>{metadata.caption}</LaTeXRenderer>
+    <div className="my-3 flex flex-col items-center">
+      <div ref={chartRef} style={{ width: '100%', maxWidth: '800px', height: '400px' }} />
+      {parsedMetadata?.caption && (
+        <div className="text-sm text-gray-600 mt-2 text-center italic">
+          <LaTeXRenderer>{parsedMetadata.caption}</LaTeXRenderer>
+        </div>
+      )}
+      {parsedMetadata?.source && (
+        <div className="text-xs text-gray-500 mt-1 text-center">
+          <LaTeXRenderer>{parsedMetadata.source}</LaTeXRenderer>
         </div>
       )}
     </div>

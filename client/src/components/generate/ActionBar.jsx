@@ -19,7 +19,7 @@ export default function ActionBar({
         onClick={onExport}
         disabled={!canExport || isGenerating}
         className="btn-secondary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        title={!canExport && "Vui lòng lưu thay đổi trước khi xuất"}
+        title={!canExport ? "Vui lòng lưu thay đổi trước khi xuất" : ""}
       >
         Xuất DOCX
       </button>
