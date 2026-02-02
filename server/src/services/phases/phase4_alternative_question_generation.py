@@ -1024,7 +1024,8 @@ class AlternativeQuestionGenerationService:
                         learning_outcome=spec_data.get('learning_outcome', ''),
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Load TN2 prompt template
@@ -1097,7 +1098,8 @@ class AlternativeQuestionGenerationService:
                         learning_outcome=spec_data.get('learning_outcome', ''),
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Load TN_VD.txt template (or TN_VD_case2.txt if exists)
@@ -1233,7 +1235,8 @@ class AlternativeQuestionGenerationService:
                         learning_outcome=spec_data.get('learning_outcome', ''),
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Replace placeholders in prompt
@@ -1291,7 +1294,8 @@ class AlternativeQuestionGenerationService:
                         learning_outcome=spec_data.get('learning_outcome', ''),
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary
+                        supplementary_materials=supplementary,
+                        rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
                     # Get question template if available
