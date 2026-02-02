@@ -6,7 +6,7 @@ Parses AI-generated responses and converts them to rich content format
 import re
 import json
 from typing import Dict, List, Any, Union, Optional
-from data.rich_content import (
+from services.core.rich_content import (
     ContentBlock, ContentType, TableContent, ChartContent, ChartType,
     text, image, table, chart, latex, mixed
 )

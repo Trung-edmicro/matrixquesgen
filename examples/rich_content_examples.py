@@ -3,7 +3,7 @@ Example: How to use Rich Content in Question Generation
 Demonstrates creating questions with images, tables, charts, and mixed content
 """
 
-from server.src.data.rich_content import (
+from server.src.services.core.rich_content import (
     RichQuestion,
     text, image, table, chart, latex, mixed,
     ContentType, ChartType

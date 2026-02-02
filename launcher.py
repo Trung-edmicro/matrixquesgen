@@ -7,6 +7,8 @@ import os
 import time
 import webbrowser
 import threading
+import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # Set up paths
@@ -37,11 +39,51 @@ def open_browser():
 
 def main():
     """Main launcher function"""
+    # Setup logging to file first
+    log_dir = APP_DIR / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "app.log"
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            RotatingFileHandler(
+                log_file,
+                maxBytes=10*1024*1024,  # 10MB
+                backupCount=5,
+                encoding='utf-8'
+            )
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info("="*60)
+    logger.info("Starting MatrixQuesGen Application")
+    logger.info(f"Base Directory: {BASE_DIR}")
+    logger.info(f"App Directory: {APP_DIR}")
+    logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
+    logger.info("="*60)
+    
     print("=" * 60)
     print(" MatrixQuesGen - Hệ thống sinh câu hỏi tự động")
     print("=" * 60)
     print()
     print("→ Đang khởi động server...")
+    
+    # Start system tray icon if running as frozen exe
+    tray = None
+    if getattr(sys, 'frozen', False):
+        try:
+            from tray_icon import start_tray_icon
+            logger.info("Starting system tray icon...")
+            tray = start_tray_icon(APP_DIR)
+            logger.info("✓ System tray icon started")
+            print("✓ System tray icon đã khởi động (xem ở 'show hidden icons')")
+        except Exception as e:
+            logger.warning(f"Could not start tray icon: {e}")
+            print(f"⚠ Could not start tray icon: {e}")
     
     # Start browser opener in background thread
     browser_thread = threading.Thread(target=open_browser, daemon=True)
@@ -180,11 +222,16 @@ def main():
         print()
         
         # Run server
+        # Disable default logging config when frozen (console=False)
+        # to avoid 'NoneType' has no attribute 'isatty' error
+        log_config = None if getattr(sys, 'frozen', False) else uvicorn.config.LOGGING_CONFIG
+        
         uvicorn.run(
             app,
             host="0.0.0.0",
             port=8000,
-            log_level="info"
+            log_level="info",
+            log_config=log_config
         )
         
     except KeyboardInterrupt:
@@ -194,7 +241,12 @@ def main():
         print(f"\n✗ Lỗi khi khởi động server: {e}")
         import traceback
         traceback.print_exc()
-        input("\nNhấn Enter để thoát...")
+        # Don't use input() in frozen exe mode (sys.stdin not available)
+        if not getattr(sys, 'frozen', False):
+            input("\nNhấn Enter để thoát...")
+        else:
+            import time
+            time.sleep(5)  # Wait 5 seconds before exit
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -23,13 +23,26 @@ Thumbs.db
 # Local data
 .env
 data/
+examples/
 
 # IDE
 .vscode/
 .history/
+
+# Test files
+test_*.py
+test-*.ps1
+test_*.txt
 
 # Additional ignores
 *.log
 *.ps1
 *.spec
 modular_cli.md
+tray_icon.py
+create_icon.py
+read_matrix.py
+launcher.py
+analyze_structure.py
+debug_rich_types.py
+

@@ -19,7 +19,7 @@ from ..generators.question_generator import QuestionGenerator, GeneratedEssayQue
 from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
 # Import rich content support
-from data.rich_content import (
+from services.core.rich_content import (
     ContentBlock, ContentType,
     text as text_block, mixed as mixed_block
 )

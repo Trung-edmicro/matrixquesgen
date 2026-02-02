@@ -42,8 +42,9 @@ def get_text_content_schema() -> Dict:
 
 def get_table_content_schema() -> Dict:
     """
-    Schema cho content type='table' - Bảng biểu
-    Sử dụng khi: rich_content_types chứa 'BK' (bảng)
+    Schema cho content type='table' - Text + Bảng biểu
+    Sử dụng khi: rich_content_types chứa 'BK' hoặc ['BK','TT','LT']
+    ⚠️ LƯU Ý: Type 'table' = TEXT + BẢNG (không chỉ mỗi bảng)
     """
     return {
         "type": "object",
@@ -51,45 +52,92 @@ def get_table_content_schema() -> Dict:
             "type": {
                 "type": "string",
                 "const": "table",
-                "description": "Loại content: table (bảng)"
+                "description": "Loại content: table (text + bảng)"
             },
             "content": {
-                "type": "object",
-                "properties": {
-                    "headers": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Tiêu đề cột - array of strings"
-                    },
-                    "rows": {
-                        "type": "array",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"}
+                "type": "array",
+                "description": "Array chứa text và table object xen kẽ. VD: ['Dựa vào bảng:', {table_object}, 'Hãy cho biết...']",
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "description": "Text mô tả hoặc câu hỏi"
                         },
-                        "description": "Dữ liệu hàng - array of arrays"
-                    }
+                        {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "const": "table",
+                                    "description": "Loại: table"
+                                },
+                                "content": {
+                                    "type": "object",
+                                    "properties": {
+                                        "headers": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "Tiêu đề cột"
+                                        },
+                                        "rows": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "array",
+                                                "items": {"type": "string"}
+                                            },
+                                            "description": "Dữ liệu hàng"
+                                        }
+                                    },
+                                    "required": ["headers", "rows"]
+                                },
+                                "metadata": {
+                                    "type": "object",
+                                    "properties": {
+                                        "caption": {"type": "string"},
+                                        "source": {"type": "string"}
+                                    }
+                                }
+                            },
+                            "required": ["type", "content"],
+                            "description": "Table object"
+                        }
+                    ]
                 },
-                "required": ["headers", "rows"],
-                "description": "Object chứa headers và rows - KHÔNG PHẢI string"
+                "minItems": 1
             },
             "metadata": {
                 "type": "object",
                 "properties": {
-                    "caption": {"type": "string", "description": "Chú thích bảng"},
                     "source": {"type": "string", "description": "Nguồn dữ liệu"}
                 }
             }
         },
         "required": ["type", "content"],
-        "description": "Table structure - content PHẢI là object {headers, rows}"
+        "description": """Type='table' = TEXT + BẢNG (array chứa strings và table object)
+        
+⚠️ VÍ DỤ:
+{
+  "type": "table",
+  "content": [
+    "Dựa vào bảng dưới đây:",
+    {
+      "type": "table",
+      "content": {
+        "headers": ["Năm", "GDP (tỷ USD)"],
+        "rows": [["2010", "100"], ["2020", "150"]]
+      }
+    },
+    "Hãy cho biết tốc độ tăng trưởng?"
+  ]
+}"""
     }
 
 
 def get_chart_content_schema() -> Dict:
     """
-    Schema cho content type='chart' - Biểu đồ ECharts (SIMPLIFIED VERSION)
-    Sử dụng khi: rich_content_types chứa 'BD' (biểu đồ)
+    Schema cho content type='chart' - Text + Biểu đồ ECharts
+    Sử dụng khi: rich_content_types chứa 'BD' hoặc ['BD','TT','LT']
+    ⚠️ LƯU Ý: Type 'chart' = TEXT + BIỂU ĐỒ (không chỉ mỗi biểu đồ)
     """
     return {
         "type": "object",
@@ -97,110 +145,138 @@ def get_chart_content_schema() -> Dict:
             "type": {
                 "type": "string",
                 "const": "chart",
-                "description": "Loại content: chart (biểu đồ)"
+                "description": "Loại content: chart (text + biểu đồ)"
             },
             "content": {
-                "type": "object",
-                "properties": {
-                    "chartType": {
-                        "type": "string",
-                        "enum": ["bar", "line", "pie", "scatter", "combo"],
-                        "description": "Loại biểu đồ chính"
-                    },
-                    "echarts": {
-                        "type": "object",
-                        "description": "ECharts config - CHỈ CẦN 5 FIELDS: title, xAxis, yAxis, series, legend",
-                        "properties": {
-                            "title": {
-                                "type": "object",
-                                "properties": {
-                                    "text": {"type": "string"},
-                                    "left": {"type": "string"}
+                "type": "array",
+                "description": "Array chứa text và chart object xen kẽ. VD: ['Cho biểu đồ:', {chart_object}, 'Năm nào cao nhất?']",
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "description": "Text mô tả hoặc câu hỏi"
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "const": "chart",
+                                    "description": "Loại: chart"
                                 },
-                                "description": "Tiêu đề biểu đồ"
-                            },
-                            "xAxis": {
-                                "type": "object",
-                                "properties": {
-                                    "type": {"type": "string"},
-                                    "data": {"type": "array"}
-                                },
-                                "description": "Trục X"
-                            },
-                            "yAxis": {
-                                "type": "object",
-                                "properties": {
-                                    "type": {"type": "string"},
-                                    "name": {"type": "string"}
-                                },
-                                "description": "Trục Y"
-                            },
-                            "series": {
-                                "type": "array",
-                                "items": {
+                                "content": {
                                     "type": "object",
                                     "properties": {
-                                        "name": {"type": "string"},
-                                        "type": {"type": "string"},
-                                        "data": {"type": "array"},
-                                        "label": {"type": "object"}
+                                        "chartType": {
+                                            "type": "string",
+                                            "enum": ["bar", "line", "pie", "scatter", "combo"],
+                                            "description": "Loại biểu đồ"
+                                        },
+                                        "echarts": {
+                                            "type": "object",
+                                            "description": "ECharts config - CHỈ CẦN 5 FIELDS: title, xAxis, yAxis, series, legend",
+                                            "properties": {
+                                                "title": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "text": {"type": "string"},
+                                                        "left": {"type": "string"}
+                                                    }
+                                                },
+                                                "xAxis": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"type": "string"},
+                                                        "data": {"type": "array"}
+                                                    }
+                                                },
+                                                "yAxis": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "type": {"type": "string"},
+                                                        "name": {"type": "string"}
+                                                    }
+                                                },
+                                                "series": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "name": {"type": "string"},
+                                                            "type": {"type": "string"},
+                                                            "data": {"type": "array"},
+                                                            "label": {"type": "object"}
+                                                        }
+                                                    }
+                                                },
+                                                "legend": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "data": {"type": "array"},
+                                                        "bottom": {"type": "number"}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": ["chartType", "echarts"]
+                                },
+                                "metadata": {
+                                    "type": "object",
+                                    "properties": {
+                                        "caption": {"type": "string"},
+                                        "source": {"type": "string"},
+                                        "width": {"type": "number"},
+                                        "height": {"type": "number"}
                                     }
-                                },
-                                "description": "Dữ liệu series"
+                                }
                             },
-                            "legend": {
-                                "type": "object",
-                                "properties": {
-                                    "data": {"type": "array"},
-                                    "bottom": {"type": "number"}
-                                },
-                                "description": "Chú giải"
-                            }
+                            "required": ["type", "content"],
+                            "description": "Chart object"
                         }
-                    }
+                    ]
                 },
-                "required": ["chartType", "echarts"],
-                "description": "Object chứa chartType và echarts"
+                "minItems": 1
             },
             "metadata": {
                 "type": "object",
                 "properties": {
-                    "caption": {"type": "string"},
-                    "source": {"type": "string"},
-                    "width": {"type": "number"},
-                    "height": {"type": "number"}
+                    "source": {"type": "string"}
                 }
             }
         },
         "required": ["type", "content"],
-        "description": """Chart ECharts - CHỈ CẦN 5 FIELDS CƠ BẢN:
+        "description": """Type='chart' = TEXT + BIỂU ĐỒ (array chứa strings và chart object)
 
 ⚠️ VÍ DỤ:
 {
   "type": "chart",
-  "content": {
-    "chartType": "bar",
-    "echarts": {
-      "title": {"text": "DÂN SỐ THÀNH THỊ 2010-2021", "left": "center"},
-      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
-      "yAxis": {"type": "value", "name": "triệu người"},
-      "series": [{
-        "name": "Dân số thành thị",
-        "type": "bar",
-        "data": [26.5, 30.9, 36.6],
-        "label": {"show": true, "position": "top"}
-      }],
-      "legend": {"data": ["Dân số thành thị"], "bottom": 20}
-    }
-  }
+  "content": [
+    "Cho biểu đồ dân số thành thị:",
+    {
+      "type": "chart",
+      "content": {
+        "chartType": "bar",
+        "echarts": {
+          "title": {"text": "DÂN SỐ THÀNH THỊ", "left": "center"},
+          "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+          "yAxis": {"type": "value", "name": "triệu người"},
+          "series": [{"name": "Dân số", "type": "bar", "data": [26.5, 30.9, 36.6]}],
+          "legend": {"data": ["Dân số"], "bottom": 20}
+        }
+      }
+    },
+    "Năm nào có dân số cao nhất?"
+  ]
 }"""
     }
 
 
 def get_image_content_schema() -> Dict:
     """
-    Schema cho content type='image' - Hình ảnh
-    Sử dụng khi: rich_content_types chứa 'HA' (hình ảnh)
+    Schema cho content type='image' - Text + Hình ảnh
+    Sử dụng khi: rich_content_types chứa 'HA' hoặc ['HA','TT','LT']
+    ⚠️ LƯU Ý: Type 'image' = TEXT + HÌNH ẢNH (không chỉ mỗi hình ảnh)
     """
     return {
         "type": "object",
@@ -208,34 +284,80 @@ def get_image_content_schema() -> Dict:
             "type": {
                 "type": "string",
                 "const": "image",
-                "description": "Loại content: image (hình ảnh)"
+                "description": "Loại content: image (text + hình ảnh)"
             },
             "content": {
-                "type": "string",
-                "description": "URL hoặc path của hình ảnh - string"
+                "type": "array",
+                "description": "Array chứa text và image object xen kẽ. VD: ['Quan sát hình:', {image_object}, 'Đây là hiện tượng gì?']",
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "description": "Text mô tả hoặc câu hỏi"
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "const": "image",
+                                    "description": "Loại: image"
+                                },
+                                "content": {
+                                    "type": "string",
+                                    "description": "URL hoặc path của hình ảnh"
+                                },
+                                "metadata": {
+                                    "type": "object",
+                                    "properties": {
+                                        "caption": {"type": "string"},
+                                        "alt": {"type": "string"},
+                                        "width": {"type": "number"},
+                                        "height": {"type": "number"}
+                                    }
+                                }
+                            },
+                            "required": ["type", "content"],
+                            "description": "Image object"
+                        }
+                    ]
+                },
+                "minItems": 1
             },
             "metadata": {
                 "type": "object",
                 "properties": {
-                    "caption": {"type": "string", "description": "Chú thích hình ảnh"},
-                    "alt": {"type": "string", "description": "Alt text"},
-                    "width": {"type": "number", "description": "Chiều rộng (px)"},
-                    "height": {"type": "number", "description": "Chiều cao (px)"}
+                    "source": {"type": "string"}
                 }
             }
         },
         "required": ["type", "content"],
-        "description": "Image - content PHẢI là URL string"
+        "description": """Type='image' = TEXT + HÌNH ẢNH (array chứa strings và image object)
+
+⚠️ VÍ DỤ:
+{
+  "type": "image",
+  "content": [
+    "Quan sát bản đồ dưới đây:",
+    {
+      "type": "image",
+      "content": "https://example.com/map.png",
+      "metadata": {"caption": "Hình 1: Bản đồ ASEAN"}
+    },
+    "Quốc gia nào có diện tích lớn nhất?"
+  ]
+}"""
     }
 
 
 def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
     """
-    Schema cho content type='mixed' - Kết hợp text + rich content
-    Sử dụng khi: rich_content_types chứa NHIỀU loại (VD: BK + BD, hoặc text + BK)
+    Schema cho content type='mixed' - Kết hợp NHIỀU loại rich content
+    Sử dụng khi: rich_content_types chứa NHIỀU loại khác nhau (VD: ['BK','BD'], ['BK','HA'], ['BD','HA','BK'])
+    ⚠️ LƯU Ý: Type 'mixed' CHỈ dùng khi có ≥2 loại rich content khác nhau (table+chart, table+image, chart+image, ...)
     
     Args:
-        rich_types: List các loại rich content (VD: ['BK', 'BD'])
+        rich_types: List các loại rich content (VD: ['BK', 'BD', 'HA'])
     """
     # Build description dựa trên rich_types
     types_hint = ""
@@ -351,17 +473,31 @@ def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
 
 def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = None) -> Dict:
     """
-    ⭐ HÀM CHÍNH: Chọn schema phù hợp dựa trên rich_content_types
+    ⭐ HÀM CHÍNH: Chọn schema phù hợp dựa trên rich_content_types từ ma trận
     
-    Logic:
-    - None hoặc [] hoặc chỉ ['LT']: → text_content_schema
-    - Chỉ ['BK']: → table_content_schema
-    - Chỉ ['BD']: → chart_content_schema
-    - Chỉ ['HA']: → image_content_schema
-    - Nhiều types (VD: ['BK', 'BD']): → mixed_content_schema
+    🎯 LOGIC PHÂN LOẠI MỚI (Rõ ràng hơn):
+    
+    1. None / [] / chỉ ['LT'] / chỉ ['TT'] / ['LT','TT']:
+       → type='text' (text thuần)
+    
+    2. ['BK'] hoặc ['BK','LT'] hoặc ['BK','TT'] hoặc ['BK','LT','TT']:
+       → type='table' (TEXT + BẢNG - array format)
+       ⚠️ Lưu ý: Không chỉ có bảng, phải có cả text mô tả
+    
+    3. ['BD'] hoặc ['BD','LT'] hoặc ['BD','TT'] hoặc ['BD','LT','TT']:
+       → type='chart' (TEXT + BIỂU ĐỒ - array format)
+       ⚠️ Lưu ý: Không chỉ có biểu đồ, phải có cả text mô tả
+    
+    4. ['HA'] hoặc ['HA','LT'] hoặc ['HA','TT'] hoặc ['HA','LT','TT']:
+       → type='image' (TEXT + HÌNH ẢNH - array format)
+       ⚠️ Lưu ý: Không chỉ có hình ảnh, phải có cả text mô tả
+    
+    5. Nhiều loại khác nhau: ['BK','BD'], ['BK','HA'], ['BD','HA'], ['BK','BD','HA']:
+       → type='mixed' (KẾT HỢP NHIỀU LOẠI RICH CONTENT)
+       ⚠️ Lưu ý: Chỉ dùng mixed khi có ≥2 loại rich content khác nhau
     
     Args:
-        rich_content_types: List các loại rich content từ matrix (VD: ['BK'], ['BD'], ['BK', 'BD'])
+        rich_content_types: List các loại rich content từ matrix (VD: ['BK'], ['BD'], ['BK','BD'])
     
     Returns:
         Dict: Schema phù hợp với loại content
@@ -369,23 +505,28 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = N
     if not rich_content_types:
         return get_text_content_schema()
     
-    # Filter out 'LT' (lý thuyết text) và 'TT' (tính toán - vẫn coi như text)
+    # Lọc bỏ 'LT' (lý thuyết) và 'TT' (tính toán) - chỉ giữ lại BK, BD, HA
     actual_rich_types = [t for t in rich_content_types if t not in ['LT', 'TT']]
     
+    # Nếu không còn rich type nào → text thuần
     if not actual_rich_types:
         return get_text_content_schema()
     
-    # Nếu chỉ có 1 loại rich content → dùng schema riêng
+    # Nếu chỉ có 1 loại rich content (BK/BD/HA) → dùng schema riêng (text + rich)
     if len(actual_rich_types) == 1:
         rich_type = actual_rich_types[0]
         if rich_type == 'BK':
+            # BK → text + table
             return get_table_content_schema()
         elif rich_type == 'BD':
+            # BD → text + chart
             return get_chart_content_schema()
         elif rich_type == 'HA':
+            # HA → text + image
             return get_image_content_schema()
     
-    # Nhiều loại rich content → dùng mixed
+    # Nhiều loại rich content khác nhau → dùng mixed
+    # VD: ['BK','BD'], ['BK','HA'], ['BD','HA'], ['BK','BD','HA']
     return get_mixed_content_schema(actual_rich_types)
 
 

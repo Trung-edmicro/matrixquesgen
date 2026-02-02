@@ -347,6 +347,7 @@ class QuestionGenerator:
                 
                 # Parse response
                 data = json.loads(response) if isinstance(response, str) else response
+                print(f">>>>>>{data}")
                 questions_data = data.get("questions", [])
                 
                 # Kiểm tra nếu không có câu hỏi nào được sinh
