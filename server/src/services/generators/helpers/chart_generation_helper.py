@@ -154,8 +154,8 @@ def get_chart_data_schema() -> Dict:
                                                 "description": "BẮT BUỘC: center"
                                             },
                                             "bottom": {
-                                                "type": "number",
-                                                "enum": [20],
+                                                "type": "string",
+                                                "enum": ["20"],
                                                 "description": "BẮT BUỘC: 20"
                                             },
                                             "style": {
@@ -535,8 +535,8 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
             if g.get('left') != 'center':
                 return False, f"graphic[{i}].left phải là 'center'"
             
-            # Check bottom = 20 (bắt buộc)
-            if g.get('bottom') != 20:
+            # Check bottom = "20" (bắt buộc)
+            if g.get('bottom') != "20":
                 return False, f"graphic[{i}].bottom phải là 20"
             
             # Check style.text

@@ -7,6 +7,17 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+import tempfile
+import os
+import base64
+from io import BytesIO
+from PIL import Image
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -135,18 +146,19 @@ class DocxGenerator:
         if headers is None and auto_headers:
             headers = list(data[0].keys())
         
-        # Tạo bảng
+        # Tạo bảng với border đơn giản, không tô màu
         table = self.document.add_table(rows=1, cols=len(headers))
-        table.style = 'Light Grid Accent 1'
+        table.style = 'Table Grid'  # Border đơn giản, không màu
         
         # Thêm header
         header_cells = table.rows[0].cells
         for idx, header in enumerate(headers):
             header_cells[idx].text = str(header)
-            # Format header
+            # Format header: CHỈ BOLD, không tô màu nền
             for paragraph in header_cells[idx].paragraphs:
                 for run in paragraph.runs:
                     run.bold = True
+                    run.font.size = Pt(11)
         
         # Thêm dữ liệu
         for item in data:
@@ -174,6 +186,239 @@ class DocxGenerator:
         shading_elm = OxmlElement('w:shd')
         shading_elm.set(qn('w:fill'), color)
         run._element.get_or_add_rPr().append(shading_elm)
+    
+    def _add_mixed_content(self, para, content: List):
+        """Xử lý mixed content: text + table + chart"""
+        for item in content:
+            if isinstance(item, str):
+                # Text content
+                para.add_run(item)
+            elif isinstance(item, dict):
+                item_type = item.get('type', '')
+                
+                if item_type == 'table':
+                    # Add line break before table
+                    para.add_run('\n')
+                    self._add_inline_table(item.get('content', {}))
+                    
+                elif item_type == 'chart':
+                    # Add line break before chart
+                    para.add_run('\n')
+                    self._add_inline_chart(item.get('content', {}))
+                    
+                elif item_type == 'chart' and 'chart_id' in item:
+                    # Chart reference (không có echarts data, chỉ có chart_id)
+                    para.add_run('\n')
+                    para.add_run(f"[Biểu đồ {item.get('chart_id')}]")
+                    para.add_run('\n')
+    
+    def _add_inline_table(self, table_data: Dict):
+        """Thêm bảng inline vào document"""
+        if not table_data:
+            return
+        
+        headers = table_data.get('headers', [])
+        rows = table_data.get('rows', [])
+        
+        if not headers or not rows:
+            return
+        
+        # Tạo bảng với border đơn giản, không tô màu
+        table = self.document.add_table(rows=1, cols=len(headers))
+        table.style = 'Table Grid'  # Border đơn giản, không màu
+        
+        # Thêm header
+        header_cells = table.rows[0].cells
+        for idx, header in enumerate(headers):
+            header_cells[idx].text = str(header)
+            # Format header: CHỈ BOLD, không tô màu nền
+            for paragraph in header_cells[idx].paragraphs:
+                for run in paragraph.runs:
+                    run.bold = True
+                    run.font.size = Pt(11)
+        
+        # Thêm dữ liệu
+        for row_data in rows:
+            row_cells = table.add_row().cells
+            for idx, cell_value in enumerate(row_data):
+                if idx < len(row_cells):
+                    row_cells[idx].text = str(cell_value)
+                    # Format cell
+                    for paragraph in row_cells[idx].paragraphs:
+                        for run in paragraph.runs:
+                            run.font.size = Pt(11)
+        
+        # Thêm caption nếu có
+        metadata = table_data.get('metadata', {})
+        caption = metadata.get('caption', '')
+        source = metadata.get('source', '')
+        
+        if caption:
+            para = self.document.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = para.add_run(caption)
+            run.italic = True
+            run.font.size = Pt(10)
+        
+        if source:
+            para = self.document.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = para.add_run(f"(Nguồn: {source})")
+            run.italic = True
+            run.font.size = Pt(10)
+    
+    def _add_inline_chart(self, chart_data: Dict):
+        """Thêm chart vào document - render thành PNG nếu có playwright"""
+        if not chart_data:
+            return
+        
+        chart_type = chart_data.get('chartType', 'bar')
+        echarts = chart_data.get('echarts', {})
+        
+        # Lấy thông tin cơ bản từ echarts
+        title = echarts.get('title', {}).get('text', 'Biểu đồ')
+        
+        # Render chart thành ảnh nếu có playwright
+        if PLAYWRIGHT_AVAILABLE:
+            try:
+                image_path = self._render_chart_to_image(echarts)
+                if image_path:
+                    # Thêm ảnh vào document
+                    para = self.document.add_paragraph()
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = para.add_run()
+                    run.add_picture(image_path, width=Inches(5.5))
+                    
+                    # Xóa file tạm
+                    try:
+                        os.remove(image_path)
+                    except:
+                        pass
+                    
+                    if self.verbose:
+                        print(f"✓ Đã chèn chart vào DOCX: {title}")
+                    return
+            except Exception as e:
+                if self.verbose:
+                    print(f"⚠️  Không thể render chart thành ảnh: {e}")
+                # Fall through to placeholder
+        
+        # Fallback: Placeholder text nếu không có playwright hoặc lỗi
+        para = self.document.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = para.add_run(title)
+        run.bold = True
+        run.font.size = Pt(12)
+        
+        para = self.document.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = para.add_run(f"[{chart_type.upper()} CHART - Cần cài playwright để xuất ảnh]")
+        run.italic = True
+        run.font.color.rgb = RGBColor(128, 128, 128)
+        
+        # Thêm graphic source nếu có
+        graphic = echarts.get('graphic', [])
+        if graphic and len(graphic) > 0:
+            source_text = graphic[0].get('style', {}).get('text', '')
+            if source_text:
+                para = self.document.add_paragraph()
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = para.add_run(source_text)
+                run.italic = True
+                run.font.size = Pt(10)
+    
+    def _render_chart_to_image(self, echarts_config: Dict) -> Optional[str]:
+        """
+        Render ECharts config thành PNG image sử dụng Playwright
+        
+        Args:
+            echarts_config: ECharts configuration dict
+            
+        Returns:
+            Path đến file PNG tạm, hoặc None nếu thất bại
+        """
+        if not PLAYWRIGHT_AVAILABLE:
+            return None
+        
+        try:
+            # Tạo HTML chứa ECharts
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body {{ margin: 0; padding: 20px; background: white; }}
+        #chart {{ width: 800px; height: 500px; }}
+    </style>
+</head>
+<body>
+    <div id="chart"></div>
+    <script>
+        var chartDom = document.getElementById('chart');
+        var myChart = echarts.init(chartDom);
+        var option = {json.dumps(echarts_config, ensure_ascii=False)};
+        myChart.setOption(option);
+        
+        // Đánh dấu chart đã sẵn sàng
+        window.chartReady = true;
+    </script>
+</body>
+</html>
+"""
+            
+            # Tạo file HTML tạm
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+                f.write(html_content)
+                html_path = f.name
+            
+            # Tạo file PNG tạm
+            png_path = html_path.replace('.html', '.png')
+            
+            try:
+                # Sử dụng Playwright để render
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    page = browser.new_page(viewport={'width': 840, 'height': 540})
+                    
+                    # Load HTML
+                    page.goto(f'file:///{html_path.replace(os.sep, "/")}')
+                    
+                    # Đợi chart render xong
+                    page.wait_for_function('window.chartReady === true', timeout=5000)
+                    page.wait_for_timeout(500)  # Thêm delay để đảm bảo chart render hoàn toàn
+                    
+                    # Screenshot
+                    chart_element = page.locator('#chart')
+                    chart_element.screenshot(path=png_path)
+                    
+                    browser.close()
+                
+                # Xóa file HTML tạm
+                try:
+                    os.remove(html_path)
+                except:
+                    pass
+                
+                return png_path
+                
+            except Exception as e:
+                # Cleanup
+                try:
+                    os.remove(html_path)
+                except:
+                    pass
+                try:
+                    os.remove(png_path)
+                except:
+                    pass
+                raise
+                
+        except Exception as e:
+            if self.verbose:
+                print(f"✗ Lỗi khi render chart: {e}")
+            return None
     
     def generate_from_json(self, 
                           json_data: Union[Dict, str],
@@ -432,8 +677,22 @@ class DocxGenerator:
             # Handle question_stem - can be string or dict
             question_stem = question.get('question_stem', '')
             if isinstance(question_stem, dict):
-                question_stem = question_stem.get('content', '')
-            para.add_run(question_stem)
+                stem_type = question_stem.get('type', 'text')
+                
+                if stem_type == 'mixed':
+                    # Mixed content: text + table + chart
+                    content = question_stem.get('content', [])
+                    self._add_mixed_content(para, content)
+                elif stem_type == 'chart':
+                    # Chart with before/after text
+                    content = question_stem.get('content', [])
+                    self._add_mixed_content(para, content)
+                else:
+                    # Simple text
+                    question_stem = question_stem.get('content', '')
+                    para.add_run(question_stem)
+            else:
+                para.add_run(question_stem)
             
             # Các lựa chọn
             options = question.get('options', {})
@@ -595,8 +854,18 @@ class DocxGenerator:
             # Handle question_stem - can be string or dict
             question_stem = question.get('question_stem', '')
             if isinstance(question_stem, dict):
-                question_stem = question_stem.get('content', '')
-            para.add_run(question_stem)
+                stem_type = question_stem.get('type', 'text')
+                
+                if stem_type in ['mixed', 'chart']:
+                    # Mixed content: text + table + chart
+                    content = question_stem.get('content', [])
+                    self._add_mixed_content(para, content)
+                else:
+                    # Simple text
+                    question_stem = question_stem.get('content', '')
+                    para.add_run(question_stem)
+            else:
+                para.add_run(question_stem)
             
         except Exception as e:
             print(f"Error in _add_tl_question {number}: {e}")
@@ -645,8 +914,18 @@ class DocxGenerator:
             # Handle question_stem - can be string or dict
             question_stem = question.get('question_stem', '')
             if isinstance(question_stem, dict):
-                question_stem = question_stem.get('content', '')
-            para.add_run(question_stem)
+                stem_type = question_stem.get('type', 'text')
+                
+                if stem_type in ['mixed', 'chart']:
+                    # Mixed content: text + table + chart
+                    content = question_stem.get('content', [])
+                    self._add_mixed_content(para, content)
+                else:
+                    # Simple text
+                    question_stem = question_stem.get('content', '')
+                    para.add_run(question_stem)
+            else:
+                para.add_run(question_stem)
             
         except Exception as e:
             print(f"Error in _add_tln_question {number}: {e}")
