@@ -1,0 +1,262 @@
+# HƯỚNG DẪN RICH CONTENT - PHIÊN BẢN ĐƠN GIẢN
+
+## 🎯 QUY TẮC VÀNG (ĐỌC ĐẦU TIÊN)
+
+### 1. KIỂM TRA question_code
+**Khi sinh NHIỀU câu cùng lúc (C4, C5, C6...):**
+- Xác định `question_code` của câu đang sinh (C4? C5?)
+- CHỈ áp dụng yêu cầu rich_content của MÃ ĐÓ
+- VÍ DỤ: Đang sinh C4 → Chỉ xem "Câu C4: BD" → Dùng chart
+- VÍ DỤ: Đang sinh C5 → Chỉ xem "Câu C5: BK" → Dùng table
+- ❌ **TUYỆT ĐỐI KHÔNG trộn lẫn** yêu cầu giữa các câu
+
+### 2. MÃ LOẠI CONTENT
+- **BD** = Biểu đồ (chart) → type: "chart"
+- **BK** = Bảng (table) → type: "table"  
+- **HA** = Hình ảnh (image) → type: "image"
+- **LT/TT** = Text thuần → type: "text" (KHÔNG phải rich content)
+
+### 3. CẤU TRÚC CƠ BẢN
+
+#### ✅ CHART (BD):
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": {"type": "value", "name": "triệu người"},
+      "series": [{
+        "name": "Dân số",
+        "type": "bar",
+        "data": [26.5, 30.9, 36.6]
+      }]
+    }
+  },
+  "metadata": {"source": "Niên giám thống kê"}
+}
+```
+
+#### ✅ TABLE (BK):
+```json
+{
+  "type": "table",
+  "content": {
+    "headers": ["Năm", "2010", "2015", "2021"],
+    "rows": [
+      ["GDP (%)", "6.4", "6.7", "2.6"]
+    ]
+  },
+  "metadata": {"source": "Tổng cục Thống kê"}
+}
+```
+
+#### ✅ IMAGE (HA):
+```json
+{
+  "type": "image",
+  "content": "https://example.com/map.png",
+  "metadata": {
+    "caption": "Bản đồ Việt Nam",
+    "alt": "Map of Vietnam"
+  }
+}
+```
+
+#### ✅ TEXT THUẦN (LT/TT hoặc KHÔNG có yêu cầu):
+```json
+{
+  "type": "text",
+  "content": "Câu hỏi dạng text thuần..."
+}
+```
+
+---
+
+## 📊 HƯỚNG DẪN TẠO CHART
+
+### NGUYÊN TẮC: CHỈ TRÍCH XUẤT DỮ LIỆU CẦN THIẾT
+
+**❌ SAI:** Convert toàn bộ materials thành chart  
+**✅ ĐÚNG:** Chỉ lấy dữ liệu liên quan đến câu hỏi
+
+### QUY TRÌNH 3 BƯỚC:
+
+**BƯỚC 1: ĐỌC CÂU HỎI**
+- Yêu cầu so sánh cái gì? (nhiệt độ? GDP? dân số?)
+- So sánh khi nào? (năm 2010, 2015, 2021?)
+- So sánh đâu? (Hà Nội vs Cà Mau?)
+
+**BƯỚC 2: TÌM DỮ LIỆU**
+- Tìm trong {{MATERIALS}} phần table/chart có dữ liệu
+- Xác định headers (cột) và rows (hàng)
+
+**BƯỚC 3: TRÍCH XUẤT & TẠO ECHARTS**
+- CHỈ lấy cột/hàng CẦN THIẾT (không lấy hết)
+- Tạo echarts config đơn giản với 4 thành phần:
+  - `xAxis`: trục ngang (thời gian/địa điểm)
+  - `yAxis`: trục đứng (đơn vị: %, triệu người, °C...)
+  - `series`: dữ liệu (mảng số)
+  - `legend`: chú giải (tùy chọn)
+
+### VÍ DỤ CỤ THỂ:
+
+#### Ví dụ 1: "So sánh nhiệt độ trung bình năm 2023 Hà Nội vs Cà Mau"
+
+Materials có nhiều dữ liệu:
+```
+Headers: [Trạm, 2019, 2020, 2021, 2022, 2023]
+Rows: 
+  [Hà Nội (Láng), 25.9, 25.3, 25.3, 25.0, 25.8]
+  [Cà Mau, 28.1, 28.2, 27.7, 27.8, 28.0]
+  [Quy Nhơn, 28.1, 27.6, 27.3, 27.2, 27.8]
+```
+
+→ CHỈ lấy 2023 + Hà Nội & Cà Mau (bỏ Quy Nhơn):
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "xAxis": {"type": "category", "data": ["Hà Nội", "Cà Mau"]},
+      "yAxis": {"type": "value", "name": "°C"},
+      "series": [{
+        "name": "Nhiệt độ TB 2023",
+        "type": "bar",
+        "data": [25.8, 28.0]
+      }]
+    }
+  }
+}
+```
+
+#### Ví dụ 2: "Tỉ trọng kinh tế nhà nước 2010, 2015, 2021"
+
+Materials có nhiều thành phần:
+```
+Headers: [Thành phần, 2010, 2015, 2018, 2020, 2021]
+Rows:
+  [Kinh tế Nhà nước, 29.3, 22.8, 21.5, 21.0, 21.2]
+  [Kinh tế tư nhân, 43.0, 50.6, 48.0, 49.5, 50.1]
+  [FDI, 15.2, 17.5, 19.0, 19.5, 20.0]
+```
+
+→ CHỈ lấy Nhà nước + năm 2010,2015,2021 (bỏ 2018,2020 và các thành phần khác):
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "line",
+    "echarts": {
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": {"type": "value", "name": "%"},
+      "series": [{
+        "name": "Kinh tế Nhà nước",
+        "type": "line",
+        "data": [29.3, 22.8, 21.2]
+      }]
+    }
+  }
+}
+```
+
+#### Ví dụ 3: Biểu đồ combo (bar + line, dual yAxis)
+
+Câu hỏi: "So sánh dân số và tỷ lệ đô thị hóa 2010-2021"
+
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "combo",
+    "echarts": {
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": [
+        {"type": "value", "name": "triệu người", "position": "left"},
+        {"type": "value", "name": "%", "position": "right"}
+      ],
+      "series": [
+        {
+          "name": "Dân số đô thị",
+          "type": "bar",
+          "yAxisIndex": 0,
+          "data": [26.5, 30.9, 36.6]
+        },
+        {
+          "name": "Tỷ lệ đô thị (%)",
+          "type": "line",
+          "yAxisIndex": 1,
+          "data": [30.5, 34.4, 37.5]
+        }
+      ],
+      "legend": {"data": ["Dân số đô thị", "Tỷ lệ đô thị (%)"], "bottom": 10}
+    }
+  }
+}
+```
+
+---
+
+## ⚠️ LƯU Ý QUAN TRỌNG
+
+### ✅ BẮT BUỘC:
+- Luôn kiểm tra `question_code` trước khi xử lý
+- Chỉ dùng dữ liệu từ {{MATERIALS}}, không tự tạo
+- **⚠️ ECHARTS TUYỆT ĐỐI KHÔNG ĐƯỢC:**
+  - `xAxis: {}` ← SAI! PHẢI có `xAxis: {data: ["2010", "2015"]}`
+  - `yAxis: {}` ← SAI! PHẢI có `yAxis: {type: "value", name: "%"}`
+  - `series: [{data: [100]}]` ← SAI! PHẢI có `series: [{name: "GDP", type: "bar", data: [100, 200]}]`
+- Trích xuất CHỈ DỮ LIỆU LIÊN QUAN, không convert toàn bộ
+
+### ❌ TUYỆT ĐỐI KHÔNG:
+- Tự tạo URL hình ảnh (Wikipedia, Wikimedia...)
+- Tự nghĩ số liệu không có trong materials
+- Trộn lẫn yêu cầu giữa các câu (C4 dùng yêu cầu C5)
+- Thêm rich content không được yêu cầu
+
+**❌ VÍ DỤ SAI - KHÔNG LÀM NHƯ THẾ NÀY:**
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "xAxis": {},           ← SAI! Thiếu data
+      "yAxis": {},           ← SAI! Thiếu type/name  
+      "series": [{"data": [100]}]  ← SAI! Thiếu name/type
+    }
+  }
+}
+```
+
+**✅ ĐÚNG - PHẢI LÀM NHƯ NÀY:**
+```json
+{
+  "type": "chart",
+  "content": {
+    "chartType": "bar",
+    "echarts": {
+      "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+      "yAxis": {"type": "value", "name": "%"},
+      "series": [{
+        "name": "Kinh tế Nhà nước",
+        "type": "bar",
+        "data": [29.3, 22.8, 21.2]
+      }]
+    }
+  }
+}
+```
+
+### 🎯 CHECKLIST CUỐI:
+- [ ] Đã kiểm tra question_code chưa?
+- [ ] Schema type đúng với yêu cầu chưa? (BD→chart, BK→table)
+- [ ] **Echarts có ĐẦY ĐỦ xAxis.data, yAxis.type/name, series[].name/type/data chưa?**
+- [ ] Chỉ trích xuất dữ liệu cần thiết chưa? (không lấy hết materials)
+- [ ] Metadata có source chưa?
+
+---
+
+**GHI NHỚ:** Đơn giản > Phức tạp. Rõ ràng > Chi tiết. Đúng > Đẹp.

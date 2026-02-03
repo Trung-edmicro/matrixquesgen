@@ -1,0 +1,108 @@
+{
+  "questions": [
+    {
+      "question_id": "q1_urban_pop",
+      "question_stem": {
+        "type": "chart",
+        "content": [
+          "Cho biểu đồ thể hiện dân số thành thị của Việt Nam giai đoạn 2010-2021:",
+          {
+            "type": "chart",
+            "content": {
+              "chartType": "bar",
+              "echarts": {
+                "xAxis": {
+                  "type": "category",
+                  "data": [
+                    "2010",
+                    "2015",
+                    "2021"
+                  ]
+                },
+                "yAxis": {
+                  "type": "value",
+                  "name": "Triệu người"
+                },
+                "series": [
+                  {
+                    "name": "Dân số thành thị",
+                    "type": "bar",
+                    "data": [
+                      26.5,
+                      30.9,
+                      36.6
+                    ]
+                  }
+                ]
+              }
+            },
+            "metadata": {
+              "caption": "Dân số thành thị Việt Nam giai đoạn 2010-2021"
+            }
+          },
+          "Căn cứ vào biểu đồ, nhận xét nào sau đây là đúng về sự thay đổi số dân thành thị của nước ta trong giai đoạn trên?"
+        ]
+      },
+      "options": {
+        "A": "Tăng liên tục qua các năm.",
+        "B": "Có xu hướng giảm dần.",
+        "C": "Biến động tăng giảm không ổn định.",
+        "D": "Giữ nguyên không thay đổi."
+      },
+      "correct_answer": "A",
+      "explanation": "Dân số thành thị của Việt Nam tăng liên tục qua các năm do quá trình đô thị hóa và sự phát triển kinh tế xã hội."
+    },
+    {
+      "question_id": "q2_state_econ",
+      "question_stem": {
+        "type": "chart",
+        "content": [
+          "Quan sát biểu đồ về tỉ trọng kinh tế nhà nước trong cơ cấu GDP của Việt Nam giai đoạn 2010-2021:",
+          {
+            "type": "chart",
+            "content": {
+              "chartType": "bar",
+              "echarts": {
+                "xAxis": {
+                  "type": "category",
+                  "data": [
+                    "2010",
+                    "2015",
+                    "2021"
+                  ]
+                },
+                "yAxis": {
+                  "type": "value",
+                  "name": "%"
+                },
+                "series": [
+                  {
+                    "name": "Kinh tế Nhà nước",
+                    "type": "bar",
+                    "data": [
+                      29.3,
+                      22.8,
+                      21.2
+                    ]
+                  }
+                ]
+              }
+            },
+            "metadata": {
+              "caption": "Tỉ trọng kinh tế nhà nước Việt Nam giai đoạn 2010-2021"
+            }
+          },
+          "Nhận xét nào sau đây phản ánh đúng xu hướng chuyển dịch cơ cấu kinh tế đối với khu vực nhà nước thể hiện trong biểu đồ?"
+        ]
+      },
+      "options": {
+        "A": "Tỉ trọng tăng nhanh và chiếm đa số.",
+        "B": "Tỉ trọng có xu hướng giảm dần.",
+        "C": "Tỉ trọng ổn định, không có sự thay đổi.",
+        "D": "Tăng mạnh vào đầu giai đoạn rồi đi ngang."
+      },
+      "correct_answer": "B",
+      "explanation": "Trong giai đoạn này, tỉ trọng khu vực kinh tế Nhà nước có xu hướng giảm dần phù hợp với chính sách phát triển nền kinh tế nhiều thành phần."
+    }
+  ]
+}

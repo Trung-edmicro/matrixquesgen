@@ -241,11 +241,11 @@ function ChartRenderer({ content, metadata }) {
           <LaTeXRenderer>{parsedMetadata.caption}</LaTeXRenderer>
         </div>
       )}
-      {parsedMetadata?.source && (
+      {/* {parsedMetadata?.source && (
         <div className="text-xs text-gray-500 mt-1 text-center">
           <LaTeXRenderer>{parsedMetadata.source}</LaTeXRenderer>
         </div>
-      )}
+      )} */}
     </div>
   )
 }

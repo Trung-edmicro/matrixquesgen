@@ -1,0 +1,255 @@
+# QUY TẮC BẮT BUỘC VỀ RICH CONTENT
+
+⚠️ **QUAN TRỌNG: ĐỌC KỸ VÀ TUÂN THỦ NGHIÊM NGẶT**
+
+## ⚡ 0. KIỂM TRA QUESTION_CODE TRƯỚC KHI XỬ LÝ
+
+**KHI SINH NHIỀU CÂU HỎI CÙNG LÚC (C4, C5, C6, v.v.):**
+
+1. **BẮT BUỘC** kiểm tra `question_code` của câu đang sinh  
+2. **CHỈ ÁP DỤNG** yêu cầu rich_content tương ứng với code ĐÓ  
+3. **VÍ DỤ QUAN TRỌNG:**
+   - Đang sinh câu `question_code: "C4"` → Tìm "Câu C4" trong danh sách yêu cầu → Áp dụng loại rich content của C4
+   - Đang sinh câu `question_code: "C5"` → Tìm "Câu C5" trong danh sách yêu cầu → Áp dụng loại rich content của C5
+   - **KHÔNG ĐƯỢC** dùng yêu cầu của C4 cho câu C5, hoặc ngược lại!
+
+**CÁCH KIỂM TRA:**
+```
+Bước 1: Xác định question_code hiện tại (C4? C5? C6?)
+Bước 2: Tìm dòng "Câu {question_code}: ..." trong phần yêu cầu
+Bước 3: Chỉ áp dụng yêu cầu của dòng đó, BỎ QUA các dòng khác
+```
+
+---
+
+## 1. KHI KHÔNG CÓ YÊU CẦU RICH CONTENT
+
+**NẾU** `rich_content_types` **TRỐNG** hoặc **CHỈ CÓ** `['Lý thuyết']` hoặc `['Tính toán']`:
+
+→ **TUYỆT ĐỐI CHỈ DÙNG TEXT THUẦN**
+→ **KHÔNG ĐƯỢC TẠO** table/chart/image dưới bất kỳ hình thức nào  
+→ Câu hỏi/tư liệu phải là văn bản thuần túy
+→ `question_stem.type` = `"text"`
+→ `question_stem.content` = chuỗi văn bản đơn giản
+
+**VÍ DỤ SAI:**
+```json
+{
+  "type": "mixed",
+  "content": ["Cho bảng:", {...table...}]
+}
+```
+
+**VÍ DỤ ĐÚNG:**
+```json
+{
+  "type": "text", 
+  "content": "Dựa vào số liệu: Hà Nội 25.3°C, Cà Mau 28.0°C..."
+}
+```
+
+---
+
+## 2. ĐỊNH NGHĨA CÁC MÃ RICH CONTENT
+
+- **'BK'** = Bảng khảo, bảng số liệu (table)
+- **'BD'** = Biểu đồ (chart)  
+- **'HA'** = Hình ảnh (image)
+- **'LT'** = Lý thuyết → **TEXT THUẦN**, không phải rich content
+- **'TT'** = Tính toán → **TEXT THUẦN**, không phải rich content
+
+---
+
+## 3. QUY TẮC CHỌN SCHEMA TYPE
+
+### Trường hợp A: CHỈ CÓ 1 LOẠI RICH CONTENT CHÍNH
+
+| rich_content_types | Schema Type | Ví dụ Content |
+|---|---|---|
+| `['BK']` hoặc `['BK','LT']` hoặc `['BK','TT']` | `"table"` | `["Cho bảng:", {table_object}]` |
+| `['BD']` hoặc `['BD','LT']` hoặc `['BD','TT']` | `"chart"` | `["Biểu đồ sau:", {chart_object}]` |
+| `['HA']` hoặc `['HA','LT']` hoặc `['HA','TT']` | `"image"` | `["Hình ảnh:", {image_object}]` |
+
+**LƯU Ý:** Content luôn là ARRAY chứa text mô tả + 1 rich content object
+
+### Trường hợp B: NHIỀU LOẠI RICH CONTENT CHÍNH
+
+| rich_content_types | Schema Type | Ví dụ |
+|---|---|---|
+| `['BK','BD']` | `"mixed"` | Text + table + chart |
+| `['BK','HA']` | `"mixed"` | Text + table + image |
+| `['BD','HA']` | `"mixed"` | Text + chart + image |
+| `['BK','BD','HA']` | `"mixed"` | Text + table + chart + image |
+
+---
+
+## 4. NGUỒN DỮ LIỆU
+
+✅ **CHỈ LẤY DỮ LIỆU TỪ:** `{{MATERIALS}}`  
+❌ **TUYỆT ĐỐI KHÔNG:**
+- Tự tạo URL hình ảnh (Wikipedia, Wikimedia, v.v.)
+- Tự nghĩ số liệu không có trong MATERIALS
+- Thêm loại rich content không được yêu cầu
+
+---
+
+## 5. CẤU TRÚC CONTENT ĐÚNG
+
+### Text thuần (type="text"):
+```json
+{
+  "type": "text",
+  "content": "Câu hỏi bằng văn bản..."
+}
+```
+
+### Table (type="table"):
+```json
+{
+  "type": "table",
+  "content": [
+    "Dựa vào bảng số liệu sau:",
+    {
+      "type": "table",
+      "content": {
+        "headers": ["Cột 1", "Cột 2"],
+        "rows": [["A", "B"]]
+      },
+      "metadata": {"source": "..."}
+    },
+    "Hãy cho biết..."
+  ]
+}
+```
+
+### Chart (type="chart"):
+
+**⚠️ NGUYÊN TẮC TẠO CHART - KHÔNG PHẢI CONVERT TOÀN BỘ MATERIALS:**
+
+**BƯỚC 1: ĐỌC CÂU HỎI**
+- Câu hỏi yêu cầu hiển thị chỉ số gì? (nhiệt độ? dân số? GDP?)
+- So sánh những đối tượng/thời gian nào? (2010 vs 2020? Hà Nội vs Cà Mau?)
+- Cần bao nhiêu điểm dữ liệu? (3 năm? 12 tháng? 5 địa điểm?)
+
+**BƯỚC 2: TÌM DỮ LIỆU TRONG MATERIALS**
+- Tìm phần có type="chart" hoặc type="table" trong {{MATERIALS}}
+- Xác định headers (cột) và rows (hàng) chứa dữ liệu
+
+**BƯỚC 3: TRÍCH XUẤT CHỈ DỮ LIỆU CẦN THIẾT**
+- CHỈ lấy những cột/hàng LIÊN QUAN đến câu hỏi
+- KHÔNG cần lấy hết tất cả dữ liệu trong materials
+- VÍ DỤ: Materials có 10 năm nhưng câu hỏi chỉ về 3 năm → Chỉ lấy 3 năm đó
+
+**BƯỚC 4: TẠO ECHARTS CONFIG**
+
+**📊 VÍ DỤ 1 - Câu hỏi: "So sánh tỉ trọng kinh tế nhà nước năm 2010, 2015, 2021"**
+
+Materials có:
+```json
+{
+  "headers": ["Năm", "2010", "2015", "2018", "2020", "2021"],
+  "rows": [
+    ["Kinh tế nhà nước", "29.3", "22.8", "21.5", "21.0", "21.2"],
+    ["Kinh tế tư nhân", "40.2", "45.1", "48.0", "49.5", "50.3"]
+  ]
+}
+```
+
+→ CHỈ lấy những gì câu hỏi yêu cầu (2010, 2015, 2021 + chỉ kinh tế nhà nước):
+```json
+{
+  "type": "chart",
+  "content": [
+    "Biểu đồ tỉ trọng kinh tế nhà nước:",
+    {
+      "type": "chart",
+      "content": {
+        "chartType": "bar",
+        "echarts": {
+          "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
+          "yAxis": {"type": "value", "name": "%"},
+          "series": [{"name": "Kinh tế nhà nước", "type": "bar", "data": [29.3, 22.8, 21.2]}],
+          "legend": {"data": ["Kinh tế nhà nước"], "bottom": 10}
+        }
+      },
+      "metadata": {"source": "Tổng cục Thống kê"}
+    },
+    "Nhận xét về xu hướng?"
+  ]
+}
+```
+
+**📊 VÍ DỤ 2 - Câu hỏi: "So sánh nhiệt độ trung bình năm Hà Nội và Cà Mau"**
+
+Materials có cả nhiệt độ VÀ lượng mưa:
+```json
+{
+  "rows": [
+    ["Nhiệt độ Hà Nội (°C)", 16.4, 17.5, ..., 18.3],
+    ["Lượng mưa Hà Nội (mm)", 18.5, 26.0, ..., 23.0],
+    ["Nhiệt độ Cà Mau (°C)", 26.2, 27.0, ..., 26.5],
+    ["Lượng mưa Cà Mau (mm)", 12.0, 5.0, ..., 18.5]
+  ]
+}
+```
+
+→ CHỈ lấy nhiệt độ (bỏ lượng mưa vì câu hỏi không hỏi):
+```json
+{
+  "type": "chart",
+  "content": [
+    "Biểu đồ nhiệt độ trung bình năm:",
+    {
+      "type": "chart",
+      "content": {
+        "chartType": "line",
+        "echarts": {
+          "xAxis": {"type": "category", "data": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"]},
+          "yAxis": {"type": "value", "name": "°C"},
+          "series": [
+            {"name": "Hà Nội", "type": "line", "data": [16.4, 17.5, 20.8, 24.1, 27.8, 29.2, 29.2, 28.7, 27.6, 25.0, 21.8, 18.3]},
+            {"name": "Cà Mau", "type": "line", "data": [26.2, 27.0, 27.8, 28.5, 28.0, 27.5, 27.2, 27.0, 27.3, 27.5, 27.0, 26.5]}
+          ],
+          "legend": {"data": ["Hà Nội", "Cà Mau"], "bottom": 10}
+        }
+      }
+    },
+    "Thành phố nào có nhiệt độ cao hơn?"
+  ]
+}
+```
+
+**⚠️ LƯU Ý QUAN TRỌNG:**
+- KHÔNG convert toàn bộ materials thành chart
+- CHỈ trích xuất dữ liệu LIÊN QUAN đến câu hỏi
+- Nếu câu hỏi về 3 năm → Chart chỉ hiển thị 3 năm (không cần cả 10 năm)
+- Nếu câu hỏi về nhiệt độ → Chart chỉ có nhiệt độ (không thêm lượng mưa)
+- TUYỆT ĐỐI KHÔNG để echarts rỗng `{}`
+
+### Mixed (type="mixed"):
+```json
+{
+  "type": "mixed",
+  "content": [
+    "Quan sát hình và bảng:",
+    {image_object},
+    {table_object},
+    "Nhận xét gì?"
+  ]
+}
+```
+
+---
+
+## 6. CHECKLIST TRƯỚC KHI SUBMIT
+
+- [ ] Kiểm tra `rich_content_types` có gì?
+- [ ] Nếu rỗng/chỉ LT/TT → dùng text thuần?
+- [ ] Nếu có BK/BD/HA → chọn đúng schema type?
+- [ ] Content có đúng format array?
+- [ ] Dữ liệu lấy từ MATERIALS, không tự tạo?
+- [ ] Không tự thêm rich content không được yêu cầu?
+
+---
+
+**NHẮC NHỞ:** Đây là quy tắc NGHIÊM NGẶT. Vi phạm sẽ dẫn đến câu hỏi không hợp lệ!

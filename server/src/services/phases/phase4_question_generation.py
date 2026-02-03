@@ -748,14 +748,10 @@ class QuestionGenerationService:
                         type="TL",
                         question=gen_q.question_stem,
                         options=None,  # TL has no options
-                        correct_answer=gen_q.sample_answer,  # Sample answer as correct answer
+                        correct_answer="",  # TL has no fixed answer
                         explanation={
                             "question_type": gen_q.question_type,
-                            "historical_context": gen_q.historical_context,
-                            "required_elements": gen_q.required_elements,
-                            "answer_structure": gen_q.answer_structure,
-                            "key_points": gen_q.key_points,
-                            "scoring_rubric": gen_q.scoring_rubric
+                            "answer_structure": gen_q.answer_structure
                         },
                         difficulty=gen_q.level,
                         subject=matrix_data['metadata']['subject'],
@@ -1017,14 +1013,10 @@ class QuestionGenerationService:
                     type="TL",
                     question=gen_q.question_stem,
                     options=None,
-                    correct_answer=gen_q.sample_answer,
+                    correct_answer="",
                     explanation={
                         "question_type": gen_q.question_type,
-                        "historical_context": gen_q.historical_context,
-                        "required_elements": gen_q.required_elements,
-                        "answer_structure": gen_q.answer_structure,
-                        "key_points": gen_q.key_points,
-                        "scoring_rubric": gen_q.scoring_rubric
+                        "answer_structure": gen_q.answer_structure
                     },
                     difficulty=gen_q.level,
                     subject=existing_set.subject,

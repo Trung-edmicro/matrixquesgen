@@ -17,6 +17,13 @@ from ..core.schemas import (
     get_essay_array_schema,
     get_content_schema_by_rich_types
 )
+from .helpers import (
+    get_chart_data_schema,
+    build_chart_generation_prompt,
+    build_question_with_chart_prompt,
+    merge_chart_into_question,
+    validate_chart_completeness
+)
 
 @dataclass
 class GeneratedQuestion:
@@ -54,12 +61,7 @@ class GeneratedEssayQuestion:
     question_code: str  # Mã câu (VD: C1)
     question_stem: str  # Nội dung câu hỏi
     question_type: str  # Loại câu hỏi tự luận (analysis/comparison/evaluation/explanation/synthesis/argumentation)
-    historical_context: str  # Bối cảnh lịch sử (optional)
-    required_elements: List[str]  # Các yếu tố bắt buộc
     answer_structure: Dict  # Cấu trúc câu trả lời mong đợi
-    sample_answer: str  # Câu trả lời mẫu
-    key_points: List[Dict]  # Các điểm kiến thức then chốt
-    scoring_rubric: Dict  # Thang điểm chi tiết
     level: str  # Cấp độ (NB/TH/VD/VDC)
     lesson_name: str  # Tên bài học
     question_type_main: str = "TL"  # Loại câu hỏi chính
@@ -117,6 +119,101 @@ class QuestionGenerator:
             return content
         except Exception as e:
             raise Exception(f"Không thể đọc prompt template: {e}")
+    
+    def _load_rich_content_guide(self) -> str:
+        """Load rich content guide từ shared location - ưu tiên v2 (simplified)"""
+        try:
+            from pathlib import Path
+            
+            # Try v2 first (simplified version)
+            guide_path_v2 = Path(__file__).parent.parent / "prompts" / "rich_content_guide_v2.txt"
+            if guide_path_v2.exists():
+                with open(guide_path_v2, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if self.verbose:
+                        print("✓ Loaded rich_content_guide_v2.txt (simplified)")
+                    return content
+            
+            # Fallback to v1
+            guide_path = Path(__file__).parent.parent / "prompts" / "rich_content_guide.txt"
+            if guide_path.exists():
+                with open(guide_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if self.verbose:
+                        print("✓ Loaded rich_content_guide.txt (v1)")
+                    return content
+            
+            if self.verbose:
+                print("⚠️ No rich_content_guide found")
+            return ""
+        except Exception as e:
+            if self.verbose:
+                print(f"⚠️ Không thể load rich_content_guide: {e}")
+            return ""
+    
+    def _should_inject_rich_guide(self, spec) -> bool:
+        """Kiểm tra xem có cần inject rich_content_guide không"""
+        # Kiểm tra nếu spec có rich_content_types
+        if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+            return True
+        # Kiểm tra nếu có từ khóa BD, BK, HA trong spec
+        spec_str = str(spec)
+        return any(keyword in spec_str for keyword in ['BD', 'BK', 'HA'])
+    
+    def _generate_chart_separately(self, spec: QuestionSpec, num_charts: int = 1) -> List[Dict]:
+        """
+        BƯỚC 1: Tạo chart data RIÊNG BIỆT (giảm nested complexity)
+        
+        Args:
+            spec: QuestionSpec chứa thông tin câu hỏi
+            num_charts: Số lượng chart cần tạo
+        
+        Returns:
+            List[Dict]: Danh sách chart data với chart_id, title, chartType, echarts
+        """
+        # Lấy supplementary_materials từ spec
+        supplementary_materials = getattr(spec, 'supplementary_materials', None)
+        
+        # Build prompt sử dụng helper
+        prompt = build_chart_generation_prompt(
+            lesson_name=spec.lesson_name,
+            num_charts=num_charts,
+            supplementary_materials=supplementary_materials
+        )
+        
+        # Lấy schema từ helper
+        chart_schema = get_chart_data_schema()
+        
+        if self.verbose:
+            print(f"🔄 STEP 1: Tạo {num_charts} chart riêng...")
+            if supplementary_materials:
+                print(f"   📄 Có tài liệu bổ sung: {len(supplementary_materials)} chars")
+            else:
+                print(f"   🔍 Sẽ tìm kiếm dữ liệu từ Niên giám thống kê 2023, 2024")
+        
+        response = self.ai_client.generate_content_with_schema(
+            prompt=prompt,
+            response_schema=chart_schema,
+            enable_search=True  # Bật search để tìm dữ liệu nếu cần
+        )
+        
+        data = json.loads(response) if isinstance(response, str) else response
+        charts = data.get("charts", [])
+        
+        # Validate charts
+        for chart in charts:
+            is_valid, error_msg = validate_chart_completeness(chart)
+            if not is_valid:
+                if self.verbose:
+                    print(f"   ⚠️ Chart {chart.get('chart_id')} thiếu dữ liệu: {error_msg}")
+                raise ValueError(f"Chart {chart.get('chart_id')} không đầy đủ: {error_msg}")
+        
+        if self.verbose:
+            print(f"✅ Đã tạo {len(charts)} chart đầy đủ")
+            for chart in charts:
+                print(f"   - {chart.get('chart_id')}: {chart.get('title')}")
+        
+        return charts
     
     def _fill_prompt_template(self, 
                              spec: QuestionSpec,
@@ -310,6 +407,14 @@ class QuestionGenerator:
                 rich_content_str = self._format_rich_content_types(spec)
                 prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
                 
+                # Inject rich_content_guide nếu cần
+                if self._should_inject_rich_guide(spec):
+                    rich_guide = self._load_rich_content_guide()
+                    if rich_guide:
+                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
+                        if self.verbose:
+                            print("✓ Đã inject rich_content_guide vào prompt (TN)")
+                
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
                     supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
@@ -324,6 +429,50 @@ class QuestionGenerator:
                     # print(f"📄 Preview content: {content[:200]}...")
                 # print(f"--- PROMPT START TN ---\n{prompt_text}\n--- PROMPT END ---")
 
+                # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types
+                charts_map = {}
+                
+                # Check if any question code has 'BD' type
+                # rich_content_types structure: {"C4": [{"code": "BD", ...}], "C5": [{"code": "BK", ...}]}
+                has_chart = False
+                if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
+                    for code, types_list in spec.rich_content_types.items():
+                        if isinstance(types_list, list):
+                            for type_obj in types_list:
+                                if isinstance(type_obj, dict) and type_obj.get('code') == 'BD':
+                                    has_chart = True
+                                    break
+                                elif type_obj == 'BD':  # Handle simple string list format
+                                    has_chart = True
+                                    break
+                        if has_chart:
+                            break
+                
+                if has_chart:
+                    # Đếm số câu hỏi cần chart
+                    num_charts_needed = 0
+                    for code, types_list in spec.rich_content_types.items():
+                        if isinstance(types_list, list):
+                            for type_obj in types_list:
+                                if (isinstance(type_obj, dict) and type_obj.get('code') == 'BD') or type_obj == 'BD':
+                                    num_charts_needed += 1
+                                    break
+                    
+                    if num_charts_needed > 0:
+                        print(f"🎨 Phát hiện {num_charts_needed} câu cần chart (BD), sinh chart riêng...")
+                        charts_list = self._generate_chart_separately(spec, num_charts_needed)
+                        for chart in charts_list:
+                            charts_map[chart['chart_id']] = chart
+                        
+                        # Thêm instruction vào prompt sử dụng helper
+                        chart_instruction = build_question_with_chart_prompt(
+                            lesson_name=spec.lesson_name,
+                            charts_info=charts_list,
+                            num_questions=spec.num_questions,
+                            cognitive_level=spec.cognitive_level
+                        )
+                        prompt_text = f"{prompt_text}\n\n{chart_instruction}"
+                
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
                 tn_schema = get_multiple_choice_array_schema(content_schema)
@@ -347,7 +496,7 @@ class QuestionGenerator:
                 
                 # Parse response
                 data = json.loads(response) if isinstance(response, str) else response
-                print(f">>>>>>{data}")
+                # print(f">>>>>>{data}")
                 questions_data = data.get("questions", [])
                 
                 # Kiểm tra nếu không có câu hỏi nào được sinh
@@ -359,7 +508,7 @@ class QuestionGenerator:
                     print(f"⚠️ WARNING: AI generated {len(questions_data)} TN questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
                     questions_data = questions_data[:spec.num_questions]
                 
-                # VALIDATION: Nếu không có rich_content_types, cưỡng chế chuyển sang text-only
+                # VALIDATION: Nếu không có rich_content_types, chuyển sang text-only
                 if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
                     for q_data in questions_data:
                         if 'question_stem' in q_data and isinstance(q_data['question_stem'], dict):
@@ -385,12 +534,29 @@ class QuestionGenerator:
                                     chart_content = item.get('content', {})
                                     echarts = chart_content.get('echarts', {})
                                     
-                                    # Check if echarts is empty
+                                    # Check if echarts is empty or missing required fields
                                     if not echarts or len(echarts) == 0:
-                                        print(f"⚠️  WARNING: Câu {q_data.get('question_code', '?')} có chart với echarts rỗng!")
-                                        print(f"   → AI chưa generate được chart data. Có thể cần retry hoặc simplify schema.")
-                                        # Có thể raise error để retry
+                                        print(f"⚠️  WARNING: Câu {question_code} có chart với echarts rỗng!")
+                                        print(f"   → AI chưa generate được chart data.")
                                         raise ValueError(f"Chart echarts rỗng - AI chưa generate được data")
+                
+                # ✨ STEP 3: Merge chart vào câu hỏi (nếu có)
+                if has_chart and charts_map:
+                    if self.verbose:
+                        print(f"🔄 STEP 3: Merging charts vào {len(questions_data)} câu hỏi...")
+                    
+                    for q_data in questions_data:
+                        # Sử dụng helper để merge
+                        q_data = merge_chart_into_question(q_data, charts_map)
+                        
+                        if self.verbose:
+                            # Check xem đã merge thành công chưa
+                            if 'question_stem' in q_data and isinstance(q_data['question_stem'], dict):
+                                content = q_data['question_stem'].get('content', [])
+                                for item in content:
+                                    if isinstance(item, dict) and item.get('type') == 'chart':
+                                        if 'echarts' in item.get('content', {}):
+                                            print(f"   ✅ Merged chart vào câu hỏi {q_data.get('question_code', '?')}")
                 
                 # Tạo GeneratedQuestion cho mỗi câu
                 for i, question_data in enumerate(questions_data):
@@ -480,6 +646,14 @@ class QuestionGenerator:
         # Format rich_content_types if available
         rich_content_str = self._format_rich_content_types_tf(tf_spec)
         prompt = prompt.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
+        
+        # Inject rich_content_guide nếu cần
+        if self._should_inject_rich_guide(tf_spec):
+            rich_guide = self._load_rich_content_guide()
+            if rich_guide:
+                prompt = f"{prompt}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
+                if self.verbose:
+                    print("✓ Đã inject rich_content_guide vào prompt (DS)")
         
         # Replace tài liệu bổ sung
         if tf_spec.supplementary_materials:
@@ -695,6 +869,14 @@ class QuestionGenerator:
                 rich_content_str = self._format_rich_content_types(spec)
                 prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
                 
+                # Inject rich_content_guide nếu cần
+                if self._should_inject_rich_guide(spec):
+                    rich_guide = self._load_rich_content_guide()
+                    if rich_guide:
+                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
+                        if self.verbose:
+                            print("✓ Đã inject rich_content_guide vào prompt (TLN)")
+                
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
                     supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
@@ -846,6 +1028,14 @@ class QuestionGenerator:
                 rich_content_str = self._format_rich_content_types(spec)
                 prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
                 
+                # Inject rich_content_guide nếu cần
+                if self._should_inject_rich_guide(spec):
+                    rich_guide = self._load_rich_content_guide()
+                    if rich_guide:
+                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
+                        if self.verbose:
+                            print("✓ Đã inject rich_content_guide vào prompt (TL)")
+                
                 # Thêm tài liệu bổ sung
                 if spec.supplementary_materials:
                     supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
@@ -905,36 +1095,6 @@ class QuestionGenerator:
                             print(f"⚠️ WARNING: Invalid question_stem type: {type(q_stem)}, converting to string")
                             q_stem = str(q_stem)
                         
-                        # Parse scoring_rubric - schema trả về string nhưng dataclass expect Dict
-                        scoring_rubric_raw = question_data.get("scoring_rubric", "")
-                        if isinstance(scoring_rubric_raw, str):
-                            # Convert string to dict format
-                            scoring_rubric = {"description": scoring_rubric_raw}
-                        elif isinstance(scoring_rubric_raw, dict):
-                            scoring_rubric = scoring_rubric_raw
-                        else:
-                            scoring_rubric = {}
-                        
-                        # Validate and sanitize key_points to prevent unhashable errors
-                        key_points_raw = question_data.get("key_points", [])
-                        if isinstance(key_points_raw, list):
-                            key_points = []
-                            for kp in key_points_raw:
-                                if isinstance(kp, dict):
-                                    key_points.append(kp)
-                                else:
-                                    print(f"⚠️ WARNING: Invalid key_point format: {type(kp)}, skipping")
-                        else:
-                            print(f"⚠️ WARNING: key_points is not a list: {type(key_points_raw)}, using empty list")
-                            key_points = []
-                        
-                        # Validate required_elements
-                        required_elements_raw = question_data.get("required_elements", [])
-                        if isinstance(required_elements_raw, list):
-                            required_elements = [str(e) for e in required_elements_raw]
-                        else:
-                            required_elements = []
-                        
                         # Validate answer_structure
                         answer_structure_raw = question_data.get("answer_structure", {})
                         if isinstance(answer_structure_raw, dict):
@@ -947,12 +1107,7 @@ class QuestionGenerator:
                             question_code=question_code,
                             question_stem=q_stem,
                             question_type=question_data.get("question_type", "analysis"),
-                            historical_context=question_data.get("historical_context", ""),
-                            required_elements=required_elements,
                             answer_structure=answer_structure,
-                            sample_answer=question_data.get("sample_answer", ""),
-                            key_points=key_points,
-                            scoring_rubric=scoring_rubric,
                             level=spec.cognitive_level,
                             lesson_name=spec.lesson_name
                         )

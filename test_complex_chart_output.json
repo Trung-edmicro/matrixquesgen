@@ -1,0 +1,228 @@
+{
+  "question": {
+    "question_id": "VN_URBAN_POP_001",
+    "question_stem": {
+      "type": "chart",
+      "content": [
+        "Cho biểu đồ dân số thành thị Việt Nam:",
+        {
+          "type": "chart",
+          "content": {
+            "chartType": "combo",
+            "echarts": {
+              "title": {
+                "text": "DÂN SỐ THÀNH THỊ VÀ TỈ LỆ DÂN THÀNH THỊ VIỆT NAM 2010-2021",
+                "left": "center",
+                "top": "88%",
+                "textStyle": {
+                  "fontSize": 18,
+                  "fontWeight": "bold"
+                }
+              },
+              "legend": {
+                "data": [
+                  "Số dân thành thị",
+                  "Tỉ lệ dân thành thị"
+                ],
+                "bottom": 70
+              },
+              "xAxis": {
+                "type": "category",
+                "data": [
+                  "2010",
+                  "2015",
+                  "2018",
+                  "2021"
+                ],
+                "name": "năm"
+              },
+              "yAxis": [
+                {
+                  "type": "value",
+                  "name": "triệu người",
+                  "min": 0,
+                  "max": 40,
+                  "interval": 5,
+                  "position": "left",
+                  "axisLine": {
+                    "show": true
+                  }
+                },
+                {
+                  "type": "value",
+                  "name": "%",
+                  "min": 0,
+                  "max": 40,
+                  "interval": 5,
+                  "position": "right",
+                  "axisLine": {
+                    "show": true
+                  }
+                }
+              ],
+              "series": [
+                {
+                  "name": "Số dân thành thị",
+                  "type": "bar",
+                  "data": [
+                    26.5,
+                    30.9,
+                    32.6,
+                    36.6
+                  ],
+                  "yAxisIndex": 0,
+                  "label": {
+                    "show": true,
+                    "position": "inside"
+                  }
+                },
+                {
+                  "name": "Tỉ lệ dân thành thị",
+                  "type": "line",
+                  "data": [
+                    30.4,
+                    33.5,
+                    34.2,
+                    37.1
+                  ],
+                  "yAxisIndex": 1,
+                  "label": {
+                    "show": true,
+                    "position": "top"
+                  }
+                }
+              ],
+              "graphic": [
+                {
+                  "type": "text",
+                  "left": "center",
+                  "bottom": 20,
+                  "style": {
+                    "text": "Nguồn: Niên giám thống kê Việt Nam 2021",
+                    "fontSize": 13,
+                    "fontStyle": "italic"
+                  }
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "caption": "Biểu đồ kết hợp Dân số và Tỉ lệ dân thành thị",
+            "width": 900,
+            "height": 550
+          }
+        },
+        "Căn cứ vào biểu đồ, hãy cho biết nhận xét nào sau đây là ĐÚNG nhất về sự thay đổi số dân thành thị và tỉ lệ dân thành thị của nước ta trong giai đoạn 2010 - 2021?"
+      ]
+    },
+    "options": {
+      "A": "Số dân thành thị tăng liên tục nhưng tỉ lệ dân thành thị lại giảm.",
+      "B": "Cả số dân thành thị và tỉ lệ dân thành thị đều có xu hướng tăng liên tục.",
+      "C": "Số dân thành thị biến động thất thường, trong khi tỉ lệ dân thành thị tăng đều.",
+      "D": "Tỉ lệ dân thành thị tăng nhanh, nhưng tổng số dân thành thị lại giảm nhẹ."
+    },
+    "correct_answer": "B",
+    "explanation": "Dựa vào biểu đồ kết hợp, ta thấy các cột (biểu hiện số dân thành thị) cao dần qua các năm và đường biểu diễn (tỉ lệ dân thành thị) cũng có xu hướng đi lên từ năm 2010 đến 2021. Điều này phản ánh quá trình đô thị hóa đang diễn ra, kéo theo cả quy mô dân số và tỉ lệ dân cư sống tại thành thị đều tăng."
+  },
+  "chart_data": {
+    "chart_id": "urban_chart",
+    "title": "Biểu đồ kết hợp Dân số và Tỉ lệ dân thành thị",
+    "chartType": "combo",
+    "echarts": {
+      "title": {
+        "text": "DÂN SỐ THÀNH THỊ VÀ TỈ LỆ DÂN THÀNH THỊ VIỆT NAM 2010-2021",
+        "left": "center",
+        "top": "88%",
+        "textStyle": {
+          "fontSize": 18,
+          "fontWeight": "bold"
+        }
+      },
+      "legend": {
+        "data": [
+          "Số dân thành thị",
+          "Tỉ lệ dân thành thị"
+        ],
+        "bottom": 70
+      },
+      "xAxis": {
+        "type": "category",
+        "data": [
+          "2010",
+          "2015",
+          "2018",
+          "2021"
+        ],
+        "name": "năm"
+      },
+      "yAxis": [
+        {
+          "type": "value",
+          "name": "triệu người",
+          "min": 0,
+          "max": 40,
+          "interval": 5,
+          "position": "left",
+          "axisLine": {
+            "show": true
+          }
+        },
+        {
+          "type": "value",
+          "name": "%",
+          "min": 0,
+          "max": 40,
+          "interval": 5,
+          "position": "right",
+          "axisLine": {
+            "show": true
+          }
+        }
+      ],
+      "series": [
+        {
+          "name": "Số dân thành thị",
+          "type": "bar",
+          "data": [
+            26.5,
+            30.9,
+            32.6,
+            36.6
+          ],
+          "yAxisIndex": 0,
+          "label": {
+            "show": true,
+            "position": "inside"
+          }
+        },
+        {
+          "name": "Tỉ lệ dân thành thị",
+          "type": "line",
+          "data": [
+            30.4,
+            33.5,
+            34.2,
+            37.1
+          ],
+          "yAxisIndex": 1,
+          "label": {
+            "show": true,
+            "position": "top"
+          }
+        }
+      ],
+      "graphic": [
+        {
+          "type": "text",
+          "left": "center",
+          "bottom": 20,
+          "style": {
+            "text": "Nguồn: Niên giám thống kê Việt Nam 2021",
+            "fontSize": 13,
+            "fontStyle": "italic"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -174,49 +174,27 @@ def get_chart_content_schema() -> Dict:
                                         },
                                         "echarts": {
                                             "type": "object",
-                                            "description": "ECharts config - CHỈ CẦN 5 FIELDS: title, xAxis, yAxis, series, legend",
+                                            "description": "⚠️ BẮT BUỘC: ECharts configuration object - KHÔNG ĐƯỢC RỖNG! Phải có xAxis, yAxis, series",
                                             "properties": {
-                                                "title": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "text": {"type": "string"},
-                                                        "left": {"type": "string"}
-                                                    }
-                                                },
                                                 "xAxis": {
                                                     "type": "object",
-                                                    "properties": {
-                                                        "type": {"type": "string"},
-                                                        "data": {"type": "array"}
-                                                    }
+                                                    "description": "Trục ngang - BẮT BUỘC có 'data' array. VD: {\"type\": \"category\", \"data\": [\"2010\", \"2015\", \"2021\"]}"
                                                 },
                                                 "yAxis": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "type": {"type": "string"},
-                                                        "name": {"type": "string"}
-                                                    }
+                                                    "anyOf": [
+                                                        {"type": "object"},
+                                                        {"type": "array"}
+                                                    ],
+                                                    "description": "Trục dọc - BẮT BUỘC. VD: {\"type\": \"value\", \"name\": \"triệu người\"}"
                                                 },
                                                 "series": {
                                                     "type": "array",
-                                                    "items": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "name": {"type": "string"},
-                                                            "type": {"type": "string"},
-                                                            "data": {"type": "array"},
-                                                            "label": {"type": "object"}
-                                                        }
-                                                    }
-                                                },
-                                                "legend": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "data": {"type": "array"},
-                                                        "bottom": {"type": "number"}
-                                                    }
+                                                    "description": "Dữ liệu biểu đồ - BẮT BUỘC, array of objects. VD: [{\"name\": \"Dân số\", \"type\": \"bar\", \"data\": [26.5, 30.9, 36.6]}]",
+                                                    "minItems": 1
                                                 }
-                                            }
+                                            },
+                                            "required": ["xAxis", "yAxis", "series"],
+                                            "additionalProperties": True
                                         }
                                     },
                                     "required": ["chartType", "echarts"]
@@ -246,9 +224,8 @@ def get_chart_content_schema() -> Dict:
             }
         },
         "required": ["type", "content"],
-        "description": """Type='chart' = TEXT + BIỂU ĐỒ (array chứa strings và chart object)
+        "description": """VÍ DỤ CỤ THỂ - PHẢI FOLLOW:
 
-⚠️ VÍ DỤ:
 {
   "type": "chart",
   "content": [
@@ -258,17 +235,27 @@ def get_chart_content_schema() -> Dict:
       "content": {
         "chartType": "bar",
         "echarts": {
-          "title": {"text": "DÂN SỐ THÀNH THỊ", "left": "center"},
           "xAxis": {"type": "category", "data": ["2010", "2015", "2021"]},
           "yAxis": {"type": "value", "name": "triệu người"},
-          "series": [{"name": "Dân số", "type": "bar", "data": [26.5, 30.9, 36.6]}],
-          "legend": {"data": ["Dân số"], "bottom": 20}
+          "series": [{
+            "name": "Dân số thành thị",
+            "type": "bar",
+            "data": [26.5, 30.9, 36.6]
+          }]
         }
-      }
+      },
+      "metadata": {"source": "Niên giám thống kê 2021"}
     },
     "Năm nào có dân số cao nhất?"
   ]
-}"""
+}
+
+⚠️ QUAN TRỌNG:
+- echarts KHÔNG ĐƯỢC RỖNG {}
+- PHẢI có xAxis.data (array strings)
+- PHẢI có yAxis (object hoặc array)
+- PHẢI có series[0].data (array numbers)
+"""
     }
 
 
@@ -434,11 +421,50 @@ def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
                                         {
                                             "type": "object",
                                             "properties": {
-                                                "chartType": {"type": "string", "enum": ["bar", "line", "pie", "scatter", "combo"]},
-                                                "echarts": {"type": "object"}
+                                                "chartType": {
+                                                    "type": "string", 
+                                                    "enum": ["bar", "line", "pie", "scatter", "combo"],
+                                                    "description": "Loại biểu đồ"
+                                                },
+                                                "echarts": {
+                                                    "type": "object",
+                                                    "description": "⚠️ BẮT BUỘC: ECharts config - KHÔNG ĐƯỢC RỖNG! PHẢI có xAxis, yAxis, series với data",
+                                                    "properties": {
+                                                        "xAxis": {
+                                                            "type": "object",
+                                                            "description": "Trục X - PHẢI có data array"
+                                                        },
+                                                        "yAxis": {
+                                                            "anyOf": [
+                                                                {"type": "object"},
+                                                                {"type": "array"}
+                                                            ],
+                                                            "description": "Trục Y"
+                                                        },
+                                                        "series": {
+                                                            "type": "array",
+                                                            "minItems": 1,
+                                                            "description": "Data series - BẮT BUỘC có ít nhất 1 series",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "name": {"type": "string", "description": "BẮT BUỘC: Tên series. VD: 'Dân số', 'GDP'"},
+                                                                    "type": {"type": "string", "enum": ["bar", "line", "pie"], "description": "BẮT BUỘC: Loại chart"},
+                                                                    "data": {
+                                                                        "type": "array",
+                                                                        "description": "BẮT BUỘC: Array số liệu. VD: [26.5, 30.9, 36.6]",
+                                                                        "minItems": 1
+                                                                    }
+                                                                },
+                                                                "required": ["name", "type", "data"]
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": ["xAxis", "yAxis", "series"]
+                                                }
                                             },
                                             "required": ["chartType", "echarts"],
-                                            "description": "Chart content - object {chartType, echarts}"
+                                            "description": "Chart content - object {chartType, echarts}. VD: {\"chartType\": \"bar\", \"echarts\": {\"xAxis\": {\"data\": [\"2010\"]}, \"yAxis\": {}, \"series\": [{\"data\": [100]}]}}"
                                         },
                                         {
                                             "type": "string",
@@ -475,26 +501,14 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = N
     """
     ⭐ HÀM CHÍNH: Chọn schema phù hợp dựa trên rich_content_types từ ma trận
     
-    🎯 LOGIC PHÂN LOẠI MỚI (Rõ ràng hơn):
+    🎯 LOGIC PHÂN LOẠI MỚI (Đơn giản hơn - tránh nested):
     
     1. None / [] / chỉ ['LT'] / chỉ ['TT'] / ['LT','TT']:
        → type='text' (text thuần)
     
-    2. ['BK'] hoặc ['BK','LT'] hoặc ['BK','TT'] hoặc ['BK','LT','TT']:
-       → type='table' (TEXT + BẢNG - array format)
-       ⚠️ Lưu ý: Không chỉ có bảng, phải có cả text mô tả
-    
-    3. ['BD'] hoặc ['BD','LT'] hoặc ['BD','TT'] hoặc ['BD','LT','TT']:
-       → type='chart' (TEXT + BIỂU ĐỒ - array format)
-       ⚠️ Lưu ý: Không chỉ có biểu đồ, phải có cả text mô tả
-    
-    4. ['HA'] hoặc ['HA','LT'] hoặc ['HA','TT'] hoặc ['HA','LT','TT']:
-       → type='image' (TEXT + HÌNH ẢNH - array format)
-       ⚠️ Lưu ý: Không chỉ có hình ảnh, phải có cả text mô tả
-    
-    5. Nhiều loại khác nhau: ['BK','BD'], ['BK','HA'], ['BD','HA'], ['BK','BD','HA']:
-       → type='mixed' (KẾT HỢP NHIỀU LOẠI RICH CONTENT)
-       ⚠️ Lưu ý: Chỉ dùng mixed khi có ≥2 loại rich content khác nhau
+    2. Có BK/BD/HA (bất kỳ loại rich content nào):
+       → type='mixed' (array format - KHÔNG dùng nested chart/table/image schema)
+       ⚠️ Lý do: Schema mixed đơn giản hơn, AI dễ follow hơn nested structure
     
     Args:
         rich_content_types: List các loại rich content từ matrix (VD: ['BK'], ['BD'], ['BK','BD'])
@@ -512,21 +526,8 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = N
     if not actual_rich_types:
         return get_text_content_schema()
     
-    # Nếu chỉ có 1 loại rich content (BK/BD/HA) → dùng schema riêng (text + rich)
-    if len(actual_rich_types) == 1:
-        rich_type = actual_rich_types[0]
-        if rich_type == 'BK':
-            # BK → text + table
-            return get_table_content_schema()
-        elif rich_type == 'BD':
-            # BD → text + chart
-            return get_chart_content_schema()
-        elif rich_type == 'HA':
-            # HA → text + image
-            return get_image_content_schema()
-    
-    # Nhiều loại rich content khác nhau → dùng mixed
-    # VD: ['BK','BD'], ['BK','HA'], ['BD','HA'], ['BK','BD','HA']
+    # Nếu CÓ bất kỳ rich content nào (BK/BD/HA) → LUÔN dùng mixed
+    # Lý do: Schema mixed đơn giản hơn get_chart/table/image_content_schema (tránh nested array trong array)
     return get_mixed_content_schema(actual_rich_types)
 
 
@@ -904,18 +905,6 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
                             "enum": ["VD", "VDC"],
                             "description": "Cấp độ"
                         },
-                        "historical_context": {
-                            "type": "string",
-                            "description": "Bối cảnh lịch sử (nếu cần) - TỐI ĐA 200 ký tự",
-                            "maxLength": 200
-                        },
-                        "required_elements": {
-                            "type": "array",
-                            "items": {"type": "string", "maxLength": 100},
-                            "description": "Các yếu tố bắt buộc phải có trong câu trả lời (3-5 items)",
-                            "minItems": 3,
-                            "maxItems": 5
-                        },
                         "answer_structure": {
                             "type": "object",
                             "description": "Cấu trúc câu trả lời - VD: {intro: '...', body: '...', conclusion: '...'}",
@@ -926,37 +915,13 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
                             },
                             "required": ["intro", "body", "conclusion"]
                         },
-                        "sample_answer": {
-                            "type": "string",
-                            "description": "Câu trả lời mẫu ngắn gọn - TỐI ĐA 150 ký tự",
-                            "maxLength": 150
-                        },
-                        "key_points": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "point": {"type": "string", "maxLength": 30},
-                                    "score": {"type": "number"}
-                                },
-                                "required": ["point", "score"]
-                            },
-                            "description": "Điểm kiến thức then chốt (3-4 items) - Mỗi point TỐI ĐA 30 ký tự",
-                            "minItems": 3,
-                            "maxItems": 4
-                        },
-                        "scoring_rubric": {
-                            "type": "string",
-                            "description": "Thang điểm tổng quát - TỐI ĐA 100 ký tự. VD: 'Phân tích đúng 3 điểm chính (6đ), kết luận logic (1đ)'",
-                            "maxLength": 100
-                        },
                         "explanation": {
                             "type": "string",
                             "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự): Giải thích ngắn ngọn. NGHIÊM CẤM giải dài dòng.",
                             "maxLength": 300
                         }
                     },
-                    "required": ["question_stem", "question_type", "level", "required_elements", "answer_structure", "sample_answer", "key_points", "scoring_rubric", "explanation"]
+                    "required": ["question_stem", "question_type", "level", "answer_structure", "explanation"]
                 }
             }
         },

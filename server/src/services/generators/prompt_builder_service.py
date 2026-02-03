@@ -46,12 +46,13 @@ class PromptBuilderService:
         self.templates = {}
         self.load_templates()
         
-        # Load rich content guide
+        # Load rich content guide (shared across all subjects)
         self.rich_content_guide = self.load_rich_content_guide()
     
     def load_rich_content_guide(self) -> str:
-        """Load rich content guide template"""
-        guide_path = self.prompt_dir / "rich_content_guide.txt"
+        """Load rich content guide template (shared file in services/prompts/)"""
+        # Load from services/prompts/ directory (shared across all subjects)
+        guide_path = Path(__file__).parent.parent / "prompts" / "rich_content_guide.txt"
         if guide_path.exists():
             with open(guide_path, 'r', encoding='utf-8') as f:
                 return f.read()
@@ -95,12 +96,13 @@ class PromptBuilderService:
         
         return result
     
-    def _format_rich_content_types(self, spec: QuestionSpec) -> str:
+    def _format_rich_content_types(self, spec: QuestionSpec, current_question_code: str = None) -> str:
         """
         Format rich content types for prompt
         
         Args:
             spec: Question specification with rich_content_types
+            current_question_code: Optional - if provided, only format this specific question's types
             
         Returns:
             Formatted string for prompt
@@ -108,9 +110,19 @@ class PromptBuilderService:
         if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
             return "Không có yêu cầu đặc biệt về loại nội dung."
         
-        # Build formatted string
-        lines = ["Các câu hỏi yêu cầu loại nội dung sau:"]
-        for code, types in spec.rich_content_types.items():
+        # Filter to current question if specified
+        if current_question_code:
+            if current_question_code not in spec.rich_content_types:
+                return "Không có yêu cầu đặc biệt về loại nội dung."
+            rich_types = {current_question_code: spec.rich_content_types[current_question_code]}
+        else:
+            rich_types = spec.rich_content_types
+        
+        # Build formatted string with clear question-specific mapping
+        lines = ["QUAN TRỌNG - YÊU CẦU LOẠI NỘI DUNG CHO TỪNG CÂU:"]
+        lines.append("=" * 60)
+        
+        for code, types in rich_types.items():
             type_list = []
             for t in types:
                 if isinstance(t, dict):
@@ -120,11 +132,6 @@ class PromptBuilderService:
                     # Old format: just string "BK"
                     type_name = t
                 type_list.append(type_name)
-            
-            lines.append(f"- Câu {code}: {', '.join(type_list)}")
-        
-        lines.append("")
-        lines.append("Lưu ý: Hãy tạo nội dung phù hợp với loại yêu cầu (bảng số liệu, biểu đồ, hình ảnh...) theo đúng schema đã cung cấp.")
         
         return "\n".join(lines)
     
