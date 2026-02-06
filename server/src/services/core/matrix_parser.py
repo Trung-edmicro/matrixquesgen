@@ -97,7 +97,18 @@ class MatrixParser:
         COL_TL_NB: "TL", COL_TL_TH: "TL", COL_TL_VD: "TL"
     }
     
-    def __init__(self):
+    def __init__(self, split_learning_outcome_by_level: Optional[bool] = None):
+        """
+        Initialize MatrixParser
+        
+        Args:
+            split_learning_outcome_by_level: 
+                - None (mặc định): Tự động phát hiện dựa trên nội dung cột "Đặc tả ma trận"
+                  Nếu có các header "Nhận biết:", "Thông hiểu:", "Vận dụng:" → tách theo level
+                  Nếu không có → lấy toàn bộ
+                - True: Force tách theo level
+                - False: Force lấy toàn bộ
+        """
         self.df = None
         self.current_competency = None
         self.current_chapter = None
@@ -106,6 +117,7 @@ class MatrixParser:
         self.template: Optional[MatrixTemplate] = None
         self.template_metadata: dict = {}
         self.file_path: Optional[str] = None
+        self.split_learning_outcome_by_level = split_learning_outcome_by_level
         
         # Thông tin từ tên file
         self.subject = None  # Môn học (LICHSU, TOAN, etc.)
@@ -447,6 +459,36 @@ class MatrixParser:
         
         return path
     
+    def has_level_headers(self, spec_text: str) -> bool:
+        """
+        Kiểm tra xem spec text có chứa các level headers không
+        
+        Args:
+            spec_text: Nội dung đặc tả ma trận
+            
+        Returns:
+            bool: True nếu có ít nhất 1 header level (Nhận biết:, Thông hiểu:, Vận dụng:)
+        """
+        if pd.isna(spec_text):
+            return False
+        
+        spec_text = str(spec_text).strip()
+        
+        # Các pattern header cần tìm
+        level_patterns = [
+            "Nhận biết:",
+            "Thông hiểu:",
+            "Vận dụng:",
+            "Vận dụng cao:"
+        ]
+        
+        # Kiểm tra có ít nhất 1 pattern
+        for pattern in level_patterns:
+            if pattern in spec_text:
+                return True
+        
+        return False
+    
     def extract_learning_outcome_by_level(self, spec_text: str, cognitive_level: str) -> str:
         """
         Trích xuất đặc tả ma trận theo cấp độ nhận thức
@@ -599,9 +641,21 @@ class MatrixParser:
                     if not new_codes:
                         continue
                     
-                    # Lấy learning_outcome trực tiếp từ cột Đặc tả ma trận của hàng hiện tại
-                    # Không còn tách theo cấp độ nữa
-                    learning_outcome = self.current_spec if self.current_spec else ""
+                    # Lấy learning_outcome theo chế độ
+                    should_split = self.split_learning_outcome_by_level
+                    
+                    # Auto-detect nếu chế độ là None
+                    if should_split is None:
+                        should_split = self.has_level_headers(self.current_spec)
+                    
+                    if should_split:
+                        # Chế độ split: tách theo level
+                        learning_outcome = self.extract_learning_outcome_by_level(
+                            self.current_spec, cognitive_level
+                        )
+                    else:
+                        # Chế độ full: lấy toàn bộ
+                        learning_outcome = self.current_spec if self.current_spec else ""
                     
                     # ⚠️ AUTO-CORRECTION: TN có rich_content_types → chuyển thành TLN
                     # Vì TN với bảng/biểu đồ thực chất là câu tính toán (TLN)

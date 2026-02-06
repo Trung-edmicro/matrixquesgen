@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Use absolute imports
-from api.routes import generate, questions, export, google_drive
+from api.routes import generate, questions, export, google_drive, regenerate
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
 
@@ -44,6 +44,7 @@ app.include_router(generate.router)
 app.include_router(questions.router)
 app.include_router(export.router)
 app.include_router(google_drive.router)
+app.include_router(regenerate.router)
 
 # Include phase-specific routers
 app.include_router(phase1_router)

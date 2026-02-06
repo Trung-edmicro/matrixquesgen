@@ -708,6 +708,59 @@ class QuestionGenerator:
                 # print("content", content)
                 # print("question_template:", question_template)
 
+                # Thêm instruction về rich content vào prompt nếu có
+                if hasattr(tf_spec, 'rich_content_types') and tf_spec.rich_content_types:
+                    # Xác định loại content chính được yêu cầu
+                    primary_content_type = None
+                    for code, types_list in tf_spec.rich_content_types.items():
+                        if isinstance(types_list, list) and types_list:
+                            first_type = types_list[0]
+                            if isinstance(first_type, dict):
+                                primary_content_type = first_type.get('code')
+                            else:
+                                primary_content_type = first_type
+                            break
+                    
+                    if primary_content_type:
+                        content_type_map = {
+                            'BK': 'table (bảng khảo)',
+                            'BD': 'chart (biểu đồ)',
+                            'HA': 'image (hình ảnh)'
+                        }
+                        content_instruction = f"""
+
+{'='*70}
+⚠️ YÊU CẦU NỘI DUNG NGHIÊM NGẶT
+{'='*70}
+
+Câu hỏi DS này yêu cầu chỉ sử dụng: {content_type_map.get(primary_content_type, primary_content_type)}
+
+**BẮT BUỘC:**
+- source_text.type = "mixed"
+- source_text.content chỉ chứa: [text_intro, {primary_content_type}_object, text_conclusion]
+- KHÔNG được thêm các loại content khác (image/table/chart không liên quan)
+- Mỗi loại content CHỈ xuất hiện 1 LẦN
+
+**VÍ DỤ ĐÚNG cho BK (bảng khảo):**
+```json
+{{
+  "type": "mixed",
+  "content": [
+    "Cho bảng số liệu sau:",
+    {{
+      "type": "table",
+      "content": {{"headers": [...], "rows": [...]}}
+    }},
+    "Căn cứ vào bảng số liệu, xét tính đúng/sai của các mệnh đề:"
+  ]
+}}
+```
+
+❌ KHÔNG ĐƯỢC: Thêm image/chart không cần thiết hoặc lặp lại table nhiều lần
+{'='*70}
+"""
+                        prompt = f"{prompt}\n{content_instruction}"
+                
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(tf_spec.rich_content_types)
                 ds_schema = get_true_false_schema(content_schema)
@@ -771,6 +824,56 @@ class QuestionGenerator:
                             source_text = {"type": "text", "content": ' '.join(text_parts).strip()}
                         else:
                             raise ValueError(f"DS source_text có rich content không mong muốn (type={source_text.get('type')})")
+                else:
+                    # VALIDATION: Nếu có rich_content_types, clean up mixed content
+                    if isinstance(source_text, dict) and source_text.get('type') == 'mixed':
+                        content = source_text.get('content', [])
+                        if isinstance(content, list):
+                            # Xác định loại content được yêu cầu
+                            required_type = None
+                            for code, types_list in tf_spec.rich_content_types.items():
+                                if isinstance(types_list, list) and types_list:
+                                    first_type = types_list[0]
+                                    if isinstance(first_type, dict):
+                                        code_val = first_type.get('code')
+                                    else:
+                                        code_val = first_type
+                                    
+                                    if code_val == 'BK':
+                                        required_type = 'table'
+                                    elif code_val == 'BD':
+                                        required_type = 'chart'
+                                    elif code_val == 'HA':
+                                        required_type = 'image'
+                                    break
+                            
+                            if required_type:
+                                # Lọc content: chỉ giữ text và 1 element của required_type
+                                cleaned_content = []
+                                found_required = False
+                                
+                                for item in content:
+                                    if isinstance(item, str):
+                                        # Giữ text
+                                        cleaned_content.append(item)
+                                    elif isinstance(item, dict):
+                                        item_type = item.get('type')
+                                        if item_type == required_type and not found_required:
+                                            # Giữ element đầu tiên của loại yêu cầu
+                                            cleaned_content.append(item)
+                                            found_required = True
+                                        elif item_type != required_type:
+                                            # Bỏ qua các loại content không mong muốn
+                                            if self.verbose:
+                                                print(f"   🗑️  Loại bỏ {item_type} không mong muốn (yêu cầu: {required_type})")
+                                
+                                if len(cleaned_content) != len(content):
+                                    if self.verbose:
+                                        print(f"⚠️  DS {tf_spec.question_code}: Cleaned mixed content từ {len(content)} → {len(cleaned_content)} items")
+                                    source_text['content'] = cleaned_content
+                                
+                                if not found_required:
+                                    print(f"⚠️  WARNING DS {tf_spec.question_code}: Không tìm thấy {required_type} trong mixed content!")
                 
                 # Tạo GeneratedTrueFalseQuestion với tất cả metadata fields
                 question = GeneratedTrueFalseQuestion(

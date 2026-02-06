@@ -83,4 +83,23 @@ export const deleteSession = async (sessionId) => {
   return response.data
 }
 
+// Regenerate single question
+export const regenerateQuestion = async (sessionId, questionType, questionCode) => {
+  const response = await api.post('/api/regenerate/question', {
+    session_id: sessionId,
+    question_type: questionType,
+    question_code: questionCode
+  })
+  return response.data
+}
+
+// Regenerate multiple questions
+export const regenerateBulkQuestions = async (sessionId, questions) => {
+  const response = await api.post('/api/regenerate/bulk', {
+    session_id: sessionId,
+    questions: questions  // [{ type: 'TN', code: 'C1' }, ...]
+  })
+  return response.data
+}
+
 export default api

@@ -239,6 +239,12 @@ class ContentMappingService:
 
             lesson_data['content'] = '\n\n'.join(combined_content) if combined_content else lesson_data.get('content', '')
 
+            # Map supplementary_material from Phase 2 data (for TN/TLN/TL and DS with rich content)
+            supplementary_material = data.get('supplementary_material', '')
+            if supplementary_material:
+                lesson_data['supplementary_material'] = supplementary_material
+                print(f"   ✓ Mapped supplementary_material: {len(supplementary_material)} chars")
+
             # Map TN questions with random selection
             tn_data = data.get('TN', {})
             if tn_data and 'TN' in lesson_data:

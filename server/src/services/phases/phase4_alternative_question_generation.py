@@ -521,6 +521,17 @@ class AlternativeQuestionGenerationService:
                                 spec_data['expected_outcomes'] = expected_outcomes
                                 spec_data['cognitive_levels'] = cognitive_levels
                             
+                            # Determine supplementary based on rich_content_types
+                            # - If no rich_content_types (text only): use spec materials
+                            # - If has rich_content_types (BD/BK/HA): use lesson supplementary_material
+                            rich_content_types = spec_data.get('rich_content_types', {})
+                            if rich_content_types:
+                                # Has rich content (BD/BK/HA) -> use supplementary_material
+                                supplementary_for_ds = supplementary
+                            else:
+                                # No rich content (text only) -> use spec materials
+                                supplementary_for_ds = spec_data.get('materials', '')
+                            
                             # Select prompt based on topic type and existing questions
                             # For now, we'll select based on lesson data only
                             selected_prompt = self.select_ds_prompt(lesson_data)
@@ -532,7 +543,7 @@ class AlternativeQuestionGenerationService:
                                 'chapter': chapter,
                                 'lesson': lesson,
                                 'content': content,
-                                'supplementary': spec_data.get('materials', ''),
+                                'supplementary': supplementary_for_ds,
                                 'spec_data': spec_data,
                                 'selected_prompt': selected_prompt
                             }

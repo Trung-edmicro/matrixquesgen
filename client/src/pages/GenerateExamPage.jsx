@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import MatrixInputPanel from '../components/generate/MatrixInputPanel'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
 import ActionBar from '../components/generate/ActionBar'
@@ -9,6 +9,9 @@ import {
   exportToDocx,
   downloadDocx 
 } from '../services/api'
+
+// Key để lưu state vào localStorage
+const STORAGE_KEY = 'matrixquesgen_generate_page_state'
 
 export default function GenerateExamPage() {
   const [matrixData, setMatrixData] = useState(null)
@@ -31,6 +34,42 @@ export default function GenerateExamPage() {
     max_retries: 3,
     retry_delay: 2.0
   }
+
+  // Khôi phục state từ localStorage khi component mount
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem(STORAGE_KEY)
+      if (savedState) {
+        const parsed = JSON.parse(savedState)
+        if (parsed.generatedExam) {
+          setGeneratedExam(parsed.generatedExam)
+        }
+        if (parsed.sessionId) {
+          setSessionId(parsed.sessionId)
+        }
+        if (parsed.matrixData) {
+          setMatrixData(parsed.matrixData)
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi khi khôi phục state:', err)
+    }
+  }, [])
+
+  // Lưu state vào localStorage khi có thay đổi
+  useEffect(() => {
+    if (generatedExam || sessionId || matrixData) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          generatedExam,
+          sessionId,
+          matrixData
+        }))
+      } catch (err) {
+        console.error('Lỗi khi lưu state:', err)
+      }
+    }
+  }, [generatedExam, sessionId, matrixData])
 
   const getPhaseDisplayName = (phase) => {
     const phaseNames = {
@@ -112,6 +151,11 @@ export default function GenerateExamPage() {
       return
     }
 
+    // Clear data cũ trước khi sinh đề mới
+    setGeneratedExam(null)
+    setSessionId(null)
+    setIsDirty(false)
+    
     setIsGenerating(true)
     setError(null)
     setGenerationProgress({

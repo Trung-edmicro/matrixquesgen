@@ -87,7 +87,7 @@ async def export_docx(session_id: str):
     
     # Generate DOCX
     try:
-        generator = DocxGenerator(verbose=False)
+        generator = DocxGenerator(verbose=True)
         generator.generate_questions_document(
             json_data=questions_data,
             output_path=str(output_path)

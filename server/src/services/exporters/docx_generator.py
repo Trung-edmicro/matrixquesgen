@@ -12,9 +12,11 @@ import os
 import base64
 from io import BytesIO
 from PIL import Image
+import threading
 try:
     from playwright.sync_api import sync_playwright
     PLAYWRIGHT_AVAILABLE = True
+    print("✓ Playwright available for chart rendering")
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
     print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
@@ -206,6 +208,16 @@ class DocxGenerator:
                     para.add_run('\n')
                     self._add_inline_chart(item.get('content', {}))
                     
+                elif item_type == 'image':
+                    # Add line break before image
+                    para.add_run('\n')
+                    caption = item.get('metadata', {}).get('caption', '')
+                    if caption:
+                        para.add_run(f"[Hình ảnh: {caption}]")
+                    else:
+                        para.add_run(f"[Hình ảnh: {item.get('content', '')}]")
+                    para.add_run('\n')
+                    
                 elif item_type == 'chart' and 'chart_id' in item:
                     # Chart reference (không có echarts data, chỉ có chart_id)
                     para.add_run('\n')
@@ -270,10 +282,16 @@ class DocxGenerator:
     def _add_inline_chart(self, chart_data: Dict):
         """Thêm chart vào document - render thành PNG nếu có playwright"""
         if not chart_data:
+            if self.verbose:
+                print("⚠️  Chart data is empty")
             return
         
         chart_type = chart_data.get('chartType', 'bar')
         echarts = chart_data.get('echarts', {})
+        
+        if self.verbose:
+            print(f"📊 Processing chart: type={chart_type}, has_echarts={bool(echarts)}")
+            print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
         
         # Lấy thông tin cơ bản từ echarts
         title = echarts.get('title', {}).get('text', 'Biểu đồ')
@@ -281,6 +299,8 @@ class DocxGenerator:
         # Render chart thành ảnh nếu có playwright
         if PLAYWRIGHT_AVAILABLE:
             try:
+                if self.verbose:
+                    print(f"  Attempting to render chart to image...")
                 image_path = self._render_chart_to_image(echarts)
                 if image_path:
                     # Thêm ảnh vào document
@@ -298,10 +318,18 @@ class DocxGenerator:
                     if self.verbose:
                         print(f"✓ Đã chèn chart vào DOCX: {title}")
                     return
+                else:
+                    if self.verbose:
+                        print(f"⚠️  _render_chart_to_image returned None")
             except Exception as e:
                 if self.verbose:
                     print(f"⚠️  Không thể render chart thành ảnh: {e}")
+                    import traceback
+                    traceback.print_exc()
                 # Fall through to placeholder
+        else:
+            if self.verbose:
+                print(f"⚠️  PLAYWRIGHT_AVAILABLE is False, using placeholder")
         
         # Fallback: Placeholder text nếu không có playwright hoặc lỗi
         para = self.document.add_paragraph()
@@ -347,7 +375,7 @@ class DocxGenerator:
 <html>
 <head>
     <meta charset="utf-8">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"></script>
     <style>
         body {{ margin: 0; padding: 20px; background: white; }}
         #chart {{ width: 800px; height: 500px; }}
@@ -368,47 +396,56 @@ class DocxGenerator:
 </html>
 """
             
-            # Tạo file HTML tạm
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-                f.write(html_content)
-                html_path = f.name
-            
             # Tạo file PNG tạm
-            png_path = html_path.replace('.html', '.png')
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.png', delete=False) as f:
+                png_path = f.name
+            
+            # Result container for thread
+            result = {'path': None, 'error': None}
+            
+            def render_in_thread():
+                try:
+                    # Sử dụng Playwright để render (trong thread riêng để tránh xung đột với asyncio)
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        page = browser.new_page(viewport={'width': 840, 'height': 540})
+                        
+                        # Load HTML content directly (better than file:// for security)
+                        page.set_content(html_content)
+                        
+                        # Đợi chart render xong
+                        page.wait_for_function('window.chartReady === true', timeout=5000)
+                        page.wait_for_timeout(500)  # Thêm delay để đảm bảo chart render hoàn toàn
+                        
+                        # Screenshot
+                        chart_element = page.locator('#chart')
+                        chart_element.screenshot(path=png_path)
+                        
+                        browser.close()
+                        result['path'] = png_path
+                except Exception as e:
+                    result['error'] = str(e)
             
             try:
-                # Sử dụng Playwright để render
-                with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    page = browser.new_page(viewport={'width': 840, 'height': 540})
-                    
-                    # Load HTML
-                    page.goto(f'file:///{html_path.replace(os.sep, "/")}')
-                    
-                    # Đợi chart render xong
-                    page.wait_for_function('window.chartReady === true', timeout=5000)
-                    page.wait_for_timeout(500)  # Thêm delay để đảm bảo chart render hoàn toàn
-                    
-                    # Screenshot
-                    chart_element = page.locator('#chart')
-                    chart_element.screenshot(path=png_path)
-                    
-                    browser.close()
+                # Chạy render trong thread riêng
+                thread = threading.Thread(target=render_in_thread)
+                thread.start()
+                thread.join(timeout=10)  # Wait max 10 seconds
                 
-                # Xóa file HTML tạm
-                try:
-                    os.remove(html_path)
-                except:
-                    pass
+                if result['error']:
+                    raise Exception(result['error'])
                 
-                return png_path
-                
+                if result['path']:
+                    return result['path']
+                else:
+                    # Timeout or no result
+                    try:
+                        os.remove(png_path)
+                    except:
+                        pass
+                    return None
             except Exception as e:
                 # Cleanup
-                try:
-                    os.remove(html_path)
-                except:
-                    pass
                 try:
                     os.remove(png_path)
                 except:
@@ -680,13 +717,47 @@ class DocxGenerator:
                 stem_type = question_stem.get('type', 'text')
                 
                 if stem_type == 'mixed':
-                    # Mixed content: text + table + chart
+                    # Mixed content: text + table + chart - process sequentially
                     content = question_stem.get('content', [])
-                    self._add_mixed_content(para, content)
+                    first_text_added_to_para = False
+                    for item in content:
+                        if isinstance(item, str):
+                            # Text content
+                            if not first_text_added_to_para:
+                                # First text goes to the question paragraph
+                                para.add_run(item)
+                                first_text_added_to_para = True
+                            else:
+                                # Subsequent text creates new paragraph
+                                para_text = self.document.add_paragraph()
+                                para_text.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'table':
+                                # Add table as separate element
+                                self._add_inline_table(item.get('content', {}))
+                            elif item_type == 'chart':
+                                # Add chart as separate element
+                                self._add_inline_chart(item.get('content', {}))
+                            elif item_type == 'image':
+                                # Add image placeholder
+                                caption = item.get('metadata', {}).get('caption', '')
+                                para_img = self.document.add_paragraph()
+                                if caption:
+                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
+                                else:
+                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
+                                run.italic = True
                 elif stem_type == 'chart':
                     # Chart with before/after text
                     content = question_stem.get('content', [])
-                    self._add_mixed_content(para, content)
+                    for item in content:
+                        if isinstance(item, str):
+                            para.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'chart':
+                                self._add_inline_chart(item.get('content', {}))
                 else:
                     # Simple text
                     question_stem = question_stem.get('content', '')
@@ -735,7 +806,37 @@ class DocxGenerator:
             if isinstance(source_text, dict):
                 source_metadata = source_text.get('metadata', {})
                 source_text = source_text.get('content', '')
-            self.add_paragraph(source_text, italic=True)
+            
+            # Handle mixed content or plain text
+            if isinstance(source_text, list):
+                # Mixed content: process each item separately to preserve order
+                for item in source_text:
+                    if isinstance(item, str):
+                        # Plain text - create new paragraph
+                        para = self.document.add_paragraph()
+                        run = para.add_run(item)
+                        run.italic = True
+                    elif isinstance(item, dict):
+                        item_type = item.get('type', '')
+                        if item_type == 'table':
+                            self._add_inline_table(item.get('content', {}))
+                        elif item_type == 'image':
+                            caption = item.get('metadata', {}).get('caption', '')
+                            para = self.document.add_paragraph()
+                            if caption:
+                                run = para.add_run(f"[Hình ảnh: {caption}]")
+                            else:
+                                run = para.add_run(f"[Hình ảnh: {item.get('content', '')}]")
+                            run.italic = True
+                        elif item_type == 'chart':
+                            self._add_inline_chart(item.get('content', {}))
+                        else:
+                            para = self.document.add_paragraph()
+                            run = para.add_run(str(item))
+                            run.italic = True
+            else:
+                # Plain text
+                self.add_paragraph(source_text, italic=True)
             
             # Only display source citation if subject needs source display
             should_display_source = Config.should_display_source(subject)

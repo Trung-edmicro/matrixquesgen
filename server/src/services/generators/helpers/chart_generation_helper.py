@@ -30,7 +30,7 @@ def get_chart_data_schema() -> Dict:
                         "chartType": {
                             "type": "string",
                             "enum": ["bar", "line"],
-                            "description": "Loại biểu đồ"
+                            "description": "Loại biểu đồ, khuyến khinh chỉ dùng 'bar' hoặc 'line'"
                         },
                         "echarts": {
                             "type": "object",
@@ -54,18 +54,17 @@ def get_chart_data_schema() -> Dict:
                                         },
                                         "left": {
                                             "type": "string",
-                                            "enum": ["center"],
+                                            "default": "center",
                                             "description": "BẮT BUỘC: center"
                                         },
                                         "top": {
                                             "type": "string",
-                                            "enum": ["88%"],
-                                            "description": "BẮT BUỘC: 88%"
+                                            "default": "88%",
                                         },
                                         "textStyle": {
                                             "type": "object",
                                             "properties": {
-                                                "fontSize": {"type": "number", "default": 18},
+                                                "fontSize": {"type": "number", "default": 20},
                                                 "fontWeight": {"type": "string", "default": "bold"}
                                             }
                                         }
@@ -75,10 +74,27 @@ def get_chart_data_schema() -> Dict:
                                 "legend": {
                                     "type": "object",
                                     "properties": {
-                                        "data": {"type": "array", "items": {"type": "string"}},
-                                        "bottom": {"type": "number"}
+                                        "data": {
+                                            "type": "array", 
+                                            "items": {"type": "string"}
+                                        },
+                                        "bottom": {
+                                            "type": "number",
+                                            "default": 70
+                                        }
                                     }
                                 },
+                                
+                                "grid": {
+                                    "type": "object",
+                                    "properties": {
+                                        "top": {"type": "number"},
+                                        "bottom": {"type": "number"},
+                                        "left": {"type": "number"},
+                                        "right": {"type": "number"},
+                                    }
+                                },
+
                                 "xAxis": {
                                     "anyOf": [
                                         {
@@ -89,9 +105,24 @@ def get_chart_data_schema() -> Dict:
                                                     "type": "array",
                                                     "items": {"type": "string"},
                                                     "description": "BẮT BUỘC: Array dữ liệu trục X"
+                                                },
+                                                "name": {"type": "string"},
+                                                "nameLocation": {"type": "string", "default": "end"},
+                                                "nameGap": {"type": "number"},
+                                                "axisLine": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "show": {"type": "boolean", "default": True}
+                                                    }
+                                                },
+                                                "axisTick": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "show": {"type": "boolean", "default": True}
+                                                    }
                                                 }
                                             },
-                                            "required": ["data"]
+                                            "required": ["data", "type", "nameLocation", "name", "axisLine", "axisTick"]
                                         },
                                         {"type": "array"}
                                     ]
@@ -112,11 +143,53 @@ def get_chart_data_schema() -> Dict:
                                                 "properties": {
                                                     "type": {"type": "string"},
                                                     "name": {"type": "string"},
-                                                    "position": {"type": "string"},
                                                     "min": {"type": "number"},
                                                     "max": {"type": "number"},
-                                                    "interval": {"type": "number"}
-                                                }
+                                                    "interval": {"type": "number"},
+                                                    "position": {"type": "string"},
+                                                    "axisLine": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "show": {"type": "boolean", "default": True, "description": "Bắt buộc show axisLine"},
+                                                            "symbol": {"type": "array", "items": {"type": "string"}, "default": ["none", "arrow"]},
+                                                            "symbolSize": {"type": "array", "items": {"type": "number"}, "default": [8, 12]}
+                                                        }
+                                                    },
+                                                    "axisTick": {
+                                                        "type": "object",
+                                                        "properties": { 
+                                                            "show": { "type": "boolean", "default": True }
+                                                        }
+                                                    },
+                                                    "axisLabel": {
+                                                        "type": "object",
+                                                        "properties": { 
+                                                            "show": { "type": "boolean", "default": True }
+                                                        }
+                                                    },
+                                                    "splitLine": {
+                                                        "type": "object",
+                                                        "properties": { 
+                                                            "show": { "type": "boolean", "default": False, "description": "Bắt buộc không show splitLine" }
+                                                        }
+                                                    },
+                                                    "nameLocation": {
+                                                        "type": "string",
+                                                        "default": "end"
+                                                    },
+                                                    "nameGap": {
+                                                        "type": "number",
+                                                        "default": 15
+                                                    },
+                                                    "nameTextStyle": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "fontSize": {"type": "number"},
+                                                            "fontWeight": {"type": "string", "default": "bold"}
+                                                        }
+                                                    }
+                                                },
+                                                "required": ["type", "name", "axisLine", "axisTick", "axisLabel", "splitLine", "nameLocation", "nameGap", "nameTextStyle"]
                                             }
                                         }
                                     ]
@@ -127,12 +200,21 @@ def get_chart_data_schema() -> Dict:
                                         "type": "object",
                                         "properties": {
                                             "name": {"type": "string"},
-                                            "type": {"type": "string"},
+                                            "type": {"type": "string", "enum": ["bar", "line"]},
                                             "data": {
                                                 "type": "array",
+                                                "items": {"type": "number"},
                                                 "description": "BẮT BUỘC: Array số liệu"
                                             },
-                                            "yAxisIndex": {"type": "integer"}
+                                            "yAxisIndex": {"type": "integer"},
+                                            "label": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "show": {"type": "boolean", "default": True},
+                                                    "position": {"type": "string", "default": "inside"},
+                                                    "formatter": {"type": "string", "default": "{c}"},
+                                                }
+                                            },
                                         },
                                         "required": ["name", "type", "data"]
                                     }
@@ -211,20 +293,66 @@ def build_chart_generation_prompt(
     """
     # Xác định nguồn dữ liệu
     if supplementary_materials and supplementary_materials.strip():
+        print("✓ Using supplementary materials for chart generation (strict mode).")
         data_source = f"""
-**DỮ LIỆU TỪ TÀI LIỆU:**
+**DỮ LIỆU TỪ TÀI LIỆU BỔ SUNG:**
 ```
 {supplementary_materials}
 ```
 
-⚠️ QUAN TRỌNG: Sử dụng dữ liệu từ tài liệu trên để tạo biểu đồ.
+{'='*70}
+⚠️ QUY TẮC BẮT BUỘC KHI CÓ TÀI LIỆU BỔ SUNG:
+{'='*70}
+
+1. **CHỈ SỬ DỤNG DỮ LIỆU TỪNG CÓ TRONG TÀI LIỆU TRÊN**
+   - Không được thêm địa danh/trạm/năm không có trong tài liệu
+   - Không được bỏ bất kỳ địa danh/trạm nào có trong tài liệu
+   - Không được tự nghĩ hoặc tìm thêm dữ liệu từ nguồn khác
+
+2. **VÍ DỤ:**
+   ✅ ĐÚNG: Tài liệu có "Hà Nội, Huế, Cà Mau" 
+            → Chart chỉ dùng 3 trạm này
+   
+   ❌ SAI: Tài liệu có "Hà Nội, Huế, Cà Mau"
+           → Chart lại có "Hà Nội, Huế, Đà Nẵng, TP.HCM, Cà Mau"
+           (Thêm Đà Nẵng, TP.HCM không có trong tài liệu)
+   
+   ❌ SAI: Câu hỏi nói "Hà Nội và TP. HCM" 
+           → Nhưng tài liệu không có TP.HCM
+           → BẮT BUỘC sửa câu hỏi thành "Hà Nội và Cà Mau" hoặc các trạm CÓ trong tài liệu
+
+3. **XỬ LÝ KHI THIẾU DỮ LIỆU:**
+   - Nếu câu hỏi muốn so sánh "Hà Nội và TP.HCM" nhưng tài liệu không có TP.HCM
+     → Thay thế bằng trạm khác CÓ TRONG TÀI LIỆU (VD: "Hà Nội và Cà Mau")
+   - Giải thích và đáp án phải dựa trên dữ liệu THỰC TẾ từ tài liệu
+
+4. **NGUỒN DỮ LIỆU:**
+   - Ghi đúng nguồn từ tài liệu (VD: "Nguồn: Niên giám Thống kê 2023")
+   - Nếu tài liệu không ghi rõ nguồn → Dùng "Nguồn: Tài liệu bổ sung"
+
+{'='*70}
 """
     else:
+        print("⚠️ No supplementary materials - AI will search external data sources.")
         data_source = """
-**NGUỒN DỮ LIỆU:**
-⚠️ Không có tài liệu bổ sung → Tìm kiếm dữ liệu từ Niên giám Thống kê Việt Nam 2023 và 2024.
-- Ưu tiên dữ liệu chính thống, cập nhật
-- Ghi rõ nguồn trong graphic
+**NGUỒN DỮ LIỆU BÊN NGOÀI:**
+
+⚠️ KHÔNG có tài liệu bổ sung → Tìm kiếm dữ liệu từ các nguồn chính thống:
+
+1. **Nguồn ưu tiên:**
+   - Niên giám Thống kê Việt Nam 2023, 2024
+   - Tổng cục Thống kê (www.gso.gov.vn)
+   - Báo cáo chính thức của Bộ, Ngành
+
+2. **Yêu cầu:**
+   - Dữ liệu phải chính xác, cập nhật
+   - Chọn các địa danh/trạm đại diện, phù hợp với bài học
+   - Ghi RÕ nguồn trong graphic (VD: "Nguồn: Niên giám Thống kê 2023")
+
+3. **VÍ DỤ:**
+   ✅ "Dân số thành thị 2010-2023" → Lấy từ Niên giám thống kê
+   ✅ "Nhiệt độ trung bình Hà Nội, Huế, TP.HCM" → Chọn 3 trạm đại diện
+   ✅ Ghi nguồn: "Nguồn: Niên giám Thống kê 2023"
 """
     
     prompt = f"""
@@ -244,18 +372,26 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
    - yAxis: Object hoặc array (dual yAxis nếu cần)
      - Có name (đơn vị: "triệu người", "%", "tỷ USD")
      - Có min, max, interval nếu cần
+     - Có position ('left' hoặc 'right' cho dual yAxis)
+     - axisLine, axisTick, axisLabel với show: true (bắt buộc)
+     - splitLine với show: false (bắt buộc)
+     - nameLocation: 'end' (default), nameGap: 15, nameTextStyle với fontSize, fontWeight
    - series: Array ít nhất 1 series
      - name: Tên series (VD: "Dân số thành thị")
-     - type: bar, line, pie
+     - type: bar, line
      - data: Array số liệu THỰC (VD: [26.5, 30.9, 36.6])
+     - label: show: true, position: 'inside'
    - graphic: Array chứa text nguồn
      - text: "Nguồn: [tên nguồn]"
      - fontSize: 13, fontStyle: "italic"
 
 3. **TÍNH NĂNG NÂNG CAO (tùy chọn):**
-   - Dual yAxis nếu có 2 loại dữ liệu khác đơn vị
+   - Dual yAxis nếu có 2 loại dữ liệu khác đơn vị (position: 'left', 'right')
    - Combo chart (bar + line) nếu cần so sánh
    - Legend với bottom: 70
+   - Grid với top, bottom, left, right để điều chỉnh không gian
+   - TextStyle với fontFamily: 'Roboto, sans-serif'
+   - Title textStyle với fontSize: 18, fontWeight: 'bold'
 
 **CHỈ TẠO CHART DATA - KHÔNG TẠO CÂU HỎI**
 
@@ -449,10 +585,6 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
     if title_obj.get('left') != 'center':
         return False, "echarts.title.left phải là 'center'"
     
-    # Check title.top = "88%" (bắt buộc)
-    if title_obj.get('top') != '88%':
-        return False, "echarts.title.top phải là '88%'"
-    
     # Check xAxis
     x_axis = echarts.get('xAxis')
     if isinstance(x_axis, dict):
@@ -479,6 +611,20 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
         for i, axis in enumerate(y_axis):
             if not isinstance(axis, dict):
                 return False, f"yAxis[{i}] phải là object"
+            # Check required fields for yAxis
+            if 'type' not in axis:
+                return False, f"yAxis[{i}] thiếu field 'type'"
+            if 'name' not in axis:
+                return False, f"yAxis[{i}] thiếu field 'name'"
+            # Check optional fields if present
+            if 'axisLine' in axis:
+                axis_line = axis['axisLine']
+                if not isinstance(axis_line, dict):
+                    return False, f"yAxis[{i}].axisLine phải là object"
+                if 'symbol' in axis_line and not isinstance(axis_line['symbol'], list):
+                    return False, f"yAxis[{i}].axisLine.symbol phải là array"
+                if 'symbolSize' in axis_line and not isinstance(axis_line['symbolSize'], list):
+                    return False, f"yAxis[{i}].axisLine.symbolSize phải là array"
     else:
         return False, "yAxis phải là object hoặc array"
     
@@ -516,6 +662,18 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
             y_axis_index = s["yAxisIndex"]
             if not isinstance(y_axis_index, int) or y_axis_index < 0:
                 return False, f"series[{i}].yAxisIndex phải là integer >= 0"
+        
+        # Check label nếu có
+        if 'label' in s:
+            label = s['label']
+            if not isinstance(label, dict):
+                return False, f"series[{i}].label phải là object"
+            if 'show' in label and not isinstance(label['show'], bool):
+                return False, f"series[{i}].label.show phải là boolean"
+            if 'position' in label and label['position'] not in ['top', 'left', 'right', 'bottom', 'inside', 'insideLeft', 'insideRight', 'insideTop', 'insideBottom', 'insideTopLeft', 'insideTopRight', 'insideBottomLeft', 'insideBottomRight']:
+                return False, f"series[{i}].label.position không hợp lệ"
+            if 'formatter' in label and not isinstance(label['formatter'], str):
+                return False, f"series[{i}].label.formatter phải là string"
     
     # Check graphic (nếu có)
     graphic = echarts.get('graphic', [])
@@ -534,10 +692,6 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
             # Check left = "center" (bắt buộc)
             if g.get('left') != 'center':
                 return False, f"graphic[{i}].left phải là 'center'"
-            
-            # Check bottom = "20" (bắt buộc)
-            if g.get('bottom') != "20":
-                return False, f"graphic[{i}].bottom phải là 20"
             
             # Check style.text
             style = g.get('style', {})

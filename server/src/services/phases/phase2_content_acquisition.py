@@ -45,7 +45,8 @@ class ContentAcquisitionService:
             'tln': ['_TLN_', 'Trắc nghiệm luận'],
             'tl': ['_TL_', 'Tự luận'],
             'ds': ['_DS_', 'Đúng sai', 'questions'],
-            'material': ['_material', 'material', 'tư liệu', 'tài liệu']
+            'sup_material': ['_sup_material'],  # Must check sup_material BEFORE material to avoid false match
+            'material': ['_material', 'material', 'tư liệu', 'tài liệu']  # Material for DS text questions
         }
         # Root folder ID for educational content - should be configured
         self.root_folder_id = os.getenv('ROOT_GDRIVE_FOLDER_ID', 'root')
@@ -354,7 +355,8 @@ class ContentAcquisitionService:
             'tln': [],
             'tl': [],
             'ds': [],
-            'material': []
+            'material': [],  # Material for DS text questions (_material.md)
+            'sup_material': []  # Supplementary material for TN/TLN/TL and DS rich content (_sup_material.md)
         }
 
         for item in content_items:
@@ -515,8 +517,10 @@ class ContentAcquisitionService:
             if not content.strip():
                 continue
 
-            # Check filename pattern
-            if 'material' in filename.lower() or filename.endswith(('_material.txt', '_material.md')):
+            # Check filename pattern - only match _material, not _sup_material
+            # Must check for _material specifically to avoid matching _sup_material
+            if ('_material' in filename.lower() and '_sup_material' not in filename.lower()) or \
+               filename.endswith(('_material.txt', '_material.md')):
                 # Parse material content
                 materials = self.parse_material_content(content)
                 result['material'].extend(materials)
@@ -611,6 +615,14 @@ class ContentAcquisitionService:
         if categorized_content.get('sbt'):
             sbt_content = categorized_content['sbt'][0].content or ""
 
+        # Extract supplementary_material from _sup_material files
+        supplementary_material = ""
+        if categorized_content.get('sup_material'):
+            # Concatenate all sup_material files if multiple exist
+            sup_material_contents = [item.content or "" for item in categorized_content['sup_material']]
+            supplementary_material = "\n\n".join(sup_material_contents)
+            print(f"📄 Found supplementary_material: {len(supplementary_material)} chars")
+
         # Parse TN content from separate files
         tn_files = categorized_content.get('tn', [])
         print(f"🔍 Parsing TN from {len(tn_files)} files")
@@ -620,12 +632,25 @@ class ContentAcquisitionService:
         print(f"   VD: {len(tn_data.get('VD', []))} questions")
 
         # Parse DS content from separate files
-        ds_files = categorized_content.get('ds', []) + categorized_content.get('material', [])
-        print(f"🔍 Parsing DS from {len(ds_files)} files")
+        # Separate: DS questions files vs material files
+        ds_question_files = categorized_content.get('ds', [])
+        ds_material_files = categorized_content.get('material', [])
+        
+        print(f"🔍 Parsing DS from {len(ds_question_files)} question files and {len(ds_material_files)} material files")
         ds_data = self.parse_ds_from_separate_files(
-            ds_files,
+            ds_question_files,
             subject, grade, chapter, lesson
         )
+        
+        # Extract materials separately from _material files (not from _sup_material)
+        ds_materials = []
+        if ds_material_files:
+            for material_file in ds_material_files:
+                if material_file.content:
+                    ds_materials.extend(self.parse_material_content(material_file.content))
+        
+        ds_data['material'] = ds_materials
+        
         print(f"   Material: {len(ds_data.get('material', []))} items")
         print(f"   Questions: {len(ds_data.get('questions', []))} items")
 
@@ -651,6 +676,7 @@ class ContentAcquisitionService:
                 "SGV": sgv_content,
                 "SBT": sbt_content
             },
+            "supplementary_material": supplementary_material,
             "TN": tn_data,
             "DS": ds_data,
             "TLN": tln_data,

@@ -1,8 +1,15 @@
 import pandas as pd
 import sys
+import os
+
+# Set encoding for Windows console
+if os.name == 'nt':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # Đọc file Excel với rich_content note
-file_path = r'E:\App\matrixquesgen\data\input\Ma trận_DIALY_KNTT_C12.xlsx'
+file_path = r'E:\App\matrixquesgen\data\input\Ma trận_GDKTPL_KNTT_C11.xlsx'
 df_dict = pd.read_excel(file_path, sheet_name=None, header=None)
 
 print('=' * 100)

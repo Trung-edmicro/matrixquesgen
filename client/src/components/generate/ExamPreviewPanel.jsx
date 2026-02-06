@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { updateQuestion } from '../../services/api'
+import { updateQuestion, regenerateQuestion, regenerateBulkQuestions } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
 import RichContentRenderer from '../common/RichContentRenderer'
 
@@ -8,6 +8,11 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   const [editedData, setEditedData] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [selectedQuestions, setSelectedQuestions] = useState(new Set())
+  const [regeneratingQuestions, setRegeneratingQuestions] = useState(new Set())
+  const [regenerateQueue, setRegenerateQueue] = useState([])
+  const [activeRegenerations, setActiveRegenerations] = useState(0)
+  const MAX_CONCURRENT_REGENERATIONS = 3 // Giới hạn 3 requests song song
 
   const tabs = [
     { id: 'questions', label: 'Đề' },
@@ -30,6 +35,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
     if (examData) {
       setEditedData(JSON.parse(JSON.stringify(examData)))
       setIsDirty(false)
+      setSelectedQuestions(new Set())
+      setRegeneratingQuestions(new Set())
     }
   }, [examData])
 
@@ -95,6 +102,120 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       return newData
     })
     setIsDirty(true)
+  }
+
+  const handleToggleQuestion = (type, code) => {
+    setSelectedQuestions(prev => {
+      const newSet = new Set(prev)
+      const key = `${type}:${code}`
+      if (newSet.has(key)) {
+        newSet.delete(key)
+      } else {
+        newSet.add(key)
+      }
+      return newSet
+    })
+  }
+
+  const handleRegenerateQuestion = async (type, code) => {
+    if (!sessionId) return
+    
+    const key = `${type}:${code}`
+    
+    // Kiểm tra xem câu này đã trong queue hoặc đang regenerate chưa
+    if (regeneratingQuestions.has(key)) {
+      console.log(`Question ${key} is already regenerating`)
+      return
+    }
+    
+    // Đánh dấu là đang regenerate
+    setRegeneratingQuestions(prev => new Set(prev).add(key))
+    
+    // Nếu đã đạt giới hạn concurrent, đợi
+    const executeRegeneration = async () => {
+      try {
+        setActiveRegenerations(prev => prev + 1)
+        
+        const result = await regenerateQuestion(sessionId, type, code)
+        
+        // Update the question in editedData
+        setEditedData(prev => {
+          const newData = JSON.parse(JSON.stringify(prev))
+          const questionList = newData.questions[type]
+          const questionIdx = questionList.findIndex(q => q.question_code === code)
+          if (questionIdx !== -1) {
+            questionList[questionIdx] = result.question
+          }
+          return newData
+        })
+        
+        // KHÔNG gọi onDataChange để tránh re-render parent
+        // Data đã được update trong editedData, chỉ cần update khi Save
+      } catch (err) {
+        console.error(`Error regenerating ${key}:`, err)
+        alert('Lỗi khi sinh lại câu hỏi: ' + err.message)
+      } finally {
+        setActiveRegenerations(prev => prev - 1)
+        setRegeneratingQuestions(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(key)
+          return newSet
+        })
+      }
+    }
+    
+    // Thực thi ngay không cần queue - browser sẽ tự handle concurrent
+    executeRegeneration()
+  }
+
+  const handleRegenerateBulk = async () => {
+    if (!sessionId || selectedQuestions.size === 0) return
+    
+    const questionsToRegenerate = Array.from(selectedQuestions).map(key => {
+      const [type, code] = key.split(':')
+      return { type, code }
+    })
+    
+    // Add all to regenerating set
+    setRegeneratingQuestions(prev => new Set([...prev, ...selectedQuestions]))
+    
+    try {
+      const result = await regenerateBulkQuestions(sessionId, questionsToRegenerate)
+      
+      // Update all regenerated questions
+      setEditedData(prev => {
+        const newData = JSON.parse(JSON.stringify(prev))
+        
+        for (const item of result.results) {
+          if (item.status === 'success') {
+            const questionList = newData.questions[item.type]
+            const questionIdx = questionList.findIndex(q => q.question_code === item.code)
+            if (questionIdx !== -1) {
+              questionList[questionIdx] = item.question
+            }
+          }
+        }
+        
+        return newData
+      })
+      
+      // Clear selections
+      setSelectedQuestions(new Set())
+      
+      // Notify parent
+      if (onDataChange) {
+        onDataChange(editedData)
+      }
+      
+      // Show result
+      if (result.errors && result.errors.length > 0) {
+        alert(`Sinh lại hoàn tất với ${result.succeeded} thành công và ${result.failed} lỗi`)
+      }
+    } catch (err) {
+      alert('Lỗi khi sinh lại câu hỏi: ' + err.message)
+    } finally {
+      setRegeneratingQuestions(new Set())
+    }
   }
 
   return (
@@ -164,6 +285,11 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
                 sessionId={sessionId}
                 shouldDisplaySource={shouldDisplaySource()}
                 metadata={metadata}
+                selectedQuestions={selectedQuestions}
+                onToggleQuestion={handleToggleQuestion}
+                regeneratingQuestions={regeneratingQuestions}
+                onRegenerateQuestion={handleRegenerateQuestion}
+                onRegenerateBulk={handleRegenerateBulk}
               />
             )}
             {activeTab === 'answers' && (
@@ -182,7 +308,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   )
 }
 
-function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySource, metadata }) {
+function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySource, metadata, selectedQuestions, onToggleQuestion, regeneratingQuestions, onRegenerateQuestion, onRegenerateBulk }) {
   const getLevelColor = (level) => {
     switch(level) {
       case 'NB': return 'bg-green-100 text-green-800'
@@ -206,8 +332,29 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 
   const handleBlur = (type, code, field, e) => {
     const newValue = e.target.textContent
-    if (onFieldChange) {
-      onFieldChange(type, code, field, newValue)
+    
+    // Lấy giá trị cũ để so sánh
+    const oldValue = (() => {
+      const questionList = editedData?.questions?.[type] || []
+      const question = questionList.find(q => q.question_code === code)
+      if (!question) return ''
+      
+      if (field.includes('.')) {
+        const parts = field.split('.')
+        if (parts.length === 2) {
+          const [parent, child] = parts
+          return question[parent]?.[child] || ''
+        } else if (parts.length === 3) {
+          const [parent, key, prop] = parts
+          return question[parent]?.[key]?.[prop] || ''
+        }
+      }
+      return question[field] || ''
+    })()
+    
+    // Chỉ update nếu giá trị thực sự thay đổi
+    if (newValue !== oldValue) {
+      handleFieldChange(type, code, field, newValue)
     }
   }
 
@@ -225,69 +372,122 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 
   return (
     <div>
+      {/* Header with bulk regenerate button */}
+      {sessionId && selectedQuestions && selectedQuestions.size > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded flex items-center justify-between">
+          <span className="text-sm text-blue-800">
+            Đã chọn {selectedQuestions.size} câu hỏi
+          </span>
+          <button
+            onClick={onRegenerateBulk}
+            disabled={regeneratingQuestions && regeneratingQuestions.size > 0}
+            className="btn-primary text-sm px-4 py-1.5 disabled:opacity-50"
+          >
+            {regeneratingQuestions && regeneratingQuestions.size > 0 ? 'Đang sinh lại...' : 'Sinh lại các câu đã chọn'}
+          </button>
+        </div>
+      )}
+
       {/* TN Questions */}
       {sortedTN.length > 0 && (
         <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3">Phần I: Trắc nghiệm</h3>
-          {sortedTN.map((q, idx) => (
-            <div key={q.question_code} className="mb-5 text-base border-b border-gray-100 pb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="font-medium">Câu {idx + 1}</span>
-                {sessionId ? (
-                  <select
+          {sortedTN.map((q, idx) => {
+            const questionKey = `TN:${q.question_code}`
+            const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
+            const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            
+            return (
+              <div key={q.question_code} className="mb-5 text-base border-b border-gray-100 pb-5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-medium">Câu {idx + 1}:</span>
+                  {sessionId ? (
+                    <select
                     value={q.level}
                     onChange={(e) => handleLevelChange('TN', q.question_code, 'level', e.target.value)}
                     className={`px-2 py-0.5 text-sm rounded border-0 cursor-pointer ${getLevelColor(q.level)}`}
-                  >
-                    <option value="NB">NB</option>
-                    <option value="TH">TH</option>
-                    <option value="VD">VD</option>
-                  </select>
-                ) : (
-                  <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
-                    {q.level}
-                  </span>
-                )}
-                <span className="text-sm text-gray-500">[{q.question_code}]</span>
-              </div>
-              <div className="mb-2 text-gray-700">
-                <RichContentRenderer
-                  content={q.question_stem}
-                  contentEditable={!!sessionId}
-                  onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
-                  className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
-                />
-              </div>
-              <div className="space-y-1 pl-4">
-                {Object.entries(q.options || {}).map(([key, value]) => (
-                  <div 
-                    key={key} 
-                    className="flex items-start gap-2"
-                  >
-                    {sessionId && (
-                      <input
-                        type="radio"
-                        name={`correct-${q.question_code}`}
-                        checked={q.correct_answer === key}
-                        onChange={() => handleCorrectAnswerToggle('TN', q.question_code, 'correct_answer', key)}
-                        className="mt-1 w-4 h-4 text-red-600 cursor-pointer"
-                      />
-                    )}
-                    <div className={q.correct_answer === key ? 'text-red-600 font-medium flex-1' : 'text-gray-600 flex-1'}>
-                      <span>{key}. </span>
-                      <LaTeXRenderer
-                        contentEditable={!!sessionId}
-                        onBlur={(e) => handleBlur('TN', q.question_code, `options.${key}`, e)}
-                        className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline"
-                      >
-                        {value}
-                      </LaTeXRenderer>
+                    >
+                      <option value="NB">NB</option>
+                      <option value="TH">TH</option>
+                      <option value="VD">VD</option>
+                    </select>
+                  ) : (
+                    <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                      {q.level}
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-500">[{q.question_code}]</span>
+                  
+                  {/* Regenerate button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => onRegenerateQuestion('TN', q.question_code)}
+                      disabled={isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sinh lại câu hỏi này"
+                    >
+                      {isRegenerating ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Checkbox for selection */}
+                  {sessionId && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleQuestion('TN', q.question_code)}
+                      className="w-4 h-4 text-primary-600 cursor-pointer"
+                      disabled={isRegenerating}
+                    />
+                  )}
+                </div>
+                <div className="mb-2 text-gray-700">
+                  <RichContentRenderer
+                    content={q.question_stem}
+                    contentEditable={!!sessionId}
+                    onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
+                    className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                  />
+                </div>
+                <div className="space-y-1 pl-4">
+                  {Object.entries(q.options || {}).map(([key, value]) => (
+                    <div 
+                      key={key} 
+                      className="flex items-start gap-2"
+                    >
+                      {sessionId && (
+                        <input
+                          type="radio"
+                          name={`correct-${q.question_code}`}
+                          checked={q.correct_answer === key}
+                          onChange={() => handleCorrectAnswerToggle('TN', q.question_code, 'correct_answer', key)}
+                          className="mt-1 w-4 h-4 text-red-600 cursor-pointer"
+                        />
+                      )}
+                      <div className={q.correct_answer === key ? 'text-red-600 font-medium flex-1' : 'text-gray-600 flex-1'}>
+                        <span>{key}. </span>
+                        <LaTeXRenderer
+                          contentEditable={!!sessionId}
+                          onBlur={(e) => handleBlur('TN', q.question_code, `options.${key}`, e)}
+                          className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1 inline"
+                        >
+                          {value}
+                        </LaTeXRenderer>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -295,12 +495,48 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
       {sortedDS.length > 0 && (
         <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần II: Đúng/Sai</h3>
-          {sortedDS.map((q, idx) => (
-            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
-              <div className="mb-2">
-                <span className="font-medium">Câu {idx + 1}</span>
-                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
-              </div>
+          {sortedDS.map((q, idx) => {
+            const questionKey = `DS:${q.question_code}`
+            const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
+            const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            
+            return (
+              <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-medium">Câu {idx + 1}:</span>
+                  <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+                  
+                  {/* Regenerate button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => onRegenerateQuestion('DS', q.question_code)}
+                      disabled={isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sinh lại câu hỏi này"
+                    >
+                      {isRegenerating ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Checkbox for selection */}
+                  {sessionId && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleQuestion('DS', q.question_code)}
+                      className="w-4 h-4 text-primary-600 cursor-pointer"
+                      disabled={isRegenerating}
+                    />
+                  )}
+                </div>
               
               {/* Always display source_text.content for DS questions */}
               {q.source_text && (
@@ -384,7 +620,8 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                 ))}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -392,25 +629,59 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
       {sortedTLN.length > 0 && (
         <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần III: Trả lời ngắn</h3>
-          {sortedTLN.map((q, idx) => (
-            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="font-medium">Câu {idx + 1}</span>
-                <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
-                  {q.level}
-                </span>
-                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+          {sortedTLN.map((q, idx) => {
+            const questionKey = `TLN:${q.question_code}`
+            const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
+            const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            
+            return (
+              <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-medium">Câu {idx + 1}:</span>
+                  <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                    {q.level}
+                  </span>
+                  <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+                  
+                  {sessionId && (
+                    <button
+                      onClick={() => onRegenerateQuestion('TLN', q.question_code)}
+                      disabled={isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sinh lại câu hỏi này"
+                    >
+                      {isRegenerating ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {sessionId && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleQuestion('TLN', q.question_code)}
+                      className="w-4 h-4 text-primary-600 cursor-pointer"
+                      disabled={isRegenerating}
+                    />
+                  )}
+                </div>
+                <div className="text-gray-700">
+                  <RichContentRenderer
+                    content={q.question_stem}
+                    contentEditable={!!sessionId}
+                    onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
+                    className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  />
+                </div>
               </div>
-              <div className="text-gray-700">
-                <RichContentRenderer
-                  content={q.question_stem}
-                  contentEditable={!!sessionId}
-                  onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
-                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -418,25 +689,59 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
       {sortedTL.length > 0 && (
         <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3 mt-6">Phần IV: Tự luận</h3>
-          {sortedTL.map((q, idx) => (
-            <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="font-medium">Câu {idx + 1}</span>
-                <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
-                  {q.level}
-                </span>
-                <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+          {sortedTL.map((q, idx) => {
+            const questionKey = `TL:${q.question_code}`
+            const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
+            const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            
+            return (
+              <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-medium">Câu {idx + 1}:</span>
+                  <span className={`px-2 py-0.5 text-sm rounded ${getLevelColor(q.level)}`}>
+                    {q.level}
+                  </span>
+                  <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
+                  
+                  {sessionId && (
+                    <button
+                      onClick={() => onRegenerateQuestion('TL', q.question_code)}
+                      disabled={isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sinh lại câu hỏi này"
+                    >
+                      {isRegenerating ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {sessionId && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleQuestion('TL', q.question_code)}
+                      className="w-4 h-4 text-primary-600 cursor-pointer"
+                      disabled={isRegenerating}
+                    />
+                  )}
+                </div>
+                <div className="text-gray-700">
+                  <RichContentRenderer
+                    content={q.question_stem}
+                    contentEditable={!!sessionId}
+                    onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
+                    className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  />
+                </div>
               </div>
-              <div className="text-gray-700">
-                <RichContentRenderer
-                  content={q.question_stem}
-                  contentEditable={!!sessionId}
-                  onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
-                  className="focus:outline-none focus:ring-2 focus:ring-primary-300"
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
