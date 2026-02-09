@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { updateQuestion, regenerateQuestion, regenerateBulkQuestions } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
 import RichContentRenderer from '../common/RichContentRenderer'
@@ -13,6 +13,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   const [regenerateQueue, setRegenerateQueue] = useState([])
   const [activeRegenerations, setActiveRegenerations] = useState(0)
   const MAX_CONCURRENT_REGENERATIONS = 3 // Giới hạn 3 requests song song
+  const saveTimerRef = useRef(null) // Timer cho auto-save sau regenerate
+  const needsAutoSaveRef = useRef(false) // Flag để track khi cần auto-save
 
   const tabs = [
     { id: 'questions', label: 'Đề' },
@@ -39,6 +41,32 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       setRegeneratingQuestions(new Set())
     }
   }, [examData])
+
+  // Auto-save sau khi regenerate xong (debounced)
+  useEffect(() => {
+    // Chỉ auto-save khi không còn regeneration nào đang chạy VÀ có flag cần save
+    if (regeneratingQuestions.size === 0 && activeRegenerations === 0 && needsAutoSaveRef.current) {
+      // Clear timer cũ nếu có
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      
+      // Đợi 1 giây sau khi tất cả regenerations hoàn thành rồi mới save
+      saveTimerRef.current = setTimeout(() => {
+        if (editedData && onDataChange) {
+          console.log('Auto-saving after regeneration...')
+          onDataChange(editedData, false) // false = không hiển thị thông báo
+          needsAutoSaveRef.current = false // Reset flag sau khi save
+        }
+      }, 1000)
+    }
+    
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [regeneratingQuestions.size, activeRegenerations, onDataChange])
 
   const handleSave = async () => {
     if (!sessionId || !isDirty) return
@@ -128,6 +156,9 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       return
     }
     
+    // Đánh dấu cần auto-save khi regeneration hoàn thành
+    needsAutoSaveRef.current = true
+    
     // Đánh dấu là đang regenerate
     setRegeneratingQuestions(prev => new Set(prev).add(key))
     
@@ -149,8 +180,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
           return newData
         })
         
-        // KHÔNG gọi onDataChange để tránh re-render parent
-        // Data đã được update trong editedData, chỉ cần update khi Save
+        // Data đã được update trong editedData
+        // Auto-save sẽ được trigger bởi useEffect sau khi regeneration hoàn thành
       } catch (err) {
         console.error(`Error regenerating ${key}:`, err)
         alert('Lỗi khi sinh lại câu hỏi: ' + err.message)
@@ -175,6 +206,9 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       const [type, code] = key.split(':')
       return { type, code }
     })
+    
+    // Đánh dấu cần auto-save khi regeneration hoàn thành
+    needsAutoSaveRef.current = true
     
     // Add all to regenerating set
     setRegeneratingQuestions(prev => new Set([...prev, ...selectedQuestions]))
@@ -202,10 +236,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       // Clear selections
       setSelectedQuestions(new Set())
       
-      // Notify parent
-      if (onDataChange) {
-        onDataChange(editedData)
-      }
+      // Auto-save sẽ được trigger bởi useEffect sau khi regeneration hoàn thành
       
       // Show result
       if (result.errors && result.errors.length > 0) {

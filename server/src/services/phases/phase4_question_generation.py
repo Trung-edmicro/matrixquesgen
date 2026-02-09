@@ -25,6 +25,7 @@ from services.core.rich_content import (
     ContentBlock, ContentType,
     text as text_block, mixed as mixed_block
 )
+from .cross_lesson_ds_helper import merge_cross_lesson_ds_context
 
 
 @dataclass
@@ -306,6 +307,18 @@ class QuestionGenerationService:
         except Exception as e:
             print(f"❌ Error loading prompt template {prompt_file}: {e}")
             return None
+    
+    def check_prompt_availability(self, question_types: List[str]) -> Dict[str, bool]:
+        """Check which prompt templates are available
+        
+        Returns:
+            Dict mapping question type to availability (True/False)
+        """
+        availability = {}
+        for q_type in question_types:
+            prompt_file = self.prompts_dir / f"{q_type}.txt"
+            availability[q_type] = prompt_file.exists()
+        return availability
 
     def generate_questions(self, content: str, subject: str, grade: str,
                          chapter: str, lesson: str, question_type: str = "TN",
@@ -534,6 +547,23 @@ class QuestionGenerationService:
         """
         if question_types is None:
             question_types = ["TN", "DS", "TLN", "TL"]
+        
+        # Check prompt availability and filter out unavailable types
+        prompt_availability = self.check_prompt_availability(question_types)
+        available_types = [q_type for q_type in question_types if prompt_availability[q_type]]
+        unavailable_types = [q_type for q_type in question_types if not prompt_availability[q_type]]
+        
+        if unavailable_types:
+            print(f"\n⚠️  System does not have prompt templates for: {', '.join(unavailable_types)}")
+            print(f"   These question types will be skipped (not generated)")
+            print(f"   Available question types: {', '.join(available_types) if available_types else 'None'}")
+        
+        if not available_types:
+            print(f"\n❌ ERROR: No prompt templates available for any requested question type")
+            return None
+        
+        # Use only available types for generation
+        question_types = available_types
             
         try:
             # Load enriched matrix JSON
@@ -550,11 +580,16 @@ class QuestionGenerationService:
             max_retry_attempts = 3
             retry_attempt = 0
             
+            # Track unavailable question types for informative messages
+            self._unavailable_question_types = unavailable_types
+            
             while retry_attempt < max_retry_attempts:
                 missing_info = self._check_missing_questions(matrix_data, question_set, question_types)
                 
                 if not missing_info['has_missing']:
                     print(f"✅ All questions generated successfully!")
+                    if unavailable_types:
+                        print(f"   Note: {', '.join(unavailable_types)} were skipped (no prompt template)")
                     break
                 
                 retry_attempt += 1
@@ -565,6 +600,8 @@ class QuestionGenerationService:
                       f"TLN={missing_info['generated']['TLN']}, TL={missing_info['generated']['TL']}")
                 print(f"   Missing: TN={missing_info['missing']['TN']}, DS={missing_info['missing']['DS']}, "
                       f"TLN={missing_info['missing']['TLN']}, TL={missing_info['missing']['TL']}")
+                if unavailable_types:
+                    print(f"   Note: {', '.join(unavailable_types)} are not counted (no prompt template)")
                 
                 # Generate missing questions
                 additional_questions = self._generate_missing_questions(matrix_data, missing_info)
@@ -653,7 +690,8 @@ class QuestionGenerationService:
                                 'lesson': lesson,
                                 'content': content,
                                 'supplementary': supplementary_for_ds,
-                                'spec_data': spec_data
+                                'spec_data': spec_data,
+                                'matrix_data': matrix_data  # Add matrix_data for cross-lesson DS
                             }
                             generation_tasks.append(task)
 
@@ -1090,6 +1128,7 @@ class QuestionGenerationService:
                 lesson = task['lesson']
                 content = task['content']
                 supplementary = task['supplementary']
+                matrix_data = task.get('matrix_data', None)  # Get matrix_data for cross-lesson DS
 
                 generated_questions = []
 
@@ -1132,6 +1171,40 @@ class QuestionGenerationService:
 
                 elif task_type == "DS":
                     spec_data = task['spec_data']
+                    question_code = spec_data.get('question_code', spec_data.get('code', ['DS1'])[0])
+                    
+                    # Check if this DS question needs cross-lesson merge (< 4 statements)
+                    current_statements = spec_data.get('statements', [])
+                    
+                    if len(current_statements) < 4 and matrix_data:
+                        # Try to merge with statements from other lessons
+                        print(f"  \u23f3 DS {question_code}: Only {len(current_statements)} statements, searching across lessons...")
+                        
+                        merged_result = merge_cross_lesson_ds_context(
+                            matrix_data=matrix_data,
+                            current_chapter=chapter,
+                            current_lesson=lesson,
+                            question_code=question_code,
+                            current_statements=current_statements,
+                            current_lesson_data=lesson_data
+                        )
+                        
+                        if merged_result and len(merged_result['spec_data'].get('statements', [])) == 4:
+                            # Use merged data
+                            spec_data = merged_result['spec_data']
+                            lesson_data = merged_result['merged_lesson_data']
+                            content = merged_result['merged_content']
+                            supplementary = merged_result['merged_supplementary']
+                            
+                            source_lessons_str = ", ".join(merged_result['source_lessons'])
+                            print(f"  \u2713 DS {question_code}: Merged from lessons: {source_lessons_str}")
+                        else:
+                            print(f"  \u26a0\ufe0f  DS {question_code}: Could not find complete statements (need 4), skipping...")
+                            continue  # Skip this incomplete DS question
+                    elif len(current_statements) < 4:
+                        # No matrix_data available for merge, skip incomplete question
+                        print(f"  \u26a0\ufe0f  DS {question_code}: Only {len(current_statements)} statements, no matrix_data for merge, skipping...")
+                        continue
 
                     # Get question template from enriched data
                     question_template = ""
@@ -1292,6 +1365,14 @@ class QuestionGenerationService:
                         print(f"   ⚠️ This task will return EMPTY and cause missing questions!")
                         return []
                 else:
+                    # Check if it's a missing prompt template error - don't retry
+                    if 'Không thể đọc prompt template' in error_message or \
+                       ('No such file or directory' in error_message and '.txt' in error_message):
+                        print(f"⚠️  SKIPPING {task_type} for lesson {chapter}.{lesson}: Prompt template not found")
+                        print(f"   System does not have prompt template for {task_type} question type")
+                        print(f"   This is expected behavior - will not retry")
+                        return []  # Return empty, don't retry
+                    
                     # Other errors - only retry 3 times
                     attempt += 1
                     if attempt < 3:

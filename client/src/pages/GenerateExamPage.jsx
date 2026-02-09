@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import MatrixInputPanel from '../components/generate/MatrixInputPanel'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
 import ActionBar from '../components/generate/ActionBar'
@@ -12,6 +12,7 @@ import {
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
+const STORAGE_EXPIRY_HOURS = 5 // Lưu tối đa 5 tiếng
 
 export default function GenerateExamPage() {
   const [matrixData, setMatrixData] = useState(null)
@@ -19,6 +20,7 @@ export default function GenerateExamPage() {
   const [pdfFiles, setPdfFiles] = useState(null)
   const [generatedExam, setGeneratedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
   const [error, setError] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
@@ -41,6 +43,19 @@ export default function GenerateExamPage() {
       const savedState = localStorage.getItem(STORAGE_KEY)
       if (savedState) {
         const parsed = JSON.parse(savedState)
+        
+        // Kiểm tra expiry time
+        if (parsed.timestamp) {
+          const now = Date.now()
+          const expiryTime = parsed.timestamp + (STORAGE_EXPIRY_HOURS * 60 * 60 * 1000)
+          
+          if (now > expiryTime) {
+            console.log('localStorage data expired, clearing...')
+            localStorage.removeItem(STORAGE_KEY)
+            return
+          }
+        }
+        
         if (parsed.generatedExam) {
           setGeneratedExam(parsed.generatedExam)
         }
@@ -63,7 +78,8 @@ export default function GenerateExamPage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           generatedExam,
           sessionId,
-          matrixData
+          matrixData,
+          timestamp: Date.now() // Thêm timestamp để kiểm tra expiry
         }))
       } catch (err) {
         console.error('Lỗi khi lưu state:', err)
@@ -107,12 +123,14 @@ export default function GenerateExamPage() {
     setError(null)
   }
 
-  const handleDataChange = (newData) => {
+  const handleDataChange = useCallback((newData, showMessage = true) => {
     setGeneratedExam(newData)
     setIsDirty(false)
-    setSuccessMessage('Đã lưu thay đổi thành công')
-    setTimeout(() => setSuccessMessage(null), 3000)
-  }
+    if (showMessage) {
+      setSuccessMessage('Đã lưu thay đổi thành công')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    }
+  }, [])
 
   const handleExport = async () => {
     if (!generatedExam || !sessionId) {
@@ -121,6 +139,7 @@ export default function GenerateExamPage() {
     }
 
     try {
+      setIsExporting(true)
       setError(null)
       // Export to DOCX
       const exportResult = await exportToDocx(sessionId)
@@ -142,6 +161,8 @@ export default function GenerateExamPage() {
       }
     } catch (err) {
       setError('Lỗi khi xuất file: ' + err.message)
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -281,6 +302,7 @@ export default function GenerateExamPage() {
           onGenerate={handleGenerate}
           onExport={handleExport}
           isGenerating={isGenerating}
+          isExporting={isExporting}
           canGenerate={!!matrixData}
           canExport={!!generatedExam && !isDirty}
         />

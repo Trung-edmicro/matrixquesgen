@@ -128,7 +128,17 @@ class MatrixProcessingService:
                         content=lesson_text
                     ))
 
-        return lessons
+        # Deduplicate lessons based on chapter_number and lesson_number
+        # Keep the first occurrence (usually has the most standard lesson name)
+        seen = set()
+        unique_lessons = []
+        for lesson in lessons:
+            key = (lesson.chapter_number, lesson.lesson_number)
+            if key not in seen:
+                seen.add(key)
+                unique_lessons.append(lesson)
+
+        return unique_lessons
 
     def generate_drive_paths(self, metadata: MatrixMetadata, lessons: List[LessonInfo]) -> List[str]:
         """Generate Google Drive folder paths for content download"""
@@ -257,43 +267,8 @@ class MatrixProcessingService:
                             lesson_data['TN'][level_key].append(tn_item)
 
             # Add DS specs for this lesson
-            # First, add complete DS questions (4 statements each)
-            if true_false_specs:
-                for tf_spec in true_false_specs:
-                    # Extract lesson number from lesson_name
-                    spec_lesson_num = None
-                    lesson_match = re.search(r'Bài\s*(\d+)', tf_spec.lesson_name, re.IGNORECASE)
-                    spec_lesson_num = int(lesson_match.group(1)) if lesson_match else None
-
-                    if tf_spec.chapter_number == int(lesson.chapter_number) and spec_lesson_num == int(lesson.lesson_number):
-                        # Group statements by question code
-                        statements_data = []
-                        for statement in tf_spec.statements:
-                            statements_data.append({
-                                'label': statement.label,
-                                'cognitive_level': statement.cognitive_level,
-                                'learning_outcome': statement.learning_outcome,
-                                'statement_code': statement.statement_code
-                            })
-
-                        ds_item = {
-                            'question_code': tf_spec.question_code,
-                            'statements': statements_data,
-                            'supplementary_materials': tf_spec.supplementary_materials,
-                            'question_template': []
-                        }
-                        # Add rich_content_types if available (expanded with definitions)
-                        if hasattr(tf_spec, 'rich_content_types') and tf_spec.rich_content_types:
-                            ds_item['rich_content_types'] = self._expand_rich_content_types(
-                                tf_spec.rich_content_types, rich_content_type_definitions or {}
-                            )
-                        lesson_data['DS'].append(ds_item)
-            
-            # Also add individual DS statement groups (not yet complete questions)
+            # Process DS statements - keep only statements that belong to this lesson
             if 'DS' in all_specs:
-                # Track which question codes already added as complete questions
-                existing_codes = {ds['question_code'] for ds in lesson_data['DS']}
-                
                 # Group DS specs by question code
                 from collections import defaultdict
                 ds_by_code = defaultdict(list)
@@ -333,34 +308,33 @@ class MatrixProcessingService:
                                         'supplementary_materials': spec.supplementary_materials
                                     })
                 
-                # Add grouped statements that aren't already in complete questions
+                # Add grouped statements for each question code found in this lesson
                 for question_code, statements in ds_by_code.items():
-                    if question_code not in existing_codes:
-                        ds_item = {
-                            'question_code': question_code,
-                            'statements': statements,
-                            'supplementary_materials': statements[0]['supplementary_materials'] if statements else '',
-                            'question_template': []
-                        }
-                        # Aggregate rich_content_types from all statements into a single list for the question
-                        if question_code in ds_rich_types:
-                            # Collect all unique rich content types from all statements
-                            aggregated_types = []
-                            seen_codes = set()
-                            
-                            for stmt_code, types in ds_rich_types[question_code].items():
-                                for type_code in types:
-                                    if type_code not in seen_codes:
-                                        seen_codes.add(type_code)
-                                        aggregated_types.append(type_code)
-                            
-                            # Expand with definitions at question level (not statement level)
-                            if aggregated_types:
-                                ds_item['rich_content_types'] = self._expand_rich_content_types(
-                                    {question_code: aggregated_types}, 
-                                    rich_content_type_definitions or {}
-                                )
-                        lesson_data['DS'].append(ds_item)
+                    ds_item = {
+                        'question_code': question_code,
+                        'statements': statements,
+                        'supplementary_materials': statements[0]['supplementary_materials'] if statements else '',
+                        'question_template': []
+                    }
+                    # Aggregate rich_content_types from all statements into a single list for the question
+                    if question_code in ds_rich_types:
+                        # Collect all unique rich content types from all statements
+                        aggregated_types = []
+                        seen_codes = set()
+                        
+                        for stmt_code, types in ds_rich_types[question_code].items():
+                            for type_code in types:
+                                if type_code not in seen_codes:
+                                    seen_codes.add(type_code)
+                                    aggregated_types.append(type_code)
+                        
+                        # Expand with definitions at question level (not statement level)
+                        if aggregated_types:
+                            ds_item['rich_content_types'] = self._expand_rich_content_types(
+                                {question_code: aggregated_types}, 
+                                rich_content_type_definitions or {}
+                            )
+                    lesson_data['DS'].append(ds_item)
 
             # Add TLN specs for this lesson
             if 'TLN' in all_specs:

@@ -1,5 +1,27 @@
 """
 Chart Generation Helper - Tạo biểu đồ riêng biệt để giảm nested complexity
+
+KIẾN TRÚC LAYOUT SYSTEM (4 tầng):
+====================================
+
+1. SCHEMA (get_chart_data_schema):
+   - Định nghĩa layoutLevel + layoutKey
+   - AI chỉ KHAI BÁO, KHÔNG tính toán
+   
+2. PROMPT (build_chart_generation_prompt):
+   - Hướng dẫn AI sử dụng layoutLevel
+   - Ví dụ: ["source", "title", "legend"]
+   
+3. VALIDATE (validate_chart_completeness):
+   - Kiểm tra layoutLevel/layoutKey hợp lệ
+   - Đảm bảo consistency giữa các block
+   
+4. RUNTIME (apply_layout):
+   - Tính toán grid.bottom dựa trên layoutLevel
+   - Gọi trong merge_chart_into_question()
+   - Đảm bảo HTML/DOCX/PNG render đồng nhất
+
+👉 AI khai báo → Backend resolve → Frontend render
 """
 from typing import Dict, List, Optional
 import json
@@ -45,53 +67,69 @@ def get_chart_data_schema() -> Dict:
                                         }
                                     }
                                 },
+
+                                "layoutLevel": {
+                                    "type": "array",
+                                    "description": "Thứ tự các block dưới biểu đồ (từ thấp lên cao)",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": ["source", "title", "legend"]
+                                    },
+                                    "default": ["source", "title", "legend"]
+                                },
+
                                 "title": {
                                     "type": "object",
+                                    "description": "Tiêu đề biểu đồ (sẽ tự động đặt ở dưới biểu đồ, KHÔNG set top/bottom)",
                                     "properties": {
-                                        "text": {
+                                        "layoutKey": {
                                             "type": "string",
-                                            "description": "Tiêu đề biểu đồ"
+                                            "enum": ["title"],
+                                            "default": "title",
+                                            "description": "LUÔN set = 'title' để backend tự động positioning"
                                         },
-                                        "left": {
-                                            "type": "string",
-                                            "default": "center",
-                                            "description": "BẮT BUỘC: center"
-                                        },
-                                        "top": {
-                                            "type": "string",
-                                            "default": "88%",
-                                        },
+                                        "text": {"type": "string"},
+                                        "left": {"type": "string", "default": "center"},
                                         "textStyle": {
                                             "type": "object",
                                             "properties": {
-                                                "fontSize": {"type": "number", "default": 20},
-                                                "fontWeight": {"type": "string", "default": "bold"}
+                                                "fontSize": {"type": "number", "default": 21},
+                                                "fontWeight": {"type": "string", "default": "bold"},
+                                                "lineHeight": {"type": "number", "default": 26}
                                             }
                                         }
                                     },
-                                    "required": ["text", "left", "top"]
+                                    "required": ["text"]
                                 },
+
                                 "legend": {
                                     "type": "object",
+                                    "description": "Chú thích biểu đồ (sẽ tự động đặt ở dưới biểu đồ, KHÔNG set top/bottom)",
                                     "properties": {
-                                        "data": {
-                                            "type": "array", 
-                                            "items": {"type": "string"}
+                                        "layoutKey": {
+                                            "type": "string",
+                                            "enum": ["legend"],
+                                            "default": "legend",
+                                            "description": "LUÔN set = 'legend' để backend tự động positioning"
                                         },
-                                        "bottom": {
-                                            "type": "number",
-                                            "default": 70
-                                        }
+                                        "left": {"type": "string", "default": "center"},
+                                        "itemGap": {"type": "number", "default": 20}
                                     }
                                 },
                                 
                                 "grid": {
                                     "type": "object",
                                     "properties": {
-                                        "top": {"type": "number"},
-                                        "bottom": {"type": "number"},
-                                        "left": {"type": "number"},
-                                        "right": {"type": "number"},
+                                        "top": {
+                                            "type": "number",
+                                            "description": "DO NOT set manually when layoutLevel is present"
+                                        },
+                                        "bottom": {
+                                            "type": "number",
+                                            "description": "DO NOT set manually when layoutLevel is present"
+                                        },
+                                        "left": {"type": "number", "default": 60},
+                                        "right": {"type": "number", "default": 40}
                                     }
                                 },
 
@@ -100,15 +138,25 @@ def get_chart_data_schema() -> Dict:
                                         {
                                             "type": "object",
                                             "properties": {
-                                                "type": {"type": "string"},
+                                                "type": {
+                                                    "type": "string",
+                                                    "enum": ["category", "value", "time", "log"],
+                                                    "description": "Loại trục: 'category' cho dữ liệu phân loại (tên, năm), 'value' cho số liệu liên tục"
+                                                },
                                                 "data": {
                                                     "type": "array",
                                                     "items": {"type": "string"},
-                                                    "description": "BẮT BUỘC: Array dữ liệu trục X"
+                                                    "description": "BẮT BUỘC: Array dữ liệu trục X (chỉ dùng khi type='category')"
                                                 },
-                                                "name": {"type": "string"},
                                                 "nameLocation": {"type": "string", "default": "end"},
                                                 "nameGap": {"type": "number"},
+                                                "nameTextStyle": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "fontSize": {"type": "number", "default": 15},
+                                                        "fontWeight": {"type": "string", "default": "bold"}
+                                                    }
+                                                },
                                                 "axisLine": {
                                                     "type": "object",
                                                     "properties": {
@@ -122,7 +170,7 @@ def get_chart_data_schema() -> Dict:
                                                     }
                                                 }
                                             },
-                                            "required": ["data", "type", "nameLocation", "name", "axisLine", "axisTick"]
+                                            "required": ["data", "type", "nameLocation", "axisLine", "axisTick"]
                                         },
                                         {"type": "array"}
                                     ]
@@ -132,7 +180,11 @@ def get_chart_data_schema() -> Dict:
                                         {
                                             "type": "object",
                                             "properties": {
-                                                "type": {"type": "string"},
+                                                "type": {
+                                                    "type": "string",
+                                                    "enum": ["value", "category", "time", "log"],
+                                                    "description": "Loại trục: 'value' cho trục số, 'category' cho dữ liệu phân loại"
+                                                },
                                                 "name": {"type": "string"}
                                             }
                                         },
@@ -141,7 +193,11 @@ def get_chart_data_schema() -> Dict:
                                             "items": {
                                                 "type": "object",
                                                 "properties": {
-                                                    "type": {"type": "string"},
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": ["value", "category", "time", "log"],
+                                                        "description": "Loại trục: 'value' cho trục số, 'category' cho dữ liệu phân loại"
+                                                    },
                                                     "name": {"type": "string"},
                                                     "min": {"type": "number"},
                                                     "max": {"type": "number"},
@@ -184,12 +240,12 @@ def get_chart_data_schema() -> Dict:
                                                     "nameTextStyle": {
                                                         "type": "object",
                                                         "properties": {
-                                                            "fontSize": {"type": "number"},
+                                                            "fontSize": {"type": "number", "default": 15},
                                                             "fontWeight": {"type": "string", "default": "bold"}
                                                         }
                                                     }
                                                 },
-                                                "required": ["type", "name", "axisLine", "axisTick", "axisLabel", "splitLine", "nameLocation", "nameGap", "nameTextStyle"]
+                                                "required": ["type", "name", "axisLine", "axisTick", "axisLabel", "splitLine", "nameLocation", "nameGap"]
                                             }
                                         }
                                     ]
@@ -221,46 +277,31 @@ def get_chart_data_schema() -> Dict:
                                 },
                                 "graphic": {
                                     "type": "array",
-                                    "description": "Text nguồn hoặc ghi chú",
+                                    "description": "Text nguồn dữ liệu (sẽ tự động đặt ở dưới cùng, KHÔNG set top/bottom)",
                                     "items": {
                                         "type": "object",
                                         "properties": {
-                                            "type": {
+                                            "layoutKey": {
                                                 "type": "string",
-                                                "enum": ["text"],
-                                                "description": "Loại element"
+                                                "enum": ["source"],
+                                                "default": "source",
+                                                "description": "LUÔN set = 'source' để backend tự động positioning"
                                             },
-                                            "left": {
-                                                "type": "string",
-                                                "enum": ["center"],
-                                                "description": "BẮT BUỘC: center"
-                                            },
-                                            "bottom": {
-                                                "type": "string",
-                                                "enum": ["20"],
-                                                "description": "BẮT BUỘC: 20"
-                                            },
+                                            "type": {"type": "string", "enum": ["text"]},
+                                            "left": {"type": "string", "default": "center"},
                                             "style": {
                                                 "type": "object",
                                                 "properties": {
-                                                    "text": {
-                                                        "type": "string",
-                                                        "description": "Text nguồn (VD: 'Nguồn: Niên giám...')"
-                                                    },
-                                                    "fontSize": {
-                                                        "type": "number",
-                                                        "default": 13
-                                                    },
-                                                    "fontStyle": {
-                                                        "type": "string",
-                                                        "enum": ["italic"],
-                                                        "default": "italic"
-                                                    }
+                                                    "text": {"type": "string"},
+                                                    "fontSize": {"type": "number", "default": 18},
+                                                    "fontStyle": {"type": "string", "enum": ["Roboto"], "default": "Roboto, sans-serif"},
+                                                    "lineHeight": {"type": "number", "default": 24},
+                                                    "align": {"type": "string", "enum": ["center", "left", "right"], "default": "center", "description": "Căn giữa text"}
                                                 },
                                                 "required": ["text"]
                                             }
                                         },
-                                        "required": ["type", "left", "bottom", "style"]
+                                        "required": ["type", "style"]
                                     }
                                 }
                             },
@@ -355,6 +396,44 @@ def build_chart_generation_prompt(
    ✅ Ghi nguồn: "Nguồn: Niên giám Thống kê 2023"
 """
     
+    # JSON examples (tách ra để tránh f-string nested too deeply)
+    layout_example = '''{
+  "echarts": {
+    "layoutLevel": ["source", "title", "legend"],
+    "title": {
+      "layoutKey": "title",
+      "text": "...",
+      "left": "center"
+    },
+    "legend": {
+      "layoutKey": "legend",
+      "left": "center"
+    },
+    "graphic": [{
+      "layoutKey": "source",
+      "type": "text",
+      "left": "center",
+      "style": {
+        "text": "Nguồn: ...",
+        "align": "center"
+      }
+    }]
+  }
+}'''
+    
+    axis_example = '''{
+  "xAxis": {
+    "type": "category",
+    "data": ["2010", "2015", "2021"],
+    "nameLocation": "center"
+  },
+  "yAxis": {
+    "type": "value",
+    "name": "Dân số (triệu người)",
+    "nameLocation": "end"
+  }
+}'''
+    
     prompt = f"""
 Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
 
@@ -368,8 +447,13 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
    - chartType: bar, line, pie, hoặc combo
 
 2. **ECharts config ĐẦY ĐỦ:**
-   - xAxis.data: Array các giá trị (VD: ["2010", "2015", "2021"])
+   - xAxis: 
+     - type: "category" (BẮT BUỘC cho dữ liệu phân loại: năm, tên, địa điểm)
+     - data: Array các giá trị (VD: ["2010", "2015", "2021"])
+     - nameLocation: "center" hoặc "end"
+     - axisLine, axisTick với show: true
    - yAxis: Object hoặc array (dual yAxis nếu cần)
+     - type: "value" (BẮT BUỘC cho trục số liệu)
      - Có name (đơn vị: "triệu người", "%", "tỷ USD")
      - Có min, max, interval nếu cần
      - Có position ('left' hoặc 'right' cho dual yAxis)
@@ -382,8 +466,11 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
      - data: Array số liệu THỰC (VD: [26.5, 30.9, 36.6])
      - label: show: true, position: 'inside'
    - graphic: Array chứa text nguồn
-     - text: "Nguồn: [tên nguồn]"
-     - fontSize: 13, fontStyle: "italic"
+     - type: "text"
+     - left: "center"
+     - style.text: "Nguồn: [tên nguồn]"
+     - style.fontSize: 13
+     - style.align: "center" (BẮT BUỘC để căn giữa text)
 
 3. **TÍNH NĂNG NÂNG CAO (tùy chọn):**
    - Dual yAxis nếu có 2 loại dữ liệu khác đơn vị (position: 'left', 'right')
@@ -391,7 +478,30 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
    - Legend với bottom: 70
    - Grid với top, bottom, left, right để điều chỉnh không gian
    - TextStyle với fontFamily: 'Roboto, sans-serif'
-   - Title textStyle với fontSize: 18, fontWeight: 'bold'
+   - Title textStyle với fontSize: 21, fontWeight: 'bold'
+   - Axis nameTextStyle với fontSize: 15, fontWeight: 'bold'
+   - Graphic style.fontSize: 18 cho nguồn dữ liệu
+
+4. **LAYOUT RULE (BẮT BUỘC TUÂN THỦ):**
+
+⚠️ **CỰC KỲ QUAN TRỌNG - KHÔNG SET TOP/BOTTOM:**
+- Backend sẽ TỰ ĐỘNG đặt title, legend, source ở DƯỚI biểu đồ
+- AI CHỈ khai báo layoutLevel và layoutKey
+- **TUYỆT ĐỐI KHÔNG** set title.top, title.bottom, legend.top, legend.bottom, graphic.top, graphic.bottom
+- Backend sẽ tính toán vị trí chính xác dựa trên layoutLevel
+
+Cụ thể:
+```json
+{layout_example}
+```
+
+⚠️ AI chỉ KHAI BÁO layout, backend XỬ LÝ positioning
+
+5. **VÍ DỤ CHUẨN XAXIS/YAXIS:**
+
+```json
+{axis_example}
+```
 
 **CHỈ TẠO CHART DATA - KHÔNG TẠO CÂU HỎI**
 
@@ -475,6 +585,81 @@ Các biểu đồ sau đã được tạo sẵn với dữ liệu đầy đủ:
     return instruction
 
 
+def apply_layout(echarts: Dict) -> Dict:
+    """
+    Tính toán grid.bottom và vị trí các block dựa trên layoutLevel (Runtime Layout Resolution)
+    
+    Đây là nơi layout THỰC SỰ được áp dụng:
+    - AI chỉ khai báo (layoutLevel + layoutKey)
+    - Backend resolve spacing và positioning (tính grid.bottom, title.bottom, etc.)
+    - HTML/DOCX/PNG render đồng nhất
+    
+    Args:
+        echarts: ECharts config với layoutLevel
+    
+    Returns:
+        Dict: ECharts config đã resolve grid.bottom và vị trí các block
+    """
+    layout = echarts.get("layoutLevel", [])
+    if not layout:
+        return echarts
+    
+    # Height ước tính cho từng block (bao gồm content + margin)
+    block_heights = {
+        "source": 30,   # Text nguồn: fontSize 18 + lineHeight 24 + margin
+        "title": 35,    # Tiêu đề: fontSize 21 + lineHeight 26 + margin top/bottom
+        "legend": 30    # Chú thích: itemHeight ~20 + itemGap + margin
+    }
+    
+    # Gap giữa các blocks (giảm xuống để gần nhau hơn)
+    gap_between_blocks = 12
+    
+    # Padding từ grid đến block đầu tiên (block xa nhất từ dưới)
+    padding_from_grid = 25
+    
+    # Padding base từ đáy canvas đến block đầu tiên
+    base_padding = 10
+    
+    # Tính vị trí từng block (từ dưới lên)
+    current_bottom = base_padding
+    positions = {}
+    
+    for idx, key in enumerate(layout):
+        # Vị trí bottom của block này
+        positions[key] = current_bottom
+        # Di chuyển lên trên: height của block + gap
+        current_bottom += block_heights.get(key, 30)
+        if idx < len(layout) - 1:  # Không thêm gap sau block cuối cùng
+            current_bottom += gap_between_blocks
+    
+    # Set grid.bottom (tổng khoảng cách + padding)
+    grid = echarts.setdefault("grid", {})
+    grid["bottom"] = current_bottom + padding_from_grid
+    
+    # Set vị trí cụ thể cho từng block
+    # 1. Title (đặt dưới biểu đồ)
+    if "title" in positions and "title" in echarts:
+        echarts["title"]["bottom"] = positions["title"]
+        echarts["title"].pop("top", None)  # Xóa top nếu có
+    
+    # 2. Legend (đặt dưới biểu đồ)
+    if "legend" in positions and "legend" in echarts:
+        echarts["legend"]["bottom"] = positions["legend"]
+        echarts["legend"].pop("top", None)  # Xóa top nếu có
+    
+    # 3. Graphic (source - đặt dưới biểu đồ)
+    if "source" in positions and "graphic" in echarts:
+        for g in echarts.get("graphic", []):
+            if g.get("layoutKey") == "source":
+                g["bottom"] = positions["source"]
+                g.pop("top", None)  # Xóa top nếu có
+                # Đảm bảo text căn giữa
+                if "style" in g:
+                    g["style"]["align"] = "center"
+    
+    return echarts
+
+
 def merge_chart_into_question(
     question_data: Dict,
     charts_map: Dict[str, Dict]
@@ -516,17 +701,27 @@ def merge_chart_into_question(
             
             if chart_id and chart_id in charts_map:
                 chart_data = charts_map[chart_id]
-                # Merge echarts vào item
+                
+                # Apply layout resolution (tính grid.bottom)
+                echarts = apply_layout(chart_data.get('echarts', {}))
+                
+                # Merge echarts đã resolve vào item
                 item['content'] = {
                     'chartType': chart_data.get('chartType'),
-                    'echarts': chart_data.get('echarts')
+                    'echarts': echarts
                 }
                 # Thêm metadata nếu chưa có
                 if 'metadata' not in item:
+                    # Tính height phù hợp dựa trên grid.bottom
+                    grid_bottom = echarts.get('grid', {}).get('bottom', 174)
+                    # Height = grid_bottom + grid_area + grid_top + title_area
+                    # Ước tính: grid_bottom (~174) + grid_area (~450) + grid_top (~50) + title (~20)
+                    chart_height = 850  # Tăng chiều cao để hiển thị rõ ràng hơn
+                    
                     item['metadata'] = {
                         'caption': chart_data.get('title'),
                         'width': 900,
-                        'height': 550
+                        'height': chart_height
                     }
     
     return question_data
@@ -584,6 +779,46 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
     # Check title.left = "center" (bắt buộc)
     if title_obj.get('left') != 'center':
         return False, "echarts.title.left phải là 'center'"
+    
+    # Check layoutLevel (nếu có)
+    layout = echarts.get("layoutLevel", [])
+    if layout:
+        if not isinstance(layout, list):
+            return False, "layoutLevel phải là array"
+        
+        valid_keys = {"source", "title", "legend"}
+        for key in layout:
+            if key not in valid_keys:
+                return False, f"layoutLevel chứa giá trị không hợp lệ: {key}"
+        
+        # Check layoutKey consistency
+        if "title" in layout:
+            if echarts.get("title", {}).get("layoutKey") != "title":
+                return False, "title.layoutKey phải là 'title' khi layoutLevel có 'title'"
+        
+        if "legend" in layout:
+            if echarts.get("legend", {}).get("layoutKey") != "legend":
+                return False, "legend.layoutKey phải là 'legend' khi layoutLevel có 'legend'"
+        
+        if "source" in layout:
+            graphics = echarts.get("graphic", [])
+            if not any(g.get("layoutKey") == "source" for g in graphics):
+                return False, "layoutLevel có 'source' nhưng graphic.layoutKey='source' không tồn tại"
+        
+        # Check KHÔNG có top/bottom trong title, legend, graphic (backend sẽ tự động set)
+        if "title" in layout and "title" in echarts:
+            if "top" in echarts["title"] or "bottom" in echarts["title"]:
+                return False, "title KHÔNG được set top/bottom khi dùng layoutLevel (backend tự động positioning)"
+        
+        if "legend" in layout and "legend" in echarts:
+            if "top" in echarts["legend"] or "bottom" in echarts["legend"]:
+                return False, "legend KHÔNG được set top/bottom khi dùng layoutLevel (backend tự động positioning)"
+        
+        if "source" in layout and "graphic" in echarts:
+            for i, g in enumerate(echarts.get("graphic", [])):
+                if g.get("layoutKey") == "source":
+                    if "top" in g or "bottom" in g:
+                        return False, f"graphic[{i}] (source) KHÔNG được set top/bottom khi dùng layoutLevel (backend tự động positioning)"
     
     # Check xAxis
     x_axis = echarts.get('xAxis')

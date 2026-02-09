@@ -24,6 +24,7 @@ except ImportError:
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config.settings import Config
+from services.generators.helpers.chart_generation_helper import apply_layout
 
 
 class DocxGenerator:
@@ -369,7 +370,10 @@ class DocxGenerator:
             return None
         
         try:
-            # Tạo HTML chứa ECharts
+            # Apply layout resolution (tính grid.bottom nếu chưa có)
+            echarts_config = apply_layout(echarts_config)
+            
+            # Tạo HTML chứa ECharts (sync với metadata: 900x850)
             html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -378,7 +382,7 @@ class DocxGenerator:
     <script src="https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"></script>
     <style>
         body {{ margin: 0; padding: 20px; background: white; }}
-        #chart {{ width: 800px; height: 500px; }}
+        #chart {{ width: 900px; height: 850px; }}
     </style>
 </head>
 <body>
@@ -408,14 +412,15 @@ class DocxGenerator:
                     # Sử dụng Playwright để render (trong thread riêng để tránh xung đột với asyncio)
                     with sync_playwright() as p:
                         browser = p.chromium.launch(headless=True)
-                        page = browser.new_page(viewport={'width': 840, 'height': 540})
+                        # Tăng viewport để phù hợp với chart size (900x850 + padding)
+                        page = browser.new_page(viewport={'width': 940, 'height': 890})
                         
                         # Load HTML content directly (better than file:// for security)
                         page.set_content(html_content)
                         
-                        # Đợi chart render xong
-                        page.wait_for_function('window.chartReady === true', timeout=5000)
-                        page.wait_for_timeout(500)  # Thêm delay để đảm bảo chart render hoàn toàn
+                        # Đợi chart render xong (tăng timeout cho lần đầu)
+                        page.wait_for_function('window.chartReady === true', timeout=10000)
+                        page.wait_for_timeout(1000)  # Tăng delay để đảm bảo chart render hoàn toàn
                         
                         # Screenshot
                         chart_element = page.locator('#chart')
@@ -427,10 +432,10 @@ class DocxGenerator:
                     result['error'] = str(e)
             
             try:
-                # Chạy render trong thread riêng
+                # Chạy render trong thread riêng (tăng timeout cho lần đầu download playwright)
                 thread = threading.Thread(target=render_in_thread)
                 thread.start()
-                thread.join(timeout=10)  # Wait max 10 seconds
+                thread.join(timeout=30)  # Wait max 30 seconds (lần đầu cần download browser)
                 
                 if result['error']:
                     raise Exception(result['error'])

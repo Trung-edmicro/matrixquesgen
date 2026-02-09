@@ -236,11 +236,11 @@ function ChartRenderer({ content, metadata }) {
   return (
     <div className="my-3 flex flex-col items-center">
       <div ref={chartRef} style={{ width: '100%', maxWidth: '800px', height: '400px' }} />
-      {parsedMetadata?.caption && (
+      {/* {parsedMetadata?.caption && (
         <div className="text-sm text-gray-600 mt-2 text-center italic">
           <LaTeXRenderer>{parsedMetadata.caption}</LaTeXRenderer>
         </div>
-      )}
+      )} */}
       {/* {parsedMetadata?.source && (
         <div className="text-xs text-gray-500 mt-1 text-center">
           <LaTeXRenderer>{parsedMetadata.source}</LaTeXRenderer>

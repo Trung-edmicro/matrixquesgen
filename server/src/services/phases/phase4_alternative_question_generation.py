@@ -23,6 +23,7 @@ from services.core.rich_content import (
     ContentBlock, ContentType,
     text as text_block, mixed as mixed_block
 )
+from .cross_lesson_ds_helper import merge_cross_lesson_ds_context
 
 
 @dataclass
