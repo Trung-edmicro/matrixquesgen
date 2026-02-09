@@ -1,0 +1,23 @@
+# Hình ảnh trong nhiệm vụ này đóng vai trò là **MINH HOẠ** cho nội dung kiến thức. Hình ảnh KHÔNG phải là nguồn dữ liệu bắt buộc để trả lời câu hỏi.
+
+# Hãy mô tả hình ảnh với yêu cầu:
+- Thể hiện đúng bản chất hiện tượng
+- Không cần số liệu chính xác
+- Không thêm chi tiết vượt Sách giáo khoa
+- Không chứa câu hỏi
+
+# Thông tin:
+## Môn học: {{SUBJECT}}
+
+## Lớp: {{CLASS}}
+
+## Nội dung:
+- Chương {{CHAPTER}}
+- Bài học {{LESSON_NAME}}
+
+## Nội dung cụ thể trong Sách giáo khoa
+{{CONTENT}}
+
+## Kết quả đạt/học được sau khi trả lời câu hỏi: "{{EXPECTED_LEARNING_OUTCOME}}"
+
+# Kết quả: mô tả hình ảnh để sinh hình minh hoạ.

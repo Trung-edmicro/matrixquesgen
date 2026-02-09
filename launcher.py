@@ -4,6 +4,17 @@ Khởi động server và tự động mở browser
 """
 import sys
 import os
+
+# Fix UTF-8 encoding for Windows console BEFORE importing ANY other modules
+# This prevents UnicodeEncodeError when modules print Unicode characters during import
+if sys.platform == 'win32':
+    import io
+    # Check if stdout/stderr exist (they can be None in windowed EXE mode)
+    if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr is not None and hasattr(sys.stderr, 'buffer'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import time
 import webbrowser
 import threading

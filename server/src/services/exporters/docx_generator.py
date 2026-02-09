@@ -16,10 +16,17 @@ import threading
 try:
     from playwright.sync_api import sync_playwright
     PLAYWRIGHT_AVAILABLE = True
-    print("✓ Playwright available for chart rendering")
+    # Use ASCII-safe print to avoid UnicodeEncodeError in Windows CP1252 console
+    try:
+        print("✓ Playwright available for chart rendering")
+    except UnicodeEncodeError:
+        print("[OK] Playwright available for chart rendering")
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
+    try:
+        print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
+    except UnicodeEncodeError:
+        print("[WARN] Playwright not available. Charts will be rendered as text placeholders.")
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -373,7 +380,11 @@ class DocxGenerator:
             # Apply layout resolution (tính grid.bottom nếu chưa có)
             echarts_config = apply_layout(echarts_config)
             
-            # Tạo HTML chứa ECharts (sync với metadata: 900x850)
+            # Tắt animation để đảm bảo screenshot đầy đủ
+            if 'animation' not in echarts_config:
+                echarts_config['animation'] = False
+            
+            # Tạo HTML chứa ECharts với animation tắt
             html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -381,7 +392,7 @@ class DocxGenerator:
     <meta charset="utf-8">
     <script src="https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"></script>
     <style>
-        body {{ margin: 0; padding: 20px; background: white; }}
+        body {{ margin: 0; padding: 30px; background: white; }}
         #chart {{ width: 900px; height: 850px; }}
     </style>
 </head>
@@ -391,10 +402,14 @@ class DocxGenerator:
         var chartDom = document.getElementById('chart');
         var myChart = echarts.init(chartDom);
         var option = {json.dumps(echarts_config, ensure_ascii=False)};
+        
+        // Set option với animation tắt
         myChart.setOption(option);
         
-        // Đánh dấu chart đã sẵn sàng
-        window.chartReady = true;
+        // Đợi render hoàn tất
+        setTimeout(function() {{
+            window.chartReady = true;
+        }}, 500);
     </script>
 </body>
 </html>
@@ -412,19 +427,25 @@ class DocxGenerator:
                     # Sử dụng Playwright để render (trong thread riêng để tránh xung đột với asyncio)
                     with sync_playwright() as p:
                         browser = p.chromium.launch(headless=True)
-                        # Tăng viewport để phù hợp với chart size (900x850 + padding)
-                        page = browser.new_page(viewport={'width': 940, 'height': 890})
+                        # Tăng viewport để đủ chứa chart + padding (900x850 + 60px padding = 960x910)
+                        # Set deviceScaleFactor = 2 để ảnh sắc nét hơn (Retina-quality)
+                        page = browser.new_page(
+                            viewport={'width': 960, 'height': 910},
+                            device_scale_factor=2
+                        )
                         
                         # Load HTML content directly (better than file:// for security)
                         page.set_content(html_content)
                         
-                        # Đợi chart render xong (tăng timeout cho lần đầu)
+                        # Đợi chart render xong
                         page.wait_for_function('window.chartReady === true', timeout=10000)
-                        page.wait_for_timeout(1000)  # Tăng delay để đảm bảo chart render hoàn toàn
                         
-                        # Screenshot
+                        # Đợi thêm để đảm bảo chart render hoàn toàn (tăng từ 1s lên 2s)
+                        page.wait_for_timeout(2000)
+                        
+                        # Screenshot với full quality
                         chart_element = page.locator('#chart')
-                        chart_element.screenshot(path=png_path)
+                        chart_element.screenshot(path=png_path, type='png')
                         
                         browser.close()
                         result['path'] = png_path
@@ -962,10 +983,48 @@ class DocxGenerator:
             if isinstance(question_stem, dict):
                 stem_type = question_stem.get('type', 'text')
                 
-                if stem_type in ['mixed', 'chart']:
-                    # Mixed content: text + table + chart
+                if stem_type == 'mixed':
+                    # Mixed content: text + table + chart - process sequentially like DS
                     content = question_stem.get('content', [])
-                    self._add_mixed_content(para, content)
+                    first_text_added_to_para = False
+                    for item in content:
+                        if isinstance(item, str):
+                            # Text content
+                            if not first_text_added_to_para:
+                                # First text goes to the question paragraph
+                                para.add_run(item)
+                                first_text_added_to_para = True
+                            else:
+                                # Subsequent text creates new paragraph
+                                para_text = self.document.add_paragraph()
+                                para_text.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'table':
+                                # Add table as separate element
+                                self._add_inline_table(item.get('content', {}))
+                            elif item_type == 'chart':
+                                # Add chart as separate element
+                                self._add_inline_chart(item.get('content', {}))
+                            elif item_type == 'image':
+                                # Add image placeholder
+                                caption = item.get('metadata', {}).get('caption', '')
+                                para_img = self.document.add_paragraph()
+                                if caption:
+                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
+                                else:
+                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
+                                run.italic = True
+                elif stem_type == 'chart':
+                    # Chart with before/after text
+                    content = question_stem.get('content', [])
+                    for item in content:
+                        if isinstance(item, str):
+                            para.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'chart':
+                                self._add_inline_chart(item.get('content', {}))
                 else:
                     # Simple text
                     question_stem = question_stem.get('content', '')
@@ -1022,10 +1081,48 @@ class DocxGenerator:
             if isinstance(question_stem, dict):
                 stem_type = question_stem.get('type', 'text')
                 
-                if stem_type in ['mixed', 'chart']:
-                    # Mixed content: text + table + chart
+                if stem_type == 'mixed':
+                    # Mixed content: text + table + chart - process sequentially like DS
                     content = question_stem.get('content', [])
-                    self._add_mixed_content(para, content)
+                    first_text_added_to_para = False
+                    for item in content:
+                        if isinstance(item, str):
+                            # Text content
+                            if not first_text_added_to_para:
+                                # First text goes to the question paragraph
+                                para.add_run(item)
+                                first_text_added_to_para = True
+                            else:
+                                # Subsequent text creates new paragraph
+                                para_text = self.document.add_paragraph()
+                                para_text.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'table':
+                                # Add table as separate element
+                                self._add_inline_table(item.get('content', {}))
+                            elif item_type == 'chart':
+                                # Add chart as separate element
+                                self._add_inline_chart(item.get('content', {}))
+                            elif item_type == 'image':
+                                # Add image placeholder
+                                caption = item.get('metadata', {}).get('caption', '')
+                                para_img = self.document.add_paragraph()
+                                if caption:
+                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
+                                else:
+                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
+                                run.italic = True
+                elif stem_type == 'chart':
+                    # Chart with before/after text
+                    content = question_stem.get('content', [])
+                    for item in content:
+                        if isinstance(item, str):
+                            para.add_run(item)
+                        elif isinstance(item, dict):
+                            item_type = item.get('type', '')
+                            if item_type == 'chart':
+                                self._add_inline_chart(item.get('content', {}))
                 else:
                     # Simple text
                     question_stem = question_stem.get('content', '')

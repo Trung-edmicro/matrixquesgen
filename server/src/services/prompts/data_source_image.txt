@@ -1,0 +1,23 @@
+# Hình ảnh trong nhiệm vụ này đóng vai trò là **NGUỒN DỮ LIỆU TRỰC TIẾP**. Người học bắt buộc phải đọc hình ảnh để trả lời câu hỏi.
+
+# Hãy mô tả CHI TIẾT hình ảnh cần tạo với các yêu cầu:
+- Chỉ mô tả những gì có thể quan sát trực tiếp
+- Có đầy đủ số liệu, nhãn, trục, đơn vị (nếu có)
+- Không giải thích, không kết luận, không suy đoán
+- Không nhắc tới câu hỏi
+
+# Thông tin:
+## Môn học: {{SUBJECT}}
+
+## Lớp: {{CLASS}}
+
+## Nội dung:
+- Chương {{CHAPTER}}
+- Bài học {{LESSON_NAME}}
+
+## Nội dung cụ thể trong Sách giáo khoa
+{{CONTENT}}
+
+## Kết quả đạt/học được sau khi trả lời câu hỏi: "{{EXPECTED_LEARNING_OUTCOME}}"
+
+# Kết quả trả về: một đoạn mô tả hình ảnh chính xác để dùng sinh hình

@@ -93,9 +93,9 @@ def get_chart_data_schema() -> Dict:
                                         "textStyle": {
                                             "type": "object",
                                             "properties": {
-                                                "fontSize": {"type": "number", "default": 21},
+                                                "fontSize": {"type": "number", "default": 18},
                                                 "fontWeight": {"type": "string", "default": "bold"},
-                                                "lineHeight": {"type": "number", "default": 26}
+                                                "lineHeight": {"type": "number", "default": 20}
                                             }
                                         }
                                     },
@@ -293,10 +293,9 @@ def get_chart_data_schema() -> Dict:
                                                 "type": "object",
                                                 "properties": {
                                                     "text": {"type": "string"},
-                                                    "fontSize": {"type": "number", "default": 18},
-                                                    "fontStyle": {"type": "string", "enum": ["Roboto"], "default": "Roboto, sans-serif"},
-                                                    "lineHeight": {"type": "number", "default": 24},
-                                                    "align": {"type": "string", "enum": ["center", "left", "right"], "default": "center", "description": "Căn giữa text"}
+                                                    "fontSize": {"type": "number", "default": 14},
+                                                    "lineHeight": {"type": "number", "default": 16},
+                                                    "textAlign": {"type": "string", "enum": ["center", "left", "right"], "default": "center", "description": "Căn giữa text (sử dụng textAlign cho ECharts graphic)"}
                                                 },
                                                 "required": ["text"]
                                             }
@@ -415,7 +414,7 @@ def build_chart_generation_prompt(
       "left": "center",
       "style": {
         "text": "Nguồn: ...",
-        "align": "center"
+        "textAlign": "center"
       }
     }]
   }
@@ -469,8 +468,8 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
      - type: "text"
      - left: "center"
      - style.text: "Nguồn: [tên nguồn]"
-     - style.fontSize: 13
-     - style.align: "center" (BẮT BUỘC để căn giữa text)
+     - style.fontSize: 14 (BẮT BUỘC để dễ đọc)
+     - style.textAlign: "center" (BẮT BUỘC để căn giữa text)
 
 3. **TÍNH NĂNG NÂNG CAO (tùy chọn):**
    - Dual yAxis nếu có 2 loại dữ liệu khác đơn vị (position: 'left', 'right')
@@ -478,9 +477,9 @@ Tạo {num_charts} biểu đồ thống kê cho bài học: "{lesson_name}"
    - Legend với bottom: 70
    - Grid với top, bottom, left, right để điều chỉnh không gian
    - TextStyle với fontFamily: 'Roboto, sans-serif'
-   - Title textStyle với fontSize: 21, fontWeight: 'bold'
+   - Title textStyle với fontSize: 19, fontWeight: 'bold'
    - Axis nameTextStyle với fontSize: 15, fontWeight: 'bold'
-   - Graphic style.fontSize: 18 cho nguồn dữ liệu
+   - Graphic style.fontSize: 14, style.textAlign: 'center' cho nguồn dữ liệu
 
 4. **LAYOUT RULE (BẮT BUỘC TUÂN THỦ):**
 
@@ -606,8 +605,8 @@ def apply_layout(echarts: Dict) -> Dict:
     
     # Height ước tính cho từng block (bao gồm content + margin)
     block_heights = {
-        "source": 30,   # Text nguồn: fontSize 18 + lineHeight 24 + margin
-        "title": 35,    # Tiêu đề: fontSize 21 + lineHeight 26 + margin top/bottom
+        "source": 35,   # Text nguồn: fontSize 24 + lineHeight 30 + margin
+        "title": 30,    # Tiêu đề: fontSize 19 + lineHeight 24 + margin top/bottom
         "legend": 30    # Chú thích: itemHeight ~20 + itemGap + margin
     }
     
@@ -653,9 +652,11 @@ def apply_layout(echarts: Dict) -> Dict:
             if g.get("layoutKey") == "source":
                 g["bottom"] = positions["source"]
                 g.pop("top", None)  # Xóa top nếu có
-                # Đảm bảo text căn giữa
+                # Đảm bảo text căn giữa (dùng textAlign cho ECharts graphic)
                 if "style" in g:
-                    g["style"]["align"] = "center"
+                    g["style"]["textAlign"] = "center"
+                    # Xóa align nếu có (deprecated)
+                    g["style"].pop("align", None)
     
     return echarts
 

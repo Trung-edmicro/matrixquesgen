@@ -2,6 +2,15 @@ import sys
 import os
 from pathlib import Path
 
+# Fix UTF-8 encoding for Windows console to support Unicode characters (✓, ⚠️, etc.)
+if sys.platform == 'win32':
+    import io
+    # Check if stdout/stderr exist (they can be None in windowed EXE mode)
+    if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr is not None and hasattr(sys.stderr, 'buffer'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # Add server/src directory to Python path
 server_src_dir = Path(__file__).parent.parent  # server/src
 sys.path.insert(0, str(server_src_dir))
@@ -12,9 +21,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Use absolute imports
-from api.routes import generate, questions, export, google_drive, regenerate
+from api.routes import generate, questions, export, google_drive, regenerate, images
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
+
+# Debug: Verify regenerate router loaded
+print(f"✓ Regenerate router loaded: {regenerate.router}")
+print(f"  Prefix: {regenerate.router.prefix}")
+print(f"  Routes: {[r.path for r in regenerate.router.routes]}")
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +60,9 @@ app.include_router(export.router)
 app.include_router(google_drive.router)
 app.include_router(regenerate.router)
 
+# Include new feature routers
+app.include_router(images.router)        # Image generation API
+
 # Include phase-specific routers
 app.include_router(phase1_router)
 app.include_router(phase2_router)
@@ -65,7 +82,13 @@ async def root():
     return {
         "message": "MatrixQuesGen API đang hoạt động",
         "version": "1.0.0",
-        "docs": "/docs"
+        "docs": "/docs",
+        "api_groups": {
+            "core": ["/api/generate", "/api/questions", "/api/export"],
+            "regenerate": ["/api/regenerate/question", "/api/regenerate/bulk"],
+            "images": ["/api/images/generate", "/api/images/upscale", "/api/images/variations"],
+            "google_drive": ["/api/google-drive/download", "/api/google-drive/process-content"]
+        }
     }
 
 
