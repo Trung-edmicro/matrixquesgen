@@ -201,3 +201,44 @@ Excel Input → Excel Reader → JSON Data → Vertex AI → Processed Data → 
 - [ ] Batch processing nhiều file
 - [ ] Template system nâng cao
 - [ ] Export nhiều format (PDF, HTML)
+
+## Release Process
+
+### Automated Release với Update System
+
+Dự án đã tích hợp hệ thống tự động cập nhật sử dụng GitHub Releases.
+
+#### Build Release
+
+```powershell
+# Build exe và installer với version mới
+.\build_release.ps1 -Version "1.1.0"
+```
+
+#### Tạo GitHub Release
+
+```powershell
+# Tạo release trên GitHub (cần GITHUB_TOKEN)
+.\create_release.ps1 -Version "1.1.0" -Token "your_github_token" -Repo "your-username/matrixquesgen"
+```
+
+#### Update Mechanism
+
+- Ứng dụng tự động kiểm tra cập nhật khi khởi động
+- Tải version mới từ GitHub Releases
+- Tự động thay thế file exe và khởi động lại
+- Backup file cũ trong trường hợp lỗi
+
+#### Cấu hình
+
+1. Cập nhật `GITHUB_REPO` trong `update.py` với repository của bạn
+2. Đặt `GITHUB_TOKEN` environment variable cho automation
+3. Chạy build script để tạo release
+
+#### Files cần thiết
+
+- `version.py` - Quản lý version hiện tại
+- `update.py` - Logic kiểm tra và tải update
+- `inno_setup.iss` - Script tạo installer
+- `build_release.ps1` - Script build automated
+- `create_release.ps1` - Script tạo GitHub release

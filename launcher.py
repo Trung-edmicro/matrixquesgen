@@ -30,6 +30,13 @@ os.environ['DATA_DIR'] = str(APP_DIR / "data")
 os.environ['BASE_DIR'] = str(BASE_DIR)
 os.environ['APP_DIR'] = str(APP_DIR)
 
+# Import update module if running as exe
+if getattr(sys, 'frozen', False):
+    try:
+        import update
+    except ImportError:
+        pass
+
 def open_browser():
     """Mở browser sau 2 giây"""
     time.sleep(2)
@@ -65,6 +72,18 @@ def main():
     logger.info(f"App Directory: {APP_DIR}")
     logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
     logger.info("="*60)
+    
+    # Check for updates if running as exe
+    if getattr(sys, 'frozen', False):
+        try:
+            logger.info("Checking for updates...")
+            print("→ Đang kiểm tra cập nhật...")
+            if update.check_and_update():
+                logger.info("Update initiated, exiting current instance")
+                return  # Exit to allow update
+        except Exception as e:
+            logger.warning(f"Update check failed: {e}")
+            print(f"⚠ Kiểm tra cập nhật thất bại: {e}")
     
     print("=" * 60)
     print(" MatrixQuesGen - Hệ thống sinh câu hỏi tự động")
