@@ -16,17 +16,10 @@ import threading
 try:
     from playwright.sync_api import sync_playwright
     PLAYWRIGHT_AVAILABLE = True
-    # Use ASCII-safe print to avoid UnicodeEncodeError in Windows CP1252 console
-    try:
-        print("✓ Playwright available for chart rendering")
-    except UnicodeEncodeError:
-        print("[OK] Playwright available for chart rendering")
+    print("✓ Playwright available for chart rendering")
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
-    try:
-        print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
-    except UnicodeEncodeError:
-        print("[WARN] Playwright not available. Charts will be rendered as text placeholders.")
+    print("⚠️  Playwright not available. Charts will be rendered as text placeholders.")
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

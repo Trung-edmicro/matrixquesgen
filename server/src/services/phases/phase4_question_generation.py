@@ -201,6 +201,73 @@ class QuestionGenerationService:
             except Exception as e:
                 print(f"❌ Failed to initialize QuestionGenerator: {e}")
 
+    def _get_prompt_path(self, question_type: str, rich_content_types: Optional[Dict[str, Any]] = None) -> Path:
+        """
+        Get prompt template path with type-specific fallback logic
+        
+        Args:
+            question_type: Question type (TN, DS, TLN, TL)
+            rich_content_types: Dict of rich content types from question spec
+            
+        Returns:
+            Path to prompt template file
+            
+        Logic:
+            1. If rich_content_types exists, extract primary type code (first key)
+            2. Try {question_type}_{type_code}.txt (e.g., TN_TT.txt, TLN_LT.txt)
+            3. If not found, fallback to {question_type}.txt
+            4. For TN type, also check TN2.txt before TN.txt
+        """
+        # Default fallback to generic prompt
+        generic_prompt = self.prompts_dir / f"{question_type}.txt"
+        
+        # For TN, prioritize TN2.txt over TN.txt
+        if question_type == "TN":
+            if (self.prompts_dir / "TN2.txt").exists():
+                generic_prompt = self.prompts_dir / "TN2.txt"
+        
+        # If no rich content types, use generic prompt
+        if not rich_content_types or not isinstance(rich_content_types, dict):
+            return generic_prompt
+        
+        # Extract primary type code from the structure: {"C1": [{"code": "LT", ...}], ...}
+        try:
+            # Get first question code key (e.g., "C1", "C2")
+            question_code_key = next(iter(rich_content_types.keys()))
+            
+            # Get the array of type objects
+            type_array = rich_content_types[question_code_key]
+            
+            # Validate it's a list with at least one element
+            if not isinstance(type_array, list) or len(type_array) == 0:
+                print(f"  ⚠️ rich_content_types['{question_code_key}'] is not a valid array")
+                return generic_prompt
+            
+            # Extract the 'code' field from first element (e.g., "LT", "TT", "BD")
+            type_obj = type_array[0]
+            if not isinstance(type_obj, dict) or 'code' not in type_obj:
+                print(f"  ⚠️ Type object missing 'code' field: {type_obj}")
+                return generic_prompt
+            
+            type_code = type_obj['code']
+            
+            # Strip suffix if present (e.g., HA_MH → HA, HA_TL → HA)
+            # Keep full code if no underscore (LT, TT, BD, BK remain unchanged)
+            primary_type = type_code.split('_')[0] if '_' in type_code else type_code
+            
+            # Try type-specific prompt
+            type_specific_prompt = self.prompts_dir / f"{question_type}_{primary_type}.txt"
+            
+            if type_specific_prompt.exists():
+                return type_specific_prompt
+            else:
+                # Fallback to generic prompt if type-specific not found
+                return generic_prompt
+                
+        except (StopIteration, AttributeError, KeyError, IndexError, TypeError) as e:
+            print(f"  ⚠️ Could not extract type code from rich_content_types: {e}")
+            return generic_prompt
+
     def process_question_generation(self, extracted_lesson: Any, question_type: str, num_questions: int = 5) -> Optional[QuestionSet]:
         """Process question generation for an extracted lesson"""
         try:
@@ -600,6 +667,15 @@ class QuestionGenerationService:
                       f"TLN={missing_info['generated']['TLN']}, TL={missing_info['generated']['TL']}")
                 print(f"   Missing: TN={missing_info['missing']['TN']}, DS={missing_info['missing']['DS']}, "
                       f"TLN={missing_info['missing']['TLN']}, TL={missing_info['missing']['TL']}")
+                
+                # Show missing question codes
+                missing_codes = missing_info.get('missing_codes', {})
+                for q_type in ['TN', 'DS', 'TLN', 'TL']:
+                    codes = missing_codes.get(q_type, set())
+                    if codes:
+                        codes_str = ', '.join(sorted(codes))
+                        print(f"   Missing {q_type} codes: {codes_str}")
+                
                 if unavailable_types:
                     print(f"   Note: {', '.join(unavailable_types)} are not counted (no prompt template)")
                 
@@ -633,6 +709,9 @@ class QuestionGenerationService:
         try:
             all_questions = []
             generation_tasks = []
+            
+            # Track DS question_code đã tạo task để tránh duplicate
+            processed_ds_codes = set()
 
             # Create generation tasks for each lesson and spec
             for lesson_data in matrix_data['lessons']:
@@ -669,7 +748,18 @@ class QuestionGenerationService:
                         ds_specs = lesson_data.get('DS', [])
                         # print(f"DEBUG: Lesson {chapter}.{lesson} has {len(ds_specs)} DS specs")
                         for spec_data in ds_specs:
-                            # print(f"DEBUG: Creating DS task for spec: {spec_data.get('question_code', 'unknown')}")
+                            # Get question_code to check for duplicates
+                            question_code = spec_data.get('question_code', spec_data.get('code', ['DS1'])[0])
+                            
+                            # Skip if this DS question_code has already been processed
+                            # (handles cross-lesson DS where same code appears in multiple lessons)
+                            if question_code in processed_ds_codes:
+                                # print(f"DEBUG: Skipping DS {question_code} in lesson {chapter}.{lesson} (already processed)")
+                                continue
+                            
+                            # Mark this question_code as processed
+                            processed_ds_codes.add(question_code)
+                            # print(f"DEBUG: Creating DS task for spec: {question_code} in lesson {chapter}.{lesson}")
                             
                             # Determine supplementary based on rich_content_types
                             # - If no rich_content_types (text only): use spec materials
@@ -682,7 +772,7 @@ class QuestionGenerationService:
                                 # No rich content (text only) -> use spec materials
                                 supplementary_for_ds = spec_data.get('materials', '')
                             
-                            # Create task for DS generation
+                            # Create task for DS generation (only once per question_code)
                             task = {
                                 'type': 'DS',
                                 'lesson_data': lesson_data,
@@ -758,7 +848,11 @@ class QuestionGenerationService:
                         generated_questions = future.result()
                         if generated_questions:
                             all_questions.extend(generated_questions)
-                            print(f"✅ Completed {task['type']} task for lesson {task['chapter']}.{task['lesson']} - {len(generated_questions)} questions")
+                            # Get codes for better logging
+                            spec_data = task.get('spec_data', {})
+                            codes = spec_data.get('code', spec_data.get('question_code', []))
+                            codes_str = ', '.join(codes) if isinstance(codes, list) else str(codes)
+                            print(f"✅ Completed {task['type']} {codes_str} for lesson {task['chapter']}.{task['lesson']} - {len(generated_questions)} questions")
                     except Exception as e:
                         print(f"❌ Failed {task['type']} task for lesson {task['chapter']}.{task['lesson']}: {e}")
 
@@ -848,10 +942,11 @@ class QuestionGenerationService:
         Check if all expected questions are generated
         
         Returns:
-            Dict with keys: has_missing, expected, generated, missing
+            Dict with keys: has_missing, expected, generated, missing, missing_codes
         """
-        # Count expected questions from matrix
+        # Count expected questions from matrix AND track question codes
         expected_counts = {'TN': 0, 'DS': 0, 'TLN': 0, 'TL': 0}
+        expected_codes = {'TN': set(), 'DS': set(), 'TLN': set(), 'TL': set()}
         
         for lesson_data in matrix_data['lessons']:
             for q_type in question_types:
@@ -860,24 +955,38 @@ class QuestionGenerationService:
                     for level, specs in tn_specs.items():
                         for spec in specs:
                             expected_counts['TN'] += spec.get('num', 1)
+                            # Track each question code
+                            for code in spec.get('code', []):
+                                expected_codes['TN'].add(code)
                             
                 elif q_type == 'DS':
                     ds_specs = lesson_data.get('DS', [])
-                    expected_counts['DS'] += len(ds_specs)
+                    for ds_spec in ds_specs:
+                        expected_counts['DS'] += 1
+                        # Track DS question code
+                        code = ds_spec.get('question_code', '')
+                        if code:
+                            expected_codes['DS'].add(code)
                             
                 elif q_type == 'TLN':
                     tln_specs = lesson_data.get('TLN', {})
                     for level, specs in tln_specs.items():
                         for spec in specs:
                             expected_counts['TLN'] += spec.get('num', 1)
+                            # Track each question code
+                            for code in spec.get('code', []):
+                                expected_codes['TLN'].add(code)
                             
                 elif q_type == 'TL':
                     tl_specs = lesson_data.get('TL', {})
                     for level, specs in tl_specs.items():
                         for spec in specs:
                             expected_counts['TL'] += spec.get('num', 1)
+                            # Track each question code
+                            for code in spec.get('code', []):
+                                expected_codes['TL'].add(code)
         
-        # Count generated questions
+        # Count generated questions AND track generated codes
         generated_counts = {
             'TN': len([q for q in question_set.questions if q.type == 'TN']),
             'DS': len([q for q in question_set.questions if q.type == 'DS']),
@@ -885,9 +994,27 @@ class QuestionGenerationService:
             'TL': len([q for q in question_set.questions if q.type == 'TL'])
         }
         
-        # Calculate missing
+        # Track generated question codes
+        generated_codes = {'TN': set(), 'DS': set(), 'TLN': set(), 'TL': set()}
+        for q in question_set.questions:
+            # Extract question code from id (format: SUBJECT_GRADE_CHAPTER_LESSON_TYPE_CODE)
+            try:
+                parts = q.id.split('_')
+                if len(parts) >= 6:
+                    code = parts[-1]  # Last part is question code
+                    generated_codes[q.type].add(code)
+            except:
+                pass
+        
+        # Calculate missing counts and missing codes
         missing_counts = {
             q_type: max(0, expected_counts[q_type] - generated_counts[q_type])
+            for q_type in ['TN', 'DS', 'TLN', 'TL']
+        }
+        
+        # Find missing question codes
+        missing_codes = {
+            q_type: expected_codes[q_type] - generated_codes[q_type]
             for q_type in ['TN', 'DS', 'TLN', 'TL']
         }
         
@@ -897,25 +1024,28 @@ class QuestionGenerationService:
             'has_missing': has_missing,
             'expected': expected_counts,
             'generated': generated_counts,
-            'missing': missing_counts
+            'missing': missing_counts,
+            'missing_codes': missing_codes
         }
     
     def _generate_missing_questions(self, matrix_data: Dict, missing_info: Dict) -> List:
-        """Generate only the missing questions"""
-        missing_counts = missing_info['missing']
+        """Generate only the missing questions based on missing codes"""
+        missing_codes = missing_info.get('missing_codes', {})
         all_missing_questions = []
         
         print(f"\n🔄 Generating missing questions...")
         
-        for q_type, missing_count in missing_counts.items():
-            if missing_count <= 0:
+        for q_type in ['TN', 'DS', 'TLN', 'TL']:
+            codes_to_generate = missing_codes.get(q_type, set())
+            if not codes_to_generate:
                 continue
                 
-            print(f"   Generating {missing_count} missing {q_type} questions...")
+            codes_str = ', '.join(sorted(codes_to_generate))
+            print(f"   Generating missing {q_type}: {codes_str}")
             
-            # Find lessons that need more questions
+            # Find lessons that contain the missing question codes
             for lesson_data in matrix_data['lessons']:
-                if missing_count <= 0:
+                if not codes_to_generate:
                     break
                     
                 chapter = lesson_data['chapter_number']
@@ -927,11 +1057,16 @@ class QuestionGenerationService:
                     # Generate missing TN questions
                     tn_specs = lesson_data.get('TN', {})
                     for level, specs in tn_specs.items():
-                        if missing_count <= 0:
+                        if not codes_to_generate:
                             break
                         for spec_data in specs:
-                            if missing_count <= 0:
-                                break
+                            # Check if this spec contains any missing codes
+                            spec_codes = set(spec_data.get('code', []))
+                            codes_in_this_spec = spec_codes & codes_to_generate
+                            
+                            if not codes_in_this_spec:
+                                continue  # Skip this spec, no missing codes
+                            
                             task = {
                                 'type': 'TN',
                                 'lesson_data': lesson_data,
@@ -946,16 +1081,24 @@ class QuestionGenerationService:
                                 questions = self._generate_question_task(task)
                                 if questions:
                                     all_missing_questions.extend(questions)
-                                    missing_count -= len(questions)
+                                    # Remove generated codes from missing set
+                                    codes_to_generate -= codes_in_this_spec
+                                    print(f"      ✓ Generated {q_type} {', '.join(sorted(codes_in_this_spec))}")
                             except Exception as e:
-                                print(f"❌ Error generating missing TN: {e}")
+                                print(f"      ❌ Error generating {q_type} {', '.join(sorted(codes_in_this_spec))}: {e}")
                                 
                 elif q_type == 'DS':
                     # Generate missing DS questions
                     ds_specs = lesson_data.get('DS', [])
                     for spec_data in ds_specs:
-                        if missing_count <= 0:
+                        if not codes_to_generate:
                             break
+                        
+                        # Check if this DS code is missing
+                        ds_code = spec_data.get('question_code', '')
+                        if ds_code not in codes_to_generate:
+                            continue  # Skip, not missing
+                        
                         task = {
                             'type': 'DS',
                             'lesson_data': lesson_data,
@@ -963,25 +1106,32 @@ class QuestionGenerationService:
                             'lesson': lesson,
                             'content': content,
                             'supplementary': spec_data.get('materials', ''),
-                            'spec_data': spec_data
+                            'spec_data': spec_data,
+                            'matrix_data': matrix_data
                         }
                         try:
                             questions = self._generate_question_task(task)
                             if questions:
                                 all_missing_questions.extend(questions)
-                                missing_count -= len(questions)
+                                codes_to_generate.discard(ds_code)
+                                print(f"      ✓ Generated {q_type} {ds_code}")
                         except Exception as e:
-                            print(f"❌ Error generating missing DS: {e}")
+                            print(f"      ❌ Error generating {q_type} {ds_code}: {e}")
                                 
                 elif q_type == 'TLN':
                     # Generate missing TLN questions
                     tln_specs = lesson_data.get('TLN', {})
                     for level, specs in tln_specs.items():
-                        if missing_count <= 0:
+                        if not codes_to_generate:
                             break
                         for spec_data in specs:
-                            if missing_count <= 0:
-                                break
+                            # Check if this spec contains any missing codes
+                            spec_codes = set(spec_data.get('code', []))
+                            codes_in_this_spec = spec_codes & codes_to_generate
+                            
+                            if not codes_in_this_spec:
+                                continue  # Skip this spec, no missing codes
+                            
                             task = {
                                 'type': 'TLN',
                                 'lesson_data': lesson_data,
@@ -996,19 +1146,25 @@ class QuestionGenerationService:
                                 questions = self._generate_question_task(task)
                                 if questions:
                                     all_missing_questions.extend(questions)
-                                    missing_count -= len(questions)
+                                    codes_to_generate -= codes_in_this_spec
+                                    print(f"      ✓ Generated {q_type} {', '.join(sorted(codes_in_this_spec))}")
                             except Exception as e:
-                                print(f"❌ Error generating missing TLN: {e}")
+                                print(f"      ❌ Error generating {q_type} {', '.join(sorted(codes_in_this_spec))}: {e}")
                                 
                 elif q_type == 'TL':
                     # Generate missing TL questions
                     tl_specs = lesson_data.get('TL', {})
                     for level, specs in tl_specs.items():
-                        if missing_count <= 0:
+                        if not codes_to_generate:
                             break
                         for spec_data in specs:
-                            if missing_count <= 0:
-                                break
+                            # Check if this spec contains any missing codes
+                            spec_codes = set(spec_data.get('code', []))
+                            codes_in_this_spec = spec_codes & codes_to_generate
+                            
+                            if not codes_in_this_spec:
+                                continue  # Skip this spec, no missing codes
+                            
                             task = {
                                 'type': 'TL',
                                 'lesson_data': lesson_data,
@@ -1023,9 +1179,10 @@ class QuestionGenerationService:
                                 questions = self._generate_question_task(task)
                                 if questions:
                                     all_missing_questions.extend(questions)
-                                    missing_count -= len(questions)
+                                    codes_to_generate -= codes_in_this_spec
+                                    print(f"      ✓ Generated {q_type} {', '.join(sorted(codes_in_this_spec))}")
                             except Exception as e:
-                                print(f"❌ Error generating missing TL: {e}")
+                                print(f"      ❌ Error generating {q_type} {', '.join(sorted(codes_in_this_spec))}: {e}")
         
         return all_missing_questions
     
@@ -1157,9 +1314,17 @@ class QuestionGenerationService:
                     if spec_data.get('question_template'):
                         question_template = '\n'.join(spec_data['question_template'])
 
+                    # Get prompt path with type-specific fallback
+                    prompt_path = self._get_prompt_path("TN", spec_data.get('rich_content_types'))
+                    
+                    # Log with question codes for identification
+                    codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TN'
+                    print(f"  → TN {codes_str}: Using prompt {prompt_path.name}")
+
                     # Generate questions
                     generated = self.question_generator.generate_questions_for_spec(
                         spec=spec,
+                        prompt_template_path=str(prompt_path),
                         content=content,
                         question_template=question_template
                     )
@@ -1200,11 +1365,11 @@ class QuestionGenerationService:
                             print(f"  \u2713 DS {question_code}: Merged from lessons: {source_lessons_str}")
                         else:
                             print(f"  \u26a0\ufe0f  DS {question_code}: Could not find complete statements (need 4), skipping...")
-                            continue  # Skip this incomplete DS question
+                            return []  # Exit function - cannot process this DS question
                     elif len(current_statements) < 4:
                         # No matrix_data available for merge, skip incomplete question
                         print(f"  \u26a0\ufe0f  DS {question_code}: Only {len(current_statements)} statements, no matrix_data for merge, skipping...")
-                        continue
+                        return []  # Exit function - cannot process this DS question
 
                     # Get question template from enriched data
                     question_template = ""
@@ -1236,10 +1401,17 @@ class QuestionGenerationService:
                         rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
+                    # Get prompt path with type-specific fallback
+                    prompt_path = self._get_prompt_path("DS", spec_data.get('rich_content_types'))
+                    
+                    # Log with question code for identification
+                    ds_code = spec_data.get('question_code', spec_data.get('code', ['DS'])[0])
+                    print(f"  → DS {ds_code}: Using prompt {prompt_path.name}")
+
                     # Generate DS questions
                     generated_ds = self.question_generator.generate_true_false_question(
                         tf_spec=spec,
-                        prompt_template_path=str(self.prompts_dir / "DS.txt"),
+                        prompt_template_path=str(prompt_path),
                         content=content,
                         question_template=question_template
                     )
@@ -1273,10 +1445,17 @@ class QuestionGenerationService:
                     if spec_data.get('question_template'):
                         question_template = '\n'.join(spec_data['question_template'])
 
+                    # Get prompt path with type-specific fallback
+                    prompt_path = self._get_prompt_path("TLN", spec_data.get('rich_content_types'))
+                    
+                    # Log with question codes for identification
+                    codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TLN'
+                    print(f"  → TLN {codes_str}: Using prompt {prompt_path.name}")
+
                     # Generate TLN questions using TLN prompt
                     generated = self.question_generator.generate_tln_questions(
                         spec=spec,
-                        prompt_template_path=str(self.prompts_dir / "TLN.txt"),
+                        prompt_template_path=str(prompt_path),
                         content=content,
                         question_template=question_template
                     )
@@ -1318,10 +1497,17 @@ class QuestionGenerationService:
                     if spec_data.get('question_template'):
                         question_template = '\n'.join(spec_data['question_template'])
 
+                    # Get prompt path with type-specific fallback
+                    prompt_path = self._get_prompt_path("TL", rich_types)
+                    
+                    # Log with question codes for identification
+                    codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TL'
+                    print(f"  → TL {codes_str}: Using prompt {prompt_path.name}")
+
                     # Generate TL questions using TL prompt (essay questions with full structure)
                     generated = self.question_generator.generate_tl_questions(
                         spec=spec,
-                        prompt_template_path=str(self.prompts_dir / "TL.txt"),
+                        prompt_template_path=str(prompt_path),
                         content=content,
                         question_template=question_template
                     )

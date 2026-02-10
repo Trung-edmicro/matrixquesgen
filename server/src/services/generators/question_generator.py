@@ -152,11 +152,32 @@ class QuestionGenerator:
             return ""
     
     def _should_inject_rich_guide(self, spec) -> bool:
-        """Kiểm tra xem có cần inject rich_content_guide không"""
+        """
+        Kiểm tra xem có cần inject rich_content_guide không
+        
+        Chỉ inject khi CÓ type chính (BD/BK/HA), KHÔNG inject cho type phụ (LT/TT)
+        """
+        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
+        
         # Kiểm tra nếu spec có rich_content_types
         if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
-            return True
-        # Kiểm tra nếu có từ khóa BD, BK, HA trong spec
+            # Extract all type codes and check if any is primary type
+            if isinstance(spec.rich_content_types, dict):
+                for code, types_list in spec.rich_content_types.items():
+                    if isinstance(types_list, list):
+                        for type_obj in types_list:
+                            type_code = None
+                            if isinstance(type_obj, dict):
+                                type_code = type_obj.get('code', '')
+                            elif isinstance(type_obj, str):
+                                type_code = type_obj
+                            
+                            # Check if it's a primary type
+                            if type_code in PRIMARY_TYPES or (type_code and type_code.startswith('HA')):
+                                return True
+            return False
+        
+        # Fallback: Kiểm tra nếu có từ khóa BD, BK, HA trong spec string
         spec_str = str(spec)
         return any(keyword in spec_str for keyword in ['BD', 'BK', 'HA'])
     
@@ -259,12 +280,19 @@ class QuestionGenerator:
 ⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text"), KHÔNG dùng table/chart/image/mixed.
 ⏩ question_stem PHẢI là: {"type": "text", "content": "..."}"""
         
-        lines = ["**YÊU CẦU:** Các câu hỏi sau cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
+        # Extract all type codes and classify them
+        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
+        SECONDARY_TYPES = ['LT', 'TT']  # Lý thuyết, Tính toán
+        
+        primary_types_found = {}  # {code: [type_list]}
+        secondary_types_found = {}  # {code: [type_list]}
+        
         try:
             # Safe iteration with validation
             if not isinstance(spec.rich_content_types, dict):
                 print(f"⚠️ WARNING: rich_content_types is not a dict: {type(spec.rich_content_types)}")
-                return "**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)"
+                return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text")"""
             
             for code, types in spec.rich_content_types.items():
                 # Validate code is hashable
@@ -277,30 +305,67 @@ class QuestionGenerator:
                     print(f"⚠️ WARNING: types is not list/tuple for {code}: {type(types)}")
                     continue
                 
-                type_list = []
                 for t in types:
+                    type_code = None
+                    type_name = None
+                    
                     if isinstance(t, dict):
                         # Format: {"code": "BK", "name": "Bảng khảo, bảng số liệu", "description": "..."}
-                        type_name = f"{t['code']} - {t['name']}"
+                        type_code = t.get('code', '')
+                        type_name = f"{type_code} - {t.get('name', '')}"
                     elif isinstance(t, str):
                         # Just string like "BK"
+                        type_code = t
                         type_name = t
                     else:
                         print(f"⚠️ WARNING: Invalid type object: {type(t)}")
                         continue
-                    type_list.append(type_name)
-                
-                if type_list:  # Only add if we have valid types
-                    lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
+                    
+                    # Classify type as primary or secondary
+                    if type_code in PRIMARY_TYPES or type_code.startswith('HA'):
+                        if code not in primary_types_found:
+                            primary_types_found[code] = []
+                        primary_types_found[code].append(type_name)
+                    elif type_code in SECONDARY_TYPES:
+                        if code not in secondary_types_found:
+                            secondary_types_found[code] = []
+                        secondary_types_found[code].append(type_name)
         except Exception as e:
             print(f"⚠️ ERROR formatting rich content types: {e}")
             import traceback
             traceback.print_exc()
-            return "**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)"
+            return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text")"""
+        
+        # Nếu KHÔNG có type chính (BD/BK/HA) → chỉ có type phụ (LT/TT) hoặc rỗng
+        if not primary_types_found:
+            info_lines = ["**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có BD/BK/HA trong ma trận)"]
+            
+            if secondary_types_found:
+                info_lines.append("\n**Metadata về tính chất câu hỏi:**")
+                for code, type_list in secondary_types_found.items():
+                    info_lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
+                info_lines.append("")
+                info_lines.append("⚠️ **LƯU Ý**: LT (Lý thuyết) và TT (Tính toán) CHỈ là metadata, KHÔNG yêu cầu rich content.")
+            
+            info_lines.append("")
+            info_lines.append("⏩ **BẮT BUỘC**: Tất cả câu hỏi dùng **text thuần** (type=\"text\"), KHÔNG dùng table/chart/image/mixed.")
+            info_lines.append("⏩ question_stem PHẢI là: {\"type\": \"text\", \"content\": \"...\"}")
+            
+            return "\n".join(info_lines)
+        
+        # Nếu CÓ type chính (BD/BK/HA) → yêu cầu rich content
+        lines = ["**YÊU CẦU:** Các câu hỏi sau cần tạo với rich content (BD/BK/HA):"]
+        
+        for code, type_list in primary_types_found.items():
+            secondary_info = ""
+            if code in secondary_types_found:
+                secondary_info = f" + {', '.join(secondary_types_found[code])}"
+            lines.append(f"  • Câu **{code}**: {', '.join(type_list)}{secondary_info}")
         
         lines.append("")
-        lines.append("⚠️ **QUAN TRỌNG**: Đối với các câu có yêu cầu rich content:")
-        lines.append("- question_stem PHẢI có cấu trúc: {type: 'table'/'chart'/'image', content: {...}}")
+        lines.append("⚠️ **QUAN TRỌNG**: Đối với các câu có BD/BK/HA:")
+        lines.append("- question_stem PHẢI có cấu trúc: {type: 'table'/'chart'/'image'/'mixed', content: {...}}")
         lines.append("- KHÔNG dùng {type: 'text', content: '...'} cho những câu này")
         lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
         
@@ -321,12 +386,19 @@ class QuestionGenerator:
 ⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text, KHÔNG dùng table/chart/image/mixed.
 ⏩ source_text PHẢI là: {"type": "text", "content": "..."}"""
         
-        lines = ["**YÊU CẦU:** Câu hỏi này cần tạo với loại nội dung đặc biệt (RICH CONTENT):"]
+        # Extract all type codes and classify them
+        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
+        SECONDARY_TYPES = ['LT', 'TT']  # Lý thuyết, Tính toán
+        
+        primary_types_found = []
+        secondary_types_found = []
+        
         try:
             # Safe iteration with validation
             if not isinstance(spec.rich_content_types, dict):
                 print(f"⚠️ WARNING: DS rich_content_types is not a dict: {type(spec.rich_content_types)}")
-                return "**YÊU CẦU NỘI DUNG**: Chỉ dùng text thuần"
+                return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text"""
             
             for code, types in spec.rich_content_types.items():
                 # Validate code is hashable
@@ -339,28 +411,57 @@ class QuestionGenerator:
                     print(f"⚠️ WARNING: DS types is not list/tuple for {code}: {type(types)}")
                     continue
                 
-                type_list = []
                 for t in types:
+                    type_code = None
+                    type_name = None
+                    
                     if isinstance(t, dict):
-                        type_name = f"{t['code']} - {t['name']}"
+                        type_code = t.get('code', '')
+                        type_name = f"{type_code} - {t.get('name', '')}"
                     elif isinstance(t, str):
+                        type_code = t
                         type_name = t
                     else:
                         print(f"⚠️ WARNING: Invalid DS type object: {type(t)}")
                         continue
-                    type_list.append(type_name)
-                
-                if type_list:  # Only add if we have valid types
-                    lines.append(f"  • {', '.join(type_list)}")
+                    
+                    # Classify type as primary or secondary
+                    if type_code in PRIMARY_TYPES or type_code.startswith('HA'):
+                        primary_types_found.append(type_name)
+                    elif type_code in SECONDARY_TYPES:
+                        secondary_types_found.append(type_name)
         except Exception as e:
             print(f"⚠️ ERROR formatting DS rich content types: {e}")
             import traceback
             traceback.print_exc()
-            return "**YÊU CẦU NỘI DUNG**: Chỉ dùng text thuần (do lỗi khi xử lý rich_content_types)"
+            return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)
+⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text"""
+        
+        # Nếu KHÔNG có type chính (BD/BK/HA) → chỉ có type phụ (LT/TT) hoặc rỗng
+        if not primary_types_found:
+            info_lines = ["**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có BD/BK/HA trong ma trận)"]
+            
+            if secondary_types_found:
+                info_lines.append(f"\n**Metadata về tính chất câu hỏi**: {', '.join(secondary_types_found)}")
+                info_lines.append("⚠️ **LƯU Ý**: LT (Lý thuyết) và TT (Tính toán) CHỈ là metadata, KHÔNG yêu cầu rich content.")
+            
+            info_lines.append("")
+            info_lines.append("⏩ **BẮT BUỘC**: Dùng **text thuần** (type=\"text\") cho source_text, KHÔNG dùng table/chart/image/mixed.")
+            info_lines.append("⏩ source_text PHẢI là: {\"type\": \"text\", \"content\": \"...\"}")
+            
+            return "\n".join(info_lines)
+        
+        # Nếu CÓ type chính (BD/BK/HA) → yêu cầu rich content
+        lines = ["**YÊU CẦU:** Câu hỏi này cần tạo với rich content (BD/BK/HA):"]
+        
+        secondary_info = ""
+        if secondary_types_found:
+            secondary_info = f" + {', '.join(secondary_types_found)}"
+        lines.append(f"  • {', '.join(primary_types_found)}{secondary_info}")
         
         lines.append("")
-        lines.append("⚠️ **QUAN TRỌNG**: Đối với câu hỏi có yêu cầu rich content:")
-        lines.append("- source_text PHẢI có cấu trúc: {type: 'table'/'chart'/'image', content: {...}}")
+        lines.append("⚠️ **QUAN TRỌNG**: Đối với câu hỏi có BD/BK/HA:")
+        lines.append("- source_text PHẢI có cấu trúc: {type: 'table'/'chart'/'image'/'mixed', content: {...}}")
         lines.append("- KHÔNG dùng {type: 'text', content: '...'}")
         lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
         
@@ -688,9 +789,10 @@ class QuestionGenerator:
             GeneratedTrueFalseQuestion: Câu hỏi DS đã sinh
         """
         tried_fallback = False
+        attempt = 0
         
-        # Retry logic với fallback model với fallback model
-        for attempt in range(self.max_retries):
+        # Retry logic với fallback model - dùng while để có thể reset attempt cho fallback
+        while attempt < self.max_retries:
             try:
                 # Load prompt template DS
                 with open(prompt_template_path, 'r', encoding='utf-8') as f:
@@ -894,23 +996,23 @@ Câu hỏi DS này yêu cầu chỉ sử dụng: {content_type_map.get(primary_c
             except Exception as e:
                 error_str = str(e)
                 
-                # Kiểm tra nếu là lỗi 429 và chưa thử fallback
+                # Kiểm tra nếu là lỗi 429 (rate limit) và chưa thử fallback
                 is_rate_limit = "429" in error_str and "RESOURCE_EXHAUSTED" in error_str
                 
                 if attempt < self.max_retries - 1:
+                    # Còn lần thử, retry
                     if self.verbose:
                         print(f"⚠️  Lần thử {attempt + 1}/{self.max_retries} thất bại: {error_str[:80]}")
                         print(f"   Thử lại sau {self.retry_delay}s...")
+                    attempt += 1
                     time.sleep(self.retry_delay)
                 elif is_rate_limit and not tried_fallback:
-                    # Thử fallback model
+                    # Hết lần thử nhưng là rate limit và chưa thử fallback
                     tried_fallback = True
+                    attempt = 0  # Reset về 0 để thử lại với fallback model
                     print(f"🔄 Hết {self.max_retries} lần thử với model chính, chuyển sang fallback model: {self.fallback_model}")
-                    # Reset attempt counter cho fallback
-                    attempt = -1  # Sẽ tăng lên 0 ở vòng lặp tiếp theo
-                    continue
                 else:
-                    # Hết retry và hết fallback, tạo dummy question
+                    # Hết retry và (đã fallback hoặc không phải rate limit), tạo dummy question
                     if self.verbose:
                         print(f"\n❌ Lỗi khi sinh câu {tf_spec.question_code} sau {self.max_retries} lần thử")
                         if tried_fallback:

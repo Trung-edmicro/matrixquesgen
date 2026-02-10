@@ -23,13 +23,35 @@ from services.exporters.template_generator import QuestionGeneratorWithTemplate
 router = APIRouter(prefix="/api/generate", tags=["Generate"])
 
 
-# Storage cho các session
-SESSIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "sessions"
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+# Helper functions for lazy path loading (ensures APP_DIR env var is set)
+def _get_app_dir() -> Path:
+    """Get APP_DIR with lazy loading to ensure env var is set"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode
+    return Path(__file__).parent.parent.parent.parent
 
-# Storage cho kết quả final
-QUESTIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "questions"
-QUESTIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _get_sessions_dir() -> Path:
+    """Get sessions directory path with lazy loading"""
+    sessions_dir = _get_app_dir() / "data" / "sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    return sessions_dir
+
+
+def _get_questions_dir() -> Path:
+    """Get questions directory path with lazy loading"""
+    questions_dir = _get_app_dir() / "data" / "questions"
+    questions_dir.mkdir(parents=True, exist_ok=True)
+    return questions_dir
+
+
+def _get_uploads_dir() -> Path:
+    """Get uploads directory path with lazy loading"""
+    uploads_dir = _get_app_dir() / "data" / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    return uploads_dir
 
 
 def generate_questions_task(
@@ -41,7 +63,7 @@ def generate_questions_task(
     """
     Background task để sinh câu hỏi theo 4 phase workflow
     """
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     def update_session(data: dict):
         """Helper to update session file"""
@@ -126,7 +148,7 @@ def generate_questions_task(
                     generated_tl.append(q)
         
         # Save final results to data/questions
-        questions_file = QUESTIONS_DIR / f"questions_{session_id}.json"
+        questions_file = _get_questions_dir() / f"questions_{session_id}.json"
         
         output_data = {
             "metadata": {
@@ -284,8 +306,7 @@ async def generate_questions(
     session_id = str(uuid.uuid4())
     
     # Lưu file upload
-    upload_dir = Path(__file__).parent.parent.parent.parent / "data" / "uploads"
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    upload_dir = _get_uploads_dir()
     
     file_path = upload_dir / f"{session_id}_{file.filename}"
     
@@ -311,8 +332,7 @@ async def generate_questions(
             raise HTTPException(status_code=500, detail=f"Không thể lưu template: {str(e)}")
     
     # Đường dẫn tuyệt đối đến thư mục config
-    api_dir = Path(__file__).parent.parent
-    project_root = api_dir.parent
+    project_root = _get_app_dir()
     
     # Cấu hình
     config = {
@@ -349,7 +369,7 @@ async def get_generation_progress(session_id: str):
     """
     Lấy tiến độ sinh câu hỏi
     """
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -389,11 +409,11 @@ async def get_generation_result(session_id: str):
         - metadata: Thông tin về session
         - questions: Object chứa TN và DS questions đã sinh
     """
-    questions_file = QUESTIONS_DIR / f"questions_{session_id}.json"
+    questions_file = _get_questions_dir() / f"questions_{session_id}.json"
     
     if not questions_file.exists():
         # Check session status
-        session_file = SESSIONS_DIR / f"{session_id}.json"
+        session_file = _get_sessions_dir() / f"{session_id}.json"
         if session_file.exists():
             with open(session_file, 'r', encoding='utf-8') as f:
                 session_data = json.load(f)

@@ -2,15 +2,6 @@ import sys
 import os
 from pathlib import Path
 
-# Fix UTF-8 encoding for Windows console to support Unicode characters (✓, ⚠️, etc.)
-if sys.platform == 'win32':
-    import io
-    # Check if stdout/stderr exist (they can be None in windowed EXE mode)
-    if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    if sys.stderr is not None and hasattr(sys.stderr, 'buffer'):
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
 # Add server/src directory to Python path
 server_src_dir = Path(__file__).parent.parent  # server/src
 sys.path.insert(0, str(server_src_dir))
@@ -24,11 +15,6 @@ from dotenv import load_dotenv
 from api.routes import generate, questions, export, google_drive, regenerate, images
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
-
-# Debug: Verify regenerate router loaded
-print(f"✓ Regenerate router loaded: {regenerate.router}")
-print(f"  Prefix: {regenerate.router.prefix}")
-print(f"  Routes: {[r.path for r in regenerate.router.routes]}")
 
 # Load environment variables
 load_dotenv()

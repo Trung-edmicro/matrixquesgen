@@ -17,9 +17,22 @@ from services.generators.image_generator import ImageGenerator
 
 router = APIRouter(prefix="/api/images", tags=["Images"])
 
-# Thư mục lưu ảnh
-IMAGES_DIR = Path(__file__).parent.parent.parent.parent / "data" / "images"
-IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+# Helper function for lazy path loading (ensures APP_DIR env var is set)
+def _get_app_dir() -> Path:
+    """Get APP_DIR with lazy loading to ensure env var is set"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _get_images_dir() -> Path:
+    """Get images directory path with lazy loading"""
+    images_dir = _get_app_dir() / "data" / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    return images_dir
 
 
 class ImageGenerateRequest(BaseModel):
@@ -91,7 +104,7 @@ async def generate_image(request: ImageGenerateRequest):
         if request.reference_image_url:
             # Download to temp location
             ref_filename = f"ref_{uuid.uuid4().hex}.png"
-            reference_image_path = IMAGES_DIR / ref_filename
+            reference_image_path = _get_images_dir() / ref_filename
             
             # TODO: Implement image download from URL
             # For now, skip if it's a URL
@@ -117,7 +130,7 @@ async def generate_image(request: ImageGenerateRequest):
         for i, img_data in enumerate(images_data):
             # Generate unique filename
             filename = f"img_{uuid.uuid4().hex}_{i}.png"
-            filepath = IMAGES_DIR / filename
+            filepath = _get_images_dir() / filename
             
             # Save image
             with open(filepath, 'wb') as f:
@@ -159,7 +172,7 @@ async def upscale_image(request: ImageUpscaleRequest):
         # Get image path from URL
         if request.image_url.startswith("/api/images/file/"):
             filename = request.image_url.split("/")[-1]
-            image_path = IMAGES_DIR / filename
+            image_path = _get_images_dir() / filename
         else:
             # Assume it's a local path
             image_path = Path(request.image_url)
@@ -179,7 +192,7 @@ async def upscale_image(request: ImageUpscaleRequest):
         
         # Save upscaled image
         filename = f"upscaled_{uuid.uuid4().hex}.png"
-        filepath = IMAGES_DIR / filename
+        filepath = _get_images_dir() / filename
         
         with open(filepath, 'wb') as f:
             f.write(upscaled_data)
@@ -219,7 +232,7 @@ async def create_variations(request: ImageVariationsRequest):
         # Get image path from URL
         if request.image_url.startswith("/api/images/file/"):
             filename = request.image_url.split("/")[-1]
-            image_path = IMAGES_DIR / filename
+            image_path = _get_images_dir() / filename
         else:
             # Assume it's a local path
             image_path = Path(request.image_url)
@@ -242,7 +255,7 @@ async def create_variations(request: ImageVariationsRequest):
         image_urls = []
         for i, var_data in enumerate(variations_data):
             filename = f"var_{uuid.uuid4().hex}_{i}.png"
-            filepath = IMAGES_DIR / filename
+            filepath = _get_images_dir() / filename
             
             with open(filepath, 'wb') as f:
                 f.write(var_data)
@@ -270,7 +283,7 @@ async def get_image_file(filename: str):
     
     - **filename**: Tên file ảnh
     """
-    filepath = IMAGES_DIR / filename
+    filepath = _get_images_dir() / filename
     
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="Ảnh không tồn tại")

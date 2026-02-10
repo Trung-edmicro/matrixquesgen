@@ -4,17 +4,6 @@ Khởi động server và tự động mở browser
 """
 import sys
 import os
-
-# Fix UTF-8 encoding for Windows console BEFORE importing ANY other modules
-# This prevents UnicodeEncodeError when modules print Unicode characters during import
-if sys.platform == 'win32':
-    import io
-    # Check if stdout/stderr exist (they can be None in windowed EXE mode)
-    if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    if sys.stderr is not None and hasattr(sys.stderr, 'buffer'):
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
 import time
 import webbrowser
 import threading
@@ -33,7 +22,7 @@ else:
     APP_DIR = BASE_DIR
 
 # Add server to path
-server_dir = BASE_DIR / "server" / "src" / "api"
+server_dir = BASE_DIR / "server" / "src"
 sys.path.insert(0, str(server_dir))
 
 # Set environment variables for data paths
@@ -123,7 +112,7 @@ def main():
         
         # Import routes
         try:
-            from routes import generate, questions, export
+            from api.routes import generate, questions, export, regenerate, google_drive, images
             print("✓ Đã import routes thành công")
         except Exception as e:
             print(f"✗ Lỗi khi import routes: {e}")
@@ -180,6 +169,12 @@ def main():
             print("✓ Đã mount questions router")
             app.include_router(export.router)
             print("✓ Đã mount export router")
+            app.include_router(regenerate.router)
+            print("✓ Đã mount regenerate router")
+            app.include_router(google_drive.router)
+            print("✓ Đã mount google_drive router")
+            app.include_router(images.router)
+            print("✓ Đã mount images router")
         except Exception as e:
             print(f"✗ Lỗi khi mount routers: {e}")
             import traceback

@@ -37,6 +37,7 @@ test_*.txt
 # Additional ignores
 *.log
 *.ps1
+*.bat
 *.spec
 modular_cli.md
 tray_icon.py

@@ -2,6 +2,7 @@
 Route quản lý danh sách câu hỏi và cập nhật
 """
 import json
+import os
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
@@ -23,7 +24,24 @@ from config.settings import Config
 router = APIRouter(prefix="/api/questions", tags=["Questions"])
 
 
-SESSIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "sessions"
+# Helper functions for lazy path loading (ensures APP_DIR env var is set)
+def _get_app_dir() -> Path:
+    """Get APP_DIR with lazy loading to ensure env var is set"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _get_sessions_dir() -> Path:
+    """Get sessions directory path with lazy loading"""
+    return _get_app_dir() / "data" / "sessions"
+
+
+def _get_questions_dir() -> Path:
+    """Get questions directory path with lazy loading"""
+    return _get_app_dir() / "data" / "questions"
 
 
 @router.get("", response_model=SessionListResponse)
@@ -39,13 +57,14 @@ async def list_sessions(
     - **offset**: Vị trí bắt đầu (default: 0)
     - **status**: Lọc theo status (processing, completed, failed)
     """
+    sessions_dir = _get_sessions_dir()
     
-    if not SESSIONS_DIR.exists():
+    if not sessions_dir.exists():
         return SessionListResponse(sessions=[], total=0)
     
     # Lấy tất cả file session
     session_files = sorted(
-        SESSIONS_DIR.glob("*.json"),
+        sessions_dir.glob("*.json"),
         key=lambda x: x.stat().st_mtime,
         reverse=True  # Mới nhất trước
     )
@@ -94,7 +113,7 @@ async def get_session_detail(session_id: str):
     Lấy chi tiết câu hỏi của một session
     """
     # First try to get from questions file (final results)
-    questions_file = Path(__file__).parent.parent.parent.parent / "data" / "questions" / f"questions_{session_id}.json"
+    questions_file = _get_questions_dir() / f"questions_{session_id}.json"
     if questions_file.exists():
         with open(questions_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -130,7 +149,7 @@ async def get_session_detail(session_id: str):
         )
     
     # Fallback to session file
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -175,7 +194,7 @@ async def update_question(
     - **question_code**: Mã câu hỏi (C1, C2, ...)
     - **update_data**: Dữ liệu cần cập nhật
     """
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -218,7 +237,7 @@ async def delete_session(session_id: str):
     """
     Xóa một session
     """
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")

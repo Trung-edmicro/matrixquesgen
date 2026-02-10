@@ -2,6 +2,7 @@
 Route xuất file DOCX
 """
 import json
+import os
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
@@ -19,11 +20,31 @@ from config.settings import Config
 router = APIRouter(prefix="/api/export", tags=["Export"])
 
 
-SESSIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "sessions"
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+# Helper functions for lazy path loading (ensures APP_DIR env var is set)
+def _get_app_dir() -> Path:
+    """Get APP_DIR with lazy loading to ensure env var is set"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode
+    return Path(__file__).parent.parent.parent.parent
 
-EXPORTS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "exports"
-EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _get_sessions_dir() -> Path:
+    """Get sessions directory path with lazy loading"""
+    return _get_app_dir() / "data" / "sessions"
+
+
+def _get_questions_dir() -> Path:
+    """Get questions directory path with lazy loading"""
+    return _get_app_dir() / "data" / "questions"
+
+
+def _get_exports_dir() -> Path:
+    """Get exports directory path with lazy loading"""
+    exports_dir = _get_app_dir() / "data" / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    return exports_dir
 
 
 @router.post("/{session_id}", response_model=ExportResponse)
@@ -33,7 +54,7 @@ async def export_docx(session_id: str):
     
     - **session_id**: ID của session cần export
     """
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -55,7 +76,7 @@ async def export_docx(session_id: str):
     if not results_file:
         raise HTTPException(status_code=404, detail="Results file không được chỉ định trong session")
     
-    questions_file = Path(__file__).parent.parent.parent.parent / "data" / "questions" / results_file
+    questions_file = _get_questions_dir() / results_file
     if not questions_file.exists():
         raise HTTPException(status_code=404, detail=f"Questions file không tồn tại: {results_file}")
     
@@ -83,7 +104,7 @@ async def export_docx(session_id: str):
     matrix_filename = Path(metadata.get('matrix_file', 'questions')).stem
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_filename = f"{matrix_filename}_{timestamp}.docx"
-    output_path = EXPORTS_DIR / output_filename
+    output_path = _get_exports_dir() / output_filename
     
     # Generate DOCX
     try:
@@ -112,13 +133,13 @@ async def download_docx(session_id: str):
     """
     # Tìm file export mới nhất cho session này
     export_files = sorted(
-        EXPORTS_DIR.glob("*.docx"),
+        _get_exports_dir().glob("*.docx"),
         key=lambda x: x.stat().st_mtime,
         reverse=True
     )
     
     # Kiểm tra session tồn tại
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    session_file = _get_sessions_dir() / f"{session_id}.json"
     if not session_file.exists():
         raise HTTPException(status_code=404, detail="Session không tồn tại")
     

@@ -2,7 +2,7 @@
 Module quản lý JSON schemas cho các loại câu hỏi
 Hỗ trợ Rich Content: text, image, table, chart (ECharts), latex, mixed
 """
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 # ==================== TÁCH SCHEMAS RIÊNG BIỆT CHO TỪNG TYPE ====================
@@ -497,21 +497,31 @@ def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
     }
 
 
-def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = None) -> Dict:
+def get_content_schema_by_rich_types(rich_content_types: Optional[Union[Dict, List[str]]] = None) -> Dict:
     """
     ⭐ HÀM CHÍNH: Chọn schema phù hợp dựa trên rich_content_types từ ma trận
     
-    🎯 LOGIC PHÂN LOẠI MỚI (Đơn giản hơn - tránh nested):
+    🎯 LOGIC PHÂN LOẠI MỚI (Phân biệt type chính và type phụ):
     
-    1. None / [] / chỉ ['LT'] / chỉ ['TT'] / ['LT','TT']:
-       → type='text' (text thuần)
+    1. None / [] / chỉ LT / chỉ TT / [LT, TT]:
+       → type='text' (text thuần) - KHÔNG có BD/BK/HA
     
-    2. Có BK/BD/HA (bất kỳ loại rich content nào):
-       → type='mixed' (array format - KHÔNG dùng nested chart/table/image schema)
-       ⚠️ Lý do: Schema mixed đơn giản hơn, AI dễ follow hơn nested structure
+    2. Có type chính BD/BK/HA (hoặc HA_MH, HA_TL):
+       → type='mixed' (array format) - CÓ thể kèm type phụ LT/TT
+       
+    3. Type phụ (LT/TT) chỉ là metadata về tính chất câu hỏi:
+       - LT (Lý thuyết): Câu hỏi kiểu lý thuyết
+       - TT (Tính toán): Câu hỏi yêu cầu tính toán
+       
+    4. Type chính (BD/BK/HA) quyết định cấu trúc content:
+       - BD (Biểu đồ): Câu hỏi có chart
+       - BK (Bảng khảo): Câu hỏi có table
+       - HA_* (Hình ảnh): Câu hỏi có image
     
     Args:
-        rich_content_types: List các loại rich content từ matrix (VD: ['BK'], ['BD'], ['BK','BD'])
+        rich_content_types: Dict hoặc List từ matrix
+            - Dict format: {"C1": [{"code": "LT"}, ...], "C2": [{"code": "BD"}, {"code": "TT"}]}
+            - List format: ['BK'] hoặc ['BD', 'TT']
     
     Returns:
         Dict: Schema phù hợp với loại content
@@ -519,16 +529,37 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[List[str]] = N
     if not rich_content_types:
         return get_text_content_schema()
     
-    # Lọc bỏ 'LT' (lý thuyết) và 'TT' (tính toán) - chỉ giữ lại BK, BD, HA
-    actual_rich_types = [t for t in rich_content_types if t not in ['LT', 'TT']]
+    # Extract all type codes from dict/list structure
+    type_codes = []
     
-    # Nếu không còn rich type nào → text thuần
-    if not actual_rich_types:
+    if isinstance(rich_content_types, dict):
+        # Dict format: {"C1": [{"code": "LT", ...}], ...}
+        for question_code, types_list in rich_content_types.items():
+            if isinstance(types_list, list):
+                for type_obj in types_list:
+                    if isinstance(type_obj, dict) and 'code' in type_obj:
+                        type_codes.append(type_obj['code'])
+                    elif isinstance(type_obj, str):
+                        type_codes.append(type_obj)
+    elif isinstance(rich_content_types, list):
+        # List format: ['BK'] or ['LT', 'TT']
+        type_codes = rich_content_types
+    else:
+        # Invalid format, default to text
         return get_text_content_schema()
     
-    # Nếu CÓ bất kỳ rich content nào (BK/BD/HA) → LUÔN dùng mixed
-    # Lý do: Schema mixed đơn giản hơn get_chart/table/image_content_schema (tránh nested array trong array)
-    return get_mixed_content_schema(actual_rich_types)
+    # Phân loại: Lọc type chính (BD/BK/HA) vs type phụ (LT/TT)
+    PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
+    # HA có thể có suffix: HA_MH (minh họa), HA_TL (tư liệu)
+    primary_types = [t for t in type_codes if t in PRIMARY_TYPES or t.startswith('HA')]
+    
+    # Nếu KHÔNG có type chính → chỉ có type phụ (LT/TT) hoặc rỗng → text thuần
+    if not primary_types:
+        return get_text_content_schema()
+    
+    # Nếu CÓ type chính (BD/BK/HA) → dùng mixed schema
+    # Lý do: Schema mixed đơn giản hơn, AI dễ follow hơn nested structure
+    return get_mixed_content_schema(primary_types)
 
 
 # ==================== LEGACY FUNCTION (Deprecated) ====================

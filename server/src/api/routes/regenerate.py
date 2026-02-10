@@ -23,8 +23,33 @@ from config.settings import Config
 
 router = APIRouter(prefix="/api/regenerate", tags=["Regenerate"])
 
-SESSIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "sessions"
-QUESTIONS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "questions"
+
+def _get_app_dir() -> Path:
+    """Get APP_DIR with lazy loading to ensure env var is set"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode (same as generate.py - 4 levels up to server/)
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _get_project_root() -> Path:
+    """Get project root directory (for matrix and prompts in dev mode)"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode (5 levels up to project root)
+    return Path(__file__).parent.parent.parent.parent.parent
+
+
+def _get_sessions_dir() -> Path:
+    """Get sessions directory path"""
+    return _get_app_dir() / "data" / "sessions"
+
+
+def _get_questions_dir() -> Path:
+    """Get questions directory path"""
+    return _get_app_dir() / "data" / "questions"
 
 
 class RegenerateQuestionRequest(BaseModel):
@@ -43,13 +68,15 @@ class RegenerateBulkRequest(BaseModel):
 def _load_session_data(session_id: str) -> dict:
     """Load session data from file"""
     # Try questions file first
-    questions_file = QUESTIONS_DIR / f"questions_{session_id}.json"
+    questions_dir = _get_questions_dir()
+    questions_file = questions_dir / f"questions_{session_id}.json"
     if questions_file.exists():
         with open(questions_file, 'r', encoding='utf-8') as f:
             return json.load(f)
     
     # Fallback to session file
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    sessions_dir = _get_sessions_dir()
+    session_file = sessions_dir / f"{session_id}.json"
     if not session_file.exists():
         raise HTTPException(status_code=404, detail=f"Session {session_id} không tồn tại")
     
@@ -60,7 +87,8 @@ def _load_session_data(session_id: str) -> dict:
 def _save_session_data(session_id: str, data: dict):
     """Save session data back to file"""
     # Save to questions file if it exists
-    questions_file = QUESTIONS_DIR / f"questions_{session_id}.json"
+    questions_dir = _get_questions_dir()
+    questions_file = questions_dir / f"questions_{session_id}.json"
     if questions_file.exists():
         try:
             with open(questions_file, 'w', encoding='utf-8') as f:
@@ -72,7 +100,8 @@ def _save_session_data(session_id: str, data: dict):
             raise
     
     # Otherwise save to session file
-    session_file = SESSIONS_DIR / f"{session_id}.json"
+    sessions_dir = _get_sessions_dir()
+    session_file = sessions_dir / f"{session_id}.json"
     try:
         with open(session_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -84,8 +113,8 @@ def _save_session_data(session_id: str, data: dict):
 
 def _get_prompts_dir(subject: str, curriculum: str, grade: str) -> Path:
     """Lấy thư mục prompts theo môn_curriculum_lớp"""
-    # Path từ regenerate.py: routes/ -> api/ -> src/ -> server/ -> workspace_root/
-    workspace_root = Path(__file__).parent.parent.parent.parent.parent
+    # Use project root for prompts (in dev mode: project_root/data/prompts)
+    workspace_root = _get_project_root()
     prompts_base_dir = workspace_root / "data" / "prompts"
     prompts_subdir = f"{subject}_{curriculum}_{grade}"
     prompts_dir = prompts_base_dir / prompts_subdir
@@ -159,8 +188,8 @@ def _get_question_generator(question_type: str, metadata: dict) -> QuestionGener
 
 def _load_enriched_matrix(subject: str, curriculum: str, grade: str) -> dict:
     """Load enriched matrix file"""
-    # Path từ regenerate.py: routes/ -> api/ -> src/ -> server/ -> workspace_root/
-    workspace_root = Path(__file__).parent.parent.parent.parent.parent
+    # Use project root for matrix (in dev mode: project_root/data/matrix)
+    workspace_root = _get_project_root()
     matrix_dir = workspace_root / "data" / "matrix"
     matrix_file = matrix_dir / f"enriched_matrix_{subject}_{curriculum}_{grade}.json"
     
