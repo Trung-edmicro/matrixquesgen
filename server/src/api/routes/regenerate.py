@@ -18,6 +18,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from services.core.genai_client import GenAIClient
 from services.generators.question_generator import QuestionGenerator
 from services.core.matrix_parser import QuestionSpec, TrueFalseQuestionSpec
+from services.generators.image_description_service import ImageDescriptionService
+from services.core.image_generation import ImageGenerator
+from datetime import datetime
 from config.settings import Config
 
 
@@ -129,8 +132,8 @@ def _get_prompts_dir(subject: str, curriculum: str, grade: str) -> Path:
 def _get_question_generator(question_type: str, metadata: dict) -> QuestionGenerator:
     """Khởi tạo QuestionGenerator instance với prompt phù hợp"""
     # Lấy model từ environment variable
-    genai_model = os.getenv('GENAI_MODEL', 'gemini-3-pro-preview')
-    fallback_model = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-2.5-pro')
+    genai_model = Config.VERTEX_AI_MODEL
+    fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
     
     ai_client = GenAIClient(
         project_id=Config.GCP_PROJECT_ID,
@@ -269,7 +272,7 @@ def _build_question_spec_from_matrix(spec_data: dict, lesson_data: dict, questio
         learning_outcome=spec_data.get('learning_outcome', ''),
         row_index=0,
         chapter_number=lesson_data.get('chapter_number'),
-        supplementary_materials=lesson_data.get('supplementary_material', ''),
+        supplementary_material=lesson_data.get('supplementary_material', ''),
         rich_content_types={question_code: rich_content_types} if rich_content_types else None
     )
 
@@ -301,9 +304,150 @@ def _build_ds_spec_from_matrix(spec_data: dict, lesson_data: dict, question_code
         statements=statements,
         question_type='DS',
         chapter_number=lesson_data.get('chapter_number'),
-        supplementary_materials=lesson_data.get('supplementary_material', ''),
+        supplementary_material=lesson_data.get('supplementary_material', ''),
+        materials=spec_data.get('materials', ''),
         rich_content_types={question_code: rich_content_types} if rich_content_types else None
     )
+
+
+def _generate_image_for_question(
+    question_code: str,
+    rich_content_types: List[str],
+    metadata: dict,
+    lesson_data: dict,
+    spec_data: dict,
+    content: str
+) -> Optional[dict]:
+    """
+    Sinh ảnh cho câu hỏi nếu rich_content_types chứa HA_MH hoặc HA_TL
+    
+    Args:
+        question_code: Mã câu hỏi
+        rich_content_types: List các loại rich content (e.g., ['HA_MH'], ['HA_TL'])
+        metadata: Metadata từ session (subject, grade, curriculum)
+        lesson_data: Data của lesson từ enriched_matrix
+        spec_data: Spec data từ enriched_matrix
+        content: Nội dung SGK
+    
+    Returns:
+        dict: Rich content dict để merge vào question_stem, hoặc None nếu không cần ảnh
+    """
+    # Kiểm tra xem có cần sinh ảnh không
+    # rich_content_types có thể là list of string ['HA_TL'] hoặc list of dict [{'code': 'HA_TL', ...}]
+    image_type = None
+    
+    for item in rich_content_types:
+        if isinstance(item, dict):
+            # Format: {'code': 'HA_TL', 'name': '...', 'description': '...'}
+            code = item.get('code', '')
+        else:
+            # Format: 'HA_TL'
+            code = item
+        
+        if code in ['HA_MH', 'HA_TL']:
+            image_type = code
+            break
+    
+    if not image_type:
+        return None
+    
+    print(f"🖼️ Generating {image_type} image for question {question_code}...")
+    
+    try:
+        # Khởi tạo AI client
+        genai_model = Config.VERTEX_AI_MODEL
+        ai_client = GenAIClient(
+            project_id=Config.GCP_PROJECT_ID,
+            location=Config.GCP_LOCATION,
+            credentials_path=Config.GCP_CREDENTIALS_PATH
+        )
+        ai_client.model_name = genai_model
+        
+        # Khởi tạo ImageDescriptionService (dùng default prompts_dir: server/src/services/prompts)
+        description_service = ImageDescriptionService(
+            ai_client=ai_client
+            # Không truyền prompts_dir để dùng default: server/src/services/prompts/
+            # (image description prompts khác với question generation prompts)
+        )
+        
+        # Sinh mô tả hình ảnh
+        print(f"  ➡️ Generating image description...")
+        print(f"     Subject: {metadata.get('subject', '')}")
+        print(f"     Grade: {metadata.get('grade', '')}")
+        print(f"     Chapter: {lesson_data.get('chapter', '')}")
+        print(f"     Lesson: {lesson_data.get('lesson_name', '')}")
+        print(f"     Content length: {len(content)} chars")
+        print(f"     Learning outcome: {spec_data.get('learning_outcome', '')[:100]}...")
+        
+        if image_type == 'HA_MH':
+            desc_result = description_service.generate_illustrative_description(
+                subject=metadata.get('subject', ''),
+                class_level=metadata.get('grade', ''),
+                chapter=lesson_data.get('chapter', ''),
+                lesson_name=lesson_data.get('lesson_name', ''),
+                content=content,
+                learning_outcome=spec_data.get('learning_outcome', '')
+            )
+        else:  # HA_TL
+            desc_result = description_service.generate_data_source_description(
+                subject=metadata.get('subject', ''),
+                class_level=metadata.get('grade', ''),
+                chapter=lesson_data.get('chapter', ''),
+                lesson_name=lesson_data.get('lesson_name', ''),
+                content=content,
+                learning_outcome=spec_data.get('learning_outcome', '')
+            )
+        
+        print(f"  ✓ Description: {desc_result.description[:100]}...")
+        
+        # Sinh hình ảnh từ mô tả
+        print(f"  ➡️ Generating image from description...")
+        image_generator = ImageGenerator(num_images=1, aspect_ratio="16:9")
+        images_data = image_generator.generate(
+            prompt=desc_result.description,
+            num_images=1
+        )
+        
+        if not images_data:
+            print(f"  ❌ Failed to generate image")
+            return None
+        
+        # Lưu hình ảnh - use same path logic as images.py
+        app_dir = _get_app_dir()
+        images_dir = app_dir / "data" / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{question_code}_{image_type}_{timestamp}.png"
+        image_path = images_dir / filename
+        
+        with open(image_path, 'wb') as f:
+            f.write(images_data[0])
+        
+        print(f"  ✓ Image saved to: {image_path}")
+        
+        # Convert absolute path to API URL path for frontend
+        image_filename = image_path.name
+        api_image_url = f"/api/images/file/{image_filename}"
+        print(f"  ✓ API URL: {api_image_url}")
+        
+        # Tạo rich content dict
+        return {
+            "type": "image",
+            "content": api_image_url,  # Use API URL instead of absolute path
+            "metadata": {
+                "image_type": image_type,
+                "description": desc_result.description,
+                "caption": f"Hình ảnh minh họa {question_code}",
+                "local_path": str(image_path)  # Keep absolute path for server reference
+            }
+        }
+        
+    except Exception as e:
+        print(f"  ❌ Error generating image: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 @router.post("/question")
@@ -506,6 +650,93 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
             new_question_dict['chapter_number'] = old_question['chapter_number']
         if 'lesson_number' in old_question:
             new_question_dict['lesson_number'] = old_question['lesson_number']
+        
+        # 🖼️ Generate image if needed (HA_MH or HA_TL)
+        rich_content_types_dict = spec_data.get('rich_content_types', {})
+        rich_content_types = rich_content_types_dict.get(request.question_code, []) if rich_content_types_dict else []
+        
+        if rich_content_types:
+            print(f"🎨 Question has rich content types: {rich_content_types}")
+            try:
+                image_rich_content = _generate_image_for_question(
+                    question_code=request.question_code,
+                    rich_content_types=rich_content_types,
+                    metadata=metadata,
+                    lesson_data=lesson_data,
+                    spec_data=spec_data,
+                    content=content
+                )
+            except Exception as img_error:
+                print(f"⚠️ Error generating image (will continue without image): {img_error}")
+                import traceback
+                traceback.print_exc()
+                image_rich_content = None
+            
+            if image_rich_content:
+                # Merge image into appropriate field based on question type
+                if request.question_type == 'DS':
+                    # DS questions use source_text
+                    current_text = new_question_dict.get('source_text', '')
+                    field_name = 'source_text'
+                else:
+                    # TN/TL/TLN questions use question_stem
+                    current_text = new_question_dict.get('question_stem', '')
+                    field_name = 'question_stem'
+                
+                print(f"  🔄 Merging image into {field_name}...")
+                
+                # Replace [IMAGE_PLACEHOLDER] if exists
+                if isinstance(current_text, dict):
+                    text_content = current_text.get('content', [])
+                    if isinstance(text_content, list):
+                        # Replace placeholder in list
+                        new_content = []
+                        placeholder_replaced = False
+                        for item in text_content:
+                            if isinstance(item, str) and '[IMAGE_PLACEHOLDER]' in item:
+                                # Replace placeholder with image
+                                new_content.append(image_rich_content)
+                                placeholder_replaced = True
+                            else:
+                                new_content.append(item)
+                        
+                        if not placeholder_replaced:
+                            # No placeholder found, append image
+                            new_content.append(image_rich_content)
+                        
+                        current_text['content'] = new_content
+                        new_question_dict[field_name] = current_text
+                    else:
+                        # Content is not list - convert to mixed content
+                        new_question_dict[field_name] = {
+                            "type": "mixed",
+                            "content": [text_content, image_rich_content]
+                        }
+                elif isinstance(current_text, str):
+                    # Simple text - check for placeholder
+                    if '[IMAGE_PLACEHOLDER]' in current_text:
+                        # Split and inject image
+                        parts = current_text.split('[IMAGE_PLACEHOLDER]')
+                        new_question_dict[field_name] = {
+                            "type": "mixed",
+                            "content": [
+                                parts[0].strip() if parts[0].strip() else None,
+                                image_rich_content,
+                                parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+                            ]
+                        }
+                        # Remove None entries
+                        new_question_dict[field_name]['content'] = [
+                            c for c in new_question_dict[field_name]['content'] if c is not None
+                        ]
+                    else:
+                        # No placeholder - append image
+                        new_question_dict[field_name] = {
+                            "type": "mixed",
+                            "content": [current_text, image_rich_content]
+                        }
+                
+                print(f"  ✓ Image merged into {field_name}")
         
         # Replace old question with new one
         question_list[question_idx] = new_question_dict

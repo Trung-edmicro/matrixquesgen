@@ -21,7 +21,7 @@ class QuestionSpec:
     learning_outcome: str  # Đặc tả ma trận (đã lọc theo cấp độ)
     row_index: int  # Vị trí hàng trong Excel
     chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
-    supplementary_materials: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
+    supplementary_material: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
     rich_content_types: Optional[Dict[str, List[str]]] = None  # Rich content types per question code: {"C1": ["BD"], "C2": ["BK", "TT"]}
 
 
@@ -33,7 +33,7 @@ class StatementSpec:
     cognitive_level: str  # Cấp độ (NB, TH, VD, VDC)
     learning_outcome: str  # Đặc tả cho mệnh đề này
     competency_level: Optional[int] = None  # Thành phần năng lực
-    supplementary_materials: str = ""  # Tài liệu bổ sung
+    materials: str = ""  # Tài liệu bổ sung (DS element level)
 
 
 @dataclass
@@ -44,7 +44,8 @@ class TrueFalseQuestionSpec:
     statements: List[StatementSpec]  # Danh sách 4 mệnh đề (a, b, c, d)
     question_type: str = "DS"  # Loại câu hỏi
     chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
-    supplementary_materials: str = ""  # Tài liệu bổ sung chung cho câu hỏi
+    supplementary_material: str = ""  # Tài liệu bổ sung cấp bài học (lesson-level)
+    materials: str = ""  # Tài liệu bổ sung cấp phần tử DS (DS element level)
     rich_content_types: Optional[Dict[str, List[str]]] = None  # Rich content types per question code
 
 
@@ -647,16 +648,17 @@ class MatrixParser:
                     # Auto-detect nếu chế độ là None
                     if should_split is None:
                         should_split = self.has_level_headers(self.current_spec)
-                    
+
                     if should_split:
                         # Chế độ split: tách theo level
                         learning_outcome = self.extract_learning_outcome_by_level(
                             self.current_spec, cognitive_level
                         )
+
                     else:
                         # Chế độ full: lấy toàn bộ
                         learning_outcome = self.current_spec if self.current_spec else ""
-                    
+
                     # ⚠️ AUTO-CORRECTION: TN có rich_content_types → chuyển thành TLN
                     # Vì TN với bảng/biểu đồ thực chất là câu tính toán (TLN)
                     actual_question_type = question_type
@@ -675,7 +677,7 @@ class MatrixParser:
                         learning_outcome=learning_outcome,
                         row_index=row_idx,
                         chapter_number=self.current_chapter,
-                        supplementary_materials=supplementary,
+                        supplementary_material=supplementary,
                         rich_content_types=filtered_rich_types if filtered_rich_types else None
                     )
                     
@@ -713,14 +715,14 @@ class MatrixParser:
                         cognitive_level=spec.cognitive_level,
                         learning_outcome=spec.learning_outcome,
                         competency_level=spec.competency_level,
-                        supplementary_materials=spec.supplementary_materials
+                        materials=spec.supplementary_material
                     )
                     
                     grouped[base_code].append({
                         'statement': statement,
                         'lesson_name': spec.lesson_name,
                         'chapter_number': spec.chapter_number,
-                        'supplementary_materials': spec.supplementary_materials,
+                        'supplementary_material': spec.supplementary_material,
                         'rich_content_types': spec.rich_content_types
                     })
         
@@ -735,7 +737,7 @@ class MatrixParser:
             
             statements = [item['statement'] for item in items]
             lesson_name = items[0]['lesson_name']  # Lấy lesson_name từ statement đầu tiên
-            supplementary_materials = items[0]['supplementary_materials']  # Lấy tài liệu bổ sung
+            supplementary_material = items[0]['supplementary_material']  # Lấy tài liệu bổ sung
             chapter_number = items[0]['chapter_number']  # Lấy chapter_number từ item đầu tiên
             
             # Aggregate rich_content_types from all statements into a single dict at question level
@@ -770,7 +772,7 @@ class MatrixParser:
                 lesson_name=lesson_name,
                 statements=statements,
                 chapter_number=chapter_number,
-                supplementary_materials=supplementary_materials,
+                supplementary_material=supplementary_material,
                 rich_content_types=aggregated_rich_types
             )
             

@@ -9,6 +9,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 import tempfile
 import os
+import re
 import base64
 from io import BytesIO
 from PIL import Image
@@ -156,19 +157,21 @@ class DocxGenerator:
         # Thêm header
         header_cells = table.rows[0].cells
         for idx, header in enumerate(headers):
-            header_cells[idx].text = str(header)
-            # Format header: CHỈ BOLD, không tô màu nền
-            for paragraph in header_cells[idx].paragraphs:
-                for run in paragraph.runs:
-                    run.bold = True
-                    run.font.size = Pt(11)
+            cell_para = header_cells[idx].paragraphs[0]
+            cell_para.clear()
+            self._add_text_with_math(cell_para, str(header), bold=True)
+            for run in cell_para.runs:
+                run.bold = True
+                run.font.size = Pt(11)
         
         # Thêm dữ liệu
         for item in data:
             row_cells = table.add_row().cells
             for idx, header in enumerate(headers):
                 value = item.get(header, "")
-                row_cells[idx].text = str(value)
+                cell_para = row_cells[idx].paragraphs[0]
+                cell_para.clear()
+                self._add_text_with_math(cell_para, str(value))
         
         if self.verbose:
             print(f"✓ Đã thêm bảng {len(data)} hàng x {len(headers)} cột")
@@ -189,7 +192,125 @@ class DocxGenerator:
         shading_elm = OxmlElement('w:shd')
         shading_elm.set(qn('w:fill'), color)
         run._element.get_or_add_rPr().append(shading_elm)
-    
+
+    # ─────────────────────── Math / LaTeX helpers ───────────────────────
+
+    def _find_mml2omml_xsl(self) -> Optional[str]:
+        """Locate MML2OMML.XSL - checks bundled package first, then Microsoft Office."""
+        candidates = []
+
+        # 1. PyInstaller bundle (_MEIPASS) - highest priority when running as .exe
+        if hasattr(sys, '_MEIPASS'):
+            candidates.append(os.path.join(sys._MEIPASS, 'mml2omml', 'MML2OMML.XSL'))
+
+        # 2. mml2omml package (installed via pip) - works in dev and packaged env
+        try:
+            import mml2omml
+            pkg_path = os.path.join(os.path.dirname(mml2omml.__file__), 'MML2OMML.XSL')
+            candidates.append(pkg_path)
+        except ImportError:
+            pass
+
+        # 3. Microsoft Office fallback (for dev machines with Office installed)
+        candidates += [
+            r"C:\Program Files\Microsoft Office\root\Office16\MML2OMML.XSL",
+            r"C:\Program Files\Microsoft Office\root\Office15\MML2OMML.XSL",
+            r"C:\Program Files (x86)\Microsoft Office\root\Office16\MML2OMML.XSL",
+            r"C:\Program Files\Microsoft Office\Office16\MML2OMML.XSL",
+            r"C:\Program Files (x86)\Microsoft Office\Office16\MML2OMML.XSL",
+        ]
+
+        for path in candidates:
+            if os.path.exists(path):
+                if self.verbose:
+                    print(f"✓ MML2OMML.XSL found: {path}")
+                return path
+        return None
+
+    def _init_math_engine(self):
+        """Lazy-initialize the LaTeX → OMML conversion engine."""
+        if hasattr(self, '_math_ready'):
+            return
+        self._math_ready = False
+        self._math_xslt = None
+        self._latex2mml_fn = None
+        try:
+            from latex2mathml.converter import convert as _latex2mml
+            import lxml.etree as _etree
+            xsl_path = self._find_mml2omml_xsl()
+            if xsl_path:
+                xsl_tree = _etree.parse(xsl_path)
+                self._math_xslt = _etree.XSLT(xsl_tree)
+                self._lxml_etree = _etree
+                self._latex2mml_fn = _latex2mml
+                self._math_ready = True
+                if self.verbose:
+                    print(f"✓ Math engine: latex2mathml + {xsl_path}")
+            else:
+                if self.verbose:
+                    print("⚠️  MML2OMML.XSL not found — math will render as plain text")
+        except ImportError as exc:
+            if self.verbose:
+                print(f"⚠️  Math engine unavailable ({exc}) — math will render as plain text")
+
+    def _latex_to_omml_node(self, latex_str: str):
+        """
+        Convert a LaTeX math string (without surrounding $) to an OMML
+        lxml Element ready for insertion into a paragraph's XML tree.
+        Returns None if conversion is unavailable or fails.
+        """
+        self._init_math_engine()
+        if not self._math_ready:
+            return None
+        try:
+            etree = self._lxml_etree
+            mml_str = self._latex2mml_fn(latex_str)
+            mml_tree = etree.fromstring(mml_str.encode('utf-8'))
+            omml_result = self._math_xslt(mml_tree)
+            return omml_result.getroot()
+        except Exception as exc:
+            if self.verbose:
+                print(f"⚠️  LaTeX→OMML failed for '{latex_str[:40]}': {exc}")
+            return None
+
+    def _add_text_with_math(self, para, text: str,
+                            bold: bool = False,
+                            italic: bool = False,
+                            color_rgb: Optional[RGBColor] = None):
+        """
+        Add *text* to *para*, rendering any ``$...$ `` spans as native Word
+        equations (OMML) via the latex2mathml + MML2OMML pipeline.
+        Falls back to plain ``$...$`` text if the engine is unavailable.
+        """
+        if not text:
+            return
+        # Split on un-escaped $...$ (non-greedy, single-line content)
+        parts = re.split(r'(?<!\\)\$(.+?)(?<!\\)\$', str(text), flags=re.DOTALL)
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                # Plain-text segment
+                part = part.replace('\\$', '$')  # unescape \$
+                if part:
+                    run = para.add_run(part)
+                    run.bold = bold
+                    run.italic = italic
+                    if color_rgb:
+                        run.font.color.rgb = color_rgb
+            else:
+                # LaTeX math segment
+                omml_node = self._latex_to_omml_node(part)
+                if omml_node is not None:
+                    para._p.append(omml_node)
+                else:
+                    # Fallback: show raw LaTeX
+                    run = para.add_run(f"${part}$")
+                    run.bold = bold
+                    run.italic = italic
+                    if color_rgb:
+                        run.font.color.rgb = color_rgb
+
+    # ────────────────────────────────────────────────────────────────────
+
     def _add_mixed_content(self, para, content: List):
         """Xử lý mixed content: text + table + chart"""
         for item in content:
@@ -225,6 +346,54 @@ class DocxGenerator:
                     para.add_run(f"[Biểu đồ {item.get('chart_id')}]")
                     para.add_run('\n')
     
+    def _render_question_stem(self, para, question_stem):
+        """
+        Render question_stem (dict or plain string) into the document.
+
+        *para* receives the first inline text segment exactly as typed in the
+        question-number line.  Every subsequent text segment and every embedded
+        table / chart / image is written as a new standalone element so the
+        order text → table/chart → closing-text is always preserved correctly
+        for ALL stem types: text, table, chart, mixed.
+        """
+        if not isinstance(question_stem, dict):
+            self._add_text_with_math(para, str(question_stem))
+            return
+
+        stem_type = question_stem.get('type', 'text')
+        content = question_stem.get('content', '')
+
+        # Simple text stem
+        if stem_type == 'text':
+            self._add_text_with_math(para, str(content) if not isinstance(content, list) else '')
+            return
+
+        # List-based stems: table / chart / mixed – all handled identically
+        if isinstance(content, list):
+            first_text_done = False
+            for item in content:
+                if isinstance(item, str):
+                    if not first_text_done:
+                        self._add_text_with_math(para, item)
+                        first_text_done = True
+                    else:
+                        new_para = self.document.add_paragraph()
+                        self._add_text_with_math(new_para, item)
+                elif isinstance(item, dict):
+                    item_type = item.get('type', '')
+                    if item_type == 'table':
+                        self._add_inline_table(item.get('content', {}))
+                    elif item_type == 'chart':
+                        self._add_inline_chart(item.get('content', {}))
+                    elif item_type == 'image':
+                        caption = item.get('metadata', {}).get('caption', '')
+                        para_img = self.document.add_paragraph()
+                        text = f"[Hình ảnh: {caption}]" if caption else f"[Hình ảnh: {item.get('content', '')}]"
+                        para_img.add_run(text).italic = True
+        else:
+            # Fallback for non-list content
+            self._add_text_with_math(para, str(content))
+
     def _add_inline_table(self, table_data: Dict):
         """Thêm bảng inline vào document"""
         if not table_data:
@@ -243,23 +412,27 @@ class DocxGenerator:
         # Thêm header
         header_cells = table.rows[0].cells
         for idx, header in enumerate(headers):
-            header_cells[idx].text = str(header)
-            # Format header: CHỈ BOLD, không tô màu nền
-            for paragraph in header_cells[idx].paragraphs:
-                for run in paragraph.runs:
-                    run.bold = True
-                    run.font.size = Pt(11)
+            # Clear default empty run, then render with math support
+            cell_para = header_cells[idx].paragraphs[0]
+            cell_para.clear()
+            self._add_text_with_math(cell_para, str(header), bold=True)
+            # Apply font size to all resulting runs
+            for run in cell_para.runs:
+                run.bold = True
+                run.font.size = Pt(11)
         
         # Thêm dữ liệu
         for row_data in rows:
             row_cells = table.add_row().cells
             for idx, cell_value in enumerate(row_data):
                 if idx < len(row_cells):
-                    row_cells[idx].text = str(cell_value)
-                    # Format cell
-                    for paragraph in row_cells[idx].paragraphs:
-                        for run in paragraph.runs:
-                            run.font.size = Pt(11)
+                    # Render cell text with LaTeX math support
+                    cell_para = row_cells[idx].paragraphs[0]
+                    cell_para.clear()
+                    self._add_text_with_math(cell_para, str(cell_value))
+                    # Apply font size to all resulting runs
+                    for run in cell_para.runs:
+                        run.font.size = Pt(11)
         
         # Thêm caption nếu có
         metadata = table_data.get('metadata', {})
@@ -730,59 +903,9 @@ class DocxGenerator:
             
             para.add_run(". ")
             
-            # Handle question_stem - can be string or dict
+            # Handle question_stem - renders text/table/chart in correct order
             question_stem = question.get('question_stem', '')
-            if isinstance(question_stem, dict):
-                stem_type = question_stem.get('type', 'text')
-                
-                if stem_type == 'mixed':
-                    # Mixed content: text + table + chart - process sequentially
-                    content = question_stem.get('content', [])
-                    first_text_added_to_para = False
-                    for item in content:
-                        if isinstance(item, str):
-                            # Text content
-                            if not first_text_added_to_para:
-                                # First text goes to the question paragraph
-                                para.add_run(item)
-                                first_text_added_to_para = True
-                            else:
-                                # Subsequent text creates new paragraph
-                                para_text = self.document.add_paragraph()
-                                para_text.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'table':
-                                # Add table as separate element
-                                self._add_inline_table(item.get('content', {}))
-                            elif item_type == 'chart':
-                                # Add chart as separate element
-                                self._add_inline_chart(item.get('content', {}))
-                            elif item_type == 'image':
-                                # Add image placeholder
-                                caption = item.get('metadata', {}).get('caption', '')
-                                para_img = self.document.add_paragraph()
-                                if caption:
-                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
-                                else:
-                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
-                                run.italic = True
-                elif stem_type == 'chart':
-                    # Chart with before/after text
-                    content = question_stem.get('content', [])
-                    for item in content:
-                        if isinstance(item, str):
-                            para.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'chart':
-                                self._add_inline_chart(item.get('content', {}))
-                else:
-                    # Simple text
-                    question_stem = question_stem.get('content', '')
-                    para.add_run(question_stem)
-            else:
-                para.add_run(question_stem)
+            self._render_question_stem(para, question_stem)
             
             # Các lựa chọn
             options = question.get('options', {})
@@ -802,10 +925,12 @@ class DocxGenerator:
                     
                     # Tô đỏ nếu là đáp án đúng
                     if key == correct_answer:
-                        run = para.add_run(f"{key}. {option_text}")
-                        run.font.color.rgb = RGBColor(255, 0, 0)
+                        run_key = para.add_run(f"{key}. ")
+                        run_key.font.color.rgb = RGBColor(255, 0, 0)
+                        self._add_text_with_math(para, option_text, color_rgb=RGBColor(255, 0, 0))
                     else:
-                        para.add_run(f"{key}. {option_text}")
+                        para.add_run(f"{key}. ")
+                        self._add_text_with_math(para, option_text)
         except Exception as e:
             print(f"Error in _add_tn_question {number}: {e}")
             print(f"Question data: {question}")
@@ -833,8 +958,7 @@ class DocxGenerator:
                     if isinstance(item, str):
                         # Plain text - create new paragraph
                         para = self.document.add_paragraph()
-                        run = para.add_run(item)
-                        run.italic = True
+                        self._add_text_with_math(para, item, italic=True)
                     elif isinstance(item, dict):
                         item_type = item.get('type', '')
                         if item_type == 'table':
@@ -854,8 +978,9 @@ class DocxGenerator:
                             run = para.add_run(str(item))
                             run.italic = True
             else:
-                # Plain text
-                self.add_paragraph(source_text, italic=True)
+                # Plain text - use _add_text_with_math to render LaTeX equations
+                para = self.document.add_paragraph()
+                self._add_text_with_math(para, source_text, italic=True)
             
             # Only display source citation if subject needs source display
             should_display_source = Config.should_display_source(subject)
@@ -893,9 +1018,10 @@ class DocxGenerator:
                     self._set_run_background(run_level, level)
                     
                     # " label. text" - tô đỏ nếu đúng
-                    run_content = para.add_run(f" {label}) {text}")
+                    run_label = para.add_run(f" {label}) ")
                     if is_correct:
-                        run_content.font.color.rgb = RGBColor(255, 0, 0)
+                        run_label.font.color.rgb = RGBColor(255, 0, 0)
+                    self._add_text_with_math(para, text, color_rgb=RGBColor(255, 0, 0) if is_correct else None)
         except Exception as e:
             print(f"Error in _add_ds_question {number}: {e}")
             print(f"Question data: {question}")
@@ -914,7 +1040,8 @@ class DocxGenerator:
         # Giải thích
         explanation = question.get('explanation', '')
         if explanation:
-            self.add_paragraph(f"{explanation}")
+            para_exp = self.document.add_paragraph()
+            self._add_text_with_math(para_exp, str(explanation))
         
         self.add_paragraph("")
     
@@ -951,7 +1078,9 @@ class DocxGenerator:
                     explanation_text = explanations[label]
                     if not isinstance(explanation_text, str):
                         explanation_text = str(explanation_text)
-                    self.add_paragraph(f"{label}. {explanation_text}")
+                    para_exp = self.document.add_paragraph()
+                    para_exp.add_run(f"{label}. ")
+                    self._add_text_with_math(para_exp, explanation_text)
         
         self.add_paragraph("")
     
@@ -971,59 +1100,9 @@ class DocxGenerator:
             
             para.add_run(". ")
             
-            # Handle question_stem - can be string or dict
+            # Handle question_stem - renders text/table/chart in correct order
             question_stem = question.get('question_stem', '')
-            if isinstance(question_stem, dict):
-                stem_type = question_stem.get('type', 'text')
-                
-                if stem_type == 'mixed':
-                    # Mixed content: text + table + chart - process sequentially like DS
-                    content = question_stem.get('content', [])
-                    first_text_added_to_para = False
-                    for item in content:
-                        if isinstance(item, str):
-                            # Text content
-                            if not first_text_added_to_para:
-                                # First text goes to the question paragraph
-                                para.add_run(item)
-                                first_text_added_to_para = True
-                            else:
-                                # Subsequent text creates new paragraph
-                                para_text = self.document.add_paragraph()
-                                para_text.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'table':
-                                # Add table as separate element
-                                self._add_inline_table(item.get('content', {}))
-                            elif item_type == 'chart':
-                                # Add chart as separate element
-                                self._add_inline_chart(item.get('content', {}))
-                            elif item_type == 'image':
-                                # Add image placeholder
-                                caption = item.get('metadata', {}).get('caption', '')
-                                para_img = self.document.add_paragraph()
-                                if caption:
-                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
-                                else:
-                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
-                                run.italic = True
-                elif stem_type == 'chart':
-                    # Chart with before/after text
-                    content = question_stem.get('content', [])
-                    for item in content:
-                        if isinstance(item, str):
-                            para.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'chart':
-                                self._add_inline_chart(item.get('content', {}))
-                else:
-                    # Simple text
-                    question_stem = question_stem.get('content', '')
-                    para.add_run(question_stem)
-            else:
-                para.add_run(question_stem)
+            self._render_question_stem(para, question_stem)
             
         except Exception as e:
             print(f"Error in _add_tl_question {number}: {e}")
@@ -1041,7 +1120,8 @@ class DocxGenerator:
             run_label = para.add_run("Đáp án mẫu: ")
             run_label.bold = True
             run_label.font.color.rgb = RGBColor(255, 0, 0)
-            self.add_paragraph(correct_answer)
+            para_ans = self.document.add_paragraph()
+            self._add_text_with_math(para_ans, str(correct_answer))
         
         # Hướng dẫn chấm điểm
         explanation = question.get('explanation', '')
@@ -1049,7 +1129,8 @@ class DocxGenerator:
             para_exp = self.document.add_paragraph()
             run_exp = para_exp.add_run("Hướng dẫn chấm điểm: ")
             run_exp.bold = True
-            self.add_paragraph(f"{explanation}")
+            para_exp2 = self.document.add_paragraph()
+            self._add_text_with_math(para_exp2, str(explanation))
         
         self.add_paragraph("")
     
@@ -1069,59 +1150,9 @@ class DocxGenerator:
             
             para.add_run(". ")
             
-            # Handle question_stem - can be string or dict
+            # Handle question_stem - renders text/table/chart in correct order
             question_stem = question.get('question_stem', '')
-            if isinstance(question_stem, dict):
-                stem_type = question_stem.get('type', 'text')
-                
-                if stem_type == 'mixed':
-                    # Mixed content: text + table + chart - process sequentially like DS
-                    content = question_stem.get('content', [])
-                    first_text_added_to_para = False
-                    for item in content:
-                        if isinstance(item, str):
-                            # Text content
-                            if not first_text_added_to_para:
-                                # First text goes to the question paragraph
-                                para.add_run(item)
-                                first_text_added_to_para = True
-                            else:
-                                # Subsequent text creates new paragraph
-                                para_text = self.document.add_paragraph()
-                                para_text.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'table':
-                                # Add table as separate element
-                                self._add_inline_table(item.get('content', {}))
-                            elif item_type == 'chart':
-                                # Add chart as separate element
-                                self._add_inline_chart(item.get('content', {}))
-                            elif item_type == 'image':
-                                # Add image placeholder
-                                caption = item.get('metadata', {}).get('caption', '')
-                                para_img = self.document.add_paragraph()
-                                if caption:
-                                    run = para_img.add_run(f"[Hình ảnh: {caption}]")
-                                else:
-                                    run = para_img.add_run(f"[Hình ảnh: {item.get('content', '')}]")
-                                run.italic = True
-                elif stem_type == 'chart':
-                    # Chart with before/after text
-                    content = question_stem.get('content', [])
-                    for item in content:
-                        if isinstance(item, str):
-                            para.add_run(item)
-                        elif isinstance(item, dict):
-                            item_type = item.get('type', '')
-                            if item_type == 'chart':
-                                self._add_inline_chart(item.get('content', {}))
-                else:
-                    # Simple text
-                    question_stem = question_stem.get('content', '')
-                    para.add_run(question_stem)
-            else:
-                para.add_run(question_stem)
+            self._render_question_stem(para, question_stem)
             
         except Exception as e:
             print(f"Error in _add_tln_question {number}: {e}")
@@ -1134,14 +1165,17 @@ class DocxGenerator:
         para.add_run(f"Câu {number}. ").bold = True
         
         # Đáp án tô đỏ
-        run = para.add_run(f"Đáp án: {question.get('correct_answer', 'N/A')}")
-        run.bold = True
-        run.font.color.rgb = RGBColor(255, 0, 0)
+        run_label = para.add_run("Đáp án: ")
+        run_label.bold = True
+        run_label.font.color.rgb = RGBColor(255, 0, 0)
+        self._add_text_with_math(para, str(question.get('correct_answer', 'N/A')),
+                                 bold=True, color_rgb=RGBColor(255, 0, 0))
         
         # Giải thích
         explanation = question.get('explanation', '')
         if explanation:
-            self.add_paragraph(f"{explanation}")
+            para_exp = self.document.add_paragraph()
+            self._add_text_with_math(para_exp, str(explanation))
         
         self.add_paragraph("")
     

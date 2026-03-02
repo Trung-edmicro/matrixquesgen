@@ -8,6 +8,8 @@ from google import genai
 from google.genai import types
 from google.oauth2 import service_account
 
+from config.settings import Config as Settings
+
 
 class GenAIClient:
     """Class xử lý tương tác với Google GenAI SDK (mới)"""
@@ -31,7 +33,7 @@ class GenAIClient:
         self.credentials_path = credentials_path
         self.api_key = api_key
         self.client = None
-        self.model_name = os.getenv('GENAI_MODEL', 'gemini-3-pro-preview')
+        self.model_name = Settings.VERTEX_AI_MODEL
         
         self._initialize()
     
@@ -83,10 +85,10 @@ class GenAIClient:
         Khởi tạo mô hình
         
         Args:
-            model_name (str, optional): Tên mô hình (mặc định lấy từ GENAI_MODEL env)
+            model_name (str, optional): Tên mô hình (mặc định lấy từ VERTEX_AI_MODEL env)
             generation_config (Dict, optional): Cấu hình generation (không dùng trong SDK mới)
         """
-        self.model_name = model_name or os.getenv('GENAI_MODEL', 'gemini-3-pro-preview')
+        self.model_name = model_name or Settings.VERTEX_AI_MODEL
         print(f"✓ Đã khởi tạo mô hình: {self.model_name}")
     
     def generate_content(self, 
@@ -115,16 +117,17 @@ class GenAIClient:
             
             # Tạo config
             config = types.GenerateContentConfig(
-                temperature=1,
-                top_p=0.95,
-                max_output_tokens=40000,  # Giới hạn token ở mức 40000
+                temperature=Settings.VERTEX_AI_TEMPERATURE,
+                top_p=Settings.VERTEX_AI_TOP_P,
+                max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
                 system_instruction=system_instruction,
                 tools=tools if tools else None
             )
             
             # Generate content
             response = self.client.models.generate_content(
-                model=self.model_name or "gemini-3-pro-preview",
+                model=self.model_name or Settings.VERTEX_AI_MODEL,
                 contents=prompt,
                 config=config
             )
@@ -168,9 +171,10 @@ class GenAIClient:
             
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
-                temperature=1,
-                top_p=0.95,
-                max_output_tokens=40000,  # Giới hạn token ở mức 40000
+                temperature=Settings.VERTEX_AI_TEMPERATURE,
+                top_p=Settings.VERTEX_AI_TOP_P,
+                max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
@@ -179,7 +183,7 @@ class GenAIClient:
             
             # Generate content
             response = self.client.models.generate_content(
-                model=self.model_name or "gemini-3-pro-preview",
+                model=self.model_name or Settings.VERTEX_AI_MODEL,
                 contents=enhanced_prompt,
                 config=config
             )
@@ -189,7 +193,7 @@ class GenAIClient:
                 usage = response.usage_metadata
                 print(f"📊 Token usage: prompt={usage.prompt_token_count}, "
                       f"candidates={usage.candidates_token_count}, "
-                      f"total={usage.total_token_count}")
+                      f"total={usage.total_token_count}", flush=True)
             
             # Check finish reason
             if hasattr(response, 'candidates') and response.candidates:
@@ -268,9 +272,10 @@ class GenAIClient:
             
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
-                temperature=1,
-                top_p=0.95,
-                max_output_tokens=40000,  # Giới hạn token ở mức 40000
+                temperature=Settings.VERTEX_AI_TEMPERATURE,
+                top_p=Settings.VERTEX_AI_TOP_P,
+                max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,

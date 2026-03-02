@@ -305,7 +305,7 @@ class MatrixProcessingService:
                                         'cognitive_level': spec.cognitive_level,
                                         'learning_outcome': spec.learning_outcome,
                                         'statement_code': code.upper(),
-                                        'supplementary_materials': spec.supplementary_materials
+                                        'materials': spec.supplementary_material
                                     })
                 
                 # Add grouped statements for each question code found in this lesson
@@ -313,7 +313,7 @@ class MatrixProcessingService:
                     ds_item = {
                         'question_code': question_code,
                         'statements': statements,
-                        'supplementary_materials': statements[0]['supplementary_materials'] if statements else '',
+                        'materials': statements[0]['materials'] if statements else '',
                         'question_template': []
                     }
                     # Aggregate rich_content_types from all statements into a single list for the question

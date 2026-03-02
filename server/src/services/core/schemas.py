@@ -262,7 +262,16 @@ def get_chart_content_schema() -> Dict:
 def get_image_content_schema() -> Dict:
     """
     Schema cho content type='image' - Text + Hình ảnh
-    Sử dụng khi: rich_content_types chứa 'HA' hoặc ['HA','TT','LT']
+    Sử dụng khi: rich_content_types chứa 'HA_MH' (minh họa) hoặc 'HA_TL' (tư liệu)
+    
+    ⭐ LUỒNG MỚI - AI GENERATE IMAGE:
+    - AI output marker '[IMAGE_PLACEHOLDER]' trong content array
+    - Thêm 'image_description' trong metadata để mô tả hình cần generate
+    - ImageWorkflowService sẽ tự động:
+      1. Extract image_description
+      2. Generate image bằng Vertex AI Imagen
+      3. Replace '[IMAGE_PLACEHOLDER]' bằng image object thực
+    
     ⚠️ LƯU Ý: Type 'image' = TEXT + HÌNH ẢNH (không chỉ mỗi hình ảnh)
     """
     return {
@@ -275,7 +284,7 @@ def get_image_content_schema() -> Dict:
             },
             "content": {
                 "type": "array",
-                "description": "Array chứa text và image object xen kẽ. VD: ['Quan sát hình:', {image_object}, 'Đây là hiện tượng gì?']",
+                "description": "Array chứa text và '[IMAGE_PLACEHOLDER]' marker. Workflow service sẽ replace marker bằng hình thật. VD: ['Quan sát hình:', '[IMAGE_PLACEHOLDER]', 'Đây là hiện tượng gì?']",
                 "items": {
                     "anyOf": [
                         {
@@ -283,29 +292,9 @@ def get_image_content_schema() -> Dict:
                             "description": "Text mô tả hoặc câu hỏi"
                         },
                         {
-                            "type": "object",
-                            "properties": {
-                                "type": {
-                                    "type": "string",
-                                    "const": "image",
-                                    "description": "Loại: image"
-                                },
-                                "content": {
-                                    "type": "string",
-                                    "description": "URL hoặc path của hình ảnh"
-                                },
-                                "metadata": {
-                                    "type": "object",
-                                    "properties": {
-                                        "caption": {"type": "string"},
-                                        "alt": {"type": "string"},
-                                        "width": {"type": "number"},
-                                        "height": {"type": "number"}
-                                    }
-                                }
-                            },
-                            "required": ["type", "content"],
-                            "description": "Image object"
+                            "type": "string",
+                            "const": "[IMAGE_PLACEHOLDER]",
+                            "description": "⭐ IMAGE PLACEHOLDER - Dùng marker này khi cần AI generate hình ảnh. Workflow service sẽ tự động generate và replace sau."
                         }
                     ]
                 },
@@ -314,26 +303,52 @@ def get_image_content_schema() -> Dict:
             "metadata": {
                 "type": "object",
                 "properties": {
-                    "source": {"type": "string"}
+                    "source": {"type": "string", "description": "Nguồn dữ liệu"},
+                    "image_description": {
+                        "type": "string",
+                        "description": "⭐ BẮT BUỘC khi dùng [IMAGE_PLACEHOLDER]: Mô tả chi tiết hình ảnh cần AI generate. VD: 'Bản đồ ASEAN với 10 quốc gia, màu sắc phân biệt từng nước'"
+                    },
+                    "caption": {"type": "string", "description": "Chú thích hiển thị cho người dùng"}
                 }
             }
         },
         "required": ["type", "content"],
-        "description": """Type='image' = TEXT + HÌNH ẢNH (array chứa strings và image object)
+        "description": """Type='image' = TEXT + HÌNH ẢNH (array chứa strings và [IMAGE_PLACEHOLDER] marker)
 
-⚠️ VÍ DỤ:
+⭐ QUAN TRỌNG - LUỒNG AI GENERATE IMAGE:
+- Khi cần AI generate hình: Dùng marker '[IMAGE_PLACEHOLDER]' trong array
+- Workflow service sẽ tự động:
+  1. Extract mô tả hình ảnh từ context
+  2. Generate hình bằng AI
+  3. Replace '[IMAGE_PLACEHOLDER]' bằng image object thực
+
+⚠️ VÍ DỤ CHO HA_MH (Hình minh họa - AI generate):
 {
   "type": "image",
   "content": [
-    "Quan sát bản đồ dưới đây:",
-    {
-      "type": "image",
-      "content": "https://example.com/map.png",
-      "metadata": {"caption": "Hình 1: Bản đồ ASEAN"}
-    },
-    "Quốc gia nào có diện tích lớn nhất?"
+    "Quan sát hình ảnh minh họa dưới đây:",
+    "[IMAGE_PLACEHOLDER]",
+    "Hiện tượng trong hình là gì?"
   ]
-}"""
+}
+
+⚠️ VÍ DỤ CHO HA_TL (Hình tư liệu - AI generate từ data):
+{
+  "type": "image",
+  "content": [
+    "Cho biểu đồ dân số thành thị 2010-2021:",
+    "[IMAGE_PLACEHOLDER]",
+    "Năm nào có dân số cao nhất?"
+  ],
+  "metadata": {
+    "source": "Niên giám thống kê 2021"
+  }
+}
+
+⚠️ LƯU Ý:
+- CHỈ dùng '[IMAGE_PLACEHOLDER]' - KHÔNG dùng URL
+- Marker PHẢI là string riêng trong array, KHÔNG embed trong text
+- Mô tả hình ảnh nên rõ ràng trong text xung quanh để AI generate đúng"""
     }
 
 
@@ -468,7 +483,7 @@ def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
                                         },
                                         {
                                             "type": "string",
-                                            "description": "Image content - URL string"
+                                            "description": "⭐ Image content - Dùng '[IMAGE_PLACEHOLDER]' marker để AI generate image. Workflow service sẽ tự động replace sau."
                                         }
                                     ]
                                 },
@@ -488,7 +503,11 @@ def get_mixed_content_schema(rich_types: Optional[List[str]] = None) -> Dict:
             "metadata": {
                 "type": "object",
                 "properties": {
-                    "source": {"type": "string", "description": "Nguồn dữ liệu"}
+                    "source": {"type": "string", "description": "Nguồn dữ liệu"},
+                    "image_description": {
+                        "type": "string",
+                        "description": "⭐ BẮT BUỘC khi có [IMAGE_PLACEHOLDER]: Mô tả chi tiết hình ảnh cần AI generate. VD: 'Hình ảnh núi lửa phun trào với dung nham đỏ rực'"
+                    }
                 }
             }
         },
@@ -507,7 +526,11 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[Union[Dict, Li
        → type='text' (text thuần) - KHÔNG có BD/BK/HA
     
     2. Có type chính BD/BK/HA (hoặc HA_MH, HA_TL):
-       → type='mixed' (array format) - CÓ thể kèm type phụ LT/TT
+       → Chọn schema cụ thể:
+         • Chỉ BD → get_chart_content_schema()
+         • Chỉ BK → get_table_content_schema()
+         • Chỉ HA/HA_MH/HA_TL → get_image_content_schema()
+         • Nhiều hơn 1 type chính → get_mixed_content_schema()
        
     3. Type phụ (LT/TT) chỉ là metadata về tính chất câu hỏi:
        - LT (Lý thuyết): Câu hỏi kiểu lý thuyết
@@ -557,8 +580,33 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[Union[Dict, Li
     if not primary_types:
         return get_text_content_schema()
     
-    # Nếu CÓ type chính (BD/BK/HA) → dùng mixed schema
-    # Lý do: Schema mixed đơn giản hơn, AI dễ follow hơn nested structure
+    # ⭐ QUAN TRỌNG: Chỉ cho phép 1 type chính
+    # Normalize HA_MH, HA_TL về HA
+    normalized_types = []
+    for t in primary_types:
+        if t.startswith('HA'):
+            normalized_types.append('HA')
+        else:
+            normalized_types.append(t)
+    
+    # Remove duplicates
+    unique_types = list(set(normalized_types))
+    
+    # Nếu chỉ có 1 type chính → dùng schema cụ thể
+    if len(unique_types) == 1:
+        primary_type = unique_types[0]
+        
+        if primary_type == 'BD':
+            return get_chart_content_schema()
+        elif primary_type == 'BK':
+            return get_table_content_schema()
+        elif primary_type == 'HA':
+            return get_image_content_schema()
+    
+    # Nếu có nhiều hơn 1 type chính → dùng mixed (nhưng nên tránh)
+    print(f"⚠️ WARNING: Multiple primary types detected: {unique_types}")
+    print(f"   Quy tắc: Câu hỏi chỉ nên có 1 type chính (BD/BK/HA)")
+    print(f"   Falling back to mixed schema")
     return get_mixed_content_schema(primary_types)
 
 
@@ -743,20 +791,39 @@ def get_rich_content_schema() -> Dict:
   }
 }
 
-**4. HÌNH ẢNH (type: "image")** - KHI câu hỏi có rich_content_types="HA":
+**4. HÌNH ẢNH (type: "image")** - KHI câu hỏi có rich_content_types="HA_MH" hoặc "HA_TL":
+
+⭐ LUỒNG MỚI - AI GENERATE IMAGE:
 {
   "type": "image",
-  "content": "https://example.com/map.png",
+  "content": "[IMAGE_PLACEHOLDER]",
   "metadata": {
     "caption": "Hình 1: Bản đồ khu vực Đông Nam Á",
-    "alt": "Bản đồ ASEAN",
-    "width": 600,
-    "height": 400
+    "image_description": "Bản đồ ASEAN với 10 quốc gia thành viên, có màu sắc phân biệt từng nước"
   }
 }
 
+⚠️ QUAN TRỌNG:
+- Dùng '[IMAGE_PLACEHOLDER]' marker thay vì URL
+- Thêm 'image_description' trong metadata để mô tả hình cần generate
+- Workflow service sẽ tự động generate image và replace marker
+
 **5. MIXED (type: "mixed")** - KHI câu hỏi có CẢ text + BK/BD/HA:
-VD 1 - Câu hỏi TN có biểu đồ:
+
+VD 1 - Câu hỏi TN có hình ảnh (HA_MH - AI generate):
+{
+  "type": "mixed",
+  "content": [
+    "Quan sát hình ảnh minh họa:",
+    "[IMAGE_PLACEHOLDER]",
+    "Hiện tượng trong hình là gì?"
+  ],
+  "metadata": {
+    "image_description": "Hình ảnh minh họa hiện tượng núi lửa phun trào với dung nham đỏ rực"
+  }
+}
+
+VD 2 - Câu hỏi TN có biểu đồ (BD):
 {
   "type": "mixed",
   "content": [
@@ -773,7 +840,7 @@ VD 1 - Câu hỏi TN có biểu đồ:
   ]
 }
 
-VD 2 - Câu hỏi TLN có bảng:
+VD 3 - Câu hỏi TLN có bảng:
 {
   "type": "mixed",
   "content": [
@@ -791,17 +858,21 @@ VD 2 - Câu hỏi TLN có bảng:
 }
 
 **LƯU Ý QUAN TRỌNG - ĐẶC BIỆT CHO DẠNG TN (Trắc nghiệm)**:
-- Câu hỏi TN CÓ bảng/biểu đồ: PHẢI dùng type="mixed" với content là array [text_câu_hỏi, rich_object]
+- Câu hỏi TN CÓ hình ảnh AI-generated: PHẢI dùng type="mixed" với '[IMAGE_PLACEHOLDER]' marker
 - VD đúng: 
   question_stem: {
     "type": "mixed",
     "content": [
-      "Dựa vào biểu đồ:",
-      {"type": "chart", "content": {...}},
-      "Nhận xét nào sau đây đúng?"
-    ]
+      "Quan sát hình ảnh minh họa:",
+      "[IMAGE_PLACEHOLDER]",
+      "Hiện tượng trong hình là gì?"
+    ],
+    "metadata": {
+      "image_description": "Hình ảnh núi lửa phun trào với dung nham đỏ rực"
+    }
   }
-- KHÔNG được chỉ có biểu đồ/bảng mà thiếu text câu hỏi!
+- KHÔNG được chỉ có '[IMAGE_PLACEHOLDER]' mà thiếu text câu hỏi!
+- PHẢI có 'image_description' trong metadata để AI generate đúng hình
 
 **LƯU Ý KHÁC**:
 - CHỈ dùng rich content KHI câu hỏi được đánh dấu rich_content_types (BK/BD/HA)
@@ -838,7 +909,7 @@ def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> D
                     "properties": {
                         # === PHẦN CỐT LÕI CÂU HỎI ===
                         "question_stem": {
-                            "description": "Nội dung câu hỏi - có thể là text, table, chart, image, hoặc mixed",
+                            "description": "💡 Nội dung câu hỏi - Công thức toán PHẢI dùng LaTeX (bọc trong $...$). VD: 'Giải phương trình $2x + 3 = 7$'",
                             **content_schema
                         },
                         
@@ -848,19 +919,19 @@ def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> D
                             "properties": {
                                 "A": {
                                     "type": "string",
-                                    "description": "Đáp án A - text thuần"
+                                    "description": "Đáp án A (công thức toán dùng LaTeX: $...$)"
                                 },
                                 "B": {
                                     "type": "string",
-                                    "description": "Đáp án B - text thuần"
+                                    "description": "Đáp án B (công thức toán dùng LaTeX: $...$)"
                                 },
                                 "C": {
                                     "type": "string",
-                                    "description": "Đáp án C - text thuần"
+                                    "description": "Đáp án C (công thức toán dùng LaTeX: $...$)"
                                 },
                                 "D": {
                                     "type": "string",
-                                    "description": "Đáp án D - text thuần"
+                                    "description": "Đáp án D (công thức toán dùng LaTeX: $...$)"
                                 }
                             },
                             "required": ["A", "B", "C", "D"]
@@ -885,6 +956,7 @@ def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> D
                             "description": """Lời giải ngắn gọn (TỐI ĐA 500 ký tự):
                             - Giải thích tại sao đáp án đúng
                             - Tại sao các đáp án khác sai
+                            - ⚠️ Công thức toán PHẢI dùng LaTeX: $...$
                             - ⚠️ NẾU CÓ BẢNG/BIỂU ĐỒ/ẢNH: CHỈ nêu kết luận, KHÔNG copy số liệu
                             - NGHIÊM CẤM: giải dài dòng, lặp lại, giải đi giải lại""",
                             "maxLength": 500
@@ -923,7 +995,7 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
                     "type": "object",
                     "properties": {
                         "question_stem": {
-                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ tư liệu",
+                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ tư liệu. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$",
                             **content_schema
                         },
                         "question_type": {
@@ -940,15 +1012,15 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
                             "type": "object",
                             "description": "Cấu trúc câu trả lời - VD: {intro: '...', body: '...', conclusion: '...'}",
                             "properties": {
-                                "intro": {"type": "string", "maxLength": 100},
-                                "body": {"type": "string", "maxLength": 150},
-                                "conclusion": {"type": "string", "maxLength": 100}
+                                "intro": {"type": "string", "maxLength": 100, "description": "Phần mở đầu (công thức toán dùng LaTeX: $...$)"},
+                                "body": {"type": "string", "maxLength": 150, "description": "Phần thân bài (công thức toán dùng LaTeX: $...$)"},
+                                "conclusion": {"type": "string", "maxLength": 100, "description": "Phần kết luận (công thức toán dùng LaTeX: $...$)"}
                             },
                             "required": ["intro", "body", "conclusion"]
                         },
                         "explanation": {
                             "type": "string",
-                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự): Giải thích ngắn ngọn. NGHIÊM CẤM giải dài dòng.",
+                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự): Giải thích ngắn ngọn. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$. NGHIÊM CẤM giải dài dòng.",
                             "maxLength": 300
                         }
                     },
@@ -986,8 +1058,7 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                 "description": """TRÍCH DẪN NGUỒN - BẮT BUỘC LUÔN PHẢI ĐIỀN:
                 
                 **QUY TẮC BẮT BUỘC**:
-                - 100% câu hỏi phải có tư liệu từ nguồn ngoài SGK
-                  → PHẢI điền trường này với format chuẩn
+                - PHẢI điền trường này với format chuẩn
                 - KHÔNG BAO GIỜ được để null/trống
                 
                 **Định dạng chuẩn**:
@@ -1039,11 +1110,28 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
             
             "source_type": {
                 "type": "string",
-                "description": """Loại tư liệu (giúp AI hiểu cách xử lý):
-                - 'primary_source': Tư liệu gốc (văn kiện, thư, hồi ký, tuyên bố chính thức...)
-                - 'historical_description': Mô tả sự kiện lịch sử (tái hiện sinh động)
-                - 'analytical_summary': Phân tích tổng hợp (từ các nhà nghiên cứu)
-                - 'contextual_scenario': Tình huống có bối cảnh (đặt vấn đề trong ngữ cảnh)"""
+                "description": """Loại tư liệu (giúp AI hiểu cách xử lý) - Generic types áp dụng cho mọi môn học:
+                
+                - 'primary_source': Tư liệu gốc, nguồn trực tiếp
+                  • Lịch sử: văn kiện, tuyên bố chính thức, hồi ký
+                  • Ngữ văn: văn bản gốc của tác giả, thơ, truyện
+                  • Hóa học: công thức phản ứng, định luật
+                  
+                - 'procedural_description': Mô tả quy trình, các bước thực hiện
+                  • Lịch sử: diễn biến sự kiện theo thời gian
+                  • Hóa học: các bước thí nghiệm, quy trình điều chế
+                  • Sinh học: quy trình sinh học, chu trình
+                  
+                - 'analytical_summary': Phân tích, tổng hợp từ các nhà nghiên cứu
+                  • Lịch sử: đánh giá lịch sử, phân tích nguyên nhân-kết quả
+                  • Ngữ văn: phê bình văn học, phân tích nghệ thuật
+                  • Khoa học: kết luận nghiên cứu, phân tích hiện tượng
+                  
+                - 'contextual_scenario': Tình huống có bối cảnh cụ thể
+                  • Tất cả môn: đặt vấn đề trong ngữ cảnh thực tế
+                
+                ⚠️ LƯU Ý: Nội dung chi tiết (format các bước thí nghiệm, cách trích dẫn, cấu trúc phân tích...) 
+                được định hình bởi PROMPT cụ thể của từng môn học, KHÔNG cần field riêng trong schema."""
             },
             
             "pedagogical_approach": {
@@ -1086,7 +1174,8 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                                 "description": """Mệnh đề a - Viết tự nhiên như phát biểu thông thường:
                                 - Không cần bắt đầu bằng công thức giống nhau
                                 - Có thể ngắn hoặc dài tùy nội dung
-                                - Đa dạng cách diễn đạt"""
+                                - Đa dạng cách diễn đạt
+                                - ⚠️ Công thức toán PHẢI dùng LaTeX: $...$"""
                             },
                             "level": {
                                 "type": "string", 
@@ -1107,7 +1196,7 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                     "b": {
                         "type": "object",
                         "properties": {
-                            "text": {"type": "string"},
+                            "text": {"type": "string", "description": "Mệnh đề b (công thức toán dùng LaTeX: $...$)"},
                             "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
                             "correct_answer": {"type": "boolean"},
                             "reasoning_type": {"type": "string"}
@@ -1117,7 +1206,7 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                     "c": {
                         "type": "object",
                         "properties": {
-                            "text": {"type": "string"},
+                            "text": {"type": "string", "description": "Mệnh đề c (công thức toán dùng LaTeX: $...$)"},
                             "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
                             "correct_answer": {"type": "boolean"},
                             "reasoning_type": {"type": "string"}
@@ -1127,7 +1216,7 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                     "d": {
                         "type": "object",
                         "properties": {
-                            "text": {"type": "string"},
+                            "text": {"type": "string", "description": "Mệnh đề d (công thức toán dùng LaTeX: $...$)"},
                             "level": {"type": "string", "enum": ["NB", "TH", "VD", "VDC"]},
                             "correct_answer": {"type": "boolean"},
                             "reasoning_type": {"type": "string"}
@@ -1156,23 +1245,24 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
                         "description": """Giải thích mệnh đề a (TỐI ĐA 400 ký tự):
                         - Tại sao đúng/sai
                         - Dẫn chứng từ tư liệu hoặc kiến thức
+                        - ⚠️ Công thức toán PHẢI dùng LaTeX: $...$
                         - ⚠️ NẾU SOURCE_TEXT CÓ BẢNG/BIỂU ĐỒ: CHỈ nêu kết luận, KHÔNG copy số liệu
                         - NGHIÊM CẤM: lặp lại source_text, giải dài dòng""",
                         "maxLength": 400
                     },
                     "b": {
                         "type": "string",
-                        "description": "Giải thích mệnh đề b (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a",
+                        "description": "Giải thích mệnh đề b (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$",
                         "maxLength": 400
                     },
                     "c": {
                         "type": "string",
-                        "description": "Giải thích mệnh đề c (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a",
+                        "description": "Giải thích mệnh đề c (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$",
                         "maxLength": 400
                     },
                     "d": {
                         "type": "string",
-                        "description": "Giải thích mệnh đề d (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a",
+                        "description": "Giải thích mệnh đề d (TỐI ĐA 400 ký tự) - Tương tự mệnh đề a. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$",
                         "maxLength": 400
                     }
                 },
@@ -1245,7 +1335,7 @@ def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict
                     "type": "object",
                     "properties": {
                         "question_stem": {
-                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ",
+                            "description": "Câu hỏi - có thể chứa bảng, biểu đồ. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$",
                             **content_schema
                         },
                         "question_type": {
@@ -1264,7 +1354,7 @@ def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict
                         },
                         "explanation": {
                             "type": "string",
-                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự - GIẢM TỪ 500): CHỈ ghi công thức + kết quả. NGHIÊM CẤM giải dài dòng.",
+                            "description": "Lời giải ngắn gọn (TỐI ĐA 300 ký tự - GIẢM TỪ 500): CHỈ ghi công thức + kết quả. ⚠️ Công thức toán PHẢI dùng LaTeX: $...$. NGHIÊM CẤM giải dài dòng.",
                             "maxLength": 300
                         }
                     },
