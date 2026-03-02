@@ -25,11 +25,13 @@ class Config:
     GCP_CREDENTIALS_PATH = os.getenv("GCP_CREDENTIALS_PATH", "")
     
     # Vertex AI Model settings
-    VERTEX_AI_MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-1.5-pro")
+    VERTEX_AI_MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-3-pro-preview")
+    VERTEX_AI_FALLBACK_MODEL = os.getenv("VERTEX_AI_FALLBACK_MODEL", "gemini-2.5-pro")
     VERTEX_AI_TEMPERATURE = float(os.getenv("VERTEX_AI_TEMPERATURE", "0.7"))
     VERTEX_AI_TOP_P = float(os.getenv("VERTEX_AI_TOP_P", "0.95"))
     VERTEX_AI_TOP_K = int(os.getenv("VERTEX_AI_TOP_K", "40"))
     VERTEX_AI_MAX_OUTPUT_TOKENS = int(os.getenv("VERTEX_AI_MAX_OUTPUT_TOKENS", "8192"))
+    VERTEX_AI_THINKING_LEVEL = os.getenv("VERTEX_AI_THINKING_LEVEL", "high")
     
     # DOCX settings
     DOCX_FONT_NAME = "Times New Roman"

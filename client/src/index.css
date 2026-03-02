@@ -1,9 +1,9 @@
+/* Import KaTeX CSS for LaTeX rendering - must be first */
+@import 'katex/dist/katex.min.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Import KaTeX CSS for LaTeX rendering */
-@import 'katex/dist/katex.min.css';
 
 @layer base {
   * {

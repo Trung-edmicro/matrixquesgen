@@ -24,6 +24,8 @@ from .helpers import (
     merge_chart_into_question,
     validate_chart_completeness
 )
+from .prompt_builder_service import PromptBuilderService
+from config.settings import Config
 
 @dataclass
 class GeneratedQuestion:
@@ -88,7 +90,13 @@ class QuestionGenerator:
         self.matrix_parser = matrix_parser
         self.max_retries = 5
         self.retry_delay = 5.0  # seconds
-        self.fallback_model = "gemini-2.5-pro"  # Fallback khi rate limit
+        self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL  # Fallback khi rate limit
+        # Single source of truth for prompt building
+        self.prompt_builder = PromptBuilderService(
+            prompt_dir=str(Path(prompt_template_path).parent),
+            verbose=verbose
+        )
+        self._prompt_builder_dir = str(Path(prompt_template_path).parent)
     
     def _convert_content_to_string(self, content) -> str:
         """
@@ -107,10 +115,6 @@ class QuestionGenerator:
             return str(content)
         else:
             return "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách Lịch sử theo Chương trình GDPT 2018 của Việt Nam_"
-        self.max_retries = 5
-        self.retry_delay = 5.0
-        self.matrix_parser = matrix_parser
-        self.fallback_model = os.getenv('GEMINI_FALLBACK_MODEL')
     
     def _load_prompt_template(self, template_path: str) -> str:
         try:
@@ -119,67 +123,6 @@ class QuestionGenerator:
             return content
         except Exception as e:
             raise Exception(f"Không thể đọc prompt template: {e}")
-    
-    def _load_rich_content_guide(self) -> str:
-        """Load rich content guide từ shared location - ưu tiên v2 (simplified)"""
-        try:
-            from pathlib import Path
-            
-            # Try v2 first (simplified version)
-            guide_path_v2 = Path(__file__).parent.parent / "prompts" / "rich_content_guide_v2.txt"
-            if guide_path_v2.exists():
-                with open(guide_path_v2, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    if self.verbose:
-                        print("✓ Loaded rich_content_guide_v2.txt (simplified)")
-                    return content
-            
-            # Fallback to v1
-            guide_path = Path(__file__).parent.parent / "prompts" / "rich_content_guide.txt"
-            if guide_path.exists():
-                with open(guide_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    if self.verbose:
-                        print("✓ Loaded rich_content_guide.txt (v1)")
-                    return content
-            
-            if self.verbose:
-                print("⚠️ No rich_content_guide found")
-            return ""
-        except Exception as e:
-            if self.verbose:
-                print(f"⚠️ Không thể load rich_content_guide: {e}")
-            return ""
-    
-    def _should_inject_rich_guide(self, spec) -> bool:
-        """
-        Kiểm tra xem có cần inject rich_content_guide không
-        
-        Chỉ inject khi CÓ type chính (BD/BK/HA), KHÔNG inject cho type phụ (LT/TT)
-        """
-        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
-        
-        # Kiểm tra nếu spec có rich_content_types
-        if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
-            # Extract all type codes and check if any is primary type
-            if isinstance(spec.rich_content_types, dict):
-                for code, types_list in spec.rich_content_types.items():
-                    if isinstance(types_list, list):
-                        for type_obj in types_list:
-                            type_code = None
-                            if isinstance(type_obj, dict):
-                                type_code = type_obj.get('code', '')
-                            elif isinstance(type_obj, str):
-                                type_code = type_obj
-                            
-                            # Check if it's a primary type
-                            if type_code in PRIMARY_TYPES or (type_code and type_code.startswith('HA')):
-                                return True
-            return False
-        
-        # Fallback: Kiểm tra nếu có từ khóa BD, BK, HA trong spec string
-        spec_str = str(spec)
-        return any(keyword in spec_str for keyword in ['BD', 'BK', 'HA'])
     
     def _generate_chart_separately(self, spec: QuestionSpec, num_charts: int = 1) -> List[Dict]:
         """
@@ -192,8 +135,8 @@ class QuestionGenerator:
         Returns:
             List[Dict]: Danh sách chart data với chart_id, title, chartType, echarts
         """
-        # Lấy supplementary_materials từ spec
-        supplementary_materials = getattr(spec, 'supplementary_materials', None)
+        # Lấy supplementary_materials từ spec (hỗ trợ cả tên cũ và mới)
+        supplementary_materials = getattr(spec, 'supplementary_material', None) or getattr(spec, 'materials', None)
         
         # Build prompt sử dụng helper
         prompt = build_chart_generation_prompt(
@@ -210,7 +153,7 @@ class QuestionGenerator:
             if supplementary_materials:
                 print(f"   📄 Có tài liệu bổ sung: {len(supplementary_materials)} chars")
             else:
-                print(f"   🔍 Sẽ tìm kiếm dữ liệu từ Niên giám thống kê 2023, 2024")
+                print(f"   🔍 Sẽ tìm kiếm dữ liệu")
         
         response = self.ai_client.generate_content_with_schema(
             prompt=prompt,
@@ -235,237 +178,6 @@ class QuestionGenerator:
                 print(f"   - {chart.get('chart_id')}: {chart.get('title')}")
         
         return charts
-    
-    def _fill_prompt_template(self, 
-                             spec: QuestionSpec,
-                             num_questions: int = None,
-                             question_template: str = "",
-                             content: str = "") -> str:
-        """
-        Điền thông tin vào prompt template
-        
-        Args:
-            spec: QuestionSpec chứa thông tin câu hỏi
-            num_questions: Số câu hỏi cần sinh (nếu None, lấy từ spec)
-            question_template: Template câu hỏi mẫu từ file DOCX (optional)
-            content: Nội dung từ PDF đã extract (optional)
-            
-        Returns:
-            str: Prompt đã được điền
-        """
-        num = num_questions if num_questions is not None else spec.num_questions
-        
-        # Replace các biến trong template
-        prompt = self.prompt_template.replace("{{NUM}}", str(num))
-        prompt = prompt.replace("{{LESSON_NAME}}", spec.lesson_name)
-        prompt = prompt.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-        prompt = prompt.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-        prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", self._convert_content_to_string(content))
-        
-        return prompt
-    
-    def _format_rich_content_types(self, spec: QuestionSpec) -> str:
-        """
-        Format rich content types for prompt injection
-        
-        Args:
-            spec: QuestionSpec with optional rich_content_types attribute
-            
-        Returns:
-            Formatted string describing required rich content types
-        """
-        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
-            return """**YÊU CẦU NỘI DUNG**: Câu hỏi này không có đánh dấu BD/BK/HA trong ma trận.
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text"), KHÔNG dùng table/chart/image/mixed.
-⏩ question_stem PHẢI là: {"type": "text", "content": "..."}"""
-        
-        # Extract all type codes and classify them
-        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
-        SECONDARY_TYPES = ['LT', 'TT']  # Lý thuyết, Tính toán
-        
-        primary_types_found = {}  # {code: [type_list]}
-        secondary_types_found = {}  # {code: [type_list]}
-        
-        try:
-            # Safe iteration with validation
-            if not isinstance(spec.rich_content_types, dict):
-                print(f"⚠️ WARNING: rich_content_types is not a dict: {type(spec.rich_content_types)}")
-                return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text")"""
-            
-            for code, types in spec.rich_content_types.items():
-                # Validate code is hashable
-                if not isinstance(code, (str, int)):
-                    print(f"⚠️ WARNING: Invalid code type: {type(code)}")
-                    continue
-                
-                # Validate types is iterable
-                if not isinstance(types, (list, tuple)):
-                    print(f"⚠️ WARNING: types is not list/tuple for {code}: {type(types)}")
-                    continue
-                
-                for t in types:
-                    type_code = None
-                    type_name = None
-                    
-                    if isinstance(t, dict):
-                        # Format: {"code": "BK", "name": "Bảng khảo, bảng số liệu", "description": "..."}
-                        type_code = t.get('code', '')
-                        type_name = f"{type_code} - {t.get('name', '')}"
-                    elif isinstance(t, str):
-                        # Just string like "BK"
-                        type_code = t
-                        type_name = t
-                    else:
-                        print(f"⚠️ WARNING: Invalid type object: {type(t)}")
-                        continue
-                    
-                    # Classify type as primary or secondary
-                    if type_code in PRIMARY_TYPES or type_code.startswith('HA'):
-                        if code not in primary_types_found:
-                            primary_types_found[code] = []
-                        primary_types_found[code].append(type_name)
-                    elif type_code in SECONDARY_TYPES:
-                        if code not in secondary_types_found:
-                            secondary_types_found[code] = []
-                        secondary_types_found[code].append(type_name)
-        except Exception as e:
-            print(f"⚠️ ERROR formatting rich content types: {e}")
-            import traceback
-            traceback.print_exc()
-            return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text")"""
-        
-        # Nếu KHÔNG có type chính (BD/BK/HA) → chỉ có type phụ (LT/TT) hoặc rỗng
-        if not primary_types_found:
-            info_lines = ["**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có BD/BK/HA trong ma trận)"]
-            
-            if secondary_types_found:
-                info_lines.append("\n**Metadata về tính chất câu hỏi:**")
-                for code, type_list in secondary_types_found.items():
-                    info_lines.append(f"  • Câu **{code}**: {', '.join(type_list)}")
-                info_lines.append("")
-                info_lines.append("⚠️ **LƯU Ý**: LT (Lý thuyết) và TT (Tính toán) CHỈ là metadata, KHÔNG yêu cầu rich content.")
-            
-            info_lines.append("")
-            info_lines.append("⏩ **BẮT BUỘC**: Tất cả câu hỏi dùng **text thuần** (type=\"text\"), KHÔNG dùng table/chart/image/mixed.")
-            info_lines.append("⏩ question_stem PHẢI là: {\"type\": \"text\", \"content\": \"...\"}")
-            
-            return "\n".join(info_lines)
-        
-        # Nếu CÓ type chính (BD/BK/HA) → yêu cầu rich content
-        lines = ["**YÊU CẦU:** Các câu hỏi sau cần tạo với rich content (BD/BK/HA):"]
-        
-        for code, type_list in primary_types_found.items():
-            secondary_info = ""
-            if code in secondary_types_found:
-                secondary_info = f" + {', '.join(secondary_types_found[code])}"
-            lines.append(f"  • Câu **{code}**: {', '.join(type_list)}{secondary_info}")
-        
-        lines.append("")
-        lines.append("⚠️ **QUAN TRỌNG**: Đối với các câu có BD/BK/HA:")
-        lines.append("- question_stem PHẢI có cấu trúc: {type: 'table'/'chart'/'image'/'mixed', content: {...}}")
-        lines.append("- KHÔNG dùng {type: 'text', content: '...'} cho những câu này")
-        lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
-        
-        return "\n".join(lines)
-    
-    def _format_rich_content_types_tf(self, spec: TrueFalseQuestionSpec) -> str:
-        """
-        Format rich content types for True/False questions
-        
-        Args:
-            spec: TrueFalseQuestionSpec with optional rich_content_types attribute
-            
-        Returns:
-            Formatted string describing required rich content types
-        """
-        if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
-            return """**YÊU CẦU NỘI DUNG**: Câu hỏi này không có đánh dấu BD/BK/HA trong ma trận.
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text, KHÔNG dùng table/chart/image/mixed.
-⏩ source_text PHẢI là: {"type": "text", "content": "..."}"""
-        
-        # Extract all type codes and classify them
-        PRIMARY_TYPES = ['BD', 'BK']  # Biểu đồ, Bảng khảo
-        SECONDARY_TYPES = ['LT', 'TT']  # Lý thuyết, Tính toán
-        
-        primary_types_found = []
-        secondary_types_found = []
-        
-        try:
-            # Safe iteration with validation
-            if not isinstance(spec.rich_content_types, dict):
-                print(f"⚠️ WARNING: DS rich_content_types is not a dict: {type(spec.rich_content_types)}")
-                return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có rich content)
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text"""
-            
-            for code, types in spec.rich_content_types.items():
-                # Validate code is hashable
-                if not isinstance(code, (str, int)):
-                    print(f"⚠️ WARNING: Invalid DS code type: {type(code)}")
-                    continue
-                    
-                # Validate types is iterable
-                if not isinstance(types, (list, tuple)):
-                    print(f"⚠️ WARNING: DS types is not list/tuple for {code}: {type(types)}")
-                    continue
-                
-                for t in types:
-                    type_code = None
-                    type_name = None
-                    
-                    if isinstance(t, dict):
-                        type_code = t.get('code', '')
-                        type_name = f"{type_code} - {t.get('name', '')}"
-                    elif isinstance(t, str):
-                        type_code = t
-                        type_name = t
-                    else:
-                        print(f"⚠️ WARNING: Invalid DS type object: {type(t)}")
-                        continue
-                    
-                    # Classify type as primary or secondary
-                    if type_code in PRIMARY_TYPES or type_code.startswith('HA'):
-                        primary_types_found.append(type_name)
-                    elif type_code in SECONDARY_TYPES:
-                        secondary_types_found.append(type_name)
-        except Exception as e:
-            print(f"⚠️ ERROR formatting DS rich content types: {e}")
-            import traceback
-            traceback.print_exc()
-            return """**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (do lỗi khi xử lý rich_content_types)
-⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text") cho source_text"""
-        
-        # Nếu KHÔNG có type chính (BD/BK/HA) → chỉ có type phụ (LT/TT) hoặc rỗng
-        if not primary_types_found:
-            info_lines = ["**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text (không có BD/BK/HA trong ma trận)"]
-            
-            if secondary_types_found:
-                info_lines.append(f"\n**Metadata về tính chất câu hỏi**: {', '.join(secondary_types_found)}")
-                info_lines.append("⚠️ **LƯU Ý**: LT (Lý thuyết) và TT (Tính toán) CHỈ là metadata, KHÔNG yêu cầu rich content.")
-            
-            info_lines.append("")
-            info_lines.append("⏩ **BẮT BUỘC**: Dùng **text thuần** (type=\"text\") cho source_text, KHÔNG dùng table/chart/image/mixed.")
-            info_lines.append("⏩ source_text PHẢI là: {\"type\": \"text\", \"content\": \"...\"}")
-            
-            return "\n".join(info_lines)
-        
-        # Nếu CÓ type chính (BD/BK/HA) → yêu cầu rich content
-        lines = ["**YÊU CẦU:** Câu hỏi này cần tạo với rich content (BD/BK/HA):"]
-        
-        secondary_info = ""
-        if secondary_types_found:
-            secondary_info = f" + {', '.join(secondary_types_found)}"
-        lines.append(f"  • {', '.join(primary_types_found)}{secondary_info}")
-        
-        lines.append("")
-        lines.append("⚠️ **QUAN TRỌNG**: Đối với câu hỏi có BD/BK/HA:")
-        lines.append("- source_text PHẢI có cấu trúc: {type: 'table'/'chart'/'image'/'mixed', content: {...}}")
-        lines.append("- KHÔNG dùng {type: 'text', content: '...'}")
-        lines.append("- Tham khảo schema để tạo đúng cấu trúc table/chart/image")
-        
-        return "\n".join(lines)
     
     def generate_questions_for_spec(self, spec: QuestionSpec, 
                                    prompt_template_path: str = None,
@@ -496,58 +208,17 @@ class QuestionGenerator:
         # Retry logic với fallback model
         for attempt in range(self.max_retries):
             try:
-                # Tạo prompt cho tất cả câu
-                prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
-                prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
-                prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
-                
-                # Format rich_content_types if available
-                rich_content_str = self._format_rich_content_types(spec)
-                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
-                
-                # Inject rich_content_guide nếu cần
-                if self._should_inject_rich_guide(spec):
-                    rich_guide = self._load_rich_content_guide()
-                    if rich_guide:
-                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
-                        if self.verbose:
-                            print("✓ Đã inject rich_content_guide vào prompt (TN)")
-                
-                # Thêm tài liệu bổ sung
-                if spec.supplementary_materials:
-                    supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
-                else:
-                    supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
-                prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
-
-                # Debug: Kiểm tra content từ PDF
-                # content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
-                # print(f"\n📤 Gửi prompt: {', '.join(spec.question_codes)} (NUM={spec.num_questions}, Template={len(question_template)} chars, {content_info})")
-                # if content:
-                    # print(f"📄 Preview content: {content[:200]}...")
-                # print(f"--- PROMPT START TN ---\n{prompt_text}\n--- PROMPT END ---")
+                # Build prompt via PromptBuilderService (single source of truth)
+                if prompt_template_path:
+                    new_dir = str(Path(prompt_template_path).parent)
+                    if str(self.prompt_builder.prompt_dir) != new_dir:
+                        self.prompt_builder.set_prompt_dir(new_dir)
+                prepared = self.prompt_builder.build_prompt_for_tn(spec, content, question_template)
+                prompt_text = prepared.prompt_text
 
                 # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types
                 charts_map = {}
-                
-                # Check if any question code has 'BD' type
-                # rich_content_types structure: {"C4": [{"code": "BD", ...}], "C5": [{"code": "BK", ...}]}
-                has_chart = False
-                if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
-                    for code, types_list in spec.rich_content_types.items():
-                        if isinstance(types_list, list):
-                            for type_obj in types_list:
-                                if isinstance(type_obj, dict) and type_obj.get('code') == 'BD':
-                                    has_chart = True
-                                    break
-                                elif type_obj == 'BD':  # Handle simple string list format
-                                    has_chart = True
-                                    break
-                        if has_chart:
-                            break
+                has_chart = prepared.has_chart
                 
                 if has_chart:
                     # Đếm số câu hỏi cần chart
@@ -725,53 +396,6 @@ class QuestionGenerator:
                     break  # Thoát loop sau khi tạo dummy questions
         return generated_questions
     
-    def _fill_true_false_prompt(self, tf_spec: TrueFalseQuestionSpec, prompt_template: str, question_template: str = "", content: str = "") -> str:
-        """
-        Điền thông tin vào prompt template cho câu Đúng/Sai
-        
-        Args:
-            tf_spec: TrueFalseQuestionSpec chứa 4 mệnh đề
-            prompt_template: Template prompt DS
-            question_template: Template câu hỏi mẫu từ DOCX (optional)
-            content: Nội dung từ PDF đã extract (optional)
-            
-        Returns:
-            str: Prompt đã được điền
-        """
-        # Replace biến chung
-        prompt = prompt_template.replace("{{NUM}}", "1")
-        prompt = prompt.replace("{{LESSON_NAME}}", tf_spec.lesson_name)
-        prompt = prompt.replace("{{QUESTION_TEMPLATE}}", question_template)
-        prompt = prompt.replace("{{CONTENT}}", self._convert_content_to_string(content))
-        
-        # Format rich_content_types if available
-        rich_content_str = self._format_rich_content_types_tf(tf_spec)
-        prompt = prompt.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
-        
-        # Inject rich_content_guide nếu cần
-        if self._should_inject_rich_guide(tf_spec):
-            rich_guide = self._load_rich_content_guide()
-            if rich_guide:
-                prompt = f"{prompt}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
-                if self.verbose:
-                    print("✓ Đã inject rich_content_guide vào prompt (DS)")
-        
-        # Replace tài liệu bổ sung
-        if tf_spec.supplementary_materials:
-            supplementary_text = f"```\n{tf_spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy ưu tiên sử dụng các thông tin từ tài liệu này để tạo đoạn tư liệu sinh động."
-        else:
-            supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
-        prompt = prompt.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
-        prompt = prompt.replace("{{MATERIALS}}", tf_spec.supplementary_materials or "")
-        
-        # Replace cho từng mệnh đề
-        for stmt in tf_spec.statements:
-            label_upper = stmt.label.upper()
-            prompt = prompt.replace(f"{{{{COGNITIVE_LEVEL_{label_upper}}}}}", stmt.cognitive_level)
-            prompt = prompt.replace(f"{{{{EXPECTED_LEARNING_OUTCOME_{label_upper}}}}}", stmt.learning_outcome)
-        
-        return prompt
-    
     def generate_true_false_question(self, tf_spec: TrueFalseQuestionSpec, 
                                      prompt_template_path: str,
                                      question_template: str = "",
@@ -794,12 +418,12 @@ class QuestionGenerator:
         # Retry logic với fallback model - dùng while để có thể reset attempt cho fallback
         while attempt < self.max_retries:
             try:
-                # Load prompt template DS
-                with open(prompt_template_path, 'r', encoding='utf-8') as f:
-                    ds_template = f.read()
-                
-                # Fill prompt với question_template và content
-                prompt = self._fill_true_false_prompt(tf_spec, ds_template, question_template, content)
+                # Build DS prompt via PromptBuilderService
+                new_dir = str(Path(prompt_template_path).parent)
+                if str(self.prompt_builder.prompt_dir) != new_dir:
+                    self.prompt_builder.set_prompt_dir(new_dir)
+                prepared_ds = self.prompt_builder.build_prompt_for_ds(tf_spec, content, question_template)
+                prompt = prepared_ds.prompt_text
                 
                 # Debug: Kiểm tra content từ PDF
                 # content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
@@ -810,59 +434,6 @@ class QuestionGenerator:
                 # print("content", content)
                 # print("question_template:", question_template)
 
-                # Thêm instruction về rich content vào prompt nếu có
-                if hasattr(tf_spec, 'rich_content_types') and tf_spec.rich_content_types:
-                    # Xác định loại content chính được yêu cầu
-                    primary_content_type = None
-                    for code, types_list in tf_spec.rich_content_types.items():
-                        if isinstance(types_list, list) and types_list:
-                            first_type = types_list[0]
-                            if isinstance(first_type, dict):
-                                primary_content_type = first_type.get('code')
-                            else:
-                                primary_content_type = first_type
-                            break
-                    
-                    if primary_content_type:
-                        content_type_map = {
-                            'BK': 'table (bảng khảo)',
-                            'BD': 'chart (biểu đồ)',
-                            'HA': 'image (hình ảnh)'
-                        }
-                        content_instruction = f"""
-
-{'='*70}
-⚠️ YÊU CẦU NỘI DUNG NGHIÊM NGẶT
-{'='*70}
-
-Câu hỏi DS này yêu cầu chỉ sử dụng: {content_type_map.get(primary_content_type, primary_content_type)}
-
-**BẮT BUỘC:**
-- source_text.type = "mixed"
-- source_text.content chỉ chứa: [text_intro, {primary_content_type}_object, text_conclusion]
-- KHÔNG được thêm các loại content khác (image/table/chart không liên quan)
-- Mỗi loại content CHỈ xuất hiện 1 LẦN
-
-**VÍ DỤ ĐÚNG cho BK (bảng khảo):**
-```json
-{{
-  "type": "mixed",
-  "content": [
-    "Cho bảng số liệu sau:",
-    {{
-      "type": "table",
-      "content": {{"headers": [...], "rows": [...]}}
-    }},
-    "Căn cứ vào bảng số liệu, xét tính đúng/sai của các mệnh đề:"
-  ]
-}}
-```
-
-❌ KHÔNG ĐƯỢC: Thêm image/chart không cần thiết hoặc lặp lại table nhiều lần
-{'='*70}
-"""
-                        prompt = f"{prompt}\n{content_instruction}"
-                
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(tf_spec.rich_content_types)
                 ds_schema = get_true_false_schema(content_schema)
@@ -1062,32 +633,13 @@ Câu hỏi DS này yêu cầu chỉ sử dụng: {content_type_map.get(primary_c
         # Retry logic với fallback model
         for attempt in range(self.max_retries):
             try:
-                # Tạo prompt cho tất cả câu TLN
-                prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
-                prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
-                prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
-                
-                # Format rich_content_types if available
-                rich_content_str = self._format_rich_content_types(spec)
-                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
-                
-                # Inject rich_content_guide nếu cần
-                if self._should_inject_rich_guide(spec):
-                    rich_guide = self._load_rich_content_guide()
-                    if rich_guide:
-                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
-                        if self.verbose:
-                            print("✓ Đã inject rich_content_guide vào prompt (TLN)")
-                
-                # Thêm tài liệu bổ sung
-                if spec.supplementary_materials:
-                    supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
-                else:
-                    supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
-                prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
+                # Build TLN prompt via PromptBuilderService
+                if prompt_template_path:
+                    new_dir = str(Path(prompt_template_path).parent)
+                    if str(self.prompt_builder.prompt_dir) != new_dir:
+                        self.prompt_builder.set_prompt_dir(new_dir)
+                prepared_tln = self.prompt_builder.build_prompt_for_tln(spec, content, question_template)
+                prompt_text = prepared_tln.prompt_text
 
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
@@ -1221,32 +773,13 @@ Câu hỏi DS này yêu cầu chỉ sử dụng: {content_type_map.get(primary_c
         # Retry logic với fallback model
         for attempt in range(self.max_retries):
             try:
-                # Tạo prompt cho tất cả câu TL
-                prompt_text = template.replace("{{NUM}}", str(spec.num_questions))
-                prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
-                prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", spec.learning_outcome)
-                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
-                prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
-                
-                # Format rich_content_types if available
-                rich_content_str = self._format_rich_content_types(spec)
-                prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", rich_content_str)
-                
-                # Inject rich_content_guide nếu cần
-                if self._should_inject_rich_guide(spec):
-                    rich_guide = self._load_rich_content_guide()
-                    if rich_guide:
-                        prompt_text = f"{prompt_text}\n\n{'='*70}\n# HƯỚNG DẪN CHI TIẾT VỀ RICH CONTENT\n{'='*70}\n\n{rich_guide}"
-                        if self.verbose:
-                            print("✓ Đã inject rich_content_guide vào prompt (TL)")
-                
-                # Thêm tài liệu bổ sung
-                if spec.supplementary_materials:
-                    supplementary_text = f"```\n{spec.supplementary_materials}\n```\n\n**✓ Có tài liệu bổ sung** - Hãy tham khảo các thông tin này khi tạo câu hỏi."
-                else:
-                    supplementary_text = "_Không có tài liệu bổ sung. Tự tổng hợp từ kiến thức INPUT DATA._"
-                prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIALS}}", supplementary_text)
+                # Build TL prompt via PromptBuilderService
+                if prompt_template_path:
+                    new_dir = str(Path(prompt_template_path).parent)
+                    if str(self.prompt_builder.prompt_dir) != new_dir:
+                        self.prompt_builder.set_prompt_dir(new_dir)
+                prepared_tl = self.prompt_builder.build_prompt_for_tl(spec, content, question_template)
+                prompt_text = prepared_tl.prompt_text
                 
                 if self.verbose:
                     print(f"📝 Generating {spec.num_questions} TL questions for lesson: {spec.lesson_name}")

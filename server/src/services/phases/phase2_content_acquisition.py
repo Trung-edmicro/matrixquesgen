@@ -472,33 +472,42 @@ class ContentAcquisitionService:
         return questions
 
     def parse_questions_from_content(self, content: str) -> List[str]:
-        """Parse questions from a single TN file content"""
-        questions = []
+        """Parse individual questions from a content string.
 
+        Handles two layouts:
+        1. Flat (all in one line/paragraph): "Câu 1. ... Câu 2. ... Câu 3. ..."
+           → split on lookahead (?=Câu \\d+\\.)
+        2. Line-based (one question per line or wrapped over several lines):
+           falls back to the original line-scan logic.
+        """
         if not content:
+            return []
+
+        # ── Strategy 1: lookahead split on "Câu X." (handles flat strings) ──
+        parts = re.split(r'(?=Câu \d+\.)', content)
+        questions = [p.strip() for p in parts if p.strip() and re.match(r'Câu \d+\.', p.strip())]
+        if questions:
             return questions
 
-        # Split by lines and process each line
+        # ── Strategy 2: fallback — original line-scan logic ─────────────────
         lines = content.strip().split('\n')
         current_question = ""
-
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-
-            # Check if this is a new question (starts with number and has marker)
-            if re.match(r'^\d+\.', line) and ('(NB)' in line or '(TH)' in line or '(VD)' in line):
-                # Save previous question if exists
+            if re.match(r'^\d+\.', line) and re.search(r'\((NB|TH|VD[C]?)\)', line):
                 if current_question:
                     questions.append(current_question.strip())
                 current_question = line
             else:
                 current_question += " " + line
-
-        # Save the last question
         if current_question:
             questions.append(current_question.strip())
+
+        # ── Strategy 3: nothing matched — return the whole content as one item
+        if not questions and content.strip():
+            return [content.strip()]
 
         return questions
 

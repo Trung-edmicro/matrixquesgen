@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import LaTeXRenderer from './LaTeXRenderer'
 import * as echarts from 'echarts'
 
@@ -41,6 +41,89 @@ export default function RichContentRenderer({ content, contentEditable = false, 
       >
         {contentData}
       </LaTeXRenderer>
+    )
+  }
+
+  // Image content (single image)
+  if (type === 'image') {
+    if (!Array.isArray(contentData)) {
+      return <div className="text-red-500">Invalid image content format</div>
+    }
+
+    return (
+      <div className={`space-y-3 ${className}`}>
+        {contentData.map((item, index) => {
+          if (typeof item === 'string') {
+            return (
+              <LaTeXRenderer key={index} contentEditable={contentEditable} onBlur={onBlur}>
+                {item}
+              </LaTeXRenderer>
+            )
+          }
+
+          if (typeof item === 'object' && item !== null && item.type === 'image') {
+            return <ImageRenderer key={index} content={item.content} metadata={item.metadata} />
+          }
+
+          // Log unexpected items for debugging
+          console.warn('Unexpected item in image content:', item)
+          return null
+        })}
+      </div>
+    )
+  }
+
+  // Table content (single table)
+  if (type === 'table') {
+    if (!Array.isArray(contentData)) {
+      return <div className="text-red-500">Invalid table content format</div>
+    }
+
+    return (
+      <div className={`space-y-3 ${className}`}>
+        {contentData.map((item, index) => {
+          if (typeof item === 'string') {
+            return (
+              <LaTeXRenderer key={index} contentEditable={contentEditable} onBlur={onBlur}>
+                {item}
+              </LaTeXRenderer>
+            )
+          }
+
+          if (typeof item === 'object' && item.type === 'table') {
+            return <TableRenderer key={index} content={item.content} />
+          }
+
+          return null
+        })}
+      </div>
+    )
+  }
+
+  // Chart content (single chart)
+  if (type === 'chart') {
+    if (!Array.isArray(contentData)) {
+      return <div className="text-red-500">Invalid chart content format</div>
+    }
+
+    return (
+      <div className={`space-y-3 ${className}`}>
+        {contentData.map((item, index) => {
+          if (typeof item === 'string') {
+            return (
+              <LaTeXRenderer key={index} contentEditable={contentEditable} onBlur={onBlur}>
+                {item}
+              </LaTeXRenderer>
+            )
+          }
+
+          if (typeof item === 'object' && item.type === 'chart') {
+            return <ChartRenderer key={index} content={item.content} metadata={item.metadata} />
+          }
+
+          return null
+        })}
+      </div>
     )
   }
 
@@ -142,28 +225,62 @@ function TableRenderer({ content }) {
  * Component để render image (local hoặc URL)
  */
 function ImageRenderer({ content, metadata }) {
+  const [imageError, setImageError] = useState(null)
+  const [imageLoaded, setImageLoaded] = useState(false)
+  
   const imageUrl = typeof content === 'string' ? content : content?.url || content?.content
 
+  // Handle metadata as object or array
+  const caption = metadata?.caption || metadata?.[0] || 'Question image'
+  const description = metadata?.description
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('ImageRenderer mounted:', { imageUrl, content, metadata })
+  }, [imageUrl])
+  
+  if (imageError) {
+    return (
+      <div className="my-3 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        <strong>❌ Failed to load image</strong><br/>
+        <code className="text-xs bg-red-100 px-1 py-0.5 rounded">{imageUrl}</code><br/>
+        <small className="text-red-600">{imageError}</small>
+      </div>
+    )
+  }
+  
   return (
-    <div className="my-3">
+    <div className="my-3 flex flex-col items-center">
+      {!imageLoaded && (
+        <div className="text-gray-400 text-sm italic">Loading image...</div>
+      )}
       <img
         src={imageUrl}
-        alt={metadata?.[0] || 'Question image'}
-        className="max-w-full h-auto rounded border border-gray-200"
+        alt={caption}
+        className="max-w-2xl w-full h-auto rounded border border-gray-200 shadow-sm"
+        style={{ display: imageLoaded ? 'block' : 'none', maxHeight: '400px', objectFit: 'contain' }}
+        onLoad={() => {
+          console.log('✅ Image loaded:', imageUrl)
+          setImageLoaded(true)
+        }}
         onError={(e) => {
-          e.target.style.display = 'none'
-          e.target.parentElement.innerHTML = `<div class="text-red-500 text-sm">Failed to load image: ${imageUrl}</div>`
+          console.error('❌ Failed to load image:', imageUrl, e)
+          setImageError(`Cannot load image from: ${imageUrl}. Check that the server is running on port 8000.`)
         }}
       />
-      {metadata && Array.isArray(metadata) && metadata.length > 0 && (
-        <div className="text-sm text-gray-600 mt-2">
-          {metadata.map((meta, idx) => (
-            <div key={idx}>
-              <LaTeXRenderer>{meta}</LaTeXRenderer>
-            </div>
-          ))}
+      {/* Caption */}
+      {caption && imageLoaded && (
+        <div className="text-sm text-gray-600 mt-2 italic text-center">
+          <LaTeXRenderer>{caption}</LaTeXRenderer>
         </div>
       )}
+      {/* Description (if available) - for debugging */}
+      {/* {description && import.meta.env.DEV && imageLoaded && (
+        <details className="text-xs text-gray-500 mt-1">
+          <summary>Image description (dev only)</summary>
+          <p className="mt-1">{description.substring(0, 200)}...</p>
+        </details>
+      )} */}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import json
 import os
 import time
 import random
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ import threading
 # Import existing services
 from ..core.genai_client import GenAIClient
 from ..core.content_validator import clean_all_questions
+from config.settings import Config
 from ..generators.question_generator import QuestionGenerator, GeneratedEssayQuestion
 from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
 
@@ -26,6 +28,9 @@ from services.core.rich_content import (
     text as text_block, mixed as mixed_block
 )
 from .cross_lesson_ds_helper import merge_cross_lesson_ds_context
+
+# Import image workflow for HA_MH/HA_TL support
+from ..generators.image_workflow_service import ImageWorkflowService
 
 
 @dataclass
@@ -122,10 +127,11 @@ class QuestionGenerationService:
         self.genai_client = None
         self.question_generator = None
         self.matrix_parser = MatrixParser()  # Initialize matrix parser for sample questions
+        self.image_workflow_service = None  # Will be initialized when genai_client is ready
         
         # Track primary and fallback models for retry logic
-        self.primary_model = "gemini-3-pro-preview"  # Default primary model
-        self.fallback_model = "gemini-2.5-pro"  # Fallback model for rate limits
+        self.primary_model = Config.VERTEX_AI_MODEL
+        self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
 
         if ai_provider == "genai":
             # Initialize GenAI client
@@ -143,6 +149,20 @@ class QuestionGenerationService:
                 if self.genai_client and self.genai_client.model_name:
                     self.primary_model = self.genai_client.model_name
                 # Don't initialize QuestionGenerator here - will be done when prompts directory is set
+                
+                # Initialize ImageWorkflowService
+                try:
+                    self.image_workflow_service = ImageWorkflowService(
+                        ai_client=self.genai_client,
+                        image_save_dir=None,  # Will use default: server/data/images
+                        prompts_dir=None  # Will be set when set_prompts_directory is called
+                    )
+                    print("✅ Initialized ImageWorkflowService for HA_MH/HA_TL support")
+                except Exception as img_err:
+                    print(f"⚠️ Failed to initialize ImageWorkflowService: {img_err}")
+                    print("   Image-based questions (HA_MH/HA_TL) will not be available")
+                    self.image_workflow_service = None
+                
                 print("✅ Initialized GenAI client for question generation service")
                 print(f"✓ Configured retry strategy:")
                 print(f"   Primary model: {self.primary_model} (5 retries)")
@@ -173,6 +193,14 @@ class QuestionGenerationService:
             print(f"⚠️ Prompts directory not found: {self.prompts_dir}")
             print(f"   Will fallback to base directory: {self.prompts_base_dir}")
             self.prompts_dir = self.prompts_base_dir
+        
+        # Update ImageWorkflowService prompts_dir if initialized
+        if self.image_workflow_service:
+            try:
+                self.image_workflow_service.description_service.prompts_dir = self.prompts_dir
+                print("✓ Updated ImageWorkflowService prompts_dir")
+            except Exception as e:
+                print(f"⚠️ Could not update ImageWorkflowService prompts_dir: {e}")
         
         # Initialize QuestionGenerator now that we have the correct prompts directory
         if self.genai_client and not self.question_generator:
@@ -251,12 +279,17 @@ class QuestionGenerationService:
             
             type_code = type_obj['code']
             
-            # Strip suffix if present (e.g., HA_MH → HA, HA_TL → HA)
-            # Keep full code if no underscore (LT, TT, BD, BK remain unchanged)
-            primary_type = type_code.split('_')[0] if '_' in type_code else type_code
+            # Try full type code first (e.g., HA_MH, HA_TL)
+            # This allows separate prompts for TN_HA_MH.txt and TN_HA_TL.txt
+            type_specific_prompt = self.prompts_dir / f"{question_type}_{type_code}.txt"
             
-            # Try type-specific prompt
-            type_specific_prompt = self.prompts_dir / f"{question_type}_{primary_type}.txt"
+            if type_specific_prompt.exists():
+                return type_specific_prompt
+            
+            # Fallback: Try with stripped suffix (e.g., HA_MH → HA)
+            if '_' in type_code:
+                primary_type = type_code.split('_')[0]
+                type_specific_prompt = self.prompts_dir / f"{question_type}_{primary_type}.txt"
             
             if type_specific_prompt.exists():
                 return type_specific_prompt
@@ -267,6 +300,49 @@ class QuestionGenerationService:
         except (StopIteration, AttributeError, KeyError, IndexError, TypeError) as e:
             print(f"  ⚠️ Could not extract type code from rich_content_types: {e}")
             return generic_prompt
+    
+    def _has_image_requirements(self, spec) -> Optional[str]:
+        """
+        Check if spec requires image generation (HA_MH or HA_TL)
+        
+        Args:
+            spec: QuestionSpec or dict with rich_content_types
+            
+        Returns:
+            'HA_MH', 'HA_TL', or None
+        """
+        # Get rich_content_types from spec
+        if hasattr(spec, 'rich_content_types'):
+            rich_types = spec.rich_content_types
+        elif isinstance(spec, dict) and 'rich_content_types' in spec:
+            rich_types = spec['rich_content_types']
+        else:
+            return None
+        
+        if not rich_types:
+            return None
+        
+        # Check all question codes for HA_MH or HA_TL
+        for code, types_list in rich_types.items():
+            if not isinstance(types_list, list):
+                continue
+            
+            for type_obj in types_list:
+                type_code = None
+                if isinstance(type_obj, dict):
+                    type_code = type_obj.get('code', '')
+                elif isinstance(type_obj, str):
+                    type_code = type_obj
+                
+                if type_code:
+                    if type_code == 'HA_MH':
+                        return 'HA_MH'
+                    elif type_code == 'HA_TL':
+                        return 'HA_TL'
+                    elif type_code == 'HA':  # Generic HA defaults to HA_MH
+                        return 'HA_MH'
+        
+        return None
 
     def process_question_generation(self, extracted_lesson: Any, question_type: str, num_questions: int = 5) -> Optional[QuestionSet]:
         """Process question generation for an extracted lesson"""
@@ -315,6 +391,14 @@ class QuestionGenerationService:
                         competency_level=1,
                         row_index=0
                     )
+                    
+                    # Copy rich_content_types from spec to QuestionSpec if exists
+                    if 'rich_content_types' in spec:
+                        qspec.rich_content_types = spec['rich_content_types']
+                        # Debug: Show what type is being processed
+                        image_type = self._has_image_requirements(qspec)
+                        if image_type:
+                            print(f"  🖼️ Detected {image_type} for {code_str}")
 
                     # Generate question
                     questions = self.question_generator.generate_questions_for_spec(
@@ -694,7 +778,7 @@ class QuestionGenerationService:
             print(f"📊 Final count after deduplication: TN={len([q for q in question_set.questions if q.type == 'TN'])}, "
                   f"DS={len([q for q in question_set.questions if q.type == 'DS'])}, "
                   f"TLN={len([q for q in question_set.questions if q.type == 'TLN'])}, "
-                  f"TL={len([q for q in question_set.questions if q.type == 'TL'])}")
+                  f"TL={len([q for q in question_set.questions if q.type == 'TL'])}", flush=True)
                     
             return question_set
 
@@ -828,12 +912,11 @@ class QuestionGenerationService:
                                 generation_tasks.append(task)
 
             # Execute generation tasks in parallel
-            print(f"Starting parallel generation of {len(generation_tasks)} question tasks...")
+            print(f"Starting parallel generation of {len(generation_tasks)} question tasks...", flush=True)
             
             # Giảm workers để tránh rate limit 429
             max_workers = min(5, len(generation_tasks))
-            print(f"   Using {max_workers} parallel workers to avoid API rate limits")
-
+            print(f"   Using {max_workers} parallel workers to avoid API rate limits", flush=True)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_task = {
@@ -852,9 +935,9 @@ class QuestionGenerationService:
                             spec_data = task.get('spec_data', {})
                             codes = spec_data.get('code', spec_data.get('question_code', []))
                             codes_str = ', '.join(codes) if isinstance(codes, list) else str(codes)
-                            print(f"✅ Completed {task['type']} {codes_str} for lesson {task['chapter']}.{task['lesson']} - {len(generated_questions)} questions")
+                            print(f"✅ Completed {task['type']} {codes_str} for lesson {task['chapter']}.{task['lesson']} - {len(generated_questions)} questions", flush=True)
                     except Exception as e:
-                        print(f"❌ Failed {task['type']} task for lesson {task['chapter']}.{task['lesson']}: {e}")
+                        print(f"❌ Failed {task['type']} task for lesson {task['chapter']}.{task['lesson']}: {e}", flush=True)
 
             # Convert to GeneratedQuestion format
             questions = []
@@ -1293,41 +1376,129 @@ class QuestionGenerationService:
                     level = task['level']
                     spec_data = task['spec_data']
 
-                    # Create QuestionSpec from enriched data
-                    from ..core.matrix_parser import QuestionSpec
-                    spec = QuestionSpec(
-                        lesson_name=lesson_data['lesson_name'],
-                        competency_level=1,  # Default
-                        cognitive_level=level,
-                        question_type="TN",
-                        num_questions=spec_data['num'],
-                        question_codes=spec_data['code'],
-                        learning_outcome=spec_data['learning_outcome'],
-                        row_index=0,
-                        chapter_number=int(chapter),
-                        supplementary_materials=supplementary,
-                        rich_content_types=spec_data.get('rich_content_types', None)
-                    )
-
                     # Use question templates if available
                     question_template = ""
                     if spec_data.get('question_template'):
                         question_template = '\n'.join(spec_data['question_template'])
 
-                    # Get prompt path with type-specific fallback
-                    prompt_path = self._get_prompt_path("TN", spec_data.get('rich_content_types'))
-                    
-                    # Log with question codes for identification
-                    codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TN'
-                    print(f"  → TN {codes_str}: Using prompt {prompt_path.name}")
+                    rich_content_types = spec_data.get('rich_content_types', None)
+                    codes = spec_data.get('code', [])
 
-                    # Generate questions
-                    generated = self.question_generator.generate_questions_for_spec(
-                        spec=spec,
-                        prompt_template_path=str(prompt_path),
-                        content=content,
-                        question_template=question_template
-                    )
+                    # When rich content is present and multiple questions are requested,
+                    # generate one question at a time to prevent the AI from mixing up
+                    # shared chart/table data across different questions.
+                    if rich_content_types and len(codes) > 1:
+                        print(f"  ℹ️ TN {', '.join(codes)}: rich_content detected with {len(codes)} codes → generating one-by-one")
+                        generated = []
+                        from ..core.matrix_parser import QuestionSpec
+                        for code in codes:
+                            single_rich_types = {code: rich_content_types[code]} if code in rich_content_types else None
+                            spec_single = QuestionSpec(
+                                lesson_name=lesson_data['lesson_name'],
+                                competency_level=1,
+                                cognitive_level=level,
+                                question_type="TN",
+                                num_questions=1,
+                                question_codes=[code],
+                                learning_outcome=spec_data['learning_outcome'],
+                                row_index=0,
+                                chapter_number=int(chapter),
+                                supplementary_material=supplementary,
+                                rich_content_types=single_rich_types
+                            )
+                            single_prompt_path = self._get_prompt_path("TN", single_rich_types)
+                            print(f"  → TN {code}: Using prompt {single_prompt_path.name}")
+                            image_type = self._has_image_requirements(spec_single)
+                            if image_type == 'HA_TL':
+                                print(f"  📊 Processing HA_TL workflow for {code}...")
+                                single_gen = self._process_ha_tl_workflow(
+                                    spec=spec_single,
+                                    prompt_path=single_prompt_path,
+                                    content=content,
+                                    question_template=question_template
+                                )
+                            elif image_type == 'HA_MH':
+                                print(f"  🖼️ Processing HA_MH workflow (parallel) for {code}...")
+                                single_gen = self.question_generator.generate_questions_for_spec(
+                                    spec=spec_single,
+                                    prompt_template_path=str(single_prompt_path),
+                                    content=content,
+                                    question_template=question_template
+                                )
+                                single_gen = self._process_ha_mh_workflow(
+                                    spec=spec_single,
+                                    content=content,
+                                    questions=single_gen
+                                )
+                            else:
+                                single_gen = self.question_generator.generate_questions_for_spec(
+                                    spec=spec_single,
+                                    prompt_template_path=str(single_prompt_path),
+                                    content=content,
+                                    question_template=question_template
+                                )
+                            generated.extend(single_gen)
+                    else:
+                        # No rich content or single question — use original batch flow
+                        from ..core.matrix_parser import QuestionSpec
+                        spec = QuestionSpec(
+                            lesson_name=lesson_data['lesson_name'],
+                            competency_level=1,  # Default
+                            cognitive_level=level,
+                            question_type="TN",
+                            num_questions=spec_data['num'],
+                            question_codes=codes,
+                            learning_outcome=spec_data['learning_outcome'],
+                            row_index=0,
+                            chapter_number=int(chapter),
+                            supplementary_material=supplementary,
+                            rich_content_types=rich_content_types
+                        )
+
+                        # Get prompt path with type-specific fallback
+                        prompt_path = self._get_prompt_path("TN", rich_content_types)
+
+                        # Log with question codes for identification
+                        codes_str = ', '.join(codes) if codes else 'TN'
+                        print(f"  → TN {codes_str}: Using prompt {prompt_path.name}")
+
+                        # Check if this is HA_TL (need to generate image first, then question)
+                        image_type = self._has_image_requirements(spec)
+
+                        if image_type == 'HA_TL':
+                            # HA_TL: Sequential workflow (Mô tả → Ảnh → Câu hỏi có ảnh)
+                            print(f"  📊 Processing HA_TL workflow...")
+                            generated = self._process_ha_tl_workflow(
+                                spec=spec,
+                                prompt_path=prompt_path,
+                                content=content,
+                                question_template=question_template
+                            )
+                        elif image_type == 'HA_MH':
+                            # HA_MH: Parallel workflow (Sinh câu hỏi trước, ảnh song song)
+                            print(f"  🖼️ Processing HA_MH workflow (parallel)...")
+                            # B2.2: Sinh câu hỏi (độc lập)
+                            generated = self.question_generator.generate_questions_for_spec(
+                                spec=spec,
+                                prompt_template_path=str(prompt_path),
+                                content=content,
+                                question_template=question_template
+                            )
+                            # B2.1 + B3: Sinh ảnh song song và merge
+                            generated = self._process_ha_mh_workflow(
+                                spec=spec,
+                                content=content,
+                                questions=generated
+                            )
+                        else:
+                            # No image workflow
+                            generated = self.question_generator.generate_questions_for_spec(
+                                spec=spec,
+                                prompt_template_path=str(prompt_path),
+                                content=content,
+                                question_template=question_template
+                            )
+
                     # Add chapter and lesson info to generated questions
                     for q in generated:
                         q.chapter_number = int(chapter)
@@ -1386,7 +1557,7 @@ class QuestionGenerationService:
                                 label=stmt['label'],
                                 cognitive_level=stmt['cognitive_level'],
                                 learning_outcome=stmt.get('learning_outcome', ''),
-                                supplementary_materials=supplementary
+                                materials=supplementary
                             ))
 
                     # Create TrueFalseQuestionSpec from enriched data
@@ -1397,7 +1568,8 @@ class QuestionGenerationService:
                         statements=statements,
                         question_type="DS",
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary,
+                        supplementary_material=lesson_data.get('supplementary_material', ''),
+                        materials=spec_data.get('materials', ''),
                         rich_content_types=spec_data.get('rich_content_types', None)
                     )
 
@@ -1408,13 +1580,43 @@ class QuestionGenerationService:
                     ds_code = spec_data.get('question_code', spec_data.get('code', ['DS'])[0])
                     print(f"  → DS {ds_code}: Using prompt {prompt_path.name}")
 
-                    # Generate DS questions
-                    generated_ds = self.question_generator.generate_true_false_question(
-                        tf_spec=spec,
-                        prompt_template_path=str(prompt_path),
-                        content=content,
-                        question_template=question_template
-                    )
+                    # Check if this is HA_TL (need to generate image first)
+                    image_type = self._has_image_requirements(spec)
+                    
+                    if image_type == 'HA_TL':
+                        # HA_TL: Sequential workflow
+                        print(f"  📊 Processing HA_TL workflow for DS...")
+                        generated_ds = self._process_ha_tl_workflow_ds(
+                            spec=spec,
+                            prompt_path=prompt_path,
+                            content=content,
+                            question_template=question_template
+                        )
+                    elif image_type == 'HA_MH':
+                        # HA_MH: Parallel workflow
+                        print(f"  🖼️ Processing HA_MH workflow for DS (parallel)...")
+                        # Generate question first
+                        generated_ds = self.question_generator.generate_true_false_question(
+                            tf_spec=spec,
+                            prompt_template_path=str(prompt_path),
+                            content=content,
+                            question_template=question_template
+                        )
+                        # Process image in parallel and merge
+                        generated_ds = self._process_ha_mh_workflow_ds(
+                            spec=spec,
+                            content=content,
+                            question=generated_ds
+                        )
+                    else:
+                        # No image workflow
+                        generated_ds = self.question_generator.generate_true_false_question(
+                            tf_spec=spec,
+                            prompt_template_path=str(prompt_path),
+                            content=content,
+                            question_template=question_template
+                        )
+                    
                     # Add chapter and lesson info to generated DS question
                     generated_ds.chapter_number = int(chapter)
                     generated_ds.lesson_number = int(lesson)
@@ -1424,41 +1626,76 @@ class QuestionGenerationService:
                     level = task['level']
                     spec_data = task['spec_data']
 
-                    # Create QuestionSpec for TLN
-                    from ..core.matrix_parser import QuestionSpec
-                    spec = QuestionSpec(
-                        lesson_name=lesson_data['lesson_name'],
-                        competency_level=1,  # Default
-                        cognitive_level=level,
-                        question_type="TLN",
-                        num_questions=spec_data['num'],
-                        question_codes=spec_data['code'],
-                        learning_outcome=spec_data['learning_outcome'],
-                        row_index=0,
-                        chapter_number=int(chapter),
-                        supplementary_materials=supplementary,
-                        rich_content_types=spec_data.get('rich_content_types', None)
-                    )
-
                     # Use question templates if available
                     question_template = ""
                     if spec_data.get('question_template'):
                         question_template = '\n'.join(spec_data['question_template'])
 
-                    # Get prompt path with type-specific fallback
-                    prompt_path = self._get_prompt_path("TLN", spec_data.get('rich_content_types'))
-                    
-                    # Log with question codes for identification
-                    codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TLN'
-                    print(f"  → TLN {codes_str}: Using prompt {prompt_path.name}")
+                    rich_content_types_tln = spec_data.get('rich_content_types', None)
+                    codes_tln = spec_data.get('code', [])
 
-                    # Generate TLN questions using TLN prompt
-                    generated = self.question_generator.generate_tln_questions(
-                        spec=spec,
-                        prompt_template_path=str(prompt_path),
-                        content=content,
-                        question_template=question_template
-                    )
+                    # When rich content is present and multiple questions are requested,
+                    # generate one question at a time to prevent mixing up chart/table data.
+                    if rich_content_types_tln and len(codes_tln) > 1:
+                        print(f"  ℹ️ TLN {', '.join(codes_tln)}: rich_content detected with {len(codes_tln)} codes → generating one-by-one")
+                        generated = []
+                        from ..core.matrix_parser import QuestionSpec
+                        for code in codes_tln:
+                            single_rich_types_tln = {code: rich_content_types_tln[code]} if code in rich_content_types_tln else None
+                            spec_single_tln = QuestionSpec(
+                                lesson_name=lesson_data['lesson_name'],
+                                competency_level=1,
+                                cognitive_level=level,
+                                question_type="TLN",
+                                num_questions=1,
+                                question_codes=[code],
+                                learning_outcome=spec_data['learning_outcome'],
+                                row_index=0,
+                                chapter_number=int(chapter),
+                                supplementary_material=supplementary,
+                                rich_content_types=single_rich_types_tln
+                            )
+                            single_prompt_path_tln = self._get_prompt_path("TLN", single_rich_types_tln)
+                            print(f"  → TLN {code}: Using prompt {single_prompt_path_tln.name}")
+                            single_gen_tln = self.question_generator.generate_tln_questions(
+                                spec=spec_single_tln,
+                                prompt_template_path=str(single_prompt_path_tln),
+                                content=content,
+                                question_template=question_template
+                            )
+                            generated.extend(single_gen_tln)
+                    else:
+                        # No rich content or single question — use original batch flow
+                        from ..core.matrix_parser import QuestionSpec
+                        spec = QuestionSpec(
+                            lesson_name=lesson_data['lesson_name'],
+                            competency_level=1,  # Default
+                            cognitive_level=level,
+                            question_type="TLN",
+                            num_questions=spec_data['num'],
+                            question_codes=codes_tln,
+                            learning_outcome=spec_data['learning_outcome'],
+                            row_index=0,
+                            chapter_number=int(chapter),
+                            supplementary_material=supplementary,
+                            rich_content_types=rich_content_types_tln
+                        )
+
+                        # Get prompt path with type-specific fallback
+                        prompt_path = self._get_prompt_path("TLN", rich_content_types_tln)
+
+                        # Log with question codes for identification
+                        codes_str = ', '.join(codes_tln) if codes_tln else 'TLN'
+                        print(f"  → TLN {codes_str}: Using prompt {prompt_path.name}")
+
+                        # Generate TLN questions using TLN prompt
+                        generated = self.question_generator.generate_tln_questions(
+                            spec=spec,
+                            prompt_template_path=str(prompt_path),
+                            content=content,
+                            question_template=question_template
+                        )
+
                     # Add chapter and lesson info to generated questions
                     for q in generated:
                         q.chapter_number = int(chapter)
@@ -1488,7 +1725,7 @@ class QuestionGenerationService:
                         learning_outcome=spec_data['learning_outcome'],
                         row_index=0,
                         chapter_number=int(chapter),
-                        supplementary_materials=supplementary,
+                        supplementary_material=supplementary,
                         rich_content_types=rich_types
                     )
 
@@ -1574,6 +1811,396 @@ class QuestionGenerationService:
         
         # Should not reach here
         return []
+    
+    def _process_ha_mh_workflow(self, spec, content: str, questions: List) -> List:
+        """
+        Process HA_MH workflow: PARALLEL (Ảnh minh họa)
+        
+        Flow:
+        B1. Sinh mô tả hình ảnh minh họa (illustrative_image.txt)
+        B2. Song song:
+            - Sinh ảnh từ mô tả → lưu local
+            - Câu hỏi đã sinh rồi (passed in)
+        B3. Merge ảnh vào câu hỏi
+        
+        Args:
+            spec: QuestionSpec
+            content: Nội dung SGK
+            questions: Câu hỏi đã sinh (từ QuestionGenerator)
+            
+        Returns:
+            List of questions với ảnh đã merge
+        """
+        if not self.image_workflow_service:
+            print("  ⚠️ ImageWorkflowService not initialized, skipping image generation")
+            return questions
+        
+        try:
+            # B1: Sinh mô tả hình ảnh minh họa
+            print("    Step 1: Generate illustrative image description...")
+            desc_result = self.image_workflow_service.description_service.generate_illustrative_description(
+                subject=spec.lesson_name.split('.')[0] if hasattr(spec, 'lesson_name') else '',
+                class_level=str(spec.chapter_number) if hasattr(spec, 'chapter_number') else '',
+                chapter=str(spec.chapter_number) if hasattr(spec, 'chapter_number') else '',
+                lesson_name=spec.lesson_name if hasattr(spec, 'lesson_name') else '',
+                content=content,
+                learning_outcome=spec.learning_outcome if hasattr(spec, 'learning_outcome') else ''
+            )
+            
+            print(f"    ✓ Description: {desc_result.description[:80]}...")
+            
+            # B2: Song song - sinh ảnh (câu hỏi đã có)
+            print("    Step 2: Generate image (parallel with question already done)...")
+            
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                image_future = executor.submit(
+                    self._generate_and_save_image,
+                    description=desc_result.description,
+                    image_type='HA_MH'
+                )
+                image_result = image_future.result()
+            
+            print(f"    ✓ Image saved: {image_result['image_path']}")
+            
+            # B3: Merge ảnh vào câu hỏi
+            print("    Step 3: Merge image into questions...")
+            merged_questions = self._merge_images_into_questions(
+                questions=questions,
+                images=[image_result],
+                image_description=desc_result.description
+            )
+            
+            print("    ✓ HA_MH workflow completed!")
+            return merged_questions
+            
+        except Exception as e:
+            print(f"    ❌ Error in HA_MH workflow: {e}")
+            print(f"    Continuing with original questions...")
+            return questions
+    
+    def _process_ha_tl_workflow(self, spec, prompt_path: Path, content: str, question_template: str) -> List:
+        """
+        Process HA_TL workflow: SEQUENTIAL (Ảnh tư liệu)
+        
+        Flow:
+        B1. Sinh mô tả hình ảnh chi tiết (data_source_image.txt)
+        B2. Sinh ảnh từ mô tả → lưu local
+        B3. Sinh câu hỏi GỬI KÈM ảnh (QuestionGenerator với ảnh)
+        B4. Merge ảnh vào câu hỏi
+        
+        Args:
+            spec: QuestionSpec
+            prompt_path: Path to prompt template
+            content: Nội dung SGK
+            question_template: Question template string
+            
+        Returns:
+            List of questions với ảnh đã merge
+        """
+        if not self.image_workflow_service:
+            print("  ⚠️ ImageWorkflowService not initialized, using default generation")
+            return self.question_generator.generate_questions_for_spec(
+                spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+        
+        try:
+            # B1: Sinh mô tả hình ảnh CHI TIẾT
+            print("    Step 1: Generate detailed data source description...")
+            desc_result = self.image_workflow_service.description_service.generate_data_source_description(
+                subject=spec.lesson_name.split('.')[0] if hasattr(spec, 'lesson_name') else '',
+                class_level=str(spec.chapter_number) if hasattr(spec, 'chapter_number') else '',
+                chapter=str(spec.chapter_number) if hasattr(spec, 'chapter_number') else '',
+                lesson_name=spec.lesson_name if hasattr(spec, 'lesson_name') else '',
+                content=content,
+                learning_outcome=spec.learning_outcome if hasattr(spec, 'learning_outcome') else ''
+            )
+            
+            print(f"    ✓ Description: {desc_result.description[:80]}...")
+            
+            # B2: Sinh ảnh từ mô tả
+            print("    Step 2: Generate image from description...")
+            image_result = self._generate_and_save_image(
+                description=desc_result.description,
+                image_type='HA_TL'
+            )
+            
+            print(f"    ✓ Image saved: {image_result['image_path']}")
+            
+            # B3: Sinh câu hỏi (KHÔNG gửi image_path vì API không hỗ trợ)
+            # AI sẽ output [IMAGE_PLACEHOLDER] trong schema
+            print("    Step 3: Generate questions (AI will use [IMAGE_PLACEHOLDER])...")
+            questions = self.question_generator.generate_questions_for_spec(
+                spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+            
+            # B4: Merge ảnh vào placeholder
+            print("    Step 4: Merge image into placeholders...")
+            merged_questions = self._merge_images_into_questions(
+                questions=questions,
+                images=[image_result],
+                image_description=desc_result.description
+            )
+            
+            print("    ✓ HA_TL workflow completed!")
+            return merged_questions
+            
+        except Exception as e:
+            print(f"    ❌ Error in HA_TL workflow: {e}")
+            print(f"    Falling back to default generation...")
+            return self.question_generator.generate_questions_for_spec(
+                spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+    
+    def _process_ha_mh_workflow_ds(self, spec, content: str, question) -> Any:
+        """Process HA_MH workflow for DS questions"""
+        if not self.image_workflow_service:
+            return question
+        
+        try:
+            # Similar to TN but for single DS question
+            desc_result = self.image_workflow_service.description_service.generate_illustrative_description(
+                subject='',
+                class_level='',
+                chapter='',
+                lesson_name=spec.lesson_name if hasattr(spec, 'lesson_name') else '',
+                content=content,
+                learning_outcome=''
+            )
+            
+            image_result = self._generate_and_save_image(
+                description=desc_result.description,
+                image_type='HA_MH'
+            )
+            
+            # Merge into single question
+            merged = self._merge_image_into_single_question(
+                question=question,
+                image=image_result,
+                image_description=desc_result.description
+            )
+            
+            return merged
+        except Exception as e:
+            print(f"    ❌ Error in DS HA_MH workflow: {e}")
+            return question
+    
+    def _process_ha_tl_workflow_ds(self, spec, prompt_path: Path, content: str, question_template: str) -> Any:
+        """Process HA_TL workflow for DS questions"""
+        if not self.image_workflow_service:
+            return self.question_generator.generate_true_false_question(
+                tf_spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+        
+        try:
+            # B1: Sinh mô tả
+            desc_result = self.image_workflow_service.description_service.generate_data_source_description(
+                subject='',
+                class_level='',
+                chapter='',
+                lesson_name=spec.lesson_name if hasattr(spec, 'lesson_name') else '',
+                content=content,
+                learning_outcome=''
+            )
+            
+            # B2: Sinh ảnh
+            image_result = self._generate_and_save_image(
+                description=desc_result.description,
+                image_type='HA_TL'
+            )
+            
+            # B3: Sinh câu hỏi (KHÔNG gửi image_path vì API không hỗ trợ)
+            # AI sẽ output [IMAGE_PLACEHOLDER] trong schema
+            question = self.question_generator.generate_true_false_question(
+                tf_spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+            
+            # B4: Merge ảnh vào placeholder
+            merged = self._merge_image_into_single_question(
+                question=question,
+                image=image_result,
+                image_description=desc_result.description
+            )
+            
+            return merged
+        except Exception as e:
+            print(f"    ❌ Error in DS HA_TL workflow: {e}")
+            return self.question_generator.generate_true_false_question(
+                tf_spec=spec,
+                prompt_template_path=str(prompt_path),
+                content=content,
+                question_template=question_template
+            )
+    
+    def _generate_and_save_image(self, description: str, image_type: str) -> Dict[str, Any]:
+        """
+        Generate image và lưu vào local
+        
+        Args:
+            description: Mô tả hình ảnh
+            image_type: 'HA_MH' hoặc 'HA_TL'
+            
+        Returns:
+            Dict với keys: image_path, image_data, description
+        """
+        from ..core.image_generation import ImageGenerator
+        
+        # Initialize ImageGenerator
+        image_gen = ImageGenerator(num_images=1, aspect_ratio="16:9")
+        
+        # Generate image
+        print(f"      Generating {image_type} image...")
+        image_bytes_list = image_gen.generate(
+            prompt=description,
+            num_images=1,
+            aspect_ratio="16:9"
+        )
+        
+        if not image_bytes_list or len(image_bytes_list) == 0:
+            raise Exception("Image generation returned empty")
+        
+        # Save to E:\App\matrixquesgen\server\data\images
+        image_id = str(uuid.uuid4())[:8]
+        
+        if os.getenv('APP_DIR'):
+            images_dir = Path(os.getenv('APP_DIR')) / "server" / "data" / "images"
+        else:
+            images_dir = Path(__file__).parent.parent.parent.parent.parent / "server" / "data" / "images"
+        
+        images_dir.mkdir(parents=True, exist_ok=True)
+        image_path = images_dir / f"{image_type.lower()}_{image_id}.png"
+        
+        # Write image bytes
+        with open(image_path, 'wb') as f:
+            f.write(image_bytes_list[0])
+        
+        return {
+            'image_path': str(image_path),
+            'image_data': image_bytes_list[0],
+            'description': description,
+            'image_type': image_type
+        }
+    
+    def _merge_images_into_questions(self, questions: List, images: List[Dict], image_description: str) -> List:
+        """
+        Merge images vào questions tại vị trí [IMAGE_PLACEHOLDER]
+        
+        Args:
+            questions: List of generated questions
+            images: List of image results
+            image_description: Description của hình ảnh
+            
+        Returns:
+            List of questions với ảnh đã merge
+        """
+        if not images:
+            return questions
+        
+        image_result = images[0]  # Use first image
+        
+        for question in questions:
+            # Merge into question_stem hoặc source_text
+            # QuestionGenerator returns objects with 'question_stem' (TN/TLN) or 'source_text' (DS)
+            if hasattr(question, 'question_stem'):
+                question.question_stem = self._replace_placeholder_in_content(
+                    content_obj=question.question_stem,
+                    image_path=image_result['image_path'],
+                    image_description=image_description
+                )
+            
+            if hasattr(question, 'question') and question.question:
+                question.question = self._replace_placeholder_in_content(
+                    content_obj=question.question,
+                    image_path=image_result['image_path'],
+                    image_description=image_description
+                )
+            
+            if hasattr(question, 'source_text') and question.source_text:
+                question.source_text = self._replace_placeholder_in_content(
+                    content_obj=question.source_text,
+                    image_path=image_result['image_path'],
+                    image_description=image_description
+                )
+        
+        return questions
+    
+    def _merge_image_into_single_question(self, question, image: Dict, image_description: str):
+        """Merge image into a single question (for DS)"""
+        if hasattr(question, 'source_text') and question.source_text:
+            question.source_text = self._replace_placeholder_in_content(
+                content_obj=question.source_text,
+                image_path=image['image_path'],
+                image_description=image_description
+            )
+        return question
+    
+    def _replace_placeholder_in_content(self, content_obj: Any, image_path: str, image_description: str) -> Any:
+        """
+        Replace [IMAGE_PLACEHOLDER] in a content object with actual image
+        
+        Args:
+            content_obj: Content object (dict with type/content or string)
+            image_path: Path to generated image file
+            image_description: Description of the image
+            
+        Returns:
+            Updated content object with image replacing placeholder
+        """
+        # If it's a string, just return it
+        if isinstance(content_obj, str):
+            return content_obj
+        
+        # If it's not a dict, return as is
+        if not isinstance(content_obj, dict):
+            return content_obj
+        
+        content_type = content_obj.get('type')
+        content_data = content_obj.get('content')
+        metadata = content_obj.get('metadata', {})
+        
+        # Only process if content is array (for type='image' or 'mixed')
+        if not isinstance(content_data, list):
+            return content_obj
+        
+        # Convert absolute image path to API URL
+        filename = Path(image_path).name if image_path else None
+        image_url = f"/api/images/file/{filename}" if filename else image_path
+        
+        # Find and replace [IMAGE_PLACEHOLDER]
+        new_content = []
+        for item in content_data:
+            if item == '[IMAGE_PLACEHOLDER]':
+                # Replace with actual image object
+                new_content.append({
+                    "type": "image",
+                    "content": image_url,
+                    "metadata": {
+                        "caption": metadata.get('caption', image_description),
+                        "generated": True,
+                        "description": image_description
+                    }
+                })
+            else:
+                new_content.append(item)
+        
+        # Update content with replaced placeholders
+        content_obj['content'] = new_content
+        return content_obj
     
     def _deduplicate_questions(self, question_set: QuestionSet) -> QuestionSet:
         """

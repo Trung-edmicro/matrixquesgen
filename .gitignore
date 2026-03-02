@@ -10,6 +10,7 @@ __init__.py
 .dist/
 build/
 dist/
+installer/
 
 # Virtual environments
 .venv/
@@ -24,6 +25,7 @@ Thumbs.db
 .env
 data/
 examples/
+docs/
 
 # IDE
 .vscode/
@@ -37,6 +39,7 @@ test_*.txt
 # Additional ignores
 *.log
 *.ps1
+*.iss
 *.bat
 *.spec
 modular_cli.md
@@ -46,4 +49,7 @@ read_matrix.py
 launcher.py
 analyze_structure.py
 debug_rich_types.py
+update.py
+version.py
+export_prompts.py
 
