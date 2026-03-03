@@ -7,7 +7,8 @@ import {
   getGenerationProgress, 
   getSessionDetail,
   exportToDocx,
-  downloadDocx 
+  downloadDocx, 
+  generateQuestionsForEnglish
 } from '../services/api'
 
 // Key để lưu state vào localStorage
@@ -172,6 +173,8 @@ export default function GenerateExamPage() {
       return
     }
 
+    const isEnglishMatrix = matrixData.file.name.startsWith("MATRIX_ENGLISH_");
+
     // Clear data cũ trước khi sinh đề mới
     setGeneratedExam(null)
     setSessionId(null)
@@ -179,77 +182,173 @@ export default function GenerateExamPage() {
     
     setIsGenerating(true)
     setError(null)
+    // setGenerationProgress({
+    //   percentage: 0,
+    //   phase: 'initializing',
+    //   status: 'processing'
+    // })
+    
+    // try {
+    //   // Upload file và bắt đầu generate
+    //   const result = await generateQuestions(matrixData.file, generationConfig, templateDocx?.file, pdfFiles?.files)
+    //   const newSessionId = result.session_id
+    //   setSessionId(newSessionId)
+
+
+
+    //   // Poll progress với exponential backoff
+    //   let pollDelay = 2000 // Bắt đầu với 2s
+    //   const maxDelay = 10000 // Tối đa 10s
+      
+    //   const pollProgress = async () => {
+    //     try {
+    //       const progress = await getGenerationProgress(newSessionId)
+          
+    //       console.log('Progress response:', progress) // Debug log
+          
+    //       // Cập nhật progress state
+    //       setGenerationProgress({
+    //         percentage: progress.progress || 0,
+    //         phase: progress.current_phase || '',
+    //         status: progress.status || 'processing'
+    //       })
+          
+    //       if (progress.status === 'completed') {
+    //         // Load generated questions
+    //         const detail = await getSessionDetail(newSessionId)
+    //         setGeneratedExam(detail)
+    //         setIsGenerating(false)
+    //         setIsDirty(false)
+    //         setGenerationProgress({
+    //           percentage: 0, // Reset to 0% to hide progress bar
+    //           phase: 'completed',
+    //           status: 'completed'
+    //         })
+    //       } else if (progress.status === 'failed') {
+    //         setError(progress.error || 'Lỗi khi sinh câu hỏi')
+    //         setIsGenerating(false)
+    //         setGenerationProgress({
+    //           percentage: 0,
+    //           phase: 'failed',
+    //           status: 'failed'
+    //         })
+    //       } else {
+    //         // Tăng delay dần (exponential backoff)
+    //         pollDelay = Math.min(pollDelay * 1.2, maxDelay)
+    //         setTimeout(pollProgress, pollDelay)
+    //       }
+    //     } catch (err) {
+    //       setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+    //       setIsGenerating(false)
+    //       setGenerationProgress({
+    //         percentage: 0,
+    //         phase: 'error',
+    //         status: 'error'
+    //       })
+    //     }
+    //   }
+      
+    //   // Bắt đầu polling
+    //   setTimeout(pollProgress, pollDelay)
+
+    // } catch (err) {
+    //   console.log(">>>>>>> debug ", err);
+    //   setError('Lỗi khi bắt đầu sinh câu hỏi: ' + err.message)
+    //   setIsGenerating(false)
+    // }
+
+     try {
+    // ================================
+    // 🟢 FLOW MATRIX_ENGLISH_
+    // ================================
+    if (isEnglishMatrix) {
+      console.log("English matrix detected → wait for full response")
+
+      const result = await generateQuestions(
+        matrixData.file,
+        generationConfig,
+        templateDocx?.file,
+        pdfFiles?.files
+      )
+      // const result = generateQuestionsForEnglish(matrixData.file)
+
+      // Backend trả luôn file docx path
+      if (result?.file_path) {
+        const link = document.createElement('a')
+        link.href = result.download_url || result.file_path
+        link.download = result.file_name || "De_Thi_Tieng_Anh.docx"
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        setSuccessMessage('Đã tạo và tải file DOCX thành công')
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        setError(result?.error || "Không nhận được file từ server")
+      }
+
+      setIsGenerating(false)
+      return
+    }
+
+    // ==================================
+    // 🔵 FLOW CŨ - POLL PROGRESS
+    // ==================================
+
     setGenerationProgress({
       percentage: 0,
       phase: 'initializing',
       status: 'processing'
     })
-    
-    try {
-      // Upload file và bắt đầu generate
-      const result = await generateQuestions(matrixData.file, generationConfig, templateDocx?.file, pdfFiles?.files)
-      const newSessionId = result.session_id
-      setSessionId(newSessionId)
 
-      // Poll progress với exponential backoff
-      let pollDelay = 2000 // Bắt đầu với 2s
-      const maxDelay = 10000 // Tối đa 10s
-      
-      const pollProgress = async () => {
-        try {
-          const progress = await getGenerationProgress(newSessionId)
-          
-          console.log('Progress response:', progress) // Debug log
-          
-          // Cập nhật progress state
-          setGenerationProgress({
-            percentage: progress.progress || 0,
-            phase: progress.current_phase || '',
-            status: progress.status || 'processing'
-          })
-          
-          if (progress.status === 'completed') {
-            // Load generated questions
-            const detail = await getSessionDetail(newSessionId)
-            setGeneratedExam(detail)
-            setIsGenerating(false)
-            setIsDirty(false)
-            setGenerationProgress({
-              percentage: 0, // Reset to 0% to hide progress bar
-              phase: 'completed',
-              status: 'completed'
-            })
-          } else if (progress.status === 'failed') {
-            setError(progress.error || 'Lỗi khi sinh câu hỏi')
-            setIsGenerating(false)
-            setGenerationProgress({
-              percentage: 0,
-              phase: 'failed',
-              status: 'failed'
-            })
-          } else {
-            // Tăng delay dần (exponential backoff)
-            pollDelay = Math.min(pollDelay * 1.2, maxDelay)
-            setTimeout(pollProgress, pollDelay)
-          }
-        } catch (err) {
-          setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+    const result = await generateQuestions(
+      matrixData.file,
+      generationConfig,
+      templateDocx?.file,
+      pdfFiles?.files
+    )
+
+    const newSessionId = result.session_id
+    setSessionId(newSessionId)
+
+    let pollDelay = 2000
+    const maxDelay = 10000
+
+    const pollProgress = async () => {
+      try {
+        const progress = await getGenerationProgress(newSessionId)
+
+        setGenerationProgress({
+          percentage: progress.progress || 0,
+          phase: progress.current_phase || '',
+          status: progress.status || 'processing'
+        })
+
+        if (progress.status === 'completed') {
+          const detail = await getSessionDetail(newSessionId)
+          setGeneratedExam(detail)
           setIsGenerating(false)
-          setGenerationProgress({
-            percentage: 0,
-            phase: 'error',
-            status: 'error'
-          })
+          setIsDirty(false)
+        } else if (progress.status === 'failed') {
+          setError(progress.error || 'Lỗi khi sinh câu hỏi')
+          setIsGenerating(false)
+        } else {
+          pollDelay = Math.min(pollDelay * 1.2, maxDelay)
+          setTimeout(pollProgress, pollDelay)
         }
-      }
-      
-      // Bắt đầu polling
-      setTimeout(pollProgress, pollDelay)
 
-    } catch (err) {
-      setError('Lỗi khi bắt đầu sinh câu hỏi: ' + err.message)
-      setIsGenerating(false)
+      } catch (err) {
+        setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+        setIsGenerating(false)
+      }
     }
+
+    setTimeout(pollProgress, pollDelay)
+
+  } catch (err) {
+    setError('Lỗi khi bắt đầu sinh câu hỏi: ' + err.message)
+    setIsGenerating(false)
+  }
   }
 
   const handleTestProgress = () => {
