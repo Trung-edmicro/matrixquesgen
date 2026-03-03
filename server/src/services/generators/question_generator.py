@@ -17,7 +17,7 @@ from ..core.schemas import (
     get_essay_array_schema,
     get_content_schema_by_rich_types
 )
-from .helpers import (
+from services.generators.helpers.chart_generation_helper import (
     get_chart_data_schema,
     build_chart_generation_prompt,
     build_question_with_chart_prompt,
