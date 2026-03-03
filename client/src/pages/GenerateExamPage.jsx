@@ -8,8 +8,8 @@ import {
   getSessionDetail,
   exportToDocx,
   downloadDocx, 
-  generateQuestionsForEnglish
 } from '../services/api'
+import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
@@ -270,6 +270,12 @@ export default function GenerateExamPage() {
         templateDocx?.file,
         pdfFiles?.files
       )
+
+      console.log(">>>>>> debug result")
+
+      if(result?.data) {
+        setGeneratedExam(result)
+      }
       // const result = generateQuestionsForEnglish(matrixData.file)
 
       // Backend trả luôn file docx path
@@ -430,12 +436,24 @@ export default function GenerateExamPage() {
       )}
 
       <div className="flex-1 overflow-hidden">
+        {/* <ExamPreviewPanel 
+          examData={generatedExam}
+          isGenerating={isGenerating}
+          sessionId={sessionId}
+          onDataChange={handleDataChange}
+        /> */}
+        {matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
+        <EnglishExamPreviewPanel
+          examData={generatedExam}
+        />
+      ) : (
         <ExamPreviewPanel 
           examData={generatedExam}
           isGenerating={isGenerating}
           sessionId={sessionId}
           onDataChange={handleDataChange}
         />
+)}
       </div>
     </div>
   )
