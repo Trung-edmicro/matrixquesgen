@@ -99,7 +99,7 @@ function RenderClozeGapRC({ raw, type }) {
       </div>
 
       {/* QUESTIONS */}
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         {parsed.questions.map((line, i) => {
 
           const isQuestion = /^Question\s+\d+/i.test(line)
@@ -110,8 +110,99 @@ function RenderClozeGapRC({ raw, type }) {
             </p>
           )
         })}
-      </div>
+      </div> */}
+ {/* QUESTIONS */}
+    <div className="space-y-4">
+      {(() => {
+        const elements = []
+        let answerBuffer = []
 
+        parsed.questions.forEach((line, i) => {
+          const isQuestion = /^Question\s+\d+/i.test(line)
+          const isAnswer = /^[A-D]\.\s*/.test(line)
+
+          // Nếu là Question
+          if (isQuestion) {
+            // flush đáp án cũ nếu còn
+            if (answerBuffer.length > 0) {
+              elements.push(
+                <div
+                  key={`answers-${i}`}
+                  className="ml-6 flex flex-wrap gap-x-12 gap-y-2 mt-2"
+                >
+                  {answerBuffer.map((ans, idx) => (
+                    <div
+                      key={idx}
+                      className="min-w-[200px] leading-relaxed"
+                    >
+                      {ans}
+                    </div>
+                  ))}
+                </div>
+              )
+              answerBuffer = []
+            }
+
+            elements.push(
+              <p key={i} className="font-bold mt-4">
+                {line}
+              </p>
+            )
+          }
+
+          // Nếu là đáp án
+          else if (isAnswer) {
+            answerBuffer.push(line)
+          }
+
+          // Nếu là dòng thường
+          else {
+            if (answerBuffer.length > 0) {
+              elements.push(
+                <div
+                  key={`answers-${i}`}
+                  className="ml-6 flex flex-wrap gap-x-6 gap-y-2 mt-2"
+                >
+                  {answerBuffer.map((ans, idx) => (
+                    <div
+                      key={idx}
+                      className="min-w-[140px] leading-relaxed"
+                    >
+                      {ans}
+                    </div>
+                  ))}
+                </div>
+              )
+              answerBuffer = []
+            }
+
+            elements.push(<p key={i}>{line}</p>)
+          }
+        })
+
+        // flush cuối
+        if (answerBuffer.length > 0) {
+          elements.push(
+            <div
+              key="answers-last"
+              className="ml-6 flex flex-wrap gap-x-12 gap-y-2 mt-2"
+            >
+              {answerBuffer.map((ans, idx) => (
+                <div
+                  key={idx}
+                  className="min-w-[200px] leading-relaxed"
+                >
+                  {ans}
+                </div>
+              ))}
+            </div>
+          )
+        }
+
+        return elements
+      })()}
+    </div>
+          
       {/* ANSWER KEY */}
       {parsed.answerKey && (
         <div className="mt-6">

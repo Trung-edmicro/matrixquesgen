@@ -3,7 +3,7 @@ import asyncio
 import vertexai
 from vertexai.generative_models._generative_models import _GenerativeModel, Part, GenerationConfig
 from google.api_core import exceptions as google_exceptions
-
+from google.api_core.exceptions import ResourceExhausted
 
 class AsyncVertexClient:
 
@@ -87,7 +87,13 @@ class AsyncVertexClient:
                 parts,
                 generation_config
             )
-
+        except ResourceExhausted as e:
+            # Lỗi 429
+            return {
+                "error": True,
+                "code": 429,
+                "message": "Lỗi máy chủ gặp vấn đề. Bạn vui lòng ấn lại nút Sinh đề"
+            }
         except google_exceptions.InvalidArgument as e:
             raise Exception(f"Vertex InvalidArgument: {e}")
 

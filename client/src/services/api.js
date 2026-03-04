@@ -11,6 +11,42 @@ const api = axios.create({
 
 // Generate questions from matrix file
 export const generateQuestions = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
+  try {
+      const formData = new FormData()
+  formData.append('file', file)
+  
+  // Thêm template DOCX nếu có
+  if (templateDocx) {
+    formData.append('template_docx', templateDocx)
+  }
+  
+  // Thêm PDF files nếu có
+  if (pdfFiles && pdfFiles.length > 0) {
+    for (const pdf of pdfFiles) {
+      formData.append('pdf_files', pdf)
+    }
+  }
+  
+  if (config.max_workers) formData.append('max_workers', config.max_workers)
+  if (config.min_interval) formData.append('min_interval', config.min_interval)
+  if (config.max_retries) formData.append('max_retries', config.max_retries)
+  if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+  const response = await api.post('/api/generate', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+  console.log(">>>>>> debug 1123213 response ", response.data);
+  return response.data
+  }catch(error) {
+    console.log(">>>>>> error", error)
+    throw error;
+  }
+
+}
+
+export const generateQuestionsEnglish = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
   const formData = new FormData()
   formData.append('file', file)
   
@@ -38,6 +74,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   })
   return response.data
 }
+
 
 // Get generation progress
 export const getGenerationProgress = async (sessionId) => {
@@ -70,6 +107,29 @@ export const updateQuestion = async (sessionId, questionType, questionCode, data
 export const exportToDocx = async (sessionId) => {
   const response = await api.post(`/api/export/${sessionId}`)
   return response.data
+}
+
+// export const exportToEnglishDocx = async (
+//   generatedExam,
+//   config
+// ) => {
+//   const response = await api.post(
+//     `/api/export-english/${sessionId}`,
+//     {},
+//     config
+//   )
+
+//   return response
+// }
+
+export const exportToEnglishDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english`,
+    generatedExam,
+    config
+  )
+
+  return response
 }
 
 // Download DOCX

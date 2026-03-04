@@ -90,6 +90,7 @@ class GenerateResponse(BaseModel):
     session_id: str
     status: str
     message: str
+    results: Optional[Any]
 
 
 class SessionListResponse(BaseModel):

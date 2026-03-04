@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from api.routes import generate, questions, export, google_drive, regenerate, images
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
+from api.routes.export import routerEnglish
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +35,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Trong production nên chỉ định cụ thể
     allow_credentials=False,
+    #  allow_origins=[
+    #     "http://localhost:3000",
+    # ],
+    # allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,7 +50,7 @@ app.include_router(questions.router)
 app.include_router(export.router)
 app.include_router(google_drive.router)
 app.include_router(regenerate.router)
-
+app.include_router(routerEnglish)
 # Include new feature routers
 app.include_router(images.router)        # Image generation API
 

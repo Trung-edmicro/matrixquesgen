@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 import pandas as pd
 from collections import defaultdict
 from pathlib import Path
@@ -12,6 +13,10 @@ import html
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+import logging
+from google.api_core.exceptions import ResourceExhausted
+
+logger = logging.getLogger(__name__)
 # ============================
 # CONFIG
 # ============================
@@ -416,8 +421,6 @@ async def generate_exam_docx(blocks, output_path):
 
         elif q_type == "Điền cụm từ/điền câu":
 
-            print(f">>>>> debug prompt template {prompt_template}" )
-
             output_questions = "".join(
                 [f"Question {q_count+j}:\nA. ... B. ... C. ... D. ...\n"
                  for j in range(n_q)]
@@ -451,25 +454,20 @@ async def generate_exam_docx(blocks, output_path):
             block_meta.append(("GAP", topic))
             q_count += n_q
 
-    # ===================================
-    # 🔥 CALL AI SONG SONG
-    # ===================================
 
-    responses = await asyncio.gather(*tasks)
+    # semaphore = asyncio.Semaphore(3) 
+    # async def limited_generate(task):
+    #     async with semaphore:
+    #         return await task
 
+    # tasks = [limited_generate(t) for t in tasks]
+
+    responses = await asyncio.gather(*tasks, return_exceptions= True)
     
-    print(f">>>>>> debug 1232132 response {responses}")
+    # print(f">>>>>> debug 1232132 response {responses}")
 
     results = []
 
-    # ===================================
-    # WRITE DOCX
-    # ===================================
-
-    # for (block_type, topic), response_text in zip(block_meta, responses):
-    #     doc.add_heading(f"{block_type} - {topic}", level=2)
-    #     doc.add_paragraph(response_text)
-    #     doc.add_page_break()
     for (block_type, topic), response_text in zip(block_meta, responses):
         results.append({
             "type": block_type,
@@ -479,6 +477,8 @@ async def generate_exam_docx(blocks, output_path):
 
     # doc.save(output_path)
     generate_docx_from_ai_results(results,output_path)
+
+    return results
 
 
 def generate_docx_from_ai_results(results, output_path):
@@ -506,6 +506,54 @@ def generate_docx_from_ai_results(results, output_path):
 
     doc.save(output_path)
 
+
+def export_docx_from_data(json_data, output_path):
+    """
+    Nhận trực tiếp JSON object (dict)
+    Lấy key 'results'
+    Render docx giống generate_docx_from_ai_results
+    """
+
+    # 1️⃣ Lấy results từ JSON
+    results = json_data.get("results")
+
+    if not results:
+        raise Exception("No 'results' found in JSON")
+
+    # 2️⃣ Tạo document
+    doc = Document()
+    _apply_default_style(doc)
+
+    # 3️⃣ Render từng block
+    for res in results:
+
+        _add_instruction(doc, res)
+
+        raw = res.get("data") or ""
+        res_type = res.get("type")
+
+        if res_type == "CLOZE":
+            _render_cloze_or_gap(doc, raw, merge_options=True)
+
+        elif res_type == "GAP":
+            _render_cloze_or_gap(doc, raw, merge_options=False)
+
+        elif res_type == "RC":
+            _render_cloze_or_gap(doc, raw, merge_options=False)
+
+        elif res_type == "ARRANGE":
+            _render_arrange(doc, raw)
+
+        else:
+            print("⚠ Unknown type:", res_type)
+            continue
+
+        _add_separator(doc)
+
+    # 4️⃣ Save file
+    doc.save(output_path)
+
+    return output_path
 
 # =========================================================
 # STYLE
@@ -686,21 +734,6 @@ def merge_options_single_line(lines):
     return merged
 
 
-# =========================================================
-# COMMON HELPERS (GIỮ NGUYÊN)
-# =========================================================
-
-# def add_text_with_markdown_bold(paragraph, text):
-#     parts = re.split(r"(\*\*.*?\*\*)", text)
-#     for part in parts:
-#         if not part:
-#             continue
-#         if part.startswith("**") and part.endswith("**"):
-#             run = paragraph.add_run(part[2:-2])
-#             run.bold = True
-#         else:
-#             paragraph.add_run(part)
-
 def add_text_with_markdown_bold(paragraph, text):
     clean_text = (text or "").replace("**", "")
     paragraph.add_run(clean_text)
@@ -852,21 +885,48 @@ def merge_options_single_line(lines):
 # ============================
 
 async def generate_english_flow(file):
-
     session_id = str(uuid.uuid4())
     excel_path = UPLOAD_DIR / f"{session_id}_{file.filename}"
-
-    with open(excel_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    blocks = extract_blocks_from_excel(str(excel_path))
-
     output_path = OUTPUT_DIR / f"ENGLISH_EXAM_{session_id}.docx"
 
-    await generate_exam_docx(blocks, str(output_path))
+    try:
+        # Save uploaded file
+        with open(excel_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    return FileResponse(
-        path=output_path,
-        filename=output_path.name,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+        # Extract blocks
+        blocks = extract_blocks_from_excel(str(excel_path))
+
+        # Generate docx
+        results = await generate_exam_docx(blocks, str(output_path))
+
+        # Optional: return file directly
+        # FileResponse(
+        #     path=output_path,
+        #     filename=output_path.name,
+        #     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        # )
+
+        FileResponse(
+            path=str(output_path),
+            filename=f"ENGLISH_EXAM_{session_id}.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+
+        return {
+            "session_id": session_id,
+            "status": "success",
+            "message": "Generate English exam successfully",
+            "results": results
+        }
+
+
+    except Exception as e:
+        logger.exception("Error while generating English exam")
+        
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate English exam: {str(e)}"
+        )
