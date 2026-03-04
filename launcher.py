@@ -30,6 +30,20 @@ os.environ['DATA_DIR'] = str(APP_DIR / "data")
 os.environ['BASE_DIR'] = str(BASE_DIR)
 os.environ['APP_DIR'] = str(APP_DIR)
 
+# Fix Playwright Chromium path when running as frozen .exe
+# Playwright resolves browser paths relative to its own __file__, which in a
+# frozen app points to _MEIPASS (wrong). PLAYWRIGHT_BROWSERS_PATH overrides this.
+if getattr(sys, 'frozen', False):
+    localappdata = os.environ.get('LOCALAPPDATA', '') or str(Path.home() / 'AppData' / 'Local')
+    pw_browsers = Path(localappdata) / 'ms-playwright'
+    if pw_browsers.exists():
+        os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', str(pw_browsers))
+        print(f'✓ Playwright browsers path: {pw_browsers}')
+    else:
+        print(f'⚠ Playwright browsers not found at {pw_browsers}')
+        print('  Chart rendering in DOCX will be disabled.')
+        print('  Run install_playwright.bat to enable chart rendering.')
+
 # Import update module if running as exe
 if getattr(sys, 'frozen', False):
     try:
@@ -73,18 +87,7 @@ def main():
     logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
     logger.info("="*60)
     
-    # Check for updates if running as exe
-    if getattr(sys, 'frozen', False):
-        try:
-            logger.info("Checking for updates...")
-            print("→ Đang kiểm tra cập nhật...")
-            if update.check_and_update():
-                logger.info("Update initiated, exiting current instance")
-                return  # Exit to allow update
-        except Exception as e:
-            logger.warning(f"Update check failed: {e}")
-            print(f"⚠ Kiểm tra cập nhật thất bại: {e}")
-    
+    # Update check is done on-demand via Settings page (not at startup)
     print("=" * 60)
     print(" MatrixQuesGen - Hệ thống sinh câu hỏi tự động")
     print("=" * 60)
@@ -132,6 +135,7 @@ def main():
         # Import routes
         try:
             from api.routes import generate, questions, export, regenerate, google_drive, images
+            from api.routes import update as update_route
             print("✓ Đã import routes thành công")
         except Exception as e:
             print(f"✗ Lỗi khi import routes: {e}")
@@ -194,6 +198,8 @@ def main():
             print("✓ Đã mount google_drive router")
             app.include_router(images.router)
             print("✓ Đã mount images router")
+            app.include_router(update_route.router)
+            print("✓ Đã mount update router")
         except Exception as e:
             print(f"✗ Lỗi khi mount routers: {e}")
             import traceback

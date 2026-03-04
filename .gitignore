@@ -38,18 +38,14 @@ test_*.txt
 
 # Additional ignores
 *.log
-*.ps1
-*.iss
-*.bat
-*.spec
+package.ps1
+install_playwright.bat
+install_playwright.ps1
 modular_cli.md
 tray_icon.py
 create_icon.py
 read_matrix.py
-launcher.py
 analyze_structure.py
 debug_rich_types.py
-update.py
-version.py
 export_prompts.py
 

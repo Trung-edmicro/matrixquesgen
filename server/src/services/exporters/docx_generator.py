@@ -323,7 +323,7 @@ class DocxGenerator:
                 if item_type == 'table':
                     # Add line break before table
                     para.add_run('\n')
-                    self._add_inline_table(item.get('content', {}))
+                    self._add_inline_table(item.get('content', {}), item.get('metadata', {}))
                     
                 elif item_type == 'chart':
                     # Add line break before chart
@@ -382,7 +382,7 @@ class DocxGenerator:
                 elif isinstance(item, dict):
                     item_type = item.get('type', '')
                     if item_type == 'table':
-                        self._add_inline_table(item.get('content', {}))
+                        self._add_inline_table(item.get('content', {}), item.get('metadata', {}))
                     elif item_type == 'chart':
                         self._add_inline_chart(item.get('content', {}))
                     elif item_type == 'image':
@@ -394,7 +394,7 @@ class DocxGenerator:
             # Fallback for non-list content
             self._add_text_with_math(para, str(content))
 
-    def _add_inline_table(self, table_data: Dict):
+    def _add_inline_table(self, table_data: Dict, metadata: Dict = None):
         """Thêm bảng inline vào document"""
         if not table_data:
             return
@@ -404,6 +404,18 @@ class DocxGenerator:
         
         if not headers or not rows:
             return
+        
+        # Caption trên bảng
+        meta = metadata if metadata else table_data.get('metadata', {})
+        caption = meta.get('caption', '')
+        source = meta.get('source', '')
+        
+        if caption:
+            para = self.document.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = para.add_run(caption)
+            run.bold = True
+            run.font.size = Pt(10)
         
         # Tạo bảng với border đơn giản, không tô màu
         table = self.document.add_table(rows=1, cols=len(headers))
@@ -434,21 +446,10 @@ class DocxGenerator:
                     for run in cell_para.runs:
                         run.font.size = Pt(11)
         
-        # Thêm caption nếu có
-        metadata = table_data.get('metadata', {})
-        caption = metadata.get('caption', '')
-        source = metadata.get('source', '')
-        
-        if caption:
-            para = self.document.add_paragraph()
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = para.add_run(caption)
-            run.italic = True
-            run.font.size = Pt(10)
-        
+        # Source ở dưới bảng, căn phải
         if source:
             para = self.document.add_paragraph()
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             run = para.add_run(f"(Nguồn: {source})")
             run.italic = True
             run.font.size = Pt(10)
@@ -550,13 +551,27 @@ class DocxGenerator:
             if 'animation' not in echarts_config:
                 echarts_config['animation'] = False
             
+            # Resolve local echarts.min.js (bundled with app to avoid CDN dependency)
+            _here = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
+            _echarts_candidates = [
+                Path(__file__).parent / 'echarts.min.js',       # dev: same dir
+                _here / 'server' / 'src' / 'services' / 'exporters' / 'echarts.min.js',  # frozen
+            ]
+            _echarts_script_tag = '<script src="https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"></script>'
+            for _p in _echarts_candidates:
+                if _p.exists():
+                    with open(_p, 'r', encoding='utf-8') as _f:
+                        _echarts_js = _f.read()
+                    _echarts_script_tag = f'<script>{_echarts_js}</script>'
+                    break
+
             # Tạo HTML chứa ECharts với animation tắt
             html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js"></script>
+    {_echarts_script_tag}
     <style>
         body {{ margin: 0; padding: 30px; background: white; }}
         #chart {{ width: 900px; height: 850px; }}
@@ -592,7 +607,27 @@ class DocxGenerator:
                 try:
                     # Sử dụng Playwright để render (trong thread riêng để tránh xung đột với asyncio)
                     with sync_playwright() as p:
-                        browser = p.chromium.launch(headless=True)
+                        # Thử theo thứ tự ưu tiên:
+                        # 1. Playwright Chromium (cần PLAYWRIGHT_BROWSERS_PATH đúng)
+                        # 2. System Chrome (phổ biến trên máy user)
+                        # 3. System Edge (Windows built-in)
+                        browser = None
+                        last_err = None
+                        for launch_kwargs in [
+                            {},                          # playwright's own chromium
+                            {'channel': 'chrome'},       # system Chrome
+                            {'channel': 'msedge'},       # system Edge
+                        ]:
+                            try:
+                                browser = p.chromium.launch(headless=True, **launch_kwargs)
+                                break
+                            except Exception as e:
+                                last_err = e
+                                continue
+                        
+                        if browser is None:
+                            raise Exception(f"Cannot launch any browser. Last error: {last_err}")
+                        
                         # Tăng viewport để đủ chứa chart + padding (900x850 + 60px padding = 960x910)
                         # Set deviceScaleFactor = 2 để ảnh sắc nét hơn (Retina-quality)
                         page = browser.new_page(
@@ -962,7 +997,7 @@ class DocxGenerator:
                     elif isinstance(item, dict):
                         item_type = item.get('type', '')
                         if item_type == 'table':
-                            self._add_inline_table(item.get('content', {}))
+                            self._add_inline_table(item.get('content', {}), item.get('metadata', {}))
                         elif item_type == 'image':
                             caption = item.get('metadata', {}).get('caption', '')
                             para = self.document.add_paragraph()
@@ -1104,6 +1139,19 @@ class DocxGenerator:
             question_stem = question.get('question_stem', '')
             self._render_question_stem(para, question_stem)
             
+            # Sub-questions (a, b, ...)
+            explanation = question.get('explanation', {})
+            sub_questions = []
+            if isinstance(explanation, dict):
+                sub_questions = explanation.get('sub_questions', [])
+            if sub_questions:
+                for sub in sub_questions:
+                    label = sub.get('label', '')
+                    sub_para = self.document.add_paragraph()
+                    run_label = sub_para.add_run(f"{label}) ")
+                    run_label.bold = True
+                    self._render_question_stem(sub_para, sub.get('question_stem', ''))
+            
         except Exception as e:
             print(f"Error in _add_tl_question {number}: {e}")
             print(f"Question data: {question}")
@@ -1126,14 +1174,58 @@ class DocxGenerator:
         # Hướng dẫn chấm điểm
         explanation = question.get('explanation', '')
         if explanation:
-            para_exp = self.document.add_paragraph()
-            run_exp = para_exp.add_run("Hướng dẫn chấm điểm: ")
-            run_exp.bold = True
-            para_exp2 = self.document.add_paragraph()
-            self._add_text_with_math(para_exp2, str(explanation))
+            if isinstance(explanation, dict):
+                sub_questions = explanation.get('sub_questions', [])
+                if sub_questions:
+                    # Multi-sub-question answer
+                    para_hd = self.document.add_paragraph()
+                    para_hd.add_run('Hướng dẫn chấm điểm:').bold = True
+                    for sub in sub_questions:
+                        label = sub.get('label', '')
+                        para_sub = self.document.add_paragraph()
+                        run_sub_label = para_sub.add_run(f'{label}) ')
+                        run_sub_label.bold = True
+                        as_dict = sub.get('answer_structure', {})
+                        if isinstance(as_dict, dict):
+                            parts = []
+                            if as_dict.get('intro'):
+                                parts.append(f"Mở đầu: {as_dict['intro']}")
+                            if as_dict.get('body'):
+                                parts.append(f"Nội dung: {as_dict['body']}")
+                            if as_dict.get('conclusion'):
+                                parts.append(f"Kết luận: {as_dict['conclusion']}")
+                            for part in parts:
+                                p = self.document.add_paragraph(style='List Bullet')
+                                self._add_text_with_math(p, part)
+                        sub_exp = sub.get('explanation', '')
+                        if sub_exp:
+                            p_exp = self.document.add_paragraph()
+                            p_exp.add_run('Giải thích: ').italic = True
+                            self._add_text_with_math(p_exp, str(sub_exp))
+                else:
+                    # Single answer_structure
+                    para_exp = self.document.add_paragraph()
+                    para_exp.add_run('Hướng dẫn chấm điểm:').bold = True
+                    as_dict = explanation.get('answer_structure', {})
+                    if isinstance(as_dict, dict):
+                        parts = []
+                        if as_dict.get('intro'):
+                            parts.append(f"Mở đầu: {as_dict['intro']}")
+                        if as_dict.get('body'):
+                            parts.append(f"Nội dung: {as_dict['body']}")
+                        if as_dict.get('conclusion'):
+                            parts.append(f"Kết luận: {as_dict['conclusion']}")
+                        for part in parts:
+                            p = self.document.add_paragraph(style='List Bullet')
+                            self._add_text_with_math(p, part)
+            else:
+                para_exp = self.document.add_paragraph()
+                run_exp = para_exp.add_run('Hướng dẫn chấm điểm: ')
+                run_exp.bold = True
+                para_exp2 = self.document.add_paragraph()
+                self._add_text_with_math(para_exp2, str(explanation))
         
-        self.add_paragraph("")
-    
+        self.add_paragraph("")    
     def _add_tln_question(self, question: Dict, number: int):
         """Thêm câu hỏi trắc nghiệm luận (trả lời ngắn)"""
         try:

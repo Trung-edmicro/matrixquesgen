@@ -690,15 +690,17 @@ def merge_chart_into_question(
     if not isinstance(content, list):
         return question_data
     
-    # Tìm và merge chart
+    # Tìm và merge chart vào placeholder đã có
+    charts_merged = set()  # track which chart_ids were merged
     for idx, item in enumerate(content):
         if isinstance(item, dict) and item.get('type') == 'chart':
-            # Lấy chart_id (nếu AI trả về) hoặc dùng chart đầu tiên
+            # Lấy chart_id (nếu AI trả về) hoặc dùng chart đầu tiên chưa dùng
             chart_id = item.get('chart_id')
             
             if not chart_id and charts_map:
-                # Fallback: lấy chart đầu tiên
-                chart_id = list(charts_map.keys())[0]
+                # Fallback: lấy chart đầu tiên chưa được merge
+                remaining = [k for k in charts_map if k not in charts_merged]
+                chart_id = remaining[0] if remaining else list(charts_map.keys())[0]
             
             if chart_id and chart_id in charts_map:
                 chart_data = charts_map[chart_id]
@@ -713,17 +715,37 @@ def merge_chart_into_question(
                 }
                 # Thêm metadata nếu chưa có
                 if 'metadata' not in item:
-                    # Tính height phù hợp dựa trên grid.bottom
-                    grid_bottom = echarts.get('grid', {}).get('bottom', 174)
-                    # Height = grid_bottom + grid_area + grid_top + title_area
-                    # Ước tính: grid_bottom (~174) + grid_area (~450) + grid_top (~50) + title (~20)
                     chart_height = 850  # Tăng chiều cao để hiển thị rõ ràng hơn
-                    
                     item['metadata'] = {
                         'caption': chart_data.get('title'),
                         'width': 900,
                         'height': chart_height
                     }
+                charts_merged.add(chart_id)
+
+    # ✨ FALLBACK: AI không sinh chart placeholder → force-inject toàn bộ charts từ charts_map
+    # Xảy ra khi AI bỏ qua lệnh "dùng chart_id" và chỉ viết text
+    if charts_map and not charts_merged:
+        # Tìm vị trí inject: sau text đầu tiên nếu có, nếu không thì đầu array
+        insert_pos = 1 if content and isinstance(content[0], str) else 0
+        for chart_id, chart_data in charts_map.items():
+            echarts = apply_layout(chart_data.get('echarts', {}))
+            chart_item = {
+                'type': 'chart',
+                'chart_id': chart_id,
+                'content': {
+                    'chartType': chart_data.get('chartType'),
+                    'echarts': echarts
+                },
+                'metadata': {
+                    'caption': chart_data.get('title'),
+                    'width': 900,
+                    'height': 850
+                }
+            }
+            content.insert(insert_pos, chart_item)
+            insert_pos += 1  # inject each subsequent chart after the previous
+            print(f"   ⚡ Force-injected chart '{chart_id}' into question (AI skipped placeholder)")
     
     return question_data
 

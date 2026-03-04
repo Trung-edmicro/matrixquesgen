@@ -214,6 +214,22 @@ class QuestionGenerationService:
                     tn_prompt_path = str(self.prompts_dir / "TN.txt")
                     print(f"✓ Using TN.txt for QuestionGenerator init")
                 
+                if not tn_prompt_path:
+                    # Fallback: try tier-specific TN files (3-tier prompt system)
+                    for tier_name in ("TN_NB.txt", "TN_TH.txt", "TN_VD.txt"):
+                        candidate = self.prompts_dir / tier_name
+                        if candidate.exists():
+                            tn_prompt_path = str(candidate)
+                            print(f"✓ Using {tier_name} as fallback for QuestionGenerator init")
+                            break
+
+                if not tn_prompt_path:
+                    # Last resort: any .txt file in prompts_dir
+                    txts = sorted(self.prompts_dir.glob("*.txt"))
+                    if txts:
+                        tn_prompt_path = str(txts[0])
+                        print(f"✓ Using {txts[0].name} as last-resort fallback for QuestionGenerator init")
+
                 if tn_prompt_path:
                     self.question_generator = QuestionGenerator(
                         ai_client=self.genai_client,
@@ -229,77 +245,52 @@ class QuestionGenerationService:
             except Exception as e:
                 print(f"❌ Failed to initialize QuestionGenerator: {e}")
 
-    def _get_prompt_path(self, question_type: str, rich_content_types: Optional[Dict[str, Any]] = None) -> Path:
+    def _get_prompt_path(self, question_type: str, rich_content_types: Optional[Dict[str, Any]] = None,
+                         cognitive_level: str = "") -> Path:
         """
         Get prompt template path with type-specific fallback logic
-        
-        Args:
-            question_type: Question type (TN, DS, TLN, TL)
-            rich_content_types: Dict of rich content types from question spec
-            
-        Returns:
-            Path to prompt template file
-            
-        Logic:
-            1. If rich_content_types exists, extract primary type code (first key)
-            2. Try {question_type}_{type_code}.txt (e.g., TN_TT.txt, TLN_LT.txt)
-            3. If not found, fallback to {question_type}.txt
-            4. For TN type, also check TN2.txt before TN.txt
+
+        Priority order:
+            1. {QTYPE}_{type_code}.txt      (e.g. TN_BD.txt  – rich content tier-1)
+            2. {QTYPE}_{LEVEL}.txt          (e.g. TN_NB.txt  – cognitive level tier-2)
+            3. {QTYPE}2.txt / {QTYPE}.txt   (e.g. TN2.txt / TN.txt – generic)
         """
-        # Default fallback to generic prompt
-        generic_prompt = self.prompts_dir / f"{question_type}.txt"
-        
-        # For TN, prioritize TN2.txt over TN.txt
-        if question_type == "TN":
-            if (self.prompts_dir / "TN2.txt").exists():
-                generic_prompt = self.prompts_dir / "TN2.txt"
-        
-        # If no rich content types, use generic prompt
-        if not rich_content_types or not isinstance(rich_content_types, dict):
-            return generic_prompt
-        
-        # Extract primary type code from the structure: {"C1": [{"code": "LT", ...}], ...}
-        try:
-            # Get first question code key (e.g., "C1", "C2")
-            question_code_key = next(iter(rich_content_types.keys()))
-            
-            # Get the array of type objects
-            type_array = rich_content_types[question_code_key]
-            
-            # Validate it's a list with at least one element
-            if not isinstance(type_array, list) or len(type_array) == 0:
-                print(f"  ⚠️ rich_content_types['{question_code_key}'] is not a valid array")
-                return generic_prompt
-            
-            # Extract the 'code' field from first element (e.g., "LT", "TT", "BD")
-            type_obj = type_array[0]
-            if not isinstance(type_obj, dict) or 'code' not in type_obj:
-                print(f"  ⚠️ Type object missing 'code' field: {type_obj}")
-                return generic_prompt
-            
-            type_code = type_obj['code']
-            
-            # Try full type code first (e.g., HA_MH, HA_TL)
-            # This allows separate prompts for TN_HA_MH.txt and TN_HA_TL.txt
-            type_specific_prompt = self.prompts_dir / f"{question_type}_{type_code}.txt"
-            
-            if type_specific_prompt.exists():
-                return type_specific_prompt
-            
-            # Fallback: Try with stripped suffix (e.g., HA_MH → HA)
-            if '_' in type_code:
-                primary_type = type_code.split('_')[0]
-                type_specific_prompt = self.prompts_dir / f"{question_type}_{primary_type}.txt"
-            
-            if type_specific_prompt.exists():
-                return type_specific_prompt
-            else:
-                # Fallback to generic prompt if type-specific not found
-                return generic_prompt
-                
-        except (StopIteration, AttributeError, KeyError, IndexError, TypeError) as e:
-            print(f"  ⚠️ Could not extract type code from rich_content_types: {e}")
-            return generic_prompt
+        # Generic fallback — TN prefers TN2.txt
+        if question_type == "TN" and (self.prompts_dir / "TN2.txt").exists():
+            generic_prompt = self.prompts_dir / "TN2.txt"
+        else:
+            generic_prompt = self.prompts_dir / f"{question_type}.txt"
+
+        # ── Priority 1: rich-content type-specific file ───────────────────
+        if rich_content_types and isinstance(rich_content_types, dict):
+            try:
+                question_code_key = next(iter(rich_content_types.keys()))
+                type_array = rich_content_types[question_code_key]
+                if isinstance(type_array, list) and len(type_array) > 0:
+                    type_obj = type_array[0]
+                    if isinstance(type_obj, dict) and 'code' in type_obj:
+                        type_code = type_obj['code']
+                        # Full code (e.g. TN_HA_MH.txt)
+                        candidate = self.prompts_dir / f"{question_type}_{type_code}.txt"
+                        if candidate.exists():
+                            return candidate
+                        # Stripped suffix (e.g. TN_HA.txt)
+                        if '_' in type_code:
+                            primary_type = type_code.split('_')[0]
+                            candidate = self.prompts_dir / f"{question_type}_{primary_type}.txt"
+                            if candidate.exists():
+                                return candidate
+            except (StopIteration, AttributeError, KeyError, IndexError, TypeError) as e:
+                print(f"  ⚠️ Could not extract type code from rich_content_types: {e}")
+
+        # ── Priority 2: cognitive-level tier-2 file (e.g. TN_NB.txt) ────
+        if cognitive_level:
+            level_candidate = self.prompts_dir / f"{question_type}_{cognitive_level}.txt"
+            if level_candidate.exists():
+                return level_candidate
+
+        # ── Priority 3: generic fallback ─────────────────────────────────
+        return generic_prompt
     
     def _has_image_requirements(self, spec) -> Optional[str]:
         """
@@ -460,15 +451,26 @@ class QuestionGenerationService:
             return None
     
     def check_prompt_availability(self, question_types: List[str]) -> Dict[str, bool]:
-        """Check which prompt templates are available
-        
-        Returns:
-            Dict mapping question type to availability (True/False)
+        """Check which prompt templates are available.
+
+        A question type is considered available if ANY of the following exist:
+          - {QTYPE}.txt          (e.g. TN.txt  — flat/legacy)
+          - {QTYPE}2.txt         (e.g. TN2.txt — alternative)
+          - {QTYPE}_*.txt        (e.g. TN_NB.txt — 3-tier)
         """
         availability = {}
         for q_type in question_types:
-            prompt_file = self.prompts_dir / f"{q_type}.txt"
-            availability[q_type] = prompt_file.exists()
+            # Flat file
+            if (self.prompts_dir / f"{q_type}.txt").exists():
+                availability[q_type] = True
+            # Alternative file (e.g. TN2.txt)
+            elif (self.prompts_dir / f"{q_type}2.txt").exists():
+                availability[q_type] = True
+            # Any tier-based file (e.g. TN_NB.txt, TL_VD.txt)
+            elif any(self.prompts_dir.glob(f"{q_type}_*.txt")):
+                availability[q_type] = True
+            else:
+                availability[q_type] = False
         return availability
 
     def generate_questions(self, content: str, subject: str, grade: str,
@@ -642,17 +644,20 @@ class QuestionGenerationService:
                     'explanation': q_dict.get('explanation', q.explanation)
                 })
             elif q.type == "TL":
-                tl_questions.append({
+                _tl_exp = q_dict.get('explanation', q.explanation)
+                _tl_sub = _tl_exp.get('sub_questions') if isinstance(_tl_exp, dict) else None
+                _tl_entry = {
                     'question_code': q_dict.get('question_code', q.id.split('_')[-1]),
                     'question_type': q.type,
                     'lesson_name': q.lesson_name,
                     'level': q.difficulty,
-                    'lesson_name': q.lesson_name,
-                    'level': q.difficulty,
                     'question_stem': q_dict.get('question_stem', q.question),
                     'correct_answer': q_dict.get('correct_answer', q.correct_answer),
-                    'explanation': q_dict.get('explanation', q.explanation)
-                })
+                    'explanation': _tl_exp,
+                }
+                if _tl_sub:
+                    _tl_entry['sub_questions'] = _tl_sub
+                tl_questions.append(_tl_entry)
 
         set_dict = {
             'metadata': {
@@ -939,6 +944,62 @@ class QuestionGenerationService:
                     except Exception as e:
                         print(f"❌ Failed {task['type']} task for lesson {task['chapter']}.{task['lesson']}: {e}", flush=True)
 
+            # ── Merge TL sub-questions split across multiple levels ───────────
+            # When sub-items (a, b, c) come from different cognitive-level rows
+            # (e.g. C2a at TH, C2b at VD), phase4 generates them as separate
+            # GeneratedEssayQuestion objects.  Reunite them into one question
+            # per code so the output has a single C2 with all sub_questions.
+            merged_all_questions = []
+            tl_by_key: Dict = {}  # (chapter, lesson, code) -> GeneratedEssayQuestion
+            LEVEL_ORDER = {'NB': 0, 'TH': 1, 'VD': 2, 'VDC': 3}
+
+            for gen_q in all_questions:
+                is_tl = (
+                    getattr(gen_q, 'question_type_main', None) == 'TL'
+                    or getattr(gen_q, 'question_type', None) == 'TL'
+                )
+                has_sub = bool(getattr(gen_q, 'sub_questions', None))
+
+                if is_tl and has_sub:
+                    key = (
+                        getattr(gen_q, 'chapter_number', 0),
+                        getattr(gen_q, 'lesson_number', 0),
+                        gen_q.question_code,
+                    )
+                    if key in tl_by_key:
+                        existing = tl_by_key[key]
+                        # Append new sub_questions (preserving order a → b → c)
+                        existing.sub_questions = (existing.sub_questions or []) + (gen_q.sub_questions or [])
+                        # Upgrade cognitive level to the higher one
+                        existing_ord = LEVEL_ORDER.get(existing.level, 0)
+                        new_ord = LEVEL_ORDER.get(gen_q.level, 0)
+                        if new_ord > existing_ord:
+                            existing.level = gen_q.level
+                    else:
+                        tl_by_key[key] = gen_q
+                else:
+                    merged_all_questions.append(gen_q)
+
+            # Add merged TL questions (preserving original order by first-seen)
+            for gen_q in all_questions:
+                is_tl = (
+                    getattr(gen_q, 'question_type_main', None) == 'TL'
+                    or getattr(gen_q, 'question_type', None) == 'TL'
+                )
+                has_sub = bool(getattr(gen_q, 'sub_questions', None))
+                if is_tl and has_sub:
+                    key = (
+                        getattr(gen_q, 'chapter_number', 0),
+                        getattr(gen_q, 'lesson_number', 0),
+                        gen_q.question_code,
+                    )
+                    merged = tl_by_key.pop(key, None)
+                    if merged is not None:  # only add once (pop removes it)
+                        merged_all_questions.append(merged)
+
+            all_questions = merged_all_questions
+            # ── End TL merge ─────────────────────────────────────────────────
+
             # Convert to GeneratedQuestion format
             questions = []
             for gen_q in all_questions:
@@ -970,16 +1031,20 @@ class QuestionGenerationService:
                     )
                 elif gen_q.question_type == "TL" or getattr(gen_q, 'question_type_main', None) == "TL":  # TL (Essay) question
                     # Convert TL to standard format - store full essay structure
+                    _tl_sub_questions = getattr(gen_q, 'sub_questions', None)
+                    _tl_explanation: Dict = {
+                        "question_type": gen_q.question_type,
+                        "answer_structure": gen_q.answer_structure,
+                    }
+                    if _tl_sub_questions:
+                        _tl_explanation["sub_questions"] = _tl_sub_questions
                     question = GeneratedQuestion(
                         id=f"{matrix_data['metadata']['subject']}_{matrix_data['metadata']['grade']}_{gen_q.chapter_number}_{gen_q.lesson_number}_TL_{gen_q.question_code}",
                         type="TL",
                         question=gen_q.question_stem,
                         options=None,  # TL has no options
                         correct_answer="",  # TL has no fixed answer
-                        explanation={
-                            "question_type": gen_q.question_type,
-                            "answer_structure": gen_q.answer_structure
-                        },
+                        explanation=_tl_explanation,
                         difficulty=gen_q.level,
                         subject=matrix_data['metadata']['subject'],
                         grade=matrix_data['metadata']['grade'],
@@ -1045,8 +1110,7 @@ class QuestionGenerationService:
                 elif q_type == 'DS':
                     ds_specs = lesson_data.get('DS', [])
                     for ds_spec in ds_specs:
-                        expected_counts['DS'] += 1
-                        # Track DS question code
+                        # Track DS question code (set deduplicates cross-lesson splits)
                         code = ds_spec.get('question_code', '')
                         if code:
                             expected_codes['DS'].add(code)
@@ -1069,6 +1133,12 @@ class QuestionGenerationService:
                             for code in spec.get('code', []):
                                 expected_codes['TL'].add(code)
         
+        # DS expected = unique question_codes (cross-lesson splits count as 1 question)
+        expected_counts['DS'] = len(expected_codes['DS'])
+
+        # TL expected = unique question_codes (sub-items a/b share same code and are merged into 1 question)
+        expected_counts['TL'] = len(expected_codes['TL'])
+
         # Count generated questions AND track generated codes
         generated_counts = {
             'TN': len([q for q in question_set.questions if q.type == 'TN']),
@@ -1406,7 +1476,7 @@ class QuestionGenerationService:
                                 supplementary_material=supplementary,
                                 rich_content_types=single_rich_types
                             )
-                            single_prompt_path = self._get_prompt_path("TN", single_rich_types)
+                            single_prompt_path = self._get_prompt_path("TN", single_rich_types, cognitive_level=level)
                             print(f"  → TN {code}: Using prompt {single_prompt_path.name}")
                             image_type = self._has_image_requirements(spec_single)
                             if image_type == 'HA_TL':
@@ -1456,7 +1526,7 @@ class QuestionGenerationService:
                         )
 
                         # Get prompt path with type-specific fallback
-                        prompt_path = self._get_prompt_path("TN", rich_content_types)
+                        prompt_path = self._get_prompt_path("TN", rich_content_types, cognitive_level=level)
 
                         # Log with question codes for identification
                         codes_str = ', '.join(codes) if codes else 'TN'
@@ -1655,7 +1725,7 @@ class QuestionGenerationService:
                                 supplementary_material=supplementary,
                                 rich_content_types=single_rich_types_tln
                             )
-                            single_prompt_path_tln = self._get_prompt_path("TLN", single_rich_types_tln)
+                            single_prompt_path_tln = self._get_prompt_path("TLN", single_rich_types_tln, cognitive_level=level)
                             print(f"  → TLN {code}: Using prompt {single_prompt_path_tln.name}")
                             single_gen_tln = self.question_generator.generate_tln_questions(
                                 spec=spec_single_tln,
@@ -1682,7 +1752,7 @@ class QuestionGenerationService:
                         )
 
                         # Get prompt path with type-specific fallback
-                        prompt_path = self._get_prompt_path("TLN", rich_content_types_tln)
+                        prompt_path = self._get_prompt_path("TLN", rich_content_types_tln, cognitive_level=level)
 
                         # Log with question codes for identification
                         codes_str = ', '.join(codes_tln) if codes_tln else 'TLN'
@@ -1726,7 +1796,8 @@ class QuestionGenerationService:
                         row_index=0,
                         chapter_number=int(chapter),
                         supplementary_material=supplementary,
-                        rich_content_types=rich_types
+                        rich_content_types=rich_types,
+                        sub_items=spec_data.get('sub_items', None),
                     )
 
                     # Use question templates if available
@@ -1735,7 +1806,7 @@ class QuestionGenerationService:
                         question_template = '\n'.join(spec_data['question_template'])
 
                     # Get prompt path with type-specific fallback
-                    prompt_path = self._get_prompt_path("TL", rich_types)
+                    prompt_path = self._get_prompt_path("TL", rich_types, cognitive_level=level)
                     
                     # Log with question codes for identification
                     codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TL'

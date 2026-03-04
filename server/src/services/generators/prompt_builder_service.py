@@ -28,6 +28,7 @@ class PreparedPrompt:
     content_length: int
     question_template: str = ""
     has_chart: bool = False     # True when BD type detected → chart pre-generation needed
+    template_path: str = ""    # Resolved template file name (for logging/debug)
 
 
 class PromptBuilderService:
@@ -91,17 +92,16 @@ class PromptBuilderService:
         return ""
 
     def _load_rich_content_guide(self) -> str:
-        """Load rich_content_guide (prefers v2, falls back to v1). Cached."""
+        """Load rich_content_guide.txt. Cached."""
         if self._rich_guide_cache is not None:
             return self._rich_guide_cache
         base = Path(__file__).parent.parent / "prompts" / "rich_content_guide"
-        for filename in ["rich_content_guide_v2.txt", "rich_content_guide.txt"]:
-            path = base / filename
-            if path.exists():
-                with open(path, 'r', encoding='utf-8') as f:
-                    guide = f.read()
-                self._rich_guide_cache = guide
-                return guide
+        path = base / "rich_content_guide.txt"
+        if path.exists():
+            with open(path, 'r', encoding='utf-8') as f:
+                guide = f.read()
+            self._rich_guide_cache = guide
+            return guide
         self._rich_guide_cache = ""
         return ""
 
@@ -114,17 +114,21 @@ class PromptBuilderService:
         return "Hãy tự động lấy dữ liệu nội dung theo tên bài của sách giáo khoa theo Chương trình GDPT 2018 của Việt Nam."
 
     def _should_inject_rich_guide(self, spec) -> bool:
-        """Only inject for PRIMARY types (BD/BK/HA), NOT secondary (LT/TT)."""
-        if hasattr(spec, 'rich_content_types') and spec.rich_content_types:
-            if isinstance(spec.rich_content_types, dict):
-                for types_list in spec.rich_content_types.values():
-                    if isinstance(types_list, list):
-                        for type_obj in types_list:
-                            code = type_obj.get('code', '') if isinstance(type_obj, dict) else str(type_obj)
-                            if code in PRIMARY_RICH_TYPES or (code and code.startswith('HA')):
-                                return True
+        """Inject rich_content_guide only when the question spec contains BK (bảng khảo).
+        BD (biểu đồ) is generated separately in its own step, so it does not need this guide.
+        LT/TT are text-only types and never need the guide.
+        """
+        rct = getattr(spec, 'rich_content_types', None)
+        if not rct or not isinstance(rct, dict):
             return False
-        return any(kw in str(spec) for kw in ['BD', 'BK', 'HA'])
+        for types_list in rct.values():
+            if not isinstance(types_list, list):
+                continue
+            for type_obj in types_list:
+                code = type_obj.get('code', '') if isinstance(type_obj, dict) else str(type_obj)
+                if code == 'BK':
+                    return True
+        return False
 
     def _format_supplementary(self, supplementary_materials: str, for_ds: bool = False) -> str:
         if supplementary_materials:
@@ -140,6 +144,7 @@ class PromptBuilderService:
             return ('**YÊU CẦU NỘI DUNG**: Câu hỏi này không có đánh dấu BD/BK/HA trong ma trận.\n'
                     '⏩ **BẮT BUỘC**: Chỉ dùng **text thuần** (type="text"), KHÔNG dùng table/chart/image/mixed.\n'
                     '⏩ question_stem PHẢI là: {"type": "text", "content": "..."}\n'
+                    '⚠️ **NỘI DUNG CÂU HỎI**: KHÔNG viết câu hỏi yêu cầu học sinh "dựa vào bảng số liệu", "nhìn vào biểu đồ", "căn cứ vào hình" hay bất kỳ tư liệu nào không được nhúng trực tiếp trong câu hỏi. Câu hỏi phải tự đủ – chỉ dựa trên kiến thức SGK và lý thuyết.\n'
                     '⚠️ **CÔNG THỨC TOÁN**: BẮT BUỘC dùng LaTeX (bọc trong $...$). VD: $x^2 + 2x + 1$')
         SECONDARY_TYPES = {'LT', 'TT'}
         primary_found: Dict[str, List[str]] = {}
@@ -258,6 +263,37 @@ class PromptBuilderService:
                 return first.get('code') if isinstance(first, dict) else str(first)
         return None
 
+    @staticmethod
+    def _extract_first_type_code(rich_content_types) -> Optional[str]:
+        """Return the first rich-content type code string from a rich_content_types dict."""
+        if not rich_content_types or not isinstance(rich_content_types, dict):
+            return None
+        try:
+            for types_list in rich_content_types.values():
+                if isinstance(types_list, list) and types_list:
+                    first = types_list[0]
+                    return first.get('code') if isinstance(first, dict) else str(first)
+        except Exception:
+            pass
+        return None
+
+    def _append_cognitive_level_guide(self, prompt_text: str, cognitive_level: str) -> str:
+        """
+        Tier-3 fallback: when only Dạng.txt is used (no level/type variant exists),
+        append the cognitive-level guide from server/src/services/prompts/cognitive_level/<LEVEL>.md
+        as a clearly separated section.
+        """
+        if not cognitive_level:
+            return prompt_text
+        desc = self._load_cognitive_level_desc(cognitive_level)
+        if not desc:
+            return prompt_text
+        sep = '=' * 70
+        block = (f"\n\n{sep}\n"
+                 f"# MỨC ĐỘ NHẬN THỨC: {cognitive_level.strip().upper()}\n"
+                 f"{sep}\n\n{desc}\n{sep}\n")
+        return prompt_text + block
+
     def _build_ds_rich_instruction(self, primary_content_type: str) -> str:
         """Strict DS rich-content instruction block."""
         type_map = {'BK': 'table (bảng khảo)', 'BD': 'chart (biểu đồ)', 'HA': 'image (hình ảnh)'}
@@ -275,7 +311,11 @@ class PromptBuilderService:
 
     def build_prompt_for_tn(self, spec: QuestionSpec, content: str = "",
                             question_template: str = "") -> PreparedPrompt:
-        prompt_text = self.get_template('TN')
+        template_text, template_name, tier = self.resolve_template_for_spec(
+            'TN', spec.cognitive_level,
+            getattr(spec, 'rich_content_types', None))
+        self.templates['TN'] = template_text
+        prompt_text = template_text
         prompt_text = prompt_text.replace("{{NUM}}", str(spec.num_questions))
         prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
@@ -287,17 +327,28 @@ class PromptBuilderService:
         prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
         prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", self._format_rich_content_types(spec))
         prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIAL}}", spec.supplementary_material or "")
+        if tier == 3:
+            prompt_text = self._append_cognitive_level_guide(prompt_text, spec.cognitive_level)
         if self._should_inject_rich_guide(spec):
             prompt_text = self._apply_rich_guide(prompt_text, spec, 'TN')
         return PreparedPrompt(
             prompt_text=prompt_text, question_type='TN', lesson_name=spec.lesson_name,
             question_spec=spec, has_content=bool(content),
             content_length=len(content) if content else 0,
-            question_template=question_template, has_chart=self._detect_chart(spec))
+            question_template=question_template, has_chart=self._detect_chart(spec),
+            template_path=template_name)
 
     def build_prompt_for_ds(self, spec: TrueFalseQuestionSpec, content: str = "",
                             question_template: str = "") -> PreparedPrompt:
-        prompt_text = self.get_template('DS')
+        # DS may span multiple cognitive levels — pick the dominant level for template selection
+        _ds_level = ""
+        if spec.statements:
+            _ds_level = spec.statements[0].cognitive_level
+        template_text, template_name, tier = self.resolve_template_for_spec(
+            'DS', _ds_level,
+            getattr(spec, 'rich_content_types', None))
+        self.templates['DS'] = template_text
+        prompt_text = template_text
         prompt_text = prompt_text.replace("{{NUM}}", "1")
         prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
@@ -321,6 +372,8 @@ class PromptBuilderService:
             else:
                 _lo_with_desc = _lo
             prompt_text = prompt_text.replace(f"{{{{EXPECTED_LEARNING_OUTCOME_{lbl}}}}}", _lo_with_desc)
+        if tier == 3 and _ds_level:
+            prompt_text = self._append_cognitive_level_guide(prompt_text, _ds_level)
         if self._should_inject_rich_guide(spec):
             prompt_text = self._apply_rich_guide(prompt_text, spec, 'DS')
         primary_type = self._get_primary_content_type(spec)
@@ -330,11 +383,16 @@ class PromptBuilderService:
             prompt_text=prompt_text, question_type='DS', lesson_name=spec.lesson_name,
             question_spec=spec, has_content=bool(content),
             content_length=len(content) if content else 0,
-            question_template=question_template, has_chart=self._detect_chart(spec))
+            question_template=question_template, has_chart=self._detect_chart(spec),
+            template_path=template_name)
 
     def build_prompt_for_tln(self, spec: QuestionSpec, content: str = "",
                              question_template: str = "") -> PreparedPrompt:
-        prompt_text = self.get_template('TLN')
+        template_text, template_name, tier = self.resolve_template_for_spec(
+            'TLN', spec.cognitive_level,
+            getattr(spec, 'rich_content_types', None))
+        self.templates['TLN'] = template_text
+        prompt_text = template_text
         prompt_text = prompt_text.replace("{{NUM}}", str(spec.num_questions))
         prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
@@ -347,17 +405,24 @@ class PromptBuilderService:
         prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
         prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", self._format_rich_content_types(spec))
         prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIAL}}", spec.supplementary_material or "")
+        if tier == 3:
+            prompt_text = self._append_cognitive_level_guide(prompt_text, spec.cognitive_level)
         if self._should_inject_rich_guide(spec):
             prompt_text = self._apply_rich_guide(prompt_text, spec, 'TLN')
         return PreparedPrompt(
             prompt_text=prompt_text, question_type='TLN', lesson_name=spec.lesson_name,
             question_spec=spec, has_content=bool(content),
             content_length=len(content) if content else 0,
-            question_template=question_template, has_chart=self._detect_chart(spec))
+            question_template=question_template, has_chart=self._detect_chart(spec),
+            template_path=template_name)
 
     def build_prompt_for_tl(self, spec: QuestionSpec, content: str = "",
                             question_template: str = "") -> PreparedPrompt:
-        prompt_text = self.get_template('TL')
+        template_text, template_name, tier = self.resolve_template_for_spec(
+            'TL', spec.cognitive_level,
+            getattr(spec, 'rich_content_types', None))
+        self.templates['TL'] = template_text
+        prompt_text = template_text
         prompt_text = prompt_text.replace("{{NUM}}", str(spec.num_questions))
         prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
@@ -369,13 +434,128 @@ class PromptBuilderService:
         prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
         prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", self._format_rich_content_types(spec))
         prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIAL}}", spec.supplementary_material or "")
+        if tier == 3:
+            prompt_text = self._append_cognitive_level_guide(prompt_text, spec.cognitive_level)
         if self._should_inject_rich_guide(spec):
             prompt_text = self._apply_rich_guide(prompt_text, spec, 'TL')
+        # Append sub-items instruction if TL has ý nhỏ (a, b, c ...)
+        _sub_items = getattr(spec, 'sub_items', None)
+        if _sub_items:
+            prompt_text += self._format_tl_sub_items_instruction(_sub_items)
         return PreparedPrompt(
             prompt_text=prompt_text, question_type='TL', lesson_name=spec.lesson_name,
             question_spec=spec, has_content=bool(content),
             content_length=len(content) if content else 0,
-            question_template=question_template, has_chart=self._detect_chart(spec))
+            question_template=question_template, has_chart=self._detect_chart(spec),
+            template_path=template_name)
+
+    def _format_tl_sub_items_instruction(self, sub_items: Dict[str, List[str]]) -> str:
+        """
+        Build an instruction block that tells the AI which sub-items (a, b, c ...)
+        each TL question code must produce.
+
+        This block is appended at the END of the prompt so it takes priority
+        over any earlier generic answer-structure instructions.
+        """
+        sep = '=' * 70
+        lines = [
+            f"\n\n{sep}",
+            "# YÊu CẦU Ý NHỏ CHO CÂU TỰ LUẪN",
+            sep,
+            "",
+        ]
+        for code, labels in sub_items.items():
+            lines.append(
+                f"Câu {code} có {len(labels)} ý nhỏ: {', '.join(labels)}"
+            )
+        lines += [
+            "",
+            "**BẮT BUỘC — Cấu trúc JSON output cho mỗi câu:**",
+            "- question_stem: Đoạn dẫn / bối cảnh CHUNG cho toàn bộ câu",
+            "- sub_questions: Mảng gồm các ý nhỏ, mỗi ý gồm:",
+            "  - label      : 'a' / 'b' / ... (thứ tự như đã liệt kê ở trên)",
+            "  - question_stem: Nội dung yêu cầu của ý đó",
+            "  - question_type: phân tích / so sánh / ...",
+            "  - answer_structure: {intro, body, conclusion}",
+            "  - explanation : Lời giải gợi ý (≤ 300 ký tự)",
+            "",
+            f"{sep}\n",
+        ]
+        return "\n".join(lines)
+
+    # ─────────────── 3-tier prompt selection ──────────────────────────────────
+
+    def resolve_template_for_spec(
+        self,
+        question_type: str,
+        cognitive_level: str = "",
+        rich_content_types=None,
+    ) -> tuple:  # (template_text: str, template_name: str, tier: int)
+        """
+        Select the best-matching prompt file using 3-tier priority:
+
+        Tier 1 — Dạng_Level_Type.txt   (e.g. TN_NB_BK.txt)
+        Tier 2 — Dạng_Level.txt        (e.g. TN_NB.txt)   OR   Dạng_Type.txt (e.g. TN_BK.txt)
+                  Level variant is preferred over Type variant within tier 2.
+        Tier 3 — Dạng.txt              (e.g. TN.txt / TN2.txt)
+                  Cognitive-level guide is appended automatically.
+
+        Returns (template_text, template_filename, tier_used).
+        """
+        base = self.prompt_dir or Path('.')
+        level = cognitive_level.strip().upper() if cognitive_level else ""
+        type_code = self._extract_first_type_code(rich_content_types) or ""
+        # Strip qualifier suffix for broad matching (e.g. "HA_MH" → "HA")
+        type_base = type_code.split('_')[0] if '_' in type_code else type_code
+
+        def _read(path: Path) -> Optional[str]:
+            if path.exists():
+                return path.read_text(encoding='utf-8')
+            return None
+
+        # ── Tier 1: Dạng_Level_Type.txt ───────────────────────────────────
+        if level and type_code:
+            for tc in ([type_code] if type_code == type_base else [type_code, type_base]):
+                text = _read(base / f"{question_type}_{level}_{tc}.txt")
+                if text is not None:
+                    fname = f"{question_type}_{level}_{tc}.txt"
+                    if self.verbose:
+                        print(f"✓ Tier-1 template: {fname}")
+                    return text, fname, 1
+
+        # ── Tier 2a: Dạng_Level.txt ───────────────────────────────────────
+        if level:
+            text = _read(base / f"{question_type}_{level}.txt")
+            if text is not None:
+                fname = f"{question_type}_{level}.txt"
+                if self.verbose:
+                    print(f"✓ Tier-2a template: {fname}")
+                return text, fname, 2
+
+        # ── Tier 2b: Dạng_Type.txt ────────────────────────────────────────
+        if type_code:
+            for tc in ([type_code] if type_code == type_base else [type_code, type_base]):
+                text = _read(base / f"{question_type}_{tc}.txt")
+                if text is not None:
+                    fname = f"{question_type}_{tc}.txt"
+                    if self.verbose:
+                        print(f"✓ Tier-2b template: {fname}")
+                    return text, fname, 2
+
+        # ── Tier 3: Dạng.txt (TN prefers TN2.txt) ────────────────────────
+        for candidate in (['TN2.txt', 'TN.txt'] if question_type == 'TN'
+                          else [f'{question_type}.txt']):
+            text = _read(base / candidate)
+            if text is not None:
+                if self.verbose:
+                    print(f"✓ Tier-3 template: {candidate}")
+                return text, candidate, 3
+
+        # Nothing found — return empty
+        fname = f"{question_type}.txt (not found)"
+        if self.verbose:
+            print(f"⚠️  No template found for {question_type} level={level} type={type_code}")
+        return '', fname, 0
 
     # ─────────────── Batch helper / offline usage ────────────────────────────
 
@@ -501,8 +681,6 @@ class PromptBuilderService:
                                 codes    = spec_data.get('code', [])
                                 qt       = '\n'.join(spec_data.get('question_template', []))
                                 rich     = spec_data.get('rich_content_types', None)
-                                tpl_path = self._resolve_template_path('TN', rich)
-                                self._load_template_from_path('TN', tpl_path)
                                 spec = QuestionSpec(
                                     lesson_name=lesson_name, competency_level=1,
                                     cognitive_level=level, question_type='TN',
@@ -518,7 +696,7 @@ class PromptBuilderService:
                                 if prepared.has_chart:
                                     prepared = self._append_chart_placeholder(prepared, spec)
                                 label = (f"[Ch.{chapter} L.{lesson}] TN {level}"
-                                         f"  {', '.join(codes)}  [{tpl_path.name}]")
+                                         f"  {', '.join(codes)}  [{prepared.template_path}]")
                                 self._write_prompt_block(out, label, prepared)
                                 total += 1
                             except Exception as e:
@@ -532,8 +710,6 @@ class PromptBuilderService:
                             qcode    = spec_data.get('question_code', 'DS?')
                             qt       = '\n'.join(spec_data.get('question_template', []))
                             rich     = spec_data.get('rich_content_types', None)
-                            tpl_path = self._resolve_template_path('DS', rich)
-                            self._load_template_from_path('DS', tpl_path)
                             raw_stmts = spec_data.get('statements', [])
                             statements = []
                             for stmt in raw_stmts:
@@ -555,7 +731,7 @@ class PromptBuilderService:
                             )
                             prepared = self.build_prompt_for_ds(spec, content, qt)
                             label = (f"[Ch.{chapter} L.{lesson}] DS  {qcode}"
-                                     f"  [{tpl_path.name}]  stmts={len(statements)}")
+                                     f"  [{prepared.template_path}]  stmts={len(statements)}")
                             self._write_prompt_block(out, label, prepared)
                             total += 1
                         except Exception as e:
@@ -570,8 +746,6 @@ class PromptBuilderService:
                                 codes    = spec_data.get('code', [])
                                 qt       = '\n'.join(spec_data.get('question_template', []))
                                 rich     = spec_data.get('rich_content_types', None)
-                                tpl_path = self._resolve_template_path('TLN', rich)
-                                self._load_template_from_path('TLN', tpl_path)
                                 spec = QuestionSpec(
                                     lesson_name=lesson_name, competency_level=1,
                                     cognitive_level=level, question_type='TLN',
@@ -585,7 +759,7 @@ class PromptBuilderService:
                                 )
                                 prepared = self.build_prompt_for_tln(spec, content, qt)
                                 label = (f"[Ch.{chapter} L.{lesson}] TLN {level}"
-                                         f"  {', '.join(codes)}  [{tpl_path.name}]")
+                                         f"  {', '.join(codes)}  [{prepared.template_path}]")
                                 self._write_prompt_block(out, label, prepared)
                                 total += 1
                             except Exception as e:
@@ -600,8 +774,6 @@ class PromptBuilderService:
                                 codes    = spec_data.get('code', [])
                                 qt       = '\n'.join(spec_data.get('question_template', []))
                                 rich     = spec_data.get('rich_content_types', None)
-                                tpl_path = self._resolve_template_path('TL', rich)
-                                self._load_template_from_path('TL', tpl_path)
                                 spec = QuestionSpec(
                                     lesson_name=lesson_name, competency_level=1,
                                     cognitive_level=level, question_type='TL',
@@ -612,10 +784,11 @@ class PromptBuilderService:
                                     chapter_number=int(chapter) if chapter else None,
                                     supplementary_material=lesson_supplementary,
                                     rich_content_types=rich,
+                                    sub_items=spec_data.get('sub_items', None),
                                 )
                                 prepared = self.build_prompt_for_tl(spec, content, qt)
                                 label = (f"[Ch.{chapter} L.{lesson}] TL {level}"
-                                         f"  {', '.join(codes)}  [{tpl_path.name}]")
+                                         f"  {', '.join(codes)}  [{prepared.template_path}]")
                                 self._write_prompt_block(out, label, prepared)
                                 total += 1
                             except Exception as e:
@@ -700,7 +873,7 @@ class PromptBuilderService:
         out.write(
             f"Type: {prepared.question_type}  |  "
             f"Content: {'yes' if prepared.has_content else 'NO'} ({prepared.content_length} chars)  |  "
-            f"Template: {'yes' if prepared.question_template else 'no'}  |  "
+            f"Template: {prepared.template_path or 'n/a'}  |  "
             f"Chart: {'yes (BD)' if prepared.has_chart else 'no'}\n"
         )
         out.write(f"{sep}\n")

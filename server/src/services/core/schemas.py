@@ -1031,6 +1031,123 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
         "required": ["questions"]
     }
 
+
+def get_essay_with_sub_items_array_schema(
+    sub_items: Dict[str, List[str]],
+    content_schema: Optional[Dict] = None,
+) -> Dict:
+    """
+    Schema cho câu Tự luận CÓ ý nhỏ (a, b, c ...).
+
+    Thay vì trả về ``answer_structure`` ở cấp câu, AI trả về ``sub_questions``
+    — mảng các ý nhỏ, mỗi ý có nhãn, nội dung yêu cầu riêng và gợi ý giải.
+
+    Args:
+        sub_items: Dict phân nhóm sub-item, e.g. {'C1': ['a', 'b']}
+                   (dùng để mô tả yêu cầu trong system prompt, không giới hạn
+                   số lượng ở đây để tránh JSON-schema conflict).
+        content_schema: Schema cho các trường rich-text (None → text schema).
+
+    Returns:
+        JSON schema có cấu trúc:
+        {questions: [{question_stem, question_type, level,
+                      sub_questions: [{label, question_stem,
+                                       question_type, answer_structure, explanation}]}]}
+    """
+    if content_schema is None:
+        content_schema = get_text_content_schema()
+
+    sub_question_schema: Dict = {
+        "type": "object",
+        "properties": {
+            "label": {
+                "type": "string",
+                "description": "Nhãn ý nhỏ: 'a', 'b', 'c' ...",
+            },
+            "question_stem": {
+                "description": "Nội dung yêu cầu riêng của ý nhỏ này",
+                **content_schema,
+            },
+            "question_type": {
+                "type": "string",
+                "enum": [
+                    "analysis",
+                    "comparison",
+                    "evaluation",
+                    "explanation",
+                    "synthesis",
+                    "argumentation",
+                ],
+            },
+            "answer_structure": {
+                "type": "object",
+                "properties": {
+                    "intro": {"type": "string", "maxLength": 100},
+                    "body": {"type": "string", "maxLength": 150},
+                    "conclusion": {"type": "string", "maxLength": 100},
+                },
+                "required": ["intro", "body", "conclusion"],
+            },
+            "explanation": {"type": "string", "maxLength": 300},
+        },
+        "required": [
+            "label",
+            "question_stem",
+            "question_type",
+            "answer_structure",
+            "explanation",
+        ],
+    }
+
+    return {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "question_stem": {
+                            "description": (
+                                "Đoạn dẫn / bối cảnh CHUNG cho toàn bộ câu. "
+                                "Không lặp lại trong từng ý nhỏ."
+                            ),
+                            **content_schema,
+                        },
+                        "question_type": {
+                            "type": "string",
+                            "enum": [
+                                "analysis",
+                                "comparison",
+                                "evaluation",
+                                "explanation",
+                                "synthesis",
+                                "argumentation",
+                            ],
+                        },
+                        "level": {
+                            "type": "string",
+                            "enum": ["NB", "TH", "VD", "VDC"],
+                        },
+                        "sub_questions": {
+                            "type": "array",
+                            "items": sub_question_schema,
+                            "description": "Danh sách các ý nhỏ (a, b, c ...) của câu hỏi",
+                        },
+                    },
+                    "required": [
+                        "question_stem",
+                        "question_type",
+                        "level",
+                        "sub_questions",
+                    ],
+                },
+            }
+        },
+        "required": ["questions"],
+    }
+
+
 def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
     """
     Trả về JSON schema cho câu hỏi Đúng/Sai

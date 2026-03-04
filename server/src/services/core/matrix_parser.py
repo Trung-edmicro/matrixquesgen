@@ -23,6 +23,7 @@ class QuestionSpec:
     chapter_number: Optional[int] = None  # Số chương (1, 2, 3...)
     supplementary_material: str = ""  # Tài liệu bổ sung (nội dung ngoài SGK)
     rich_content_types: Optional[Dict[str, List[str]]] = None  # Rich content types per question code: {"C1": ["BD"], "C2": ["BK", "TT"]}
+    sub_items: Optional[Dict[str, List[str]]] = None  # TL sub-question labels e.g. {'C1': ['a', 'b']}
 
 
 @dataclass
@@ -152,6 +153,58 @@ class MatrixParser:
         self.df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
         print(f"\n✓ Đã tải ma trận từ sheet '{sheet_name}': {self.df.shape[0]} hàng x {self.df.shape[1]} cột")
     
+    # ─────────────────────────── Code normalization helpers ─────────────────────
+
+    @staticmethod
+    def _normalize_question_code(raw: str) -> str:
+        """
+        Normalize a question code:
+        - Ensure 'C' prefix (uppercase)
+        - Keep numeric part as-is
+        - Preserve the case of any trailing letter suffix
+          (e.g. 'c1a' → 'C1a', 'C1A' → 'C1A', '1' → 'C1')
+        This allows distinguishing TL sub-items (lowercase) from
+        DS statement labels (uppercase, added later by group_true_false_questions).
+        """
+        raw = raw.strip()
+        m = re.match(r'^[Cc]?(\d+)([a-zA-Z]*)$', raw)
+        if m:
+            return 'C' + m.group(1) + m.group(2)
+        # Fallback: keep as-is but upper the C
+        return re.sub(r'^[Cc]', 'C', raw) if re.match(r'^[Cc]', raw) else 'C' + raw
+
+    @staticmethod
+    def _extract_tl_sub_items(
+        codes: List[str],
+    ) -> Tuple[List[str], Optional[Dict[str, List[str]]]]:
+        """
+        For TL questions: detect codes with lowercase letter suffix as sub-items
+        and group them by numeric base.
+
+        Examples:
+          ['C1a', 'C1b'] → (['C1'], {'C1': ['a', 'b']})
+          ['C1']         → (['C1'], None)           # no sub-item
+          ['C1a']        → (['C1'], {'C1': ['a']})  # single sub-item
+          ['C1', 'C2']   → (['C1', 'C2'], None)     # multiple plain codes
+        """
+        base_to_subs: Dict[str, List[str]] = {}
+        has_sub = False
+        for code in codes:
+            m = re.match(r'^C(\d+)([a-z]+)$', code)  # lowercase suffix → sub-item
+            if m:
+                base = 'C' + m.group(1)
+                sub = m.group(2)
+                base_to_subs.setdefault(base, []).append(sub)
+                has_sub = True
+            else:
+                if code not in base_to_subs:
+                    base_to_subs[code] = []
+        base_codes = list(base_to_subs.keys())
+        sub_items = {k: v for k, v in base_to_subs.items() if v} if has_sub else None
+        return base_codes, sub_items
+
+    # ─────────────────────────────────────────────────────────────────────────────
+
     def parse_question_cell(self, cell_value) -> Tuple[int, List[str], Dict[str, List[str]]]:
         """
         Parse giá trị trong ô để lấy số câu hỏi, mã câu và rich content types
@@ -210,24 +263,18 @@ class MatrixParser:
                     # Có rich content type
                     code_part = match_with_type.group(1)
                     types_str = match_with_type.group(2)
-                    
-                    # Normalize code
-                    if not code_part.upper().startswith('C'):
-                        code = 'C' + code_part.upper()
-                    else:
-                        code = code_part.upper()
-                    
+
+                    # Normalize code — preserves lowercase suffix for TL sub-items
+                    code = self._normalize_question_code(code_part)
+
                     codes.append(code)
-                    
+
                     # Parse types: "BD" hoặc "BK,TT"
                     types = [t.strip().upper() for t in types_str.split(',')]
                     rich_types[code] = types
                 else:
                     # Không có rich content type, format cũ
-                    if part.upper().startswith('C'):
-                        code = part.upper()
-                    else:
-                        code = 'C' + part.upper()
+                    code = self._normalize_question_code(part)
                     codes.append(code)
             
             return num, codes, rich_types
@@ -665,7 +712,21 @@ class MatrixParser:
                     if question_type == "TN" and filtered_rich_types:
                         actual_question_type = "TLN"
                         # print(f"🔄 [AUTO-FIX] {', '.join(new_codes)}: TN → TLN (có rich_content_types)")
-                    
+
+                    # For TL: extract sub-item letters (e.g. C1a, C1b → base C1 with sub_items)
+                    tl_sub_items: Optional[Dict[str, List[str]]] = None
+                    if actual_question_type == "TL":
+                        si_base_codes, tl_sub_items = self._extract_tl_sub_items(new_codes)
+                        if si_base_codes != new_codes:
+                            # Remap any rich_type keys from sub-item codes to base codes
+                            remapped_rich: Dict[str, List[str]] = {}
+                            for orig_c, rich_list in filtered_rich_types.items():
+                                mb = re.match(r'^C(\d+)[a-z]+$', orig_c)
+                                base_c = 'C' + mb.group(1) if mb else orig_c
+                                remapped_rich.setdefault(base_c, rich_list)
+                            filtered_rich_types = remapped_rich
+                            new_codes = si_base_codes
+
                     # Tạo QuestionSpec với số câu và mã câu đã được deduplicate
                     spec = QuestionSpec(
                         lesson_name=self.current_lesson,
@@ -678,7 +739,8 @@ class MatrixParser:
                         row_index=row_idx,
                         chapter_number=self.current_chapter,
                         supplementary_material=supplementary,
-                        rich_content_types=filtered_rich_types if filtered_rich_types else None
+                        rich_content_types=filtered_rich_types if filtered_rich_types else None,
+                        sub_items=tl_sub_items,
                     )
                     
                     question_specs.append(spec)

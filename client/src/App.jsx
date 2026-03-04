@@ -4,6 +4,7 @@ import GenerateExamPage from './pages/GenerateExamPage'
 import ManageExamsPage from './pages/ManageExamsPage'
 import MatrixLibraryPage from './pages/MatrixLibraryPage'
 import CustomPromptsPage from './pages/CustomPromptsPage'
+import SettingsPage from './pages/SettingsPage'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/generate-custom" element={<CustomPromptsPage />} />
           <Route path="/manage" element={<ManageExamsPage />} />
           <Route path="/library" element={<MatrixLibraryPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

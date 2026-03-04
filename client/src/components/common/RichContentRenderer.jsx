@@ -91,7 +91,7 @@ export default function RichContentRenderer({ content, contentEditable = false, 
           }
 
           if (typeof item === 'object' && item.type === 'table') {
-            return <TableRenderer key={index} content={item.content} />
+            return <TableRenderer key={index} content={item.content} metadata={item.metadata} />
           }
 
           return null
@@ -147,7 +147,7 @@ export default function RichContentRenderer({ content, contentEditable = false, 
           if (typeof item === 'object') {
             // Table content
             if (item.type === 'table') {
-              return <TableRenderer key={index} content={item.content} />
+              return <TableRenderer key={index} content={item.content} metadata={item.metadata} />
             }
 
             // Image content
@@ -173,7 +173,7 @@ export default function RichContentRenderer({ content, contentEditable = false, 
 /**
  * Component để render table từ JSON
  */
-function TableRenderer({ content }) {
+function TableRenderer({ content, metadata }) {
   const tableData = useMemo(() => {
     try {
       if (typeof content === 'string') {
@@ -190,9 +190,17 @@ function TableRenderer({ content }) {
     return <div className="text-red-500">Invalid table data</div>
   }
 
+  const caption = metadata?.caption || ''
+  const source = metadata?.source || ''
+
   return (
-    <div className="overflow-x-auto my-3 flex justify-center">
-      <table className="border-collapse border border-gray-300 text-sm table-auto">
+    <div className="overflow-x-auto my-3">
+      {caption && (
+        <div className="mb-1 text-center text-sm font-bold text-gray-700">
+          <LaTeXRenderer>{caption}</LaTeXRenderer>
+        </div>
+      )}
+      <table className="border-collapse border border-gray-300 text-sm table-auto w-full">
         <thead className="bg-gray-50">
           <tr>
             {tableData.headers.map((header, idx) => (
@@ -217,6 +225,11 @@ function TableRenderer({ content }) {
           ))}
         </tbody>
       </table>
+      {source && (
+        <div className="mt-0.5 text-right text-xs italic text-gray-500">
+          <LaTeXRenderer>{`(Nguồn: ${source})`}</LaTeXRenderer>
+        </div>
+      )}
     </div>
   )
 }

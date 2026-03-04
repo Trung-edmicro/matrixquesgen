@@ -1,177 +1,256 @@
-"""
+﻿"""
 Auto-update module for MatrixQuesGen
-Checks for updates from GitHub Releases and downloads new version
+Checks for updates from GitHub Releases and downloads/installs new setup.exe
 """
 import sys
 import os
-import json
 import requests
 import subprocess
 import tempfile
 import logging
+import threading
 from pathlib import Path
+from typing import Callable, Optional
 from version import __version__, __app_name__
 
-# GitHub repository info
-# Replace with your actual GitHub repo
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+# GitHub repository info (set via env var or hardcoded after publish)
 GITHUB_REPO = os.getenv("GITHUB_REPO")
-
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+
+# Global progress state (for API polling)
+_update_state = {
+    "status": "idle",       # idle | checking | available | downloading | installing | up_to_date | error
+    "progress": 0,          # 0-100
+    "message": "",
+    "latest_version": None,
+    "changelog": "",
+    "download_url": None,
+    "error": None,
+}
+
+_update_lock = threading.Lock()
+
+
+def _set_state(**kwargs):
+    with _update_lock:
+        _update_state.update(kwargs)
+
+
+def get_state() -> dict:
+    with _update_lock:
+        return dict(_update_state)
+
 
 class Updater:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.app_dir = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
+        self.app_dir = (
+            Path(sys.executable).parent
+            if getattr(sys, "frozen", False)
+            else Path(__file__).parent
+        )
         self.temp_dir = Path(tempfile.gettempdir()) / "matrixquesgen_update"
 
-    def check_for_update(self):
-        """Check if there's a newer version available"""
-        try:
-            response = requests.get(GITHUB_API_URL, timeout=10)
-            response.raise_for_status()
-            release_data = response.json()
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
-            latest_version = release_data['tag_name'].lstrip('v')
+    def check_for_update(self) -> dict:
+        """Check if a newer version is available on GitHub Releases."""
+        _set_state(status="checking", progress=0, message="Dang kiem tra phien ban moi...", error=None)
+        try:
+            headers = {"Accept": "application/vnd.github+json"}
+            github_token = os.getenv("GITHUB_TOKEN")
+            if github_token:
+                headers["Authorization"] = f"Bearer {github_token}"
+
+            response = requests.get(GITHUB_API_URL, headers=headers, timeout=15)
+            response.raise_for_status()
+            release = response.json()
+
+            latest_version = release["tag_name"].lstrip("v")
             current_version = __version__
 
-            if self._is_newer_version(latest_version, current_version):
-                self.logger.info(f"New version available: {latest_version} (current: {current_version})")
+            download_url = self._get_setup_download_url(release)
+
+            if self._is_newer(latest_version, current_version):
+                self.logger.info(f"New version available: {latest_version}")
+                _set_state(
+                    status="available",
+                    progress=0,
+                    message=f"Co phien ban moi: v{latest_version}",
+                    latest_version=latest_version,
+                    changelog=release.get("body", ""),
+                    download_url=download_url,
+                )
                 return {
-                    'available': True,
-                    'version': latest_version,
-                    'url': self._get_download_url(release_data),
-                    'changelog': release_data.get('body', '')
+                    "available": True,
+                    "current_version": current_version,
+                    "latest_version": latest_version,
+                    "changelog": release.get("body", ""),
+                    "download_url": download_url,
                 }
             else:
-                self.logger.info("Application is up to date")
-                return {'available': False}
+                _set_state(
+                    status="up_to_date",
+                    progress=100,
+                    message="Ung dung dang dung phien ban moi nhat.",
+                    latest_version=latest_version,
+                )
+                return {
+                    "available": False,
+                    "current_version": current_version,
+                    "latest_version": latest_version,
+                }
 
-        except Exception as e:
-            self.logger.error(f"Failed to check for updates: {e}")
-            return {'available': False, 'error': str(e)}
+        except Exception as exc:
+            self.logger.error(f"Check for update failed: {exc}")
+            _set_state(status="error", message=str(exc), error=str(exc))
+            return {"available": False, "error": str(exc)}
 
-    def _is_newer_version(self, latest, current):
-        """Compare version strings"""
-        def parse_version(v):
-            return [int(x) for x in v.split('.')]
-
-        try:
-            latest_parts = parse_version(latest)
-            current_parts = parse_version(current)
-
-            # Pad shorter version with zeros
-            max_len = max(len(latest_parts), len(current_parts))
-            latest_parts.extend([0] * (max_len - len(latest_parts)))
-            current_parts.extend([0] * (max_len - len(current_parts)))
-
-            return latest_parts > current_parts
-        except:
+    def download_and_install(
+        self,
+        download_url: Optional[str] = None,
+        on_progress: Optional[Callable[[int, str], None]] = None,
+    ) -> bool:
+        """Download new setup installer and run it silently."""
+        state = get_state()
+        url = download_url or state.get("download_url")
+        if not url:
+            _set_state(status="error", message="Khong tim thay URL tai xuong.", error="No download URL")
             return False
 
-    def _get_download_url(self, release_data):
-        """Get the download URL for the exe file"""
-        for asset in release_data.get('assets', []):
-            if asset['name'].endswith('.exe'):
-                return asset['browser_download_url']
-        return None
-
-    def download_and_install(self, update_info):
-        """Download and install the update"""
         try:
             self.temp_dir.mkdir(parents=True, exist_ok=True)
+            latest_version = state.get("latest_version", "new")
+            installer_path = self.temp_dir / f"{__app_name__}_Setup_{latest_version}.exe"
 
-            # Download the new exe
-            url = update_info['url']
-            if not url:
-                raise Exception("No download URL found")
-
+            _set_state(status="downloading", progress=0, message="Dang tai ban cap nhat...")
             self.logger.info(f"Downloading update from {url}")
-            response = requests.get(url, stream=True, timeout=60)
+
+            headers = {}
+            github_token = os.getenv("GITHUB_TOKEN")
+            if github_token:
+                headers["Authorization"] = f"Bearer {github_token}"
+
+            response = requests.get(url, headers=headers, stream=True, timeout=120)
             response.raise_for_status()
 
-            exe_path = self.temp_dir / f"{__app_name__}_{update_info['version']}.exe"
-            with open(exe_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            total = int(response.headers.get("content-length", 0))
+            downloaded = 0
 
-            # Create update script
-            update_script = self._create_update_script(exe_path, update_info['version'])
-            self.logger.info("Update downloaded successfully")
+            with open(installer_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=65536):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            pct = int(downloaded * 100 / total)
+                            mb_done = downloaded // 1024 // 1024
+                            mb_total = total // 1024 // 1024
+                            msg = f"Dang tai... {mb_done} MB / {mb_total} MB"
+                            _set_state(progress=pct, message=msg)
+                            if on_progress:
+                                on_progress(pct, msg)
 
-            # Run update script
-            subprocess.Popen([sys.executable, update_script], creationflags=subprocess.CREATE_NO_WINDOW)
+            _set_state(progress=100, message="Tai xong, dang cai dat...", status="installing")
+            self.logger.info(f"Download complete: {installer_path}")
+
+            # Run installer with /SILENT flag (shows progress bar but no questions)
+            subprocess.Popen(
+                [str(installer_path), "/SILENT", "/CLOSEAPPLICATIONS"],
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            _set_state(message="Trinh cai dat da khoi dong. Ung dung se tu dong cap nhat.")
             return True
 
-        except Exception as e:
-            self.logger.error(f"Failed to download/install update: {e}")
+        except Exception as exc:
+            self.logger.error(f"Download/install failed: {exc}")
+            _set_state(status="error", message=str(exc), error=str(exc))
             return False
 
-    def _create_update_script(self, new_exe_path, new_version):
-        """Create a script to replace the current exe and restart"""
-        script_content = f'''
-import sys
-import os
-import time
-import shutil
-import subprocess
-from pathlib import Path
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-def main():
-    current_exe = Path(r"{sys.executable}")
-    new_exe = Path(r"{new_exe_path}")
-    backup_exe = current_exe.with_suffix('.bak')
+    @staticmethod
+    def _is_newer(latest: str, current: str) -> bool:
+        def parse(v: str):
+            try:
+                return [int(x) for x in v.split(".")]
+            except Exception:
+                return [0]
 
-    try:
-        # Wait for current process to exit
-        time.sleep(2)
+        l_parts = parse(latest)
+        c_parts = parse(current)
+        max_len = max(len(l_parts), len(c_parts))
+        l_parts += [0] * (max_len - len(l_parts))
+        c_parts += [0] * (max_len - len(c_parts))
+        return l_parts > c_parts
 
-        # Backup current exe
-        if current_exe.exists():
-            shutil.copy2(current_exe, backup_exe)
+    @staticmethod
+    def _get_setup_download_url(release_data: dict) -> Optional[str]:
+        """Prefer *_Setup*.exe or *_Installer*.exe asset."""
+        assets = release_data.get("assets", [])
+        for asset in assets:
+            name = asset["name"].lower()
+            if asset["name"].endswith(".exe") and ("setup" in name or "install" in name):
+                return asset["browser_download_url"]
+        for asset in assets:
+            if asset["name"].endswith(".exe"):
+                return asset["browser_download_url"]
+        return None
 
-        # Replace exe
-        shutil.move(str(new_exe), str(current_exe))
 
-        # Start new version
-        subprocess.Popen([str(current_exe)], creationflags=subprocess.CREATE_NO_WINDOW)
+# ---------------------------------------------------------------------------
+# Convenience functions for background thread usage
+# ---------------------------------------------------------------------------
 
-        print(f"Updated to version {new_version}")
+_updater_singleton = None
 
-    except Exception as e:
-        print(f"Update failed: {{e}}")
-        # Restore backup if exists
-        if backup_exe.exists():
-            shutil.move(str(backup_exe), str(current_exe))
 
-if __name__ == "__main__":
-    main()
-'''
+def _get_updater() -> Updater:
+    global _updater_singleton
+    if _updater_singleton is None:
+        _updater_singleton = Updater()
+    return _updater_singleton
 
-        script_path = self.temp_dir / "update_runner.py"
-        with open(script_path, 'w', encoding='utf-8') as f:
-            f.write(script_content)
 
-        return script_path
+def check_update_async():
+    """Run check_for_update in background thread."""
+    def _run():
+        _get_updater().check_for_update()
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
+
+
+def download_update_async():
+    """Run download_and_install in background thread."""
+    def _run():
+        _get_updater().download_and_install()
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 def check_and_update():
-    """Main function to check and perform update"""
     updater = Updater()
-    update_info = updater.check_for_update()
-
-    if update_info.get('available'):
-        print(f"New version available: {update_info['version']}")
+    info = updater.check_for_update()
+    if info.get("available"):
+        print(f"New version available: {info['latest_version']} (current: {__version__})")
         print("Downloading update...")
-
-        if updater.download_and_install(update_info):
-            print("Update downloaded. Application will restart.")
-            return True
-        else:
-            print("Update failed.")
-            return False
+        ok = updater.download_and_install()
+        print("Update installer started." if ok else "Update failed.")
+        return ok
     else:
-        print("No updates available.")
+        print(f"Up to date (v{__version__}).")
         return False
+
 
 if __name__ == "__main__":
     check_and_update()

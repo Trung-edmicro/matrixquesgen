@@ -131,14 +131,15 @@ def _get_prompts_dir(subject: str, curriculum: str, grade: str) -> Path:
 
 def _get_question_generator(question_type: str, metadata: dict) -> QuestionGenerator:
     """Khởi tạo QuestionGenerator instance với prompt phù hợp"""
-    # Lấy model từ environment variable
-    genai_model = Config.VERTEX_AI_MODEL
-    fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
+    # Read model from env at call time (not Config class attr which is set at import time)
+    genai_model = os.getenv("VERTEX_AI_MODEL") or Config.VERTEX_AI_MODEL
+    fallback_model = os.getenv("VERTEX_AI_FALLBACK_MODEL") or Config.VERTEX_AI_FALLBACK_MODEL
+    gcp_location = os.getenv("GCP_LOCATION") or Config.GCP_LOCATION
     
     ai_client = GenAIClient(
-        project_id=Config.GCP_PROJECT_ID,
-        location=Config.GCP_LOCATION,
-        credentials_path=Config.GCP_CREDENTIALS_PATH
+        project_id=os.getenv("GCP_PROJECT_ID") or Config.GCP_PROJECT_ID,
+        location=gcp_location,
+        credentials_path=os.getenv("GCP_CREDENTIALS_PATH") or Config.GCP_CREDENTIALS_PATH
     )
     # Set model name sau khi khởi tạo
     ai_client.model_name = genai_model

@@ -120,6 +120,20 @@ class AlternativeQuestionGenerationService:
                     print(f"⚠️ Neither TN.txt nor TN2.txt found in {self.prompts_dir}")
                     print(f"   QuestionGenerator will be initialized when set_prompts_directory() is called")
                 
+                if not tn_prompt_path:
+                    for tier_name in ("TN_NB.txt", "TN_TH.txt", "TN_VD.txt"):
+                        candidate = self.prompts_dir / tier_name
+                        if candidate.exists():
+                            tn_prompt_path = str(candidate)
+                            print(f"✓ Using {tier_name} as fallback for QuestionGenerator init")
+                            break
+
+                if not tn_prompt_path:
+                    txts = sorted(self.prompts_dir.glob("*.txt"))
+                    if txts:
+                        tn_prompt_path = str(txts[0])
+                        print(f"✓ Using {txts[0].name} as last-resort fallback for QuestionGenerator init")
+
                 if tn_prompt_path:
                     self.question_generator = QuestionGenerator(
                         ai_client=self.genai_client,
@@ -208,6 +222,20 @@ class AlternativeQuestionGenerationService:
                     tn_prompt_path = str(self.prompts_dir / "TN.txt")
                     print(f"✓ Using TN.txt for QuestionGenerator")
                 
+                if not tn_prompt_path:
+                    for tier_name in ("TN_NB.txt", "TN_TH.txt", "TN_VD.txt"):
+                        candidate = self.prompts_dir / tier_name
+                        if candidate.exists():
+                            tn_prompt_path = str(candidate)
+                            print(f"✓ Using {tier_name} as fallback for QuestionGenerator")
+                            break
+
+                if not tn_prompt_path:
+                    txts = sorted(self.prompts_dir.glob("*.txt"))
+                    if txts:
+                        tn_prompt_path = str(txts[0])
+                        print(f"✓ Using {txts[0].name} as last-resort fallback for QuestionGenerator")
+
                 if tn_prompt_path:
                     self.question_generator = QuestionGenerator(
                         ai_client=self.genai_client,
@@ -728,6 +756,7 @@ class AlternativeQuestionGenerationService:
         """
         # Count expected questions from matrix
         expected_counts = {'TN': 0, 'DS': 0, 'TLN': 0, 'TL': 0}
+        expected_codes = {'DS': set()}  # Track DS codes for cross-lesson dedup
         
         for lesson_data in matrix_data['lessons']:
             for q_type in question_types:
@@ -739,7 +768,11 @@ class AlternativeQuestionGenerationService:
                             
                 elif q_type == 'DS':
                     ds_specs = lesson_data.get('DS', [])
-                    expected_counts['DS'] += len(ds_specs)
+                    # Collect unique question_codes (cross-lesson splits count as 1 question)
+                    for ds_spec in ds_specs:
+                        code = ds_spec.get('question_code', '')
+                        if code:
+                            expected_codes['DS'].add(code)
                             
                 elif q_type == 'TLN':
                     tln_specs = lesson_data.get('TLN', {})
@@ -753,6 +786,9 @@ class AlternativeQuestionGenerationService:
                         for spec in specs:
                             expected_counts['TL'] += spec.get('num', 1)
         
+        # DS expected = unique question_codes (cross-lesson splits count as 1 question)
+        expected_counts['DS'] = len(expected_codes['DS'])
+
         # Count generated questions
         generated_counts = {
             'TN': len([q for q in question_set.questions if q.type == 'TN']),
@@ -1305,7 +1341,8 @@ class AlternativeQuestionGenerationService:
                         row_index=0,
                         chapter_number=int(chapter),
                         supplementary_material=supplementary,
-                        rich_content_types=spec_data.get('rich_content_types', None)
+                        rich_content_types=spec_data.get('rich_content_types', None),
+                        sub_items=spec_data.get('sub_items', None),
                     )
 
                     # Get question template if available

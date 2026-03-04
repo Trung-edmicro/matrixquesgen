@@ -386,6 +386,9 @@ class MatrixProcessingService:
                                 tl_item['rich_content_types'] = self._expand_rich_content_types(
                                     spec.rich_content_types, rich_content_type_definitions or {}
                                 )
+                            # Add sub_items if available (TL sub-question labels)
+                            if getattr(spec, 'sub_items', None):
+                                tl_item['sub_items'] = spec.sub_items
                             lesson_data['TL'][level_key].append(tl_item)
 
             lessons_data.append(lesson_data)

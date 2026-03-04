@@ -15,6 +15,7 @@ from ..core.schemas import (
     get_true_false_schema,
     get_short_answer_array_schema,
     get_essay_array_schema,
+    get_essay_with_sub_items_array_schema,
     get_content_schema_by_rich_types
 )
 from .helpers import (
@@ -63,12 +64,13 @@ class GeneratedEssayQuestion:
     question_code: str  # Mã câu (VD: C1)
     question_stem: str  # Nội dung câu hỏi
     question_type: str  # Loại câu hỏi tự luận (analysis/comparison/evaluation/explanation/synthesis/argumentation)
-    answer_structure: Dict  # Cấu trúc câu trả lời mong đợi
+    answer_structure: Dict  # Cấu trúc câu trả lời mong đợi (trống nếu có sub_questions)
     level: str  # Cấp độ (NB/TH/VD/VDC)
     lesson_name: str  # Tên bài học
     question_type_main: str = "TL"  # Loại câu hỏi chính
     chapter_number: int = 0  # Số chương
     lesson_number: int = 0  # Số bài
+    sub_questions: Optional[List[Dict]] = None  # Ý nhỏ a, b, c ... (nếu có)
 
 
 class QuestionGenerator:
@@ -205,46 +207,68 @@ class QuestionGenerator:
         last_error = None
         tried_fallback = False
         
-        # Retry logic với fallback model
+        # Build prompt + chart ONCE before retry loop
+        # (chart generation is expensive: separate API call; must not repeat on each retry)
+        if prompt_template_path:
+            new_dir = str(Path(prompt_template_path).parent)
+            if str(self.prompt_builder.prompt_dir) != new_dir:
+                self.prompt_builder.set_prompt_dir(new_dir)
+        prepared = self.prompt_builder.build_prompt_for_tn(spec, content, question_template)
+        has_chart = prepared.has_chart
+
+        # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types (chỉ hôi 1 lần)
+        charts_map = {}
+        base_prompt_text = prepared.prompt_text
+        if has_chart:
+            num_charts_needed = 0
+            for code, types_list in spec.rich_content_types.items():
+                if isinstance(types_list, list):
+                    for type_obj in types_list:
+                        if (isinstance(type_obj, dict) and type_obj.get('code') == 'BD') or type_obj == 'BD':
+                            num_charts_needed += 1
+                            break
+            
+            if num_charts_needed > 0:
+                print(f"🎨 Phát hiện {num_charts_needed} câu cần chart (BD), sinh chart riêng...")
+                # Retry chart generation independently (so question-gen retries don't re-trigger chart)
+                charts_list = []
+                for chart_attempt in range(self.max_retries):
+                    try:
+                        charts_list = self._generate_chart_separately(spec, num_charts_needed)
+                        break
+                    except Exception as chart_err:
+                        if chart_attempt < self.max_retries - 1:
+                            if self.verbose:
+                                print(f"⚠️  Chart lần thử {chart_attempt + 1}/{self.max_retries} thất bại: {str(chart_err)[:80]}")
+                                print(f"   Thử lại sau {self.retry_delay}s...")
+                            time.sleep(self.retry_delay)
+                        else:
+                            raise  # All chart retries exhausted
+                for chart in charts_list:
+                    charts_map[chart['chart_id']] = chart
+                
+                # Build chart instruction
+                chart_instruction = build_question_with_chart_prompt(
+                    lesson_name=spec.lesson_name,
+                    charts_info=charts_list,
+                    num_questions=spec.num_questions,
+                    cognitive_level=spec.cognitive_level
+                )
+                # Strip supplementary_material from base prompt to prevent MAX_TOKENS
+                # Chart already embeds the extracted relevant data, so supp material is redundant
+                supp = spec.supplementary_material or ''
+                if supp and len(supp) > 200:
+                    base_prompt_text = base_prompt_text.replace(
+                        supp,
+                        '→ Dữ liệu đã được trích xuất vào biểu đồ được cung cấp bên dưới.'
+                    )
+                base_prompt_text = f"{base_prompt_text}\n\n{chart_instruction}"
+
+        # Retry loop - chỉ retry AI call, chart đã được tạo sẵn
         for attempt in range(self.max_retries):
             try:
-                # Build prompt via PromptBuilderService (single source of truth)
-                if prompt_template_path:
-                    new_dir = str(Path(prompt_template_path).parent)
-                    if str(self.prompt_builder.prompt_dir) != new_dir:
-                        self.prompt_builder.set_prompt_dir(new_dir)
-                prepared = self.prompt_builder.build_prompt_for_tn(spec, content, question_template)
-                prompt_text = prepared.prompt_text
+                prompt_text = base_prompt_text
 
-                # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types
-                charts_map = {}
-                has_chart = prepared.has_chart
-                
-                if has_chart:
-                    # Đếm số câu hỏi cần chart
-                    num_charts_needed = 0
-                    for code, types_list in spec.rich_content_types.items():
-                        if isinstance(types_list, list):
-                            for type_obj in types_list:
-                                if (isinstance(type_obj, dict) and type_obj.get('code') == 'BD') or type_obj == 'BD':
-                                    num_charts_needed += 1
-                                    break
-                    
-                    if num_charts_needed > 0:
-                        print(f"🎨 Phát hiện {num_charts_needed} câu cần chart (BD), sinh chart riêng...")
-                        charts_list = self._generate_chart_separately(spec, num_charts_needed)
-                        for chart in charts_list:
-                            charts_map[chart['chart_id']] = chart
-                        
-                        # Thêm instruction vào prompt sử dụng helper
-                        chart_instruction = build_question_with_chart_prompt(
-                            lesson_name=spec.lesson_name,
-                            charts_info=charts_list,
-                            num_questions=spec.num_questions,
-                            cognitive_level=spec.cognitive_level
-                        )
-                        prompt_text = f"{prompt_text}\n\n{chart_instruction}"
-                
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
                 tn_schema = get_multiple_choice_array_schema(content_schema)
@@ -314,8 +338,7 @@ class QuestionGenerator:
                 
                 # ✨ STEP 3: Merge chart vào câu hỏi (nếu có)
                 if has_chart and charts_map:
-                    if self.verbose:
-                        print(f"🔄 STEP 3: Merging charts vào {len(questions_data)} câu hỏi...")
+                    print(f"🔄 STEP 3: Merging charts vào {len(questions_data)} câu hỏi...")
                     
                     for q_data in questions_data:
                         # Sử dụng helper để merge
@@ -787,7 +810,11 @@ class QuestionGenerator:
                 
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
-                tl_schema = get_essay_array_schema(content_schema)
+                spec_sub_items = getattr(spec, 'sub_items', None)
+                if spec_sub_items:
+                    tl_schema = get_essay_with_sub_items_array_schema(spec_sub_items, content_schema)
+                else:
+                    tl_schema = get_essay_array_schema(content_schema)
                 
                 # Gọi AI với TL array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
@@ -839,7 +866,11 @@ class QuestionGenerator:
                             answer_structure = answer_structure_raw
                         else:
                             answer_structure = {}
-                        
+
+                        # Extract sub_questions (TL with sub-items)
+                        sub_questions_raw = question_data.get("sub_questions", None)
+                        sub_questions = sub_questions_raw if isinstance(sub_questions_raw, list) else None
+
                         # Tạo question object - ĐẶT TRONG TRY-CATCH để bắt mọi lỗi
                         question = GeneratedEssayQuestion(
                             question_code=question_code,
@@ -847,12 +878,15 @@ class QuestionGenerator:
                             question_type=question_data.get("question_type", "analysis"),
                             answer_structure=answer_structure,
                             level=spec.cognitive_level,
-                            lesson_name=spec.lesson_name
+                            lesson_name=spec.lesson_name,
+                            sub_questions=sub_questions,
                         )
                         generated_questions.append(question)
                         
                         if self.verbose:
-                            print(f"✅ Generated TL question {i+1}/{len(questions_data)}: {question.question_stem[:50]}...")
+                            stem_preview = (question.question_stem if isinstance(question.question_stem, str)
+                                           else str(question.question_stem.get('content', question.question_stem)))[:50]
+                            print(f"✅ Generated TL question {i+1}/{len(questions_data)}: {stem_preview}...")
                     
                     except (TypeError, KeyError, AttributeError, ValueError, Exception) as parse_error:
                         print(f"⚠️ ERROR parsing question {i}: {parse_error}")

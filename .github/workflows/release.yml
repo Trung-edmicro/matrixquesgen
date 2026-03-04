@@ -1,0 +1,124 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # Trigger when a version tag like v1.2.3 is pushed
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+    inputs:
+      version:
+        description: "Version number (e.g. 1.2.3)"
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Resolve version ───────────────────────────────────────────
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $ver = "${{ github.event.inputs.version }}"
+          } else {
+            $ver = "${{ github.ref_name }}".TrimStart("v")
+          }
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "Resolved version: $ver"
+
+      # ── Set up Python ─────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server-requirements.txt
+          pip install pyinstaller
+
+      # ── Set up Node.js ────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      # ── Bump version in source files ──────────────────────────────
+      - name: Bump version
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          # version.py
+          (Get-Content version.py) -replace '__version__ = ".*"', "__version__ = `"$ver`"" | Set-Content version.py
+          # inno_setup.iss
+          (Get-Content inno_setup.iss) -replace 'AppVersion=.*', "AppVersion=$ver" `
+            -replace 'OutputBaseFilename=.*', "OutputBaseFilename=MatrixQuesGen_Setup_$ver" | Set-Content inno_setup.iss
+          echo "Bumped to version $ver"
+
+      # ── Build React client ────────────────────────────────────────
+      - name: Build React client
+        shell: pwsh
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
+
+      # ── Build PyInstaller exe ─────────────────────────────────────
+      - name: Build exe with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller matrixquesgen.spec --noconfirm
+          if (-not (Test-Path "dist\MatrixQuesGen.exe")) {
+            throw "PyInstaller build failed – dist\MatrixQuesGen.exe not found"
+          }
+
+      # ── Build Inno Setup installer ────────────────────────────────
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc inno_setup.iss
+          $ver = "${{ steps.version.outputs.VERSION }}"
+          $installer = "installer\MatrixQuesGen_Setup_$ver.exe"
+          if (-not (Test-Path $installer)) {
+            Get-ChildItem installer\
+            throw "Installer not found: $installer"
+          }
+          echo "INSTALLER=$installer" >> $env:GITHUB_ENV
+
+      # ── Create GitHub Release ─────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: MatrixQuesGen v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## MatrixQuesGen v${{ steps.version.outputs.VERSION }}
+
+            ### Cài đặt
+            1. Tải file `MatrixQuesGen_Setup_${{ steps.version.outputs.VERSION }}.exe`
+            2. Chạy file để cài đặt
+            3. Tuỳ chọn cài đặt Playwright Chromium (cho tính năng xuất biểu đồ DOCX)
+
+            ### Cập nhật từ phiên bản cũ
+            - Mở ứng dụng → **Cài đặt** → **Kiểm tra cập nhật**
+            - Bấm **Tải & cài đặt** — ứng dụng sẽ tự khởi động lại
+          files: installer/MatrixQuesGen_Setup_${{ steps.version.outputs.VERSION }}.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

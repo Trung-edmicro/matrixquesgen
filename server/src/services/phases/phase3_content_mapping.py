@@ -289,18 +289,14 @@ class ContentMappingService:
 
             for spec in level_specs:
                 if 'question_template' in spec:
-                    num_questions = spec.get('num', 1)
                     available = available_questions[level]
                     if available:
-                        if len(available) == 1:
-                            # Only one question available, use it for all required
-                            selected = [available[0]] * num_questions
-                        elif len(available) >= num_questions:
-                            # Enough unique questions, select without replacement
-                            selected = random.sample(available, num_questions)
+                        # Sample up to 5 questions as reference examples (independent of num)
+                        num_to_sample = min(5, len(available))
+                        if len(available) >= num_to_sample:
+                            selected = random.sample(available, num_to_sample)
                         else:
-                            # Not enough unique questions, allow duplicates
-                            selected = random.choices(available, k=num_questions)
+                            selected = list(available)
                         spec['question_template'] = selected
                         questions_mapped += len(selected)
 
@@ -313,13 +309,17 @@ class ContentMappingService:
         if not ds_specs:
             return 0
 
-        # For each DS spec, randomly select one question and one material if available
+        # For each DS spec, randomly select up to 5 questions and one material if available
         for spec in ds_specs:
             # Map questions
             if 'question_template' in spec and ds_questions:
-                selected_question = random.choice(ds_questions)
-                spec['question_template'] = [selected_question]
-                questions_mapped += 1
+                num_to_sample = min(5, len(ds_questions))
+                if len(ds_questions) >= num_to_sample:
+                    selected_questions = random.sample(ds_questions, num_to_sample)
+                else:
+                    selected_questions = list(ds_questions)
+                spec['question_template'] = selected_questions
+                questions_mapped += len(selected_questions)
 
             # Map materials (replace supplementary_materials with materials)
             if 'supplementary_materials' in spec:

@@ -188,8 +188,10 @@ class WorkflowOrchestrator:
         has_tn = (prompts_dir / "TN.txt").exists()
         has_ds = (prompts_dir / "DS.txt").exists()
         
-        # If we have alternative prompts (TN2 or TN_VD_case2 or TN_VD), use alternative
-        if has_tn2 or has_tn_vd_case2 or has_tn_vd:
+        # Use alternative flow only when TN2.txt is present (or TN_VD_case2 / DS_case).
+        # TN_VD.txt alone does NOT trigger alternative – it is used by the standard 3-tier
+        # prompt selection and would otherwise incorrectly route to the alternative path.
+        if has_tn2 or has_tn_vd_case2 or has_ds_case:
             print(f"✓ Detected ALTERNATIVE prompts (TN2: {has_tn2}, TN_VD_case2: {has_tn_vd_case2}, TN_VD: {has_tn_vd}, DS_case: {has_ds_case})")
             return 'alternative'
         

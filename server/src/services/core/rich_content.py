@@ -36,6 +36,7 @@ class ContentMetadata:
     width: Optional[int] = None
     height: Optional[int] = None
     caption: Optional[str] = None
+    source: Optional[str] = None  # Source citation for tables
     
     # Table metadata
     bordered: bool = True
@@ -114,6 +115,8 @@ class ContentBlock:
                 metadata_dict["height"] = self.metadata.height
             if self.metadata.caption:
                 metadata_dict["caption"] = self.metadata.caption
+            if self.metadata.source:
+                metadata_dict["source"] = self.metadata.source
             if not self.metadata.bordered:
                 metadata_dict["bordered"] = self.metadata.bordered
             if not self.metadata.striped:

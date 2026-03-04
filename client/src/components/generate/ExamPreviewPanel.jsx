@@ -769,6 +769,19 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300"
                   />
+                  {/* Sub-questions (a, b, ...) */}
+                  {Array.isArray(q.explanation?.sub_questions) && q.explanation.sub_questions.length > 0 && (
+                    <div className="mt-3 space-y-2 pl-2">
+                      {q.explanation.sub_questions.map((sub) => (
+                        <div key={sub.label} className="flex gap-2">
+                          <span className="font-medium shrink-0">{sub.label})</span>
+                          <div className="flex-1">
+                            <RichContentRenderer content={sub.question_stem} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -866,29 +879,63 @@ function AnswersList({ questions }) {
         <div className="mb-6">
           <h3 className="text-base font-medium text-gray-900 mb-3">Phần IV: Tự luận</h3>
           <div className="text-base space-y-3">
-            {sortedTL.map((q, idx) => (
-              <div key={q.question_code} className="border-b border-gray-100 pb-3">
-                <div className="font-medium mb-2">Câu {idx + 1}:</div>
-                <div className="pl-4">
-                  {q.correct_answer && (
-                    <div className="mb-2">
-                      <span className="font-medium text-red-600">Đáp án mẫu:</span>
-                      <div className="text-sm text-gray-700 mt-1">
-                        <LaTeXRenderer>{q.correct_answer}</LaTeXRenderer>
+            {sortedTL.map((q, idx) => {
+              const exp = q.explanation
+              const subQuestions = exp?.sub_questions
+              const hasSubQuestions = Array.isArray(subQuestions) && subQuestions.length > 0
+              return (
+                <div key={q.question_code} className="border-b border-gray-100 pb-3">
+                  <div className="font-medium mb-2">Câu {idx + 1}:</div>
+                  <div className="pl-4">
+                    {q.correct_answer && (
+                      <div className="mb-2">
+                        <span className="font-medium text-red-600">Đáp án mẫu:</span>
+                        <div className="text-sm text-gray-700 mt-1">
+                          <LaTeXRenderer>{q.correct_answer}</LaTeXRenderer>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {q.explanation && (
-                    <div>
-                      <span className="font-medium">Hướng dẫn chấm điểm:</span>
-                      <div className="text-sm text-gray-600 mt-1">
-                        <LaTeXRenderer>{q.explanation}</LaTeXRenderer>
+                    )}
+                    {hasSubQuestions ? (
+                      <div className="space-y-3">
+                        {subQuestions.map((sub) => {
+                          const as = sub.answer_structure || {}
+                          return (
+                            <div key={sub.label}>
+                              <span className="font-medium">{sub.label})</span>
+                              {(as.intro || as.body || as.conclusion) && (
+                                <div className="text-sm text-gray-600 mt-1 space-y-1">
+                                  {as.intro && <div><span className="font-medium">Mở đầu:</span> <LaTeXRenderer>{as.intro}</LaTeXRenderer></div>}
+                                  {as.body && <div><span className="font-medium">Nội dung:</span> <LaTeXRenderer>{as.body}</LaTeXRenderer></div>}
+                                  {as.conclusion && <div><span className="font-medium">Kết luận:</span> <LaTeXRenderer>{as.conclusion}</LaTeXRenderer></div>}
+                                </div>
+                              )}
+                              {sub.explanation && (
+                                <div className="text-sm text-gray-500 italic mt-1">
+                                  <LaTeXRenderer>{sub.explanation}</LaTeXRenderer>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
-                    </div>
-                  )}
+                    ) : exp && (
+                      <div>
+                        <span className="font-medium">Hướng dẫn chấm điểm:</span>
+                        {typeof exp === 'string' ? (
+                          <div className="text-sm text-gray-600 mt-1"><LaTeXRenderer>{exp}</LaTeXRenderer></div>
+                        ) : (
+                          <div className="text-sm text-gray-600 mt-1 space-y-1">
+                            {exp.answer_structure?.intro && <div><span className="font-medium">Mở đầu:</span> <LaTeXRenderer>{exp.answer_structure.intro}</LaTeXRenderer></div>}
+                            {exp.answer_structure?.body && <div><span className="font-medium">Nội dung:</span> <LaTeXRenderer>{exp.answer_structure.body}</LaTeXRenderer></div>}
+                            {exp.answer_structure?.conclusion && <div><span className="font-medium">Kết luận:</span> <LaTeXRenderer>{exp.answer_structure.conclusion}</LaTeXRenderer></div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
