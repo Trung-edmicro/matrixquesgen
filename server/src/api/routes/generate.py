@@ -18,6 +18,7 @@ from services.core.genai_client import GenAIClient
 from services.core.matrix_parser import MatrixParser
 from services.generators.question_generator import QuestionGenerator
 from services.exporters.template_generator import QuestionGeneratorWithTemplate
+from services.english_generator_service.english_generator_service import generate_english_flow
 
 
 router = APIRouter(prefix="/api/generate", tags=["Generate"])
@@ -301,6 +302,12 @@ async def generate_questions(
     # Validate file extension
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file .xlsx")
+    
+    if file.filename.startswith("MATRIX_ENGLISH_"):
+        try:
+            return await generate_english_flow(file)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý: {str(e)}")
     
     # Tạo session ID
     session_id = str(uuid.uuid4())

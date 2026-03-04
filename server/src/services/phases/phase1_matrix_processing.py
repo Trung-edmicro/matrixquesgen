@@ -39,7 +39,7 @@ class MatrixProcessingService:
         self.matrix_parser = MatrixParser()
         # Support both formats: Ma trận_SUBJECT_CURRICULUM_GRADE.xlsx and sessionId_Ma trận_SUBJECT_CURRICULUM_GRADE.xlsx
         self.matrix_pattern = re.compile(
-            r'(?:[a-f0-9-]+_)?Ma trận_([A-Z]+)_([A-Z]+)_([A-Z0-9]+)\.xlsx',
+            r'(?:[a-f0-9-]+_)?Ma trận_([A-Z]+)_([A-Z]+)_([A-Z0-9]+)\.xlsx', 
             re.IGNORECASE
         )
 

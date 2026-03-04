@@ -15,9 +15,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from api.models.schemas import ExportResponse
 from services.exporters.docx_generator import DocxGenerator
 from config.settings import Config
+from services.exporters.english_docx_generator import export_english_docx, generate_docx_from_ai_results,build_results_from_response, export_docx_from_data
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
+
+routerEnglish = APIRouter(
+    prefix="/api",
+    tags=["English Export"]
+)
 
 
 # Helper functions for lazy path loading (ensures APP_DIR env var is set)
@@ -45,6 +51,40 @@ def _get_exports_dir() -> Path:
     exports_dir = _get_app_dir() / "data" / "exports"
     exports_dir.mkdir(parents=True, exist_ok=True)
     return exports_dir
+
+
+# @routerEnglish.post("/export-english/{session_id}")
+# async def export_english(session_id: str):
+
+#     print(f">>>>> debug api export {session_id}")
+
+#     result = await export_english_docx(session_id)
+
+#     return FileResponse(
+#         path=result["file_path"],
+#         filename=result["file_name"],
+#         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#     )
+
+@routerEnglish.post("/export-english")
+async def export_english(payload: dict):
+    # 3️⃣ Tạo folder export
+    output_dir = Path("exports")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    file_name = "English_Exam.docx"
+    output_path = output_dir / file_name
+
+    # 4️⃣ Generate file
+    # generate_docx_from_ai_results(results, str(output_path))
+    export_docx_from_data(payload, str(output_path))
+
+    # 5️⃣ Trả file về
+    return FileResponse(
+        path=str(output_path),
+        filename=file_name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 
 @router.post("/{session_id}", response_model=ExportResponse)
