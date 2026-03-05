@@ -72,8 +72,12 @@ a = Analysis(
         'pydantic',
         'google.cloud.aiplatform',
         'vertexai',
+        'vertexai.generative_models',
+        'vertexai.generative_models._generative_models',
         'google.genai',
         'google.genai.types',
+        'google.api_core',
+        'google.api_core.exceptions',
         # Google API Client
         'googleapiclient',
         'googleapiclient.discovery',
@@ -105,6 +109,7 @@ a = Analysis(
         'api.routes.regenerate',
         'api.routes.google_drive',
         'api.routes.images',
+        'api.routes.update',
         'api.models',
         'api.models.schemas',
         # Legacy route imports
@@ -115,6 +120,11 @@ a = Analysis(
         'routes.google_drive',
         'routes.images',
         'routes.docx_reader',
+        # New services (English generator)
+        'services.english_generator_service.english_generator_service',
+        'services.english_generator_service.matrix_workflow_service',
+        'services.english_generator_service.vertex_async_client',
+        'services.exporters.english_docx_generator',
         # Phase APIs
         'api.phase_apis',
         'api.custom_prompts_api',

@@ -90,7 +90,7 @@ class GenerateResponse(BaseModel):
     session_id: str
     status: str
     message: str
-    results: Optional[Any]
+    results: Optional[Any] = None
 
 
 class SessionListResponse(BaseModel):

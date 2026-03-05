@@ -76,10 +76,12 @@ if (-not (Test-Path $pwBrowsersPath)) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "! Canh bao: Khong the cai dat Playwright Chromium." -ForegroundColor Yellow
         Write-Host "  Chart rendering trong DOCX se bi vo hieu hoa trong ban build nay." -ForegroundColor Yellow
-    } else {
+    }
+    else {
         Write-Host "  OK Playwright Chromium da duoc cai dat." -ForegroundColor Green
     }
-} else {
+}
+else {
     Write-Host "  OK Playwright Chromium da co san tai: $pwBrowsersPath" -ForegroundColor Green
 }
 
@@ -155,6 +157,16 @@ Write-Host "  Da tao cac thu muc data" -ForegroundColor Cyan
 if (Test-Path "data\matrix") {
     Copy-Item "data\matrix\*.json" "$distDir\data\matrix\" -Force
     Write-Host "  Da copy cac file ma tran mau" -ForegroundColor Cyan
+}
+
+# Copy prompts TIENGANH vao dist
+if (Test-Path "data\prompts\TIENGANH") {
+    $taPromptDest = "$distDir\data\prompts\TIENGANH"
+    if (-not (Test-Path $taPromptDest)) {
+        New-Item -ItemType Directory -Path $taPromptDest -Force | Out-Null
+    }
+    Copy-Item "data\prompts\TIENGANH\*" "$taPromptDest\" -Force
+    Write-Host "  Da copy prompts TIENGANH" -ForegroundColor Cyan
 }
 
 # Copy .env if exists

@@ -69,8 +69,7 @@ def _get_exports_dir() -> Path:
 @routerEnglish.post("/export-english")
 async def export_english(payload: dict):
     # 3️⃣ Tạo folder export
-    output_dir = Path("exports")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _get_exports_dir()
 
     file_name = "English_Exam.docx"
     output_path = output_dir / file_name

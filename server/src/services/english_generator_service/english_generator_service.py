@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 import uuid
+import os
 from fastapi.responses import FileResponse
 import shutil
 from api.callApi import get_credentials
@@ -30,8 +31,8 @@ REQUIRED_COUNTS = {
     "Điền cụm từ/điền câu": 5
 }
 
-APP_DIR = Path(__file__).parent.parent
-PROMPT_DIR = APP_DIR /  "prompts" 
+APP_DIR = Path(os.environ['APP_DIR']) if os.environ.get('APP_DIR') else Path(__file__).parent.parent.parent.parent.parent
+PROMPT_DIR = APP_DIR / "data" / "prompts" / "TIENGANH"
 UPLOAD_DIR = APP_DIR / "data" / "uploads"
 OUTPUT_DIR = APP_DIR / "data" / "outputs"
 

@@ -138,6 +138,7 @@ def main():
             from api.routes import update as update_route
             print("✓ Đã import routes thành công")
         except Exception as e:
+            logger.error(f"Lỗi khi import routes: {e}", exc_info=True)
             print(f"✗ Lỗi khi import routes: {e}")
             import traceback
             traceback.print_exc()
@@ -200,6 +201,8 @@ def main():
             print("✓ Đã mount images router")
             app.include_router(update_route.router)
             print("✓ Đã mount update router")
+            app.include_router(export.routerEnglish)
+            print("✓ Đã mount routerEnglish")
         except Exception as e:
             print(f"✗ Lỗi khi mount routers: {e}")
             import traceback
@@ -269,15 +272,18 @@ def main():
         print("\n\n✓ Đang tắt server...")
         print("Cảm ơn bạn đã sử dụng MatrixQuesGen!")
     except Exception as e:
-        print(f"\n✗ Lỗi khi khởi động server: {e}")
         import traceback
+        logger.error(f"Lỗi khi khởi động server: {e}", exc_info=True)
+        logger.error(traceback.format_exc())
+        print(f"\n✗ Lỗi khi khởi động server: {e}")
+        print(f"Chi tiết lỗi đã được ghi vào: {APP_DIR / 'logs' / 'app.log'}")
         traceback.print_exc()
         # Don't use input() in frozen exe mode (sys.stdin not available)
         if not getattr(sys, 'frozen', False):
             input("\nNhấn Enter để thoát...")
         else:
             import time
-            time.sleep(5)  # Wait 5 seconds before exit
+            time.sleep(10)  # Wait 10 seconds so user can see the error path
         sys.exit(1)
 
 if __name__ == "__main__":
