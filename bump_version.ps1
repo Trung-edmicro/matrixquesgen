@@ -21,18 +21,27 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 
 Write-Host "Bumping version to $Version..." -ForegroundColor Cyan
 
+# Helper: write UTF-8 WITHOUT BOM (PowerShell 5.x Set-Content -Encoding UTF8 adds BOM)
+function Write-UTF8NoBOM([string]$Path, [string]$Content) {
+    [System.IO.File]::WriteAllText(
+        (Resolve-Path $Path -ErrorAction SilentlyContinue ?? $Path),
+        $Content,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
 # 1. version.py
 $versionPy = "version.py"
-(Get-Content $versionPy) -replace '__version__ = ".*"', "__version__ = `"$Version`"" |
-Set-Content $versionPy -Encoding UTF8
+$content = (Get-Content $versionPy -Raw) -replace '__version__ = ".*"', "__version__ = `"$Version`""
+Write-UTF8NoBOM $versionPy $content
 Write-Host "  OK version.py" -ForegroundColor Green
 
 # 2. inno_setup.iss
 $issFile = "inno_setup.iss"
-(Get-Content $issFile) `
+$content = (Get-Content $issFile -Raw) `
     -replace 'AppVersion=.*', "AppVersion=$Version" `
-    -replace 'OutputBaseFilename=.*', "OutputBaseFilename=MatrixQuesGen_Setup_$Version" |
-Set-Content $issFile -Encoding UTF8
+    -replace 'OutputBaseFilename=.*', "OutputBaseFilename=MatrixQuesGen_Setup_$Version"
+Write-UTF8NoBOM $issFile $content
 Write-Host "  OK inno_setup.iss" -ForegroundColor Green
 
 # 3. client/package.json
@@ -40,7 +49,8 @@ $packageJson = "client\package.json"
 if (Test-Path $packageJson) {
     $pkg = Get-Content $packageJson -Raw | ConvertFrom-Json
     $pkg.version = $Version
-    $pkg | ConvertTo-Json -Depth 10 | Set-Content $packageJson -Encoding UTF8
+    $newContent = $pkg | ConvertTo-Json -Depth 10
+    Write-UTF8NoBOM $packageJson $newContent
     Write-Host "  OK client/package.json" -ForegroundColor Green
 }
 

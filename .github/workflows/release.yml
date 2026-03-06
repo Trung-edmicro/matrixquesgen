@@ -58,11 +58,18 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.version.outputs.VERSION }}"
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
           # version.py
-          (Get-Content version.py) -replace '__version__ = ".*"', "__version__ = `"$ver`"" | Set-Content version.py
+          $content = (Get-Content version.py -Raw) -replace '__version__ = ".*"', "__version__ = `"$ver`""
+          [System.IO.File]::WriteAllText("$PWD/version.py", $content, $utf8NoBom)
+
           # inno_setup.iss
-          (Get-Content inno_setup.iss) -replace 'AppVersion=.*', "AppVersion=$ver" `
-            -replace 'OutputBaseFilename=.*', "OutputBaseFilename=MatrixQuesGen_Setup_$ver" | Set-Content inno_setup.iss
+          $content = (Get-Content inno_setup.iss -Raw) `
+            -replace 'AppVersion=.*', "AppVersion=$ver" `
+            -replace 'OutputBaseFilename=.*', "OutputBaseFilename=MatrixQuesGen_Setup_$ver"
+          [System.IO.File]::WriteAllText("$PWD/inno_setup.iss", $content, $utf8NoBom)
+
           echo "Bumped to version $ver"
 
       # ── Build React client ────────────────────────────────────────
