@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+import zipfile
 
 import sys
 from pathlib import Path
@@ -15,7 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from api.models.schemas import ExportResponse
 from services.exporters.docx_generator import DocxGenerator
 from config.settings import Config
-from services.exporters.english_docx_generator import export_english_docx, generate_docx_from_ai_results,build_results_from_response, export_docx_from_data
+# from services.exporters.english_docx_generator import export_docx_from_data
+from services.english_generator_service.english_generator_service import export_standard_docx_from_data, export_docx_from_data
 
 
 router = APIRouter(prefix="/api/export", tags=["Export"])
@@ -66,25 +68,52 @@ def _get_exports_dir() -> Path:
 #         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 #     )
 
+# @routerEnglish.post("/export-english")
+# async def export_english(payload: dict):
+#     # 3️⃣ Tạo folder export
+#     output_dir = _get_exports_dir()
+
+#     file_name = "English_Exam.docx"
+#     output_path = output_dir / file_name
+
+#     # 4️⃣ Generate file
+#     # generate_docx_from_ai_results(results, str(output_path))
+#     export_docx_from_data(payload, str(output_path))
+
+#     # 5️⃣ Trả file về
+#     return FileResponse(
+#         path=str(output_path),
+#         filename=file_name,
+#         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#     )
+
+
 @routerEnglish.post("/export-english")
 async def export_english(payload: dict):
-    # 3️⃣ Tạo folder export
+
     output_dir = _get_exports_dir()
 
-    file_name = "English_Exam.docx"
-    output_path = output_dir / file_name
+    file1 = output_dir / "English_Exam.docx"
+    file2 = output_dir / "English_Standard_Exam.docx"
 
-    # 4️⃣ Generate file
-    # generate_docx_from_ai_results(results, str(output_path))
-    export_docx_from_data(payload, str(output_path))
+    # generate file 1
+    export_docx_from_data(payload, str(file1))
 
-    # 5️⃣ Trả file về
+    # generate file 2
+    export_standard_docx_from_data(payload, str(file2))
+
+    # tạo zip
+    zip_path = output_dir / "English_Exam_Files.zip"
+
+    with zipfile.ZipFile(zip_path, "w") as zipf:
+        zipf.write(file1, file1.name)
+        zipf.write(file2, file2.name)
+
     return FileResponse(
-        path=str(output_path),
-        filename=file_name,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        path=str(zip_path),
+        filename="English_Exam_Files.zip",
+        media_type="application/zip"
     )
-
 
 @router.post("/{session_id}", response_model=ExportResponse)
 async def export_docx(session_id: str):
