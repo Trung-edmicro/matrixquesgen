@@ -42,7 +42,6 @@ package.ps1
 install_playwright.bat
 install_playwright.ps1
 modular_cli.md
-tray_icon.py
 create_icon.py
 read_matrix.py
 analyze_structure.py
