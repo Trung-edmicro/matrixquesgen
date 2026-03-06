@@ -23,11 +23,14 @@ if os.path.exists(server_src):
 # Note: Không đóng gói data/prompts để user có thể tùy chỉnh
 added_files = [
     ('client/dist', 'client/dist'),
-    ('.env', '.'),
     ('tray_icon.py', '.'),
     ('version.py', '.'),
     ('update.py', '.'),
 ]
+
+# .env: only bundle if it exists (not present in CI – user provides it after install)
+if os.path.exists('.env'):
+    added_files.append(('.env', '.'))
 
 # Add icon file if exists
 if os.path.exists('favicon.ico'):

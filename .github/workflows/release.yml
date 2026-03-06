@@ -80,6 +80,19 @@ jobs:
           npm ci
           npm run build
 
+      # ── Create placeholder .env (not in repo; user fills after install) ──
+      - name: Create placeholder .env
+        shell: pwsh
+        run: |
+          if (-not (Test-Path .env)) {
+            @"
+# MatrixQuesGen Configuration
+# Fill in your API keys after installation
+GITHUB_REPO=Trung-edmicro/matrixquesgen
+GEMINI_API_KEY=
+"@ | Out-File -FilePath .env -Encoding ascii
+          }
+
       # ── Build PyInstaller exe ─────────────────────────────────────
       - name: Build exe with PyInstaller
         shell: pwsh
