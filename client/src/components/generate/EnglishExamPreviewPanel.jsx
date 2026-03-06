@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 
 export default function EnglishExamPreviewPanel({ examData }) {
+
   const blocks = useMemo(() => {
     return examData?.results || []
   }, [examData])
@@ -16,346 +17,160 @@ export default function EnglishExamPreviewPanel({ examData }) {
   return (
     <div className="h-full overflow-auto bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto bg-white shadow border rounded-lg p-10 text-[15px] leading-7 font-[Times_New_Roman]">
-        
-        {/* TITLE giống doc.add_heading("ĐỀ THI TIẾNG ANH") */}
+
         <h1 className="text-center text-xl font-bold mb-6">
           ĐỀ THI TIẾNG ANH
         </h1>
 
-        {blocks.map((block, index) => (
-          <div key={index} className="mb-8">
+        {blocks.map((block, index) => {
 
-            {/* Instruction - italic */}
-            <p className="italic mb-4">
-              {renderInstruction(block)}
-            </p>
-
-            {/* Raw AI text parse theo đúng logic extract_cloze_sections */}
-            <RenderBlockContent block={block} />
-
-            {/* Separator */}
-            <div className="text-center my-6">
-              ====================
-            </div>
-          </div>
-        ))}
-
-      </div>
-    </div>
-  )
-}
-
-/* ============================= */
-/* INSTRUCTION (giống _add_instruction) */
-/* ============================= */
-
-function renderInstruction(block) {
-  if (block.type === "CLOZE") {
-    return `Read the following ${block.title || "text"} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.`
-  }
-
-  if (block.type === "ARRANGE") {
-    return `Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement of utterances or sentences to make a meaningful exchange or text.`
-  }
-
-  if (block.type === "RC") {
-    return `Read the following ${block.title || "text"} and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each question.`
-  }
-
-  return `Read the following ${block.title || "text"} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each blank.`
-}
-
-/* ============================= */
-/* BLOCK RENDER */
-/* ============================= */
-
-function RenderBlockContent({ block }) {
-
-  const raw = block.data || ""
-
-  if (block.type === "ARRANGE") {
-    return <RenderArrange raw={raw} />
-  }
-
-  return <RenderClozeGapRC raw={raw} type={block.type} />
-}
-
-/* ============================= */
-/* CLOZE / GAP / RC */
-/* ============================= */
-
-function RenderClozeGapRC({ raw, type }) {
-
-  const parsed = parseClozeSections(raw)
-
-  return (
-    <div>
-
-      {/* PASSAGE */}
-      <div className="mb-6 space-y-2 text-justify">
-        {parsed.passage.split("\n").map((line, i) =>
-          line.trim() ? <p key={i}>{line}</p> : null
-        )}
-      </div>
-
-      {/* QUESTIONS */}
-      {/* <div className="space-y-2">
-        {parsed.questions.map((line, i) => {
-
-          const isQuestion = /^Question\s+\d+/i.test(line)
-
-          return (
-            <p key={i} className={isQuestion ? "font-bold" : ""}>
-              {line}
-            </p>
-          )
-        })}
-      </div> */}
- {/* QUESTIONS */}
-    <div className="space-y-4">
-      {(() => {
-        const elements = []
-        let answerBuffer = []
-
-        parsed.questions.forEach((line, i) => {
-          const isQuestion = /^Question\s+\d+/i.test(line)
-          const isAnswer = /^[A-D]\.\s*/.test(line)
-
-          // Nếu là Question
-          if (isQuestion) {
-            // flush đáp án cũ nếu còn
-            if (answerBuffer.length > 0) {
-              elements.push(
-                <div
-                  key={`answers-${i}`}
-                  className="ml-6 flex flex-wrap gap-x-12 gap-y-2 mt-2"
-                >
-                  {answerBuffer.map((ans, idx) => (
-                    <div
-                      key={idx}
-                      className="min-w-[200px] leading-relaxed"
-                    >
-                      {ans}
-                    </div>
-                  ))}
-                </div>
-              )
-              answerBuffer = []
-            }
-
-            elements.push(
-              <p key={i} className="font-bold mt-4">
-                {line}
-              </p>
+          if (block.type === "ARRANGE") {
+            return (
+              <ArrangeBlock
+                key={index}
+                data={block.parsed}
+              />
             )
           }
 
-          // Nếu là đáp án
-          else if (isAnswer) {
-            answerBuffer.push(line)
-          }
-
-          // Nếu là dòng thường
-          else {
-            if (answerBuffer.length > 0) {
-              elements.push(
-                <div
-                  key={`answers-${i}`}
-                  className="ml-6 flex flex-wrap gap-x-6 gap-y-2 mt-2"
-                >
-                  {answerBuffer.map((ans, idx) => (
-                    <div
-                      key={idx}
-                      className="min-w-[140px] leading-relaxed"
-                    >
-                      {ans}
-                    </div>
-                  ))}
-                </div>
-              )
-              answerBuffer = []
-            }
-
-            elements.push(<p key={i}>{line}</p>)
-          }
-        })
-
-        // flush cuối
-        if (answerBuffer.length > 0) {
-          elements.push(
-            <div
-              key="answers-last"
-              className="ml-6 flex flex-wrap gap-x-12 gap-y-2 mt-2"
-            >
-              {answerBuffer.map((ans, idx) => (
-                <div
-                  key={idx}
-                  className="min-w-[200px] leading-relaxed"
-                >
-                  {ans}
-                </div>
-              ))}
-            </div>
-          )
-        }
-
-        return elements
-      })()}
-    </div>
-          
-      {/* ANSWER KEY */}
-      {parsed.answerKey && (
-        <div className="mt-6">
-          <p className="font-bold">ANSWER KEY</p>
-          <p>{parsed.answerKey}</p>
-        </div>
-      )}
-
-      {/* EXPLANATION */}
-      {parsed.explanation && (
-        <div className="mt-6 space-y-2">
-          <p className="font-bold">HƯỚNG DẪN GIẢI CHI TIẾT</p>
-          {parsed.explanation.split("\n").map((line, i) =>
-            line.trim() ? <p key={i}>{line}</p> : null
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ============================= */
-/* ARRANGE */
-/* ============================= */
-
-function RenderArrange({ raw }) {
-
-  const parts = parseArrangeSections(raw)
-
-  return (
-    <div>
-
-      {/* Question Block */}
-      <div className="space-y-2">
-        {parts.questionBlock.map((line, i) => {
-          const isQuestion = /^Question\s+\d+/i.test(line)
           return (
-            <p key={i} className={isQuestion ? "font-bold" : ""}>
-              {line}
-            </p>
+            <ClozeBlock
+              key={index}
+              data={block.parsed}
+            />
           )
         })}
+
+      </div>
+    </div>
+  )
+
+  function ClozeBlock({ data }) {
+
+  const title = data?.passage_title
+  const passage = data?.passage || ""
+  const questions = data?.questions || []
+
+  return (
+    <div className="mb-10">
+
+      {title && (
+        <h2 className="text-center font-bold mb-4">
+          {title}
+        </h2>
+      )}
+
+      <div className="mb-6 space-y-2 text-justify">
+        {passage.split("\n").map((line, i) =>
+          line.trim() && <p key={i}>{line}</p>
+        )}
       </div>
 
-      {/* Solution */}
-      <div className="mt-6">
-        <p className="font-bold">Lời giải</p>
+      {questions.map((q) => {
 
-        {parts.answerLetter && (
-          <p>Chọn {parts.answerLetter}</p>
-        )}
+        const options = [
+          `A. ${q.option_a}`,
+          `B. ${q.option_b}`,
+          `C. ${q.option_c}`,
+          `D. ${q.option_d}`,
+        ]
 
-        {parts.solutionText.map((line, i) =>
-          line.trim() ? <p key={i}>{line}</p> : null
-        )}
+        // Nếu tổng độ dài quá lớn → chuyển layout 2 dòng
+        const isLong =
+          options.join("").length > 120
 
-        {parts.translation.length > 0 && (
-          <>
-            <p className="font-bold mt-4">Tạm dịch:</p>
-            {parts.translation.map((line, i) =>
-              line.trim() ? <p key={i}>{line}</p> : null
-            )}
-          </>
-        )}
-      </div>
+        return (
+          <div key={q.number} className="mb-6">
+
+            <p className="font-semibold">
+              Question {q.number}: {q.question_content}
+            </p>
+
+            {/* OPTIONS */}
+            <div
+              className={`pl-4 mt-2 gap-x-6 gap-y-1 ${
+                isLong
+                  ? "grid grid-cols-2"
+                  : "grid grid-cols-4"
+              }`}
+            >
+              <p>{options[0]}</p>
+              <p>{options[1]}</p>
+              <p>{options[2]}</p>
+              <p>{options[3]}</p>
+            </div>
+
+            <div className="mt-3 pl-4 text-gray-700">
+
+              <p className="font-semibold">Lời giải</p>
+              <p className="font-semibold">Chọn {q.answer}</p>
+
+              {q.explanation && (
+                <p className="mt-2 whitespace-pre-line">
+                  {q.explanation}
+                </p>
+              )}
+
+              {q.quote && (
+                <p className="mt-1">
+                  <b>Trích bài:</b> {q.quote}
+                </p>
+              )}
+
+              {q.translation && (
+                <p className="mt-1">
+                  <b>Tạm dịch:</b> {q.translation}
+                </p>
+              )}
+
+            </div>
+
+          </div>
+        )
+      })}
+
     </div>
   )
 }
 
-/* ============================= */
-/* PARSE LOGIC (giống python) */
-/* ============================= */
+function ArrangeBlock({ data }) {
 
-function parseClozeSections(raw) {
-  const PASS_HDR = "BÀI ĐỌC (PASSAGE)"
-  const KEY = "ANSWER KEY"
-  const EXPL = "HƯỚNG DẪN GIẢI CHI TIẾT"
+  return (
+    <div className="mb-10">
 
-  const passIndex = raw.indexOf(PASS_HDR)
+      <p className="font-semibold">
+        Question {data.question_number}:
+      </p>
 
-  if (passIndex < 0) {
-    return {
-      passage: raw.slice(0, 200),
-      questions: raw.slice(200).split("\n"),
-      answerKey: "",
-      explanation: ""
-    }
-  }
+      {data.question_stem && (
+        <p className="mb-2">{data.question_stem}</p>
+      )}
 
-  const afterPass = raw.slice(passIndex + PASS_HDR.length)
-  const firstQ = afterPass.indexOf("Question")
+      <p className="mb-3">
+        A. {data.option_a} &nbsp;&nbsp;
+        B. {data.option_b} &nbsp;&nbsp;
+        C. {data.option_c} &nbsp;&nbsp;
+        D. {data.option_d}
+      </p>
 
-  const passage = afterPass.slice(0, firstQ).trim()
+      <div className="pl-4">
 
-  const remain = afterPass.slice(firstQ)
+        <p className="font-semibold">Lời giải</p>
+        <p className="font-semibold">Chọn {data.answer}</p>
 
-  const keyIndex = remain.indexOf(KEY)
-  const explIndex = remain.indexOf(EXPL)
+        {data.solution_lines?.map((l, i) => (
+          <p key={i}>{l}</p>
+        ))}
 
-  const questionBlock = remain.slice(0, keyIndex > 0 ? keyIndex : explIndex > 0 ? explIndex : undefined)
+        {data.translation_lines?.map((l, i) => (
+          <p key={i}>
+            <b>Tạm dịch:</b> {l}
+          </p>
+        ))}
 
-  const answerKey = keyIndex > 0
-    ? remain.slice(keyIndex + KEY.length, explIndex > 0 ? explIndex : undefined).trim()
-    : ""
+      </div>
 
-  const explanation = explIndex > 0
-    ? remain.slice(explIndex + EXPL.length).trim()
-    : ""
-
-  return {
-    passage,
-    questions: questionBlock.split("\n").map(l => l.trim()).filter(Boolean),
-    answerKey,
-    explanation
-  }
+    </div>
+  )
 }
-
-function parseArrangeSections(raw) {
-
-  const loiIndex = raw.indexOf("Lời giải")
-
-  if (loiIndex < 0) {
-    return {
-      questionBlock: raw.split("\n"),
-      answerLetter: "",
-      solutionText: [],
-      translation: []
-    }
-  }
-
-  const questionBlock = raw.slice(0, loiIndex).split("\n")
-
-  const after = raw.slice(loiIndex)
-
-  const match = after.match(/Chọn\s+([ABCD])/)
-  const answerLetter = match ? match[1] : ""
-
-  const tamIndex = after.indexOf("Tạm dịch:")
-
-  let solutionText = []
-  let translation = []
-
-  if (tamIndex > 0) {
-    solutionText = after.slice(0, tamIndex).split("\n")
-    translation = after.slice(tamIndex + "Tạm dịch:".length).split("\n")
-  } else {
-    solutionText = after.split("\n")
-  }
-
-  return {
-    questionBlock,
-    answerLetter,
-    solutionText,
-    translation
-  }
 }
