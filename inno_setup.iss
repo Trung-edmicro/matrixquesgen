@@ -25,7 +25,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "playwright"; Description: "CÃ i Ä‘áº·t Playwright Chromium (Ä‘á»ƒ xuáº¥t biá»ƒu Ä‘á»“ vÃ o DOCX, ~150MB)"; GroupDescription: "ThÃ nh pháº§n tuá»³ chá»n:"; Flags: unchecked
+Name: "playwright"; Description: "Install Playwright Chromium (for chart export to DOCX, ~150MB)"; GroupDescription: "Optional components:"; Flags: unchecked
 
 [Files]
 Source: "dist\MatrixQuesGen.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -34,16 +34,15 @@ Source: "client\dist\*"; DestDir: "{app}\client\dist"; Flags: ignoreversion recu
 Source: ".env"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install_playwright_silent.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "install_playwright.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"
-Name: "{group}\CÃ i Ä‘áº·t Playwright (Biá»ƒu Ä‘á»“ DOCX)"; Filename: "{app}\install_playwright.bat"
+
 Name: "{commondesktop}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"; Tasks: desktopicon
 
 [Run]
 ; Launch Playwright install silently in background (optional task)
-Filename: "{app}\install_playwright_silent.bat"; Description: "Äang cÃ i Ä‘áº·t Playwright Chromium..."; Flags: runhidden nowait; Tasks: playwright
+Filename: "{app}\install_playwright_silent.bat"; Description: "Installing Playwright Chromium..."; Flags: runhidden nowait; Tasks: playwright
 ; Launch the app after install (user can uncheck)
 Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesGen}"; Flags: nowait postinstall skipifsilent
 
