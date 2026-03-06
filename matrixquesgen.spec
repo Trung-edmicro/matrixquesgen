@@ -6,10 +6,14 @@ block_cipher = None
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-server_datas = []
+# Collect all uvicorn and starlette submodules (PyInstaller misses dynamic imports)
+uvicorn_imports = collect_submodules('uvicorn')
+starlette_imports = collect_submodules('starlette')
+fastapi_imports = collect_submodules('fastapi')
 
-# Add entire server/src directory structure
+server_datas = []
 server_src = 'server/src'
+# Add entire server/src directory structure
 if os.path.exists(server_src):
     for root, dirs, files in os.walk(server_src):
         for file in files:
@@ -55,7 +59,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas,
-    hiddenimports=[
+    hiddenimports=uvicorn_imports + starlette_imports + fastapi_imports + [
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',
