@@ -1,0 +1,372 @@
+{
+  "metadata": {
+    "subject": "DIALY",
+    "curriculum": "KNTT",
+    "grade": "C12",
+    "filename": "8ffdc77d-dc3f-4740-abe6-b10ef4ffb933_Ma trận_DIALY_KNTT_C12.xlsx"
+  },
+  "rich_content_type_definitions": {
+    "LT": {
+      "name": "Lý thuyết",
+      "description": ""
+    },
+    "TT": {
+      "name": "Tính toán",
+      "description": ""
+    },
+    "BD": {
+      "name": "Biểu đồ",
+      "description": ""
+    },
+    "BK": {
+      "name": "Bảng khảo, bảng số liệu",
+      "description": ""
+    },
+    "HA_MH": {
+      "name": "Hình ảnh minh họa",
+      "description": ""
+    },
+    "HA_TL": {
+      "name": "Hình ảnh làm tư liệu cho câu hỏi",
+      "description": ""
+    }
+  },
+  "lessons": [
+    {
+      "chapter_number": "0",
+      "lesson_number": "1",
+      "lesson_name": "Bài 1. Vị trí địa lí và phạm vi lãnh thổ",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C1"
+            ],
+            "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
+            "question_template": []
+          }
+        ],
+        "TH": [],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đến tự nhiên Việt Nam.",
+            "question_template": [],
+            "rich_content_types": {
+              "C2": [
+                {
+                  "code": "BK",
+                  "name": "Bảng khảo, bảng số liệu",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "DS": [],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "0",
+      "lesson_number": "2",
+      "lesson_name": "Bài 2. Thiên nhiên nhiệt đới ẩm gió mùa",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C3"
+            ],
+            "learning_outcome": "Phân tích tác động của vị trí địa lí và hình dạng lãnh thổ tới đặc điểm khí hậu nước ta.",
+            "question_template": []
+          }
+        ],
+        "VD": []
+      },
+      "DS": [
+        {
+          "question_code": "C1",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "NB",
+              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+              "statement_code": "C1A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+              "statement_code": "C1B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+              "statement_code": "C1C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+              "statement_code": "C1D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": []
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "0",
+      "lesson_number": "3",
+      "lesson_name": "Bài 3 Sự phân hoá đa dạng của thiên nhiên",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C5"
+            ],
+            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+            "question_template": [],
+            "rich_content_types": {
+              "C5": [
+                {
+                  "code": "BK",
+                  "name": "Bảng khảo, bảng số liệu",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C4"
+            ],
+            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+            "question_template": [],
+            "rich_content_types": {
+              "C4": [
+                {
+                  "code": "BD",
+                  "name": "Biểu đồ",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "DS": [
+        {
+          "question_code": "C2",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "TH",
+              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+              "statement_code": "C2A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+              "statement_code": "C2B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+              "statement_code": "C2C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+              "statement_code": "C2D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": [],
+          "rich_content_types": {
+            "C2": [
+              {
+                "code": "BK",
+                "name": "Bảng khảo, bảng số liệu",
+                "description": ""
+              }
+            ]
+          }
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+            "question_template": [],
+            "sub_items": {
+              "C2": [
+                "a"
+              ]
+            }
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
+            "question_template": [],
+            "sub_items": {
+              "C2": [
+                "b"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "chapter_number": "0",
+      "lesson_number": "10",
+      "lesson_name": "Bài 10. Chuyển dịch cơ cấu kinh tế",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "DS": [],
+      "TLN": {
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C1"
+            ],
+            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
+            "question_template": [],
+            "rich_content_types": {
+              "C1": [
+                {
+                  "code": "BK",
+                  "name": "Bảng khảo, bảng số liệu",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C3"
+            ],
+            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
+            "question_template": [],
+            "rich_content_types": {
+              "C3": [
+                {
+                  "code": "BK",
+                  "name": "Bảng khảo, bảng số liệu",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
+            "question_template": [],
+            "rich_content_types": {
+              "C2": [
+                {
+                  "code": "BK",
+                  "name": "Bảng khảo, bảng số liệu",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "TL": {
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C1"
+            ],
+            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
+            "question_template": []
+          }
+        ],
+        "TH": [],
+        "VD": []
+      }
+    }
+  ]
+}

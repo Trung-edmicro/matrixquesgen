@@ -23,7 +23,12 @@ Thumbs.db
 
 # Local data
 .env
-data/
+# Ignore working data dirs but track template files
+data/*
+!data/matrix/
+!data/prompts/
+data/prompts/*
+!data/prompts/TIENGANH/
 examples/
 docs/
 

@@ -1,0 +1,476 @@
+{
+  "metadata": {
+    "subject": "LICHSU",
+    "curriculum": "KNTT",
+    "grade": "C12",
+    "filename": "ff736398-e6aa-4fc9-a20f-458cd6d0d328_Ma trận_LICHSU_KNTT_C12.xlsx"
+  },
+  "rich_content_type_definitions": {},
+  "lessons": [
+    {
+      "chapter_number": "3",
+      "lesson_number": "6",
+      "lesson_name": "Bài 6. Cách mạng tháng Tám - 1945",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C1"
+            ],
+            "learning_outcome": "Nhận biết:\n– Nêu được nguyên nhân thắng lợi của Cách mạng tháng Tám năm 1945.\n– Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của Cách mạng tháng Tám năm 1945. (NLTH)",
+            "question_template": []
+          }
+        ],
+        "TH": [],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Vận dụng:\n– Liên hệ được bài học lịch sử của Cách mạng tháng Tám năm 1945 đối với công cuộc xây dựng và bảo vệ đất nước hiện nay. (NLVD)",
+            "question_template": []
+          }
+        ]
+      },
+      "DS": [],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "3",
+      "lesson_number": "7",
+      "lesson_name": "Bài 7. Cuộc kháng chiến chống thực dân Pháp (1945 – 1954)",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C3"
+            ],
+            "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống thực dân Pháp.\n– Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống thực dân Pháp.\n– Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của cuộc kháng chiến chống thực dân Pháp. (NLTH)",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C4"
+            ],
+            "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc kháng chiến chống thực dân Pháp (NLTH )\n- Hiểu được bài học kinh nghiệm rút ra từ thắng lợi của kc chống Pháp (NLTH)",
+            "question_template": []
+          }
+        ],
+        "VD": []
+      },
+      "DS": [
+        {
+          "question_code": "C1",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "NB",
+              "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống thực dân Pháp.\n– Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống thực dân Pháp.\n– Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của cuộc kháng chiến chống thực dân Pháp. (NLTH)",
+              "statement_code": "C1A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc kháng chiến chống thực dân Pháp (NLTH )\n- Hiểu được bài học kinh nghiệm rút ra từ thắng lợi của kc chống Pháp (NLTH)",
+              "statement_code": "C1B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "",
+              "statement_code": "C1C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "",
+              "statement_code": "C1D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": []
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "3",
+      "lesson_number": "8",
+      "lesson_name": "Bài 8. Cuộc kháng chiến chống Mỹ, cứu nước (1954 – 1975)",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 2,
+            "code": [
+              "C5",
+              "C6"
+            ],
+            "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống Mỹ, cứu nước.\n– Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống Mỹ, cứu nước.\n– Trình bày được nét khái quát về bối cảnh lịch sử, các giai đoạn phát triển chính của cuộc kháng chiến chống Mỹ, cứu nước.\n(NLTH)",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 2,
+            "code": [
+              "C7",
+              "C8"
+            ],
+            "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc kháng chiến chống Mỹ, cứu nước. (NLTD)",
+            "question_template": []
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C9"
+            ],
+            "learning_outcome": "Vận dụng:\n– Trân trọng, tự hào về truyền thống bất khuất của cha ông trong cuộc kháng chiến chống Mỹ, cứu nước, tham gia vào công tác đền ơn đáp nghĩa ở địa phương. (NLVD)",
+            "question_template": []
+          }
+        ]
+      },
+      "DS": [
+        {
+          "question_code": "C2",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "NB",
+              "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống Mỹ, cứu nước.\n– Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống Mỹ, cứu nước.\n– Trình bày được nét khái quát về bối cảnh lịch sử, các giai đoạn phát triển chính của cuộc kháng chiến chống Mỹ, cứu nước.\n(NLTH)",
+              "statement_code": "C2A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc kháng chiến chống Mỹ, cứu nước. (NLTD)",
+              "statement_code": "C2B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "Vận dụng:\n– Trân trọng, tự hào về truyền thống bất khuất của cha ông trong cuộc kháng chiến chống Mỹ, cứu nước, tham gia vào công tác đền ơn đáp nghĩa ở địa phương. (NLVD)",
+              "statement_code": "C2C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "Vận dụng:\n– Trân trọng, tự hào về truyền thống bất khuất của cha ông trong cuộc kháng chiến chống Mỹ, cứu nước, tham gia vào công tác đền ơn đáp nghĩa ở địa phương. (NLVD)",
+              "statement_code": "C2D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": []
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "3",
+      "lesson_number": "9",
+      "lesson_name": "Bài 9. Đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 2,
+            "code": [
+              "C10",
+              "C11"
+            ],
+            "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm tư liệu lịch sử để tìm hiểu về các cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay.\n– Nêu được ý nghĩa lịch sử của cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay.\n– Trình bày được những nét khái quát về bối cảnh lịch sử, diễn biến chính của: cuộc chiến tranh bảo vệ Tổ quốc ở vùng biên giới Tây Nam và biên giới phía Bắc (từ sau tháng 4 năm 1975 đến đầu những năm 80 của thế kỉ XX), cuộc đấu tranh bảo vệ chủ quyền quốc gia ở vùng biên giới phía Bắc và ở Biển Đông từ năm 1979 đến nay. (NLTH)",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C12"
+            ],
+            "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay. (NLTH)",
+            "question_template": []
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C13"
+            ],
+            "learning_outcome": "Vận dụng:\nLiên hệ được giá trị của bài học đến ngày nay. (NLVD)",
+            "question_template": []
+          }
+        ]
+      },
+      "DS": [
+        {
+          "question_code": "C3",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "NB",
+              "learning_outcome": "Nhận biết:\n– Biết cách sưu tầm tư liệu lịch sử để tìm hiểu về các cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay.\n– Nêu được ý nghĩa lịch sử của cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay.\n– Trình bày được những nét khái quát về bối cảnh lịch sử, diễn biến chính của: cuộc chiến tranh bảo vệ Tổ quốc ở vùng biên giới Tây Nam và biên giới phía Bắc (từ sau tháng 4 năm 1975 đến đầu những năm 80 của thế kỉ XX), cuộc đấu tranh bảo vệ chủ quyền quốc gia ở vùng biên giới phía Bắc và ở Biển Đông từ năm 1979 đến nay. (NLTH)",
+              "statement_code": "C3A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Thông hiểu:\n– Phân tích được ý nghĩa lịch sử của cuộc đấu tranh bảo vệ Tổ quốc từ sau tháng 4 năm 1975 đến nay. (NLTH)",
+              "statement_code": "C3B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "Vận dụng:\nLiên hệ được giá trị của bài học đến ngày nay. (NLVD)",
+              "statement_code": "C3C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "Vận dụng:\nLiên hệ được giá trị của bài học đến ngày nay. (NLVD)",
+              "statement_code": "C3D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": []
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "4",
+      "lesson_number": "10",
+      "lesson_name": "Bài 10. Khái quát về công cuộc Đổi mới từ năm 1986 đến nay",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 2,
+            "code": [
+              "C14",
+              "C15"
+            ],
+            "learning_outcome": "Nhận biết:\nHoàn cảnh, thời gian, mục tiêu đổi mới",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C16"
+            ],
+            "learning_outcome": "Thông hiểu:\nNội dung chính chủ yếu trong từng giai đoạn (NLTH)",
+            "question_template": []
+          }
+        ],
+        "VD": []
+      },
+      "DS": [
+        {
+          "question_code": "C4",
+          "statements": [
+            {
+              "label": "a",
+              "cognitive_level": "NB",
+              "learning_outcome": "Nhận biết:\nHoàn cảnh, thời gian, mục tiêu đổi mới",
+              "statement_code": "C4A",
+              "materials": ""
+            },
+            {
+              "label": "b",
+              "cognitive_level": "TH",
+              "learning_outcome": "Thông hiểu:\nNội dung chính chủ yếu trong từng giai đoạn (NLTH)",
+              "statement_code": "C4B",
+              "materials": ""
+            },
+            {
+              "label": "c",
+              "cognitive_level": "VD",
+              "learning_outcome": "",
+              "statement_code": "C4C",
+              "materials": ""
+            },
+            {
+              "label": "d",
+              "cognitive_level": "VD",
+              "learning_outcome": "",
+              "statement_code": "C4D",
+              "materials": ""
+            }
+          ],
+          "materials": "",
+          "question_template": []
+        }
+      ],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "4",
+      "lesson_number": "11",
+      "lesson_name": "Bài 11. Thành tựu cơ bản và bài học của công cuộc Đổi mới ở Việt Nam từ năm 1986 đến nay",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 2,
+            "code": [
+              "C17",
+              "C18"
+            ],
+            "learning_outcome": "Nhận biết:\nThành tựu về chính trị, kinh tế, văn hóa, xã hội,...",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C19"
+            ],
+            "learning_outcome": "Thông hiểu:\nBài học lịch sử chính từ công cuộc đổi mới (NLTH)",
+            "question_template": []
+          }
+        ],
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C20"
+            ],
+            "learning_outcome": "Vận dụng:\nLiên hệ bài học kinh nghiệm từ công cuộc đổi mới đối với sự nghiệp xây dựng và bảo vệ Tổ quốc hiện nay. (NLVD)",
+            "question_template": []
+          }
+        ]
+      },
+      "DS": [],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    },
+    {
+      "chapter_number": "5",
+      "lesson_number": "12",
+      "lesson_name": "Bài 12. Hoạt động đối ngoại của Việt Nam trong đấu tranh giành độc lập dân tộc (từ đầu thế kỉ XX đến Cách mạng tháng Tám năm 1945)",
+      "content": "",
+      "supplementary_material": "",
+      "TN": {
+        "NB": [
+          {
+            "num": 2,
+            "code": [
+              "C21",
+              "C22"
+            ],
+            "learning_outcome": "Nhận biết:\nNhững hoạt động đối ngoại chủ yếu của các cá nhân, các tổ chức cách mạng trong đấu tranh giành độc lập dân tộc (từ đầu thế kỉ XX đến 1975) (NLNB)",
+            "question_template": []
+          }
+        ],
+        "TH": [
+          {
+            "num": 2,
+            "code": [
+              "C23",
+              "C24"
+            ],
+            "learning_outcome": "Thông hiểu:\nvai trò, ý nghĩa của những hoạt động đối ngoại. (NLTH)",
+            "question_template": []
+          }
+        ],
+        "VD": []
+      },
+      "DS": [],
+      "TLN": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      },
+      "TL": {
+        "NB": [],
+        "TH": [],
+        "VD": []
+      }
+    }
+  ]
+}

@@ -126,17 +126,14 @@ jobs:
           }
 
       # ── Build Inno Setup installer ────────────────────────────────
-      - name: Create minimal data/ directory for installer
+      - name: Create data/ directory structure for installer
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "data" | Out-Null
-          New-Item -ItemType Directory -Force -Path "data\sessions" | Out-Null
-          New-Item -ItemType Directory -Force -Path "data\output" | Out-Null
-          New-Item -ItemType Directory -Force -Path "data\content" | Out-Null
-          New-Item -ItemType Directory -Force -Path "data\matrix" | Out-Null
-          New-Item -ItemType Directory -Force -Path "data\prompts" | Out-Null
-          New-Item -ItemType File -Force -Path "data\.gitkeep" | Out-Null
-          Write-Host "Created minimal data/ structure"
+          # Mirror the same subdirectories that build.ps1 creates
+          @('input','output','sessions','questions','exports','prompts','.drive_metadata','matrix','content','images','logs') | ForEach-Object {
+            New-Item -ItemType Directory -Force -Path "data\$_" | Out-Null
+          }
+          Write-Host "Created data/ directory structure"
 
       - name: Build installer with Inno Setup
         shell: pwsh

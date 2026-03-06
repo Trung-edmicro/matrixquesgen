@@ -35,6 +35,21 @@ Source: ".env"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install_playwright_silent.bat"; DestDir: "{app}"; Flags: ignoreversion
 
+[Dirs]
+; Ensure all working directories exist after install
+Name: "{app}\data\input"
+Name: "{app}\data\output"
+Name: "{app}\data\sessions"
+Name: "{app}\data\questions"
+Name: "{app}\data\exports"
+Name: "{app}\data\prompts"
+Name: "{app}\data\matrix"
+Name: "{app}\data\content"
+Name: "{app}\data\images"
+Name: "{app}\data\logs"
+Name: "{app}\data\.drive_metadata"
+Name: "{app}\logs"
+
 [Icons]
 Name: "{group}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"
 
