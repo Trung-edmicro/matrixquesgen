@@ -85,12 +85,14 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path .env)) {
-            @"
-# MatrixQuesGen Configuration
-# Fill in your API keys after installation
-GITHUB_REPO=Trung-edmicro/matrixquesgen
-GEMINI_API_KEY=
-"@ | Out-File -FilePath .env -Encoding ascii
+            $lines = @(
+              "# MatrixQuesGen Configuration",
+              "# Fill in your API keys after installation",
+              "GITHUB_REPO=Trung-edmicro/matrixquesgen",
+              "GEMINI_API_KEY="
+            )
+            $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+            [System.IO.File]::WriteAllLines(".env", $lines, $utf8NoBom)
           }
 
       # ── Build PyInstaller exe ─────────────────────────────────────
