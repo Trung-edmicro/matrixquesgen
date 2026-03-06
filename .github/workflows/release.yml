@@ -95,6 +95,25 @@ jobs:
             [System.IO.File]::WriteAllLines(".env", $lines, $utf8NoBom)
           }
 
+      # ── Fix favicon.ico (PNG renamed to .ico → convert to real ICO) ──
+      - name: Fix favicon.ico format
+        shell: python
+        run: |
+          from PIL import Image
+          import os
+          src = "favicon.ico"
+          if not os.path.exists(src):
+              print("No favicon.ico found, skipping")
+              exit(0)
+          with open(src, "rb") as f:
+              magic = f.read(4)
+          if magic == b"\x00\x00\x01\x00":
+              print("favicon.ico is already a valid ICO")
+              exit(0)
+          img = Image.open(src).convert("RGBA")
+          img.save(src, format="ICO", sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])
+          print("Converted favicon.ico to proper ICO format")
+
       # ── Build PyInstaller exe ─────────────────────────────────────
       - name: Build exe with PyInstaller
         shell: pwsh

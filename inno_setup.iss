@@ -12,6 +12,8 @@ OutputBaseFilename=MatrixQuesGen_Setup_1.0.0
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
+; SetupIconFile is optional - only set if a valid .ico file exists
+; (set via command-line /DMyIcon=path or directly here if present)
 SetupIconFile=favicon.ico
 UninstallDisplayIcon={app}\MatrixQuesGen.exe
 ; Allow upgrade/reinstall without uninstalling first
