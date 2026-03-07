@@ -120,7 +120,7 @@ jobs:
       - name: Build exe with PyInstaller
         shell: pwsh
         run: |
-          pyinstaller matrixquesgen.spec --noconfirm
+          python -m PyInstaller matrixquesgen.spec --noconfirm --clean
           if (-not (Test-Path "dist\MatrixQuesGen.exe")) {
             throw "PyInstaller build failed – dist\MatrixQuesGen.exe not found"
           }

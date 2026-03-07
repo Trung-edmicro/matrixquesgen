@@ -169,7 +169,7 @@ a = Analysis(
         'lxml._elementpath',
         'mml2omml',
     ],
-    hookspath=[],
+    hookspath=['hooks'],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
