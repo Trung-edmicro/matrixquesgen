@@ -6,10 +6,26 @@ block_cipher = None
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
-# collect_all captures datas + binaries + hiddenimports for dynamic-import packages
+# collect_all: hiddenimports (PYZ bytecode) + binaries
 uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
 starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
 fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
+
+# Belt-and-suspenders: also copy actual .py source files to _MEIPASS/<pkg>/
+# This makes packages importable even if PYZ bytecode lookup fails in CI.
+# When _MEIPASS/<pkg>/__init__.py exists as a real file, import always works.
+def _collect_py(pkg):
+    try:
+        return collect_data_files(pkg, include_py_files=True)
+    except Exception:
+        return []
+
+uvicorn_py   = _collect_py('uvicorn')
+fastapi_py   = _collect_py('fastapi')
+starlette_py = _collect_py('starlette')
+anyio_py     = _collect_py('anyio')
+h11_py       = _collect_py('h11')
+httptools_py = _collect_py('httptools')
 
 server_datas = []
 server_src = 'server/src'
@@ -59,7 +75,9 @@ a = Analysis(
     pathex=[],
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas
-        + uvicorn_datas + starlette_datas + fastapi_datas,
+        + uvicorn_datas + starlette_datas + fastapi_datas
+        + uvicorn_py + fastapi_py + starlette_py
+        + anyio_py + h11_py + httptools_py,
     hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
         'uvicorn.logging',
         'uvicorn.loops',
@@ -172,7 +190,7 @@ a = Analysis(
     ],
     hookspath=['hooks'],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['hooks/rthook_syspath.py'],
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
