@@ -4,6 +4,7 @@ block_cipher = None
 
 # Collect all server files
 import os
+import importlib.util
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
 # collect_all: hiddenimports (PYZ bytecode) + binaries
@@ -11,21 +12,27 @@ uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
 starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
 fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
 
-# Belt-and-suspenders: also copy actual .py source files to _MEIPASS/<pkg>/
-# This makes packages importable even if PYZ bytecode lookup fails in CI.
-# When _MEIPASS/<pkg>/__init__.py exists as a real file, import always works.
-def _collect_py(pkg):
+# Bulletproof approach: find each package's physical directory via Python's own
+# import machinery, then add the ENTIRE directory to datas.
+# When _MEIPASS/<pkg>/__init__.py exists as a real file, import always works —
+# regardless of PYZ bytecode lookup behaviour, PyInstaller version, or CI env.
+def _pkg_dir_data(pkg_name):
+    """Return [(pkg_dir, pkg_name)] so PyInstaller copies all files to _MEIPASS/<pkg_name>/"""
     try:
-        return collect_data_files(pkg, include_py_files=True)
-    except Exception:
-        return []
+        spec = importlib.util.find_spec(pkg_name)
+        if spec and spec.submodule_search_locations:
+            pkg_dir = list(spec.submodule_search_locations)[0]
+            if os.path.isdir(pkg_dir):
+                print(f"  [spec] {pkg_name}: {pkg_dir}")
+                return [(pkg_dir, pkg_name)]
+    except Exception as e:
+        print(f"  [spec] WARN {pkg_name}: {e}")
+    return []
 
-uvicorn_py   = _collect_py('uvicorn')
-fastapi_py   = _collect_py('fastapi')
-starlette_py = _collect_py('starlette')
-anyio_py     = _collect_py('anyio')
-h11_py       = _collect_py('h11')
-httptools_py = _collect_py('httptools')
+pkg_dirs = []
+for _pkg in ['uvicorn', 'fastapi', 'starlette', 'anyio', 'h11', 'httptools',
+             'pydantic', 'pydantic_core', 'click', 'sniffio']:
+    pkg_dirs += _pkg_dir_data(_pkg)
 
 server_datas = []
 server_src = 'server/src'
@@ -76,8 +83,7 @@ a = Analysis(
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas
         + uvicorn_datas + starlette_datas + fastapi_datas
-        + uvicorn_py + fastapi_py + starlette_py
-        + anyio_py + h11_py + httptools_py,
+        + pkg_dirs,
     hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
         'uvicorn.logging',
         'uvicorn.loops',
