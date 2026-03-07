@@ -87,13 +87,18 @@ def main():
     logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
     logger.info("="*60)
 
-    # === Frozen-mode diagnostics: log sys.path & key package presence ===
+    # === Frozen-mode diagnostics: check if key packages are importable ===
     if getattr(sys, 'frozen', False):
+        import importlib.util as _iutil
         logger.info(f"sys.path: {sys.path}")
         meipass = str(BASE_DIR)
         for _pkg in ['fastapi', 'uvicorn', 'starlette', 'pydantic']:
-            _init = os.path.join(meipass, _pkg, '__init__.py')
-            logger.info(f"  _MEIPASS/{_pkg}/__init__.py exists: {os.path.exists(_init)}")
+            _init_py = os.path.join(meipass, _pkg, '__init__.py')
+            _spec = _iutil.find_spec(_pkg)
+            logger.info(
+                f"  {_pkg}: .py in _MEIPASS={os.path.exists(_init_py)}, "
+                f"importable={_spec is not None}"
+            )
     # ==================================================================
     
     # Update check is done on-demand via Settings page (not at startup)

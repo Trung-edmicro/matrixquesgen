@@ -47,8 +47,12 @@ jobs:
           python -m venv .venv
           .venv\Scripts\python.exe -m pip install --upgrade pip
           .venv\Scripts\pip.exe install -r server-requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw "Failed to install server-requirements.txt" }
           .venv\Scripts\pip.exe install "pyinstaller==6.17.0" pillow
-          .venv\Scripts\pip.exe install "uvicorn[standard]==0.24.0"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to install pyinstaller/pillow" }
+          # Validate required packages are present
+          .venv\Scripts\python.exe -c "import fastapi, uvicorn, starlette, pydantic; print('All required packages OK')"
+          if ($LASTEXITCODE -ne 0) { throw "Required packages missing after install!" }
 
       # ── Set up Node.js ────────────────────────────────────────────
       - name: Set up Node.js

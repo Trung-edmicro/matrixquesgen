@@ -4,41 +4,44 @@ block_cipher = None
 
 # Collect all server files
 import os
-import importlib.util
+import sys
+import sysconfig
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
-# collect_all: hiddenimports (PYZ bytecode) + binaries
+# ── Reliable site-packages discovery ──────────────────────────────────────────
+# Use sysconfig instead of importlib.util.find_spec() because find_spec can
+# behave unexpectedly inside PyInstaller's spec execution context.
+_site_packages = sysconfig.get_path('purelib')
+print(f"[spec] Python: {sys.executable}")
+print(f"[spec] site-packages: {_site_packages}")
+
+def _pkg_tree_data(pkg_name):
+    """
+    Walk the package directory directly in site-packages.
+    Returns list of (src_file, dest_dir) tuples for ALL files in the package tree.
+    dest_dir is relative to site-packages so files land at _MEIPASS/<pkg>/<subdir>.
+    """
+    pkg_dir = os.path.join(_site_packages, pkg_name)
+    if not os.path.isdir(pkg_dir):
+        print(f"  [tree] ERROR: {pkg_name} NOT FOUND at {pkg_dir} — build will be broken!")
+        return []
+    result = []
+    for root, dirs, files in os.walk(pkg_dir):
+        dirs[:] = [d for d in dirs if d != '__pycache__']
+        for fname in files:
+            src  = os.path.join(root, fname)
+            dest = os.path.relpath(root, _site_packages)
+            result.append((src, dest))
+    print(f"  [tree] {pkg_name}: {len(result)} files from {pkg_dir}")
+    return result
+
+# collect_all: hiddenimports (PYZ bytecode) + binaries + data files
 uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
 starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
 fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
 
-# Bulletproof approach: recursively walk the entire package directory tree and
-# add EVERY file individually with correct relative dest path.
-# (pkg_dir, pkg_name) only copies top-level — subdirs like fastapi/routing.py
-# or uvicorn/protocols/http/ would be MISSING without the recursive walk.
-import importlib.util
-
-def _pkg_tree_data(pkg_name):
-    """Walk entire package tree, return list of (src_file, dest_dir) tuples."""
-    try:
-        spec = importlib.util.find_spec(pkg_name)
-        if spec and spec.submodule_search_locations:
-            pkg_dir = list(spec.submodule_search_locations)[0]
-            parent  = os.path.dirname(pkg_dir)  # = site-packages
-            result  = []
-            for root, dirs, files in os.walk(pkg_dir):
-                # Skip __pycache__ dirs – not needed
-                dirs[:] = [d for d in dirs if d != '__pycache__']
-                for fname in files:
-                    src  = os.path.join(root, fname)
-                    dest = os.path.relpath(root, parent)  # e.g. 'fastapi' or 'fastapi\middleware'
-                    result.append((src, dest))
-            print(f"  [tree] {pkg_name}: {len(result)} files from {pkg_dir}")
-            return result
-    except Exception as e:
-        print(f"  [tree] WARN {pkg_name}: {e}")
-    return []
-
+# Walk every required package tree and copy all .py files directly into _MEIPASS.
+# This guarantees imports work even if PYZ bytecode collection misses something.
 pkg_dirs = []
 for _pkg in ['uvicorn', 'fastapi', 'starlette', 'anyio', 'h11', 'httptools',
              'pydantic', 'pydantic_core', 'click', 'sniffio']:
