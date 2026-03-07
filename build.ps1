@@ -251,9 +251,28 @@ Write-Host ""
 Write-Host "Ung dung da duoc dong goi tai:" -ForegroundColor White
 Write-Host "  -> $((Get-Location).Path)\dist\MatrixQuesGen\" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "De chay ung dung:" -ForegroundColor White
-Write-Host "  -> Chay file: MatrixQuesGen.exe" -ForegroundColor Cyan
+
+# Step 6: Build Inno Setup installer (optional)
+Write-Host "`n-> Buoc 6: Tao Installer voi Inno Setup..." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "De tao installer (tuy chon):" -ForegroundColor White
-Write-Host "  -> Co the dung Inno Setup hoac NSIS de tao installer" -ForegroundColor Cyan
+
+$iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+if (-not (Test-Path $iscc)) {
+    Write-Host "  Khong tim thay Inno Setup 6. Bo qua buoc tao installer." -ForegroundColor Yellow
+    Write-Host "  Cai dat tu: https://jrsoftware.org/isdl.php" -ForegroundColor Cyan
+} else {
+    if (-not (Test-Path "installer")) {
+        New-Item -ItemType Directory -Path "installer" -Force | Out-Null
+    }
+    & $iscc inno_setup.iss
+    if ($LASTEXITCODE -eq 0) {
+        $setupFile = Get-ChildItem "installer\MatrixQuesGen_Setup_*.exe" | Select-Object -Last 1
+        Write-Host "OK Tao installer thanh cong!" -ForegroundColor Green
+        if ($setupFile) {
+            Write-Host "  -> $($setupFile.FullName)" -ForegroundColor Cyan
+        }
+    } else {
+        Write-Host "X Loi khi tao installer!" -ForegroundColor Red
+    }
+}
 Write-Host ""
