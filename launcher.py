@@ -86,6 +86,15 @@ def main():
     logger.info(f"App Directory: {APP_DIR}")
     logger.info(f"Frozen: {getattr(sys, 'frozen', False)}")
     logger.info("="*60)
+
+    # === Frozen-mode diagnostics: log sys.path & key package presence ===
+    if getattr(sys, 'frozen', False):
+        logger.info(f"sys.path: {sys.path}")
+        meipass = str(BASE_DIR)
+        for _pkg in ['fastapi', 'uvicorn', 'starlette', 'pydantic']:
+            _init = os.path.join(meipass, _pkg, '__init__.py')
+            logger.info(f"  _MEIPASS/{_pkg}/__init__.py exists: {os.path.exists(_init)}")
+    # ==================================================================
     
     # Update check is done on-demand via Settings page (not at startup)
     print("=" * 60)

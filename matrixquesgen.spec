@@ -12,27 +12,37 @@ uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
 starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
 fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
 
-# Bulletproof approach: find each package's physical directory via Python's own
-# import machinery, then add the ENTIRE directory to datas.
-# When _MEIPASS/<pkg>/__init__.py exists as a real file, import always works —
-# regardless of PYZ bytecode lookup behaviour, PyInstaller version, or CI env.
-def _pkg_dir_data(pkg_name):
-    """Return [(pkg_dir, pkg_name)] so PyInstaller copies all files to _MEIPASS/<pkg_name>/"""
+# Bulletproof approach: recursively walk the entire package directory tree and
+# add EVERY file individually with correct relative dest path.
+# (pkg_dir, pkg_name) only copies top-level — subdirs like fastapi/routing.py
+# or uvicorn/protocols/http/ would be MISSING without the recursive walk.
+import importlib.util
+
+def _pkg_tree_data(pkg_name):
+    """Walk entire package tree, return list of (src_file, dest_dir) tuples."""
     try:
         spec = importlib.util.find_spec(pkg_name)
         if spec and spec.submodule_search_locations:
             pkg_dir = list(spec.submodule_search_locations)[0]
-            if os.path.isdir(pkg_dir):
-                print(f"  [spec] {pkg_name}: {pkg_dir}")
-                return [(pkg_dir, pkg_name)]
+            parent  = os.path.dirname(pkg_dir)  # = site-packages
+            result  = []
+            for root, dirs, files in os.walk(pkg_dir):
+                # Skip __pycache__ dirs – not needed
+                dirs[:] = [d for d in dirs if d != '__pycache__']
+                for fname in files:
+                    src  = os.path.join(root, fname)
+                    dest = os.path.relpath(root, parent)  # e.g. 'fastapi' or 'fastapi\middleware'
+                    result.append((src, dest))
+            print(f"  [tree] {pkg_name}: {len(result)} files from {pkg_dir}")
+            return result
     except Exception as e:
-        print(f"  [spec] WARN {pkg_name}: {e}")
+        print(f"  [tree] WARN {pkg_name}: {e}")
     return []
 
 pkg_dirs = []
 for _pkg in ['uvicorn', 'fastapi', 'starlette', 'anyio', 'h11', 'httptools',
              'pydantic', 'pydantic_core', 'click', 'sniffio']:
-    pkg_dirs += _pkg_dir_data(_pkg)
+    pkg_dirs += _pkg_tree_data(_pkg)
 
 server_datas = []
 server_src = 'server/src'
