@@ -29,6 +29,9 @@ data/*
 !data/prompts/
 data/prompts/*
 !data/prompts/TIENGANH/
+server/data/
+server/src/services/data/
+client/data/
 examples/
 docs/
 
@@ -53,3 +56,6 @@ analyze_structure.py
 debug_rich_types.py
 export_prompts.py
 
+
+# Office XSL (Microsoft copyright - cannot redistribute)
+assets/MML2OMML.XSL

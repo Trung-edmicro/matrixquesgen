@@ -83,18 +83,21 @@ try:
 except Exception:
     pass
 
-# Collect mml2omml data files (MML2OMML.XSL - no Office required)
+# Bundle MML2OMML.XSL directly from assets/ (copied from Office at dev time).
+# In CI (no Office), this file won't exist and math OMML conversion degrades gracefully.
 mml2omml_datas = []
-try:
-    mml2omml_datas = collect_data_files('mml2omml')
-except Exception:
-    pass
+_xsl_src = os.path.join(os.path.dirname(os.path.abspath(SPEC)), 'assets', 'MML2OMML.XSL')
+if os.path.exists(_xsl_src):
+    mml2omml_datas = [(_xsl_src, 'mml2omml')]
+    print(f'  [xsl] Bundling MML2OMML.XSL from {_xsl_src}')
+else:
+    print('  [xsl] WARNING: assets/MML2OMML.XSL not found — math OMML disabled in frozen exe')
 
 a = Analysis(
     ['launcher.py'],
     pathex=[],
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries,
-    datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas
+    datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas  # mml2omml = XSL file
         + uvicorn_datas + starlette_datas + fastapi_datas
         + pkg_dirs,
     hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
@@ -205,7 +208,6 @@ a = Analysis(
         'lxml',
         'lxml.etree',
         'lxml._elementpath',
-        'mml2omml',
     ],
     hookspath=['hooks'],
     hooksconfig={},

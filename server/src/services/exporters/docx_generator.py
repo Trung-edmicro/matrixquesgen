@@ -203,13 +203,16 @@ class DocxGenerator:
         if hasattr(sys, '_MEIPASS'):
             candidates.append(os.path.join(sys._MEIPASS, 'mml2omml', 'MML2OMML.XSL'))
 
-        # 2. mml2omml package (installed via pip) - works in dev and packaged env
-        try:
-            import mml2omml
-            pkg_path = os.path.join(os.path.dirname(mml2omml.__file__), 'MML2OMML.XSL')
-            candidates.append(pkg_path)
-        except ImportError:
-            pass
+        # 2. assets/ folder in project root (dev mode: copied from Office by build.ps1)
+        _here = os.path.dirname(os.path.abspath(__file__))
+        # Walk up from server/src/services/exporters/ to project root
+        _root = _here
+        for _ in range(5):
+            _candidate = os.path.join(_root, 'assets', 'MML2OMML.XSL')
+            if os.path.exists(_candidate):
+                candidates.append(_candidate)
+                break
+            _root = os.path.dirname(_root)
 
         # 3. Microsoft Office fallback (for dev machines with Office installed)
         candidates += [

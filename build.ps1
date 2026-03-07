@@ -88,6 +88,28 @@ else {
 Write-Host "OK Dependencies OK!" -ForegroundColor Green
 Write-Host ""
 
+# Step 2b: Copy MML2OMML.XSL from Office (for math equation support in DOCX export)
+Write-Host "`n-> Buoc 2b: Tim MML2OMML.XSL cho math OMML..." -ForegroundColor Yellow
+$officePaths = @(
+    "C:\Program Files\Microsoft Office\root\Office16\MML2OMML.XSL",
+    "C:\Program Files\Microsoft Office\root\Office15\MML2OMML.XSL",
+    "C:\Program Files (x86)\Microsoft Office\root\Office16\MML2OMML.XSL",
+    "C:\Program Files\Microsoft Office\Office16\MML2OMML.XSL"
+)
+$xslCopied = $false
+foreach ($src in $officePaths) {
+    if (Test-Path $src) {
+        New-Item -ItemType Directory -Force -Path "assets" | Out-Null
+        Copy-Item $src "assets\MML2OMML.XSL" -Force
+        Write-Host "  OK Da copy MML2OMML.XSL tu: $src" -ForegroundColor Green
+        $xslCopied = $true
+        break
+    }
+}
+if (-not $xslCopied) {
+    Write-Host "  ! Office khong tim thay - math OMML bi tat trong ban build nay" -ForegroundColor Yellow
+}
+
 # Step 3: Clean previous build
 Write-Host "`n-> Buoc 3: Don dep build cu..." -ForegroundColor Yellow
 Write-Host ""
@@ -260,7 +282,8 @@ $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 if (-not (Test-Path $iscc)) {
     Write-Host "  Khong tim thay Inno Setup 6. Bo qua buoc tao installer." -ForegroundColor Yellow
     Write-Host "  Cai dat tu: https://jrsoftware.org/isdl.php" -ForegroundColor Cyan
-} else {
+}
+else {
     if (-not (Test-Path "installer")) {
         New-Item -ItemType Directory -Path "installer" -Force | Out-Null
     }
@@ -271,7 +294,8 @@ if (-not (Test-Path $iscc)) {
         if ($setupFile) {
             Write-Host "  -> $($setupFile.FullName)" -ForegroundColor Cyan
         }
-    } else {
+    }
+    else {
         Write-Host "X Loi khi tao installer!" -ForegroundColor Red
     }
 }

@@ -110,6 +110,15 @@ jobs:
         run: |
           .venv\Scripts\python.exe scripts/fix_ico.py
 
+      # ── Prepare assets (MML2OMML.XSL not available on CI - feature gracefully disabled) ─
+      - name: Create assets directory
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path assets | Out-Null
+          Write-Host "Note: MML2OMML.XSL not available on CI runner (no Office installed)."
+          Write-Host "Math OMML conversion will be disabled in CI-built exe."
+          Write-Host "(Dev builds via build.ps1 auto-copy from Office if installed.)"
+
       # ── Build PyInstaller exe ─────────────────────────────────────
       - name: Build exe with PyInstaller
         shell: pwsh
