@@ -4,12 +4,12 @@ block_cipher = None
 
 # Collect all server files
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
-# Collect all uvicorn and starlette submodules (PyInstaller misses dynamic imports)
-uvicorn_imports = collect_submodules('uvicorn')
-starlette_imports = collect_submodules('starlette')
-fastapi_imports = collect_submodules('fastapi')
+# collect_all captures datas + binaries + hiddenimports for dynamic-import packages
+uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
+starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
+fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
 
 server_datas = []
 server_src = 'server/src'
@@ -57,9 +57,10 @@ except Exception:
 a = Analysis(
     ['launcher.py'],
     pathex=[],
-    binaries=[],
-    datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas,
-    hiddenimports=uvicorn_imports + starlette_imports + fastapi_imports + [
+    binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries,
+    datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas
+        + uvicorn_datas + starlette_datas + fastapi_datas,
+    hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',
