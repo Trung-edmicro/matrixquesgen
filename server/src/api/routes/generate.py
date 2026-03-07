@@ -83,24 +83,24 @@ def generate_questions_task(
         }
         update_session(session_data)
         
-        # ===== Phase 1: Matrix Processing =====
-        # Progress will be updated by WorkflowOrchestrator
-        
+        # Progress callback: update session_data in-place so status: "processing"
+        # is always preserved and the full dict is written to the session file.
+        def _on_progress(phase, progress):
+            session_data['current_phase'] = phase
+            session_data['progress'] = progress
+            update_session(session_data)
+
         # Use WorkflowOrchestrator for complete workflow
         orchestrator = WorkflowOrchestrator(config=WorkflowConfig(
             ai_provider="genai",
             question_types=["TN", "DS", "TLN", "TL"],
             max_concurrent_generations=config.get('max_workers', 5)
-        ), progress_callback=lambda phase, progress: (
-            print(f"🔄 PROGRESS UPDATE: {phase} - {progress}%"),
-            update_session({
-                'current_phase': phase,
-                'progress': progress
-            })
-        ))
+        ), progress_callback=_on_progress)
         
         # Execute complete workflow (Phase 2 will gracefully handle missing Google Drive)
-        print("🔗 Using complete workflow with Google Drive integration (if available)")
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
+        _log.info(f"[{session_id}] Starting WorkflowOrchestrator")
         workflow_result = orchestrator.execute_complete_workflow(
             Path(matrix_file_path)
         )
@@ -260,8 +260,10 @@ def generate_questions_task(
         error_msg = str(e)
         error_trace = traceback.format_exc()
         
-        print(f"❌ Workflow failed: {error_msg}")
-        print(f"Traceback:\n{error_trace}")
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            f"[{session_id}] Workflow failed: {error_msg}\n{error_trace}"
+        )
         
         # Save error to session
         error_data = {

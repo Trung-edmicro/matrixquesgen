@@ -4,6 +4,7 @@ Provides a system tray icon with right-click menu to show logs, open app, and ex
 """
 import os
 import sys
+import logging
 import webbrowser
 import threading
 import subprocess
@@ -14,6 +15,8 @@ try:
 except ImportError:
     # Will be handled in launcher.py
     pass
+
+logger = logging.getLogger(__name__)
 
 
 def create_default_icon():
@@ -42,67 +45,68 @@ class TrayIcon:
         self.server_url = "http://localhost:8000"
         
     def get_icon_image(self):
-        """Load icon image or create default"""
-        icon_path = self.base_dir / "favicon.ico"
-        if icon_path.exists():
-            try:
-                return Image.open(icon_path)
-            except:
-                pass
+        """Load icon image or create default.
+        In a frozen one-file exe, favicon.ico lives in _MEIPASS, not APP_DIR.
+        Check both locations.
+        """
+        candidates = [self.base_dir / "favicon.ico"]
+        if getattr(sys, 'frozen', False):
+            candidates.insert(0, Path(sys._MEIPASS) / "favicon.ico")
+        for icon_path in candidates:
+            if icon_path.exists():
+                try:
+                    img = Image.open(icon_path)
+                    img.load()  # force decode now so errors surface here
+                    return img.convert('RGBA')
+                except Exception as e:
+                    logger.warning(f"Could not load icon {icon_path}: {e}")
         return create_default_icon()
     
-    def open_app(self, icon, item):
+    def open_app(self, icon=None, item=None):
         """Open the application in browser"""
         webbrowser.open(self.server_url)
     
-    def show_logs(self, icon, item):
+    def show_logs(self, icon=None, item=None):
         """Open logs file in notepad"""
-        if self.log_file.exists():
-            # Open log file in default text editor (notepad on Windows)
-            try:
-                if sys.platform == "win32":
-                    os.startfile(str(self.log_file))
-                else:
-                    subprocess.run(['xdg-open', str(self.log_file)])
-            except Exception as e:
-                print(f"Error opening log file: {e}")
-        else:
-            # Create log directory and file if not exists
+        if not self.log_file.exists():
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
             self.log_file.write_text("No logs yet.\n")
+        try:
             if sys.platform == "win32":
                 os.startfile(str(self.log_file))
+            else:
+                subprocess.run(['xdg-open', str(self.log_file)])
+        except Exception as e:
+            logger.error(f"Error opening log file: {e}")
     
-    def open_logs_folder(self, icon, item):
+    def open_logs_folder(self, icon=None, item=None):
         """Open logs folder in explorer"""
         logs_folder = self.base_dir / "logs"
         logs_folder.mkdir(parents=True, exist_ok=True)
-        
         try:
             if sys.platform == "win32":
                 os.startfile(str(logs_folder))
             else:
                 subprocess.run(['xdg-open', str(logs_folder)])
         except Exception as e:
-            print(f"Error opening logs folder: {e}")
-    
-    def open_data_folder(self, icon, item):
+            logger.error(f"Error opening logs folder: {e}")
+
+    def open_data_folder(self, icon=None, item=None):
         """Open data folder in explorer"""
         data_folder = self.base_dir / "data"
         data_folder.mkdir(parents=True, exist_ok=True)
-        
         try:
             if sys.platform == "win32":
                 os.startfile(str(data_folder))
             else:
                 subprocess.run(['xdg-open', str(data_folder)])
         except Exception as e:
-            print(f"Error opening data folder: {e}")
+            logger.error(f"Error opening data folder: {e}")
     
-    def quit_app(self, icon, item):
+    def quit_app(self, icon=None, item=None):
         """Quit the application"""
-        icon.stop()
-        # Signal the main thread to exit
+        if icon:
+            icon.stop()
         os._exit(0)
     
     def create_menu(self):
@@ -117,24 +121,27 @@ class TrayIcon:
         )
     
     def run(self):
-        """Start the tray icon"""
+        """Start the tray icon (must be called in its own thread)."""
         try:
+            icon_image = self.get_icon_image()
+            logger.info(f"Tray icon image size: {icon_image.size}")
             self.icon = Icon(
                 "MatrixQuesGen",
-                self.get_icon_image(),
-                "MatrixQuesGen - Question Generator",
+                icon_image,
+                "MatrixQuesGen - Quản lý sinh câu hỏi",
                 self.create_menu()
             )
+            logger.info("Tray icon created, starting message loop...")
             self.icon.run()
         except Exception as e:
-            print(f"Error starting tray icon: {e}")
             import traceback
-            traceback.print_exc()
+            logger.error(f"Tray icon failed: {e}")
+            logger.error(traceback.format_exc())
 
 
 def start_tray_icon(base_dir):
-    """Start tray icon in a separate thread"""
+    """Start tray icon in a separate daemon thread."""
     tray = TrayIcon(base_dir)
-    thread = threading.Thread(target=tray.run, daemon=True)
+    thread = threading.Thread(target=tray.run, daemon=True, name="tray-icon")
     thread.start()
     return tray
