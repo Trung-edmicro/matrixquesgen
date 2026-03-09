@@ -13,9 +13,14 @@ from pathlib import Path
 from typing import Callable, Optional
 from version import __version__, __app_name__
 
-# GitHub repository info (set via env var or hardcoded after publish)
-GITHUB_REPO = os.getenv("GITHUB_REPO")
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+# GitHub repository info — fall back to the published repo if env var is not set
+_GITHUB_REPO_DEFAULT = "Trung-edmicro/matrixquesgen"
+
+
+def _github_api_url() -> str:
+    """Build the GitHub API URL at call-time so env vars loaded after import are respected."""
+    repo = os.getenv("GITHUB_REPO") or _GITHUB_REPO_DEFAULT
+    return f"https://api.github.com/repos/{repo}/releases/latest"
 
 # Global progress state (for API polling)
 _update_state = {
@@ -64,7 +69,7 @@ class Updater:
             if github_token:
                 headers["Authorization"] = f"Bearer {github_token}"
 
-            response = requests.get(GITHUB_API_URL, headers=headers, timeout=15)
+            response = requests.get(_github_api_url(), headers=headers, timeout=15)
             response.raise_for_status()
             release = response.json()
 
