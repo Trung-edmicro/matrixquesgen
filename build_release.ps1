@@ -19,6 +19,15 @@ $content = $content -replace 'AppVersion=[\d\.]+', "AppVersion=$Version"
 $content = $content -replace 'OutputBaseFilename=MatrixQuesGen_Setup_[\d\.]+', "OutputBaseFilename=MatrixQuesGen_Setup_$Version"
 $content | Set-Content "inno_setup.iss" -Encoding UTF8
 
+# Commit and push version bump immediately so git stays clean
+Write-Host "Committing version bump..."
+git add version.py inno_setup.iss
+git commit -m "chore: bump version to $Version"
+git push github main
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "git push failed - continuing build anyway"
+}
+
 if (-not $SkipBuild) {
     Write-Host "Building executable with PyInstaller..."
     $pythonExe = ".venv\Scripts\python.exe"

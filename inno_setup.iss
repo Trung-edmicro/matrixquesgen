@@ -1,6 +1,6 @@
 ﻿[Setup]
 AppName=MatrixQuesGen
-AppVersion=1.0.1
+AppVersion=1.0.0
 AppPublisher=Your Organization
 AppPublisherURL=https://github.com/Trung-edmicro/matrixquesgen
 AppSupportURL=https://github.com/Trung-edmicro/matrixquesgen/issues
@@ -62,4 +62,6 @@ Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesG
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\logs"
+
+
 
