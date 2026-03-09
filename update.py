@@ -161,12 +161,24 @@ class Updater:
             _set_state(progress=100, message="Tai xong, dang cai dat...", status="installing")
             self.logger.info(f"Download complete: {installer_path}")
 
-            # Run installer with /SILENT flag (shows progress bar but no questions)
+            # Launch installer with /FORCECLOSEAPPLICATIONS so it can replace
+            # the running exe without showing the "close applications" dialog.
+            # Give the UI a moment to show the "installing" status, then exit
+            # this process so the installer can overwrite MatrixQuesGen.exe.
             subprocess.Popen(
-                [str(installer_path), "/SILENT", "/CLOSEAPPLICATIONS"],
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                [str(installer_path), "/SILENT", "/FORCECLOSEAPPLICATIONS"],
+                creationflags=getattr(subprocess, "DETACHED_PROCESS", 8),
             )
-            _set_state(message="Trinh cai dat da khoi dong. Ung dung se tu dong cap nhat.")
+            _set_state(message="Trinh cai dat da khoi dong. Ung dung dang tu dong tat de cap nhat...")
+
+            # Shut down this process after a short delay so the browser tab
+            # has time to read the final status before the server disappears.
+            def _exit_after_delay():
+                import time
+                time.sleep(2)
+                os._exit(0)
+
+            threading.Thread(target=_exit_after_delay, daemon=True).start()
             return True
 
         except Exception as exc:

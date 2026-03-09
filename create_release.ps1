@@ -2,7 +2,7 @@
     [Parameter(Mandatory = $true)]
     [string]$Version,
     [string]$Token = $env:GITHUB_TOKEN,
-    [string]$Repo = $env:GITHUB_REPO,
+    [string]$Repo = $(if ($env:GITHUB_REPO) { $env:GITHUB_REPO } else { "Trung-edmicro/matrixquesgen" }),
     [string]$Changelog = ""
 )
 
