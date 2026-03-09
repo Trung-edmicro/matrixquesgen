@@ -23,7 +23,27 @@ if (-not (Test-Path $installerPath)) {
 }
 
 if (-not $Changelog) {
-    $Changelog = "MatrixQuesGen v$Version"
+    $Changelog = @"
+## Cài đặt lần đầu
+
+1. Tải file **MatrixQuesGen_Setup_$Version.exe** bên dưới
+2. Chạy file Setup → làm theo hướng dẫn (Next → Next → Install)
+3. Sau khi cài xong, ứng dụng tự khởi động
+
+## Cập nhật từ phiên bản cũ
+
+Mở ứng dụng → vào **Cài đặt** → **Kiểm tra cập nhật** → ứng dụng sẽ tự tải và cài bản mới.
+
+Hoặc: tải file Setup bên dưới và chạy trực tiếp — installer sẽ tự ghi đè bản cũ.
+
+## Yêu cầu hệ thống
+
+- Windows 10 / 11
+- Kết nối internet
+
+## Cấu hình sau cài đặt
+
+Tải thư mục SA trên drive về máy, giải nén trong thư mục data"@
 }
 
 $headers = @{
@@ -48,7 +68,8 @@ try {
         -Method Delete `
         -Headers $headers | Out-Null
     Write-Host "  Deleted existing release." -ForegroundColor Yellow
-} catch { <# not found — nothing to delete #> }
+}
+catch { <# not found — nothing to delete #> }
 
 try {
     Invoke-RestMethod `
@@ -57,7 +78,8 @@ try {
         -Headers $headers `
         -ErrorAction Stop | Out-Null
     Write-Host "  Deleted existing tag v$Version." -ForegroundColor Yellow
-} catch { <# tag didn't exist #> }
+}
+catch { <# tag didn't exist #> }
 
 $releaseBody = @{
     tag_name   = "v$Version"
