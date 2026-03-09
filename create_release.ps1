@@ -35,6 +35,30 @@ $headers = @{
 
 Write-Host "Creating GitHub release v$Version..." -ForegroundColor Cyan
 
+# Delete existing release + tag if they already exist (allows re-running for same version)
+try {
+    $existing = Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$Repo/releases/tags/v$Version" `
+        -Method Get `
+        -Headers $headers `
+        -ErrorAction Stop
+    Write-Host "  Found existing release (id=$($existing.id)), deleting..." -ForegroundColor Yellow
+    Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$Repo/releases/$($existing.id)" `
+        -Method Delete `
+        -Headers $headers | Out-Null
+    Write-Host "  Deleted existing release." -ForegroundColor Yellow
+} catch { <# not found — nothing to delete #> }
+
+try {
+    Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$Repo/git/refs/tags/v$Version" `
+        -Method Delete `
+        -Headers $headers `
+        -ErrorAction Stop | Out-Null
+    Write-Host "  Deleted existing tag v$Version." -ForegroundColor Yellow
+} catch { <# tag didn't exist #> }
+
 $releaseBody = @{
     tag_name   = "v$Version"
     name       = "MatrixQuesGen v$Version"
