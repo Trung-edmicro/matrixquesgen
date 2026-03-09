@@ -4,11 +4,14 @@ Coordinates the execution of all phases in the matrix-to-questions pipeline
 """
 
 import asyncio
+import logging
 import time
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
+
+_log = logging.getLogger(__name__)
 
 from .phases.phase1_matrix_processing import MatrixProcessingService, MatrixMetadata, LessonInfo
 from .phases.phase2_content_acquisition import ContentAcquisitionService, ProcessedContent
@@ -78,6 +81,7 @@ class WorkflowOrchestrator:
 
     def execute_phase1_matrix_processing(self, matrix_file_path: Path) -> Tuple[MatrixMetadata, List[LessonInfo], List[str], Path]:
         """Execute Phase 1: Matrix Processing"""
+        _log.info(f"Phase 1: Processing matrix file {matrix_file_path}")
         metadata, lessons, drive_paths, all_specs, true_false_specs, rich_content_type_definitions = self.matrix_service.process_matrix_file(matrix_file_path)
 
         # Store metadata for use in later phases
@@ -92,10 +96,17 @@ class WorkflowOrchestrator:
 
     def execute_phase2_content_enrichment(self, matrix_json_path: Path, metadata: MatrixMetadata,
                                         lessons: List[LessonInfo], drive_paths: List[str]) -> List[ProcessedContent]:
-        """Execute Phase 2: Content Acquisition - download and save content for each lesson"""
-        print("Phase 2: Downloading content for lessons...")
+        """Execute Phase 2: Content Acquisition.
 
-        # Prepare all_lessons data for smart folder finding
+        Strategy:
+          1. Use locally cached content files first (fast, no network).
+          2. For lessons without a local cache, try to download from Google Drive.
+          3. Lessons that have neither local cache nor Drive access are skipped with a
+             warning — the workflow continues so Phase3/4 can still run on whatever
+             content IS available.
+        """
+        _log.info("Phase 2: Acquiring content for lessons...")
+
         all_lessons_data = [
             {
                 'chapter': str(lesson.chapter_number),
@@ -105,58 +116,60 @@ class WorkflowOrchestrator:
             for lesson in lessons
         ]
 
-        # Validate all drive paths exist using smart folder finding
-        print("Validating lesson folders on Google Drive...")
-        missing_lessons = []
-        for lesson in lessons:
-            folder_id = self.content_service.find_lesson_folder_smart(
-                grade=metadata.grade,
-                subject=metadata.subject,
-                chapter=str(lesson.chapter_number),
-                lesson=str(lesson.lesson_number),
-                all_lessons=all_lessons_data
-            )
-            if folder_id is None:
-                missing_lessons.append(f"Chương {lesson.chapter_number}, Bài {lesson.lesson_number}: {lesson.lesson_name}")
-        
-        if missing_lessons:
-            error_msg = "Missing required lesson folders on Google Drive:\n"
-            error_msg += "\n".join(f"- {lesson}" for lesson in missing_lessons)
-            error_msg += "\n\nPlease check Google Drive structure and folder naming conventions."
-            raise Exception(error_msg)
-
         processed_contents = []
+        lessons_needing_download = []
 
-        # Download content for each lesson
+        # --- STEP 1: Use local caches where available -----------------------
         for lesson, drive_path in zip(lessons, drive_paths):
-            print(f"Processing lesson {lesson.chapter_number}.{lesson.lesson_number}: {lesson.lesson_name}")
-
-            # Check if content file already exists and is valid
-            existing_content = self._check_existing_content_file(
-                metadata.subject, metadata.grade, str(lesson.chapter_number), str(lesson.lesson_number)
+            existing = self._check_existing_content_file(
+                metadata.subject, metadata.grade,
+                str(lesson.chapter_number), str(lesson.lesson_number)
             )
-            
-            if existing_content:
-                print(f"Using existing content file for lesson {lesson.chapter_number}.{lesson.lesson_number}")
-                processed_contents.append(existing_content)
-                continue
-
-            processed_content = self._download_lesson_content(
-                metadata.subject, metadata.grade, str(lesson.chapter_number), 
-                str(lesson.lesson_number), drive_path, all_lessons_data
-            )
-
-            if processed_content:
-                processed_contents.append(processed_content)
+            if existing:
+                _log.info(
+                    f"  [Phase2] Cached: lesson {lesson.chapter_number}.{lesson.lesson_number}"
+                )
+                processed_contents.append(existing)
             else:
-                print(f"No content downloaded for lesson {lesson.chapter_number}.{lesson.lesson_number}")
+                lessons_needing_download.append((lesson, drive_path))
 
-        print(f"Downloaded content for {len(processed_contents)} out of {len(lessons)} lessons")
+        # --- STEP 2: Download only lessons missing from local cache ----------
+        if lessons_needing_download:
+            _log.info(
+                f"  [Phase2] {len(lessons_needing_download)} lesson(s) need download from Drive"
+            )
+            for lesson, drive_path in lessons_needing_download:
+                _log.info(
+                    f"  [Phase2] Downloading lesson {lesson.chapter_number}.{lesson.lesson_number}: "
+                    f"{lesson.lesson_name}"
+                )
+                try:
+                    processed_content = self._download_lesson_content(
+                        metadata.subject, metadata.grade,
+                        str(lesson.chapter_number), str(lesson.lesson_number),
+                        drive_path, all_lessons_data
+                    )
+                    if processed_content:
+                        processed_contents.append(processed_content)
+                    else:
+                        _log.warning(
+                            f"  [Phase2] No content from Drive for lesson "
+                            f"{lesson.chapter_number}.{lesson.lesson_number} — skipping"
+                        )
+                except Exception as exc:
+                    _log.warning(
+                        f"  [Phase2] Drive download failed for lesson "
+                        f"{lesson.chapter_number}.{lesson.lesson_number}: {exc} — skipping"
+                    )
+
+        _log.info(
+            f"Phase 2 complete: {len(processed_contents)} / {len(lessons)} lessons have content"
+        )
         return processed_contents
 
     def execute_phase3_content_mapping(self, matrix_json_path: Path) -> ContentMappingResult:
         """Execute Phase 3: Content Mapping - map Phase 2 content into Phase 1 matrix"""
-        print("Phase 3: Mapping content to matrix...")
+        _log.info("Phase 3: Mapping content to matrix...")
 
         # Initialize content mapping service
         mapping_service = ContentMappingService()
@@ -164,9 +177,11 @@ class WorkflowOrchestrator:
         # Map content to matrix
         result = mapping_service.map_content_to_matrix(matrix_json_path)
 
-        print(f"Content mapping completed: {result.lessons_mapped} lessons mapped, {result.total_questions_mapped} questions mapped")
-        print(f"Enriched matrix saved to: {result.enriched_matrix_path}")
-
+        _log.info(
+            f"Phase 3 complete: {result.lessons_mapped} lessons mapped, "
+            f"{result.total_questions_mapped} questions mapped. "
+            f"Enriched matrix: {result.enriched_matrix_path}"
+        )
         return result
     
     def _detect_prompt_type(self, prompts_dir: Path) -> str:
@@ -192,25 +207,25 @@ class WorkflowOrchestrator:
         # TN_VD.txt alone does NOT trigger alternative – it is used by the standard 3-tier
         # prompt selection and would otherwise incorrectly route to the alternative path.
         if has_tn2 or has_tn_vd_case2 or has_ds_case:
-            print(f"✓ Detected ALTERNATIVE prompts (TN2: {has_tn2}, TN_VD_case2: {has_tn_vd_case2}, TN_VD: {has_tn_vd}, DS_case: {has_ds_case})")
+            _log.info(f"✓ Detected ALTERNATIVE prompts (TN2: {has_tn2}, TN_VD_case2: {has_tn_vd_case2}, TN_VD: {has_tn_vd}, DS_case: {has_ds_case})")
             return 'alternative'
         
         # If we have standard prompts, use standard
         if has_tn or has_ds:
-            print(f"✓ Detected STANDARD prompts (TN: {has_tn}, DS: {has_ds})")
+            _log.info(f"✓ Detected STANDARD prompts (TN: {has_tn}, DS: {has_ds})")
             return 'standard'
         
         # Default to standard if no prompts found
-        print("⚠️ No prompts detected, defaulting to STANDARD mode")
+        _log.warning("⚠️ No prompts detected, defaulting to STANDARD mode")
         return 'standard'
     
     def execute_phase4_question_generation(self, enriched_matrix_path: Path) -> Optional[QuestionSet]:
         """Execute Phase 4: Question Generation using enriched matrix (like CLI phase4)"""
-        print("Phase 4: Generating questions from enriched matrix...")
+        _log.info("Phase 4: Generating questions from enriched matrix...")
         
         # Download prompts from Drive before generating questions
         if self.matrix_metadata:
-            print(f"\n→ Downloading prompts from Google Drive ({self.matrix_metadata.grade}/{self.matrix_metadata.subject})...")
+            _log.info(f"→ Downloading prompts from Google Drive ({self.matrix_metadata.grade}/{self.matrix_metadata.subject})...")
             try:
                 prompts_downloaded = self.content_service.download_prompts_from_drive(
                     grade=self.matrix_metadata.grade,
@@ -218,11 +233,11 @@ class WorkflowOrchestrator:
                     curriculum=self.matrix_metadata.curriculum
                 )
                 if prompts_downloaded:
-                    print("✓ Prompts ready\n")
+                    _log.info("✓ Prompts ready")
                 else:
-                    print("⚠️ Could not download prompts from Drive\n")
+                    _log.warning("⚠️ Could not download prompts from Drive")
             except Exception as e:
-                print(f"⚠️ Error downloading prompts: {e}\n")
+                _log.warning(f"⚠️ Error downloading prompts: {e}")
             
             # Set prompts directory for both services (before detection)
             self.alternative_question_service.set_prompts_directory(
@@ -254,21 +269,21 @@ class WorkflowOrchestrator:
             
             if not has_prompts:
                 error_msg = f"Missing prompts for {self.matrix_metadata.subject}!\n\n"
-                error_msg += f"Prompts không tồn tại trên Google Drive.\n\n"
+                error_msg += "Prompts không tồn tại trên Google Drive.\n\n"
                 raise Exception(error_msg)
         else:
-            print("⚠️ No matrix metadata available, skipping prompt download\n")
+            _log.warning("⚠️ No matrix metadata available, skipping prompt download")
 
         # Detect which prompts are available and select appropriate service
         prompts_dir = self.alternative_question_service.prompts_dir
         prompt_type = self._detect_prompt_type(prompts_dir)
         
         if prompt_type == 'alternative':
-            print("→ Using ALTERNATIVE Phase 4 logic (TN2/VD_case2/DS_case)\n")
+            _log.info("→ Using ALTERNATIVE Phase 4 logic (TN2/VD_case2/DS_case)")
             self.question_service = self.alternative_question_service
             method = 'alternative'
         else:
-            print("→ Using STANDARD Phase 4 logic (TN/DS)\n")
+            _log.info("→ Using STANDARD Phase 4 logic (TN/DS)")
             self.question_service = self.standard_question_service
             method = 'standard'
 
@@ -286,16 +301,14 @@ class WorkflowOrchestrator:
                 )
             
             if question_set:
-                print(f"Generated {question_set.total_questions} questions from enriched matrix")
+                _log.info(f"Phase 4 complete: {question_set.total_questions} questions generated")
                 return question_set
             else:
-                print("No questions generated from enriched matrix")
+                _log.warning("Phase 4: No questions generated from enriched matrix")
                 return None
                 
         except Exception as e:
-            print(f"Error in phase 4 question generation: {e}")
-            import traceback
-            traceback.print_exc()
+            _log.error(f"Phase 4 question generation failed: {e}", exc_info=True)
             return None
 
     def _validate_drive_paths(self, drive_paths: List[str]) -> List[tuple]:
@@ -349,7 +362,7 @@ class WorkflowOrchestrator:
             return []
             
         except Exception as e:
-            print(f"Error checking available folders: {e}")
+            _log.warning(f"Error checking available folders: {e}")
             return []
 
     def _check_existing_content_file(self, subject: str, grade: str, chapter: str, lesson: str) -> Optional[ProcessedContent]:
@@ -367,21 +380,12 @@ class WorkflowOrchestrator:
             
             # Validate content structure
             if not self._validate_content_structure(content_data, subject, grade, chapter, lesson):
-                print(f"⚠️  Existing content file {content_filename} has invalid structure, will re-download")
-                return None
-                
-            # Create ProcessedContent from existing file
-            processed_content = ProcessedContent(
-                subject=subject,
-                grade=grade,
-                topic=f"{chapter}.{lesson}",
-                data=content_data
-            )
+                    _log.warning(f"Existing content file {content_filename} has invalid structure, will re-download")
             
             return processed_content
             
         except Exception as e:
-            print(f"⚠️  Error reading existing content file {content_filename}: {e}")
+            _log.warning(f"Error reading existing content file {content_filename}: {e}")
             return None
 
     def _validate_content_structure(self, content_data: dict, subject: str, grade: str, chapter: str, lesson: str) -> bool:
@@ -429,11 +433,11 @@ class WorkflowOrchestrator:
                 # Save to content directory for Phase 2
                 content_dir = Path("data/content")
                 output_path = self.content_service.save_processed_content(processed_content, content_dir)
-                print(f"💾 Saved processed content to {output_path}")
+                _log.info(f"💾 Saved processed content to {output_path}")
             
             return processed_content
         except Exception as e:
-            print(f"Error in _download_lesson_content: {e}")
+            _log.error(f"Error in _download_lesson_content: {e}", exc_info=True)
             return None
 
     def execute_complete_workflow(self, matrix_file_path: Path) -> WorkflowResult:
@@ -473,11 +477,11 @@ class WorkflowOrchestrator:
 
         except Exception as e:
             result.errors.append(str(e))
-            print(f"❌ Workflow failed: {e}")
+            _log.error(f"❌ Workflow failed: {e}", exc_info=True)
 
         finally:
             result.execution_time = time.time() - start_time
-            print(f"Execution time: {result.execution_time:.2f} seconds")
+            _log.info(f"Execution time: {result.execution_time:.2f} seconds")
         return result
 
     def execute_single_phase(self, phase: int, **kwargs) -> Any:

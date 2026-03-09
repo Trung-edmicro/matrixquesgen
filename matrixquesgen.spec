@@ -40,6 +40,16 @@ uvicorn_datas, uvicorn_binaries, uvicorn_hidden = collect_all('uvicorn')
 starlette_datas, starlette_binaries, starlette_hidden = collect_all('starlette')
 fastapi_datas, fastapi_binaries, fastapi_hidden = collect_all('fastapi')
 
+# PIL (Pillow): must use collect_all to pick up binary extension _imaging.pyd.
+# Adding only to hiddenimports is not enough — the .pyd needs to be in binaries.
+pil_datas, pil_binaries, pil_hidden = collect_all('PIL')
+
+# pystray: collect binaries/data (Win32 backend DLLs etc.)
+try:
+    pystray_datas, pystray_binaries, pystray_hidden = collect_all('pystray')
+except Exception:
+    pystray_datas, pystray_binaries, pystray_hidden = [], [], []
+
 # Walk every required package tree and copy all .py files directly into _MEIPASS.
 # This guarantees imports work even if PYZ bytecode collection misses something.
 pkg_dirs = []
@@ -96,9 +106,11 @@ else:
 a = Analysis(
     ['launcher.py'],
     pathex=[],
-    binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries,
+    binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries
+        + pil_binaries + pystray_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas  # mml2omml = XSL file
         + uvicorn_datas + starlette_datas + fastapi_datas
+        + pil_datas + pystray_datas
         + pkg_dirs,
     hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
         'uvicorn.logging',
@@ -179,14 +191,12 @@ a = Analysis(
         # Config
         'config.settings',
         # Services - REMOVED (already included via datas)
-        # System tray
+        # System tray (binaries/datas collected above via collect_all)
         'pystray',
         'pystray._win32',
-        'PIL',
-        'PIL.Image',
-        'PIL.ImageDraw',
-        'PIL.ImageEnhance',
-        'PIL.ImageFont',
+        # PIL hidden imports from collect_all (includes _imaging, Image, Draw, etc.)
+        *pil_hidden,
+        *pystray_hidden,
         # Additional dependencies for new features
         'io',
         'pathlib',
