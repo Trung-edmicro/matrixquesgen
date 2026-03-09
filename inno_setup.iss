@@ -2,9 +2,9 @@
 AppName=MatrixQuesGen
 AppVersion=1.0.0
 AppPublisher=Your Organization
-AppPublisherURL=https://github.com/your-org/matrixquesgen
-AppSupportURL=https://github.com/your-org/matrixquesgen/issues
-AppUpdatesURL=https://github.com/your-org/matrixquesgen/releases
+AppPublisherURL=https://github.com/Trung-edmicro/matrixquesgen
+AppSupportURL=https://github.com/Trung-edmicro/matrixquesgen/issues
+AppUpdatesURL=https://github.com/Trung-edmicro/matrixquesgen/releases
 DefaultDirName={autopf}\MatrixQuesGen
 DefaultGroupName=MatrixQuesGen
 OutputDir=installer

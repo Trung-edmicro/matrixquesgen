@@ -20,7 +20,9 @@ $content | Set-Content "inno_setup.iss" -Encoding UTF8
 
 if (-not $SkipBuild) {
     Write-Host "Building executable with PyInstaller..."
-    & pyinstaller --clean --noconfirm matrixquesgen.spec
+    $pythonExe = ".venv\Scripts\python.exe"
+    if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
+    & $pythonExe -m PyInstaller --clean --noconfirm matrixquesgen.spec
 
     if ($LASTEXITCODE -ne 0) {
         Write-Error "PyInstaller build failed!"
