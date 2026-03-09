@@ -12,9 +12,12 @@ from pathlib import Path
 try:
     from pystray import Icon, Menu, MenuItem
     from PIL import Image, ImageDraw
-except ImportError:
-    # Will be handled in launcher.py
-    pass
+    _TRAY_AVAILABLE = True
+except Exception:
+    # PIL or pystray not available (not bundled in this build)
+    Icon = Menu = MenuItem = None
+    Image = ImageDraw = None
+    _TRAY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,9 @@ class TrayIcon:
     
     def run(self):
         """Start the tray icon (must be called in its own thread)."""
+        if not _TRAY_AVAILABLE:
+            logger.warning("pystray/PIL not available — system tray icon disabled")
+            return
         try:
             icon_image = self.get_icon_image()
             logger.info(f"Tray icon image size: {icon_image.size}")

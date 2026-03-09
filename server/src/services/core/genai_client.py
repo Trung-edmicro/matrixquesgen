@@ -115,12 +115,15 @@ class GenAIClient:
             if enable_search:
                 tools = [types.Tool(google_search=types.GoogleSearch())]
             
+            # Build thinking_config — guard against version differences in google-genai
+            thinking_cfg = _make_thinking_config()
+
             # Tạo config
             config = types.GenerateContentConfig(
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
-                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
+                thinking_config=thinking_cfg,
                 system_instruction=system_instruction,
                 tools=tools if tools else None
             )
@@ -169,12 +172,15 @@ class GenAIClient:
                 tools = [types.Tool(google_search=types.GoogleSearch())]
                 # print("🔍 Google Search enabled cho request này")
             
+            # Build thinking_config — guard against version differences in google-genai
+            thinking_cfg = _make_thinking_config()
+
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
-                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
+                thinking_config=thinking_cfg,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
@@ -275,7 +281,7 @@ class GenAIClient:
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
-                thinking_config=types.ThinkingConfig(thinking_level=Settings.VERTEX_AI_THINKING_LEVEL),
+                thinking_config=_make_thinking_config(),
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,
