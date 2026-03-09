@@ -5,8 +5,9 @@ pdfplumber==0.11.8
 pdf2image==1.17.0
 
 # Google Cloud / Vertex AI
-google-cloud-aiplatform==1.38.1
-vertexai==0.0.1
+google-cloud-aiplatform>=1.38.1
+# Note: vertexai==0.0.1 was an empty stub - the real vertexai module ships inside
+# google-cloud-aiplatform. Removed to eliminate version conflicts.
 google-genai>=1.61.0
 
 # Google Drive API
@@ -29,11 +30,15 @@ pystray>=0.19.0
 python-dotenv==1.0.0
 
 # API dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# fastapi 0.104.1 used anyio<4.0.0 which conflicts with google-genai>=1.61.0 (needs anyio>=4.8.0)
+# fastapi>=0.111.0 relaxes to anyio<5,>=3.6.2 which is compatible
+fastapi>=0.111.0
+uvicorn[standard]>=0.24.0
 python-multipart==0.0.6
-pydantic==2.5.0
-pydantic-settings==2.1.0
+# pydantic pinned to >=2.9.0 because google-genai>=1.61.0 requires pydantic>=2.9.0
+# The old ==2.5.0 pin caused ResolutionImpossible in CI
+pydantic>=2.9.0
+pydantic-settings>=2.1.0
 
 
 
