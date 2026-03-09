@@ -88,14 +88,15 @@ $releaseBody = @{
     body       = $Changelog
     draft      = $false
     prerelease = $false
-} | ConvertTo-Json -Compress
+} | ConvertTo-Json -Depth 5 -EscapeHandling EscapeNonAscii
 
 try {
+    $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($releaseBody)
     $release = Invoke-RestMethod `
         -Uri "https://api.github.com/repos/$Repo/releases" `
         -Method Post `
         -Headers $headers `
-        -Body $releaseBody
+        -Body $bodyBytes
 
     Write-Host "OK Release created: $($release.html_url)" -ForegroundColor Green
 
