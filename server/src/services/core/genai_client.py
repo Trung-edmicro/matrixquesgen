@@ -11,6 +11,22 @@ from google.oauth2 import service_account
 from config.settings import Config as Settings
 
 
+def _make_thinking_config() -> Optional[types.ThinkingConfig]:
+    """Build ThinkingConfig safely, accounting for google-genai version differences.
+    Older versions may not support thinking_level; newer versions require an
+    uppercase enum string (HIGH / MEDIUM / LOW / MINIMAL).
+    Returns None when the field is unsupported so callers can omit it.
+    """
+    level = Settings.VERTEX_AI_THINKING_LEVEL.upper()  # normalise "high" -> "HIGH"
+    if not level or level == "NONE":
+        return None
+    try:
+        return types.ThinkingConfig(thinking_level=level)
+    except Exception:
+        # Older google-genai version without thinking_level; skip silently
+        return None
+
+
 class GenAIClient:
     """Class xử lý tương tác với Google GenAI SDK (mới)"""
     

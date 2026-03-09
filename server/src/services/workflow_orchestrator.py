@@ -380,8 +380,15 @@ class WorkflowOrchestrator:
             
             # Validate content structure
             if not self._validate_content_structure(content_data, subject, grade, chapter, lesson):
-                    _log.warning(f"Existing content file {content_filename} has invalid structure, will re-download")
-            
+                _log.warning(f"Existing content file {content_filename} has invalid structure, will re-download")
+                return None
+
+            processed_content = ProcessedContent(
+                subject=content_data.get('subject', subject),
+                grade=content_data.get('grade', grade),
+                topic=content_data.get('topic', f"{chapter}_{lesson}"),
+                data=content_data.get('data', {})
+            )
             return processed_content
             
         except Exception as e:
