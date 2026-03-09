@@ -1,6 +1,6 @@
 ﻿[Setup]
 AppName=MatrixQuesGen
-AppVersion=1.0.0
+AppVersion=1.0.1
 AppPublisher=Your Organization
 AppPublisherURL=https://github.com/Trung-edmicro/matrixquesgen
 AppSupportURL=https://github.com/Trung-edmicro/matrixquesgen/issues
@@ -29,7 +29,6 @@ Name: "playwright"; Description: "Install Playwright Chromium (for chart export 
 
 [Files]
 Source: "dist\MatrixQuesGen.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "client\dist\*"; DestDir: "{app}\client\dist"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: ".env"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
@@ -37,17 +36,16 @@ Source: "install_playwright_silent.bat"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 ; Ensure all working directories exist after install
-Name: "{app}\data\input"
-Name: "{app}\data\output"
-Name: "{app}\data\sessions"
-Name: "{app}\data\questions"
-Name: "{app}\data\exports"
-Name: "{app}\data\prompts"
-Name: "{app}\data\matrix"
-Name: "{app}\data\content"
-Name: "{app}\data\images"
-Name: "{app}\data\logs"
 Name: "{app}\data\.drive_metadata"
+Name: "{app}\data\content"
+Name: "{app}\data\matrix"
+Name: "{app}\data\output"
+Name: "{app}\data\prompts"
+Name: "{app}\data\upload"
+Name: "{app}\data\questions"
+Name: "{app}\data\sessions"
+Name: "{app}\data\exports"
+Name: "{app}\data\images"
 Name: "{app}\logs"
 
 [Icons]
@@ -64,3 +62,4 @@ Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesG
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\logs"
+

@@ -16,6 +16,7 @@ $content | Set-Content "version.py" -Encoding UTF8
 # Update version in inno_setup.iss
 $content = Get-Content "inno_setup.iss" -Raw
 $content = $content -replace 'AppVersion=[\d\.]+', "AppVersion=$Version"
+$content = $content -replace 'OutputBaseFilename=MatrixQuesGen_Setup_[\d\.]+', "OutputBaseFilename=MatrixQuesGen_Setup_$Version"
 $content | Set-Content "inno_setup.iss" -Encoding UTF8
 
 if (-not $SkipBuild) {
@@ -50,7 +51,8 @@ if (-not $SkipInstaller) {
         }
 
         Write-Host "Installer built successfully" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Warning "Inno Setup not found. Please install Inno Setup 6 and run again."
         Write-Host "Download from: https://jrsoftware.org/isdl.php"
     }
