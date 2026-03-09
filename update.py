@@ -99,7 +99,7 @@ class Updater:
                 _set_state(
                     status="up_to_date",
                     progress=100,
-                    message="Ung dung dang dung phien ban moi nhat.",
+                    message="Application is using the latest version.",
                     latest_version=latest_version,
                 )
                 return {

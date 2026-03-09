@@ -182,7 +182,7 @@ export default function SettingsPage() {
               {updateState.changelog && (
                 <details className="text-sm">
                   <summary className="cursor-pointer text-gray-600 hover:text-gray-800 font-medium">
-                    Xem thay đổi (changelog)
+                    Xem thay đổi
                   </summary>
                   <pre className="mt-2 p-3 bg-gray-50 rounded-lg text-xs text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto border">
                     {updateState.changelog}
@@ -218,7 +218,7 @@ export default function SettingsPage() {
       </section>
 
       {/* ── About card ── */}
-      <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      {/* <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
           <h2 className="text-base font-semibold text-gray-700">Thông tin ứng dụng</h2>
         </div>
@@ -237,7 +237,7 @@ export default function SettingsPage() {
             </a>
           </p>
         </div>
-      </section>
+      </section> */}
     </div>
   )
 }
