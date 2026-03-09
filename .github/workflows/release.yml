@@ -163,16 +163,26 @@ jobs:
           tag_name: v${{ steps.version.outputs.VERSION }}
           name: MatrixQuesGen v${{ steps.version.outputs.VERSION }}
           body: |
-            ## MatrixQuesGen v${{ steps.version.outputs.VERSION }}
+            ## 📥 Cài đặt lần đầu
 
-            ### Cài đặt
-            1. Tải file `MatrixQuesGen_Setup_${{ steps.version.outputs.VERSION }}.exe`
-            2. Chạy file để cài đặt
-            3. Tuỳ chọn cài đặt Playwright Chromium (cho tính năng xuất biểu đồ DOCX)
+            1. Tải file **MatrixQuesGen_Setup_${{ steps.version.outputs.VERSION }}.exe** bên dưới
+            2. Chạy file Setup → làm theo hướng dẫn (Next → Next → Install)
+            3. Sau khi cài xong, ứng dụng tự khởi động
 
-            ### Cập nhật từ phiên bản cũ
-            - Mở ứng dụng → **Cài đặt** → **Kiểm tra cập nhật**
-            - Bấm **Tải & cài đặt** — ứng dụng sẽ tự khởi động lại
+            ## 🔄 Cập nhật từ phiên bản cũ
+
+            Mở ứng dụng → vào **Cài đặt** → **Kiểm tra cập nhật** → ứng dụng sẽ tự tải và cài bản mới.
+
+            Hoặc: tải file Setup bên dưới và chạy trực tiếp — installer sẽ tự ghi đè bản cũ.
+
+            ## ⚙️ Yêu cầu hệ thống
+
+            - Windows 10 / 11
+            - Kết nối internet (để dùng Google AI và đồng bộ Drive)
+
+            ## 📂 Cấu hình sau cài đặt
+
+            Tải thư mục dữ liệu từ [Drive](https://drive.google.com/drive/folders/1HbNS53txcsWZ2t2C0sHkPqFg-iJuHx7b?usp=sharing) về máy, giải nén vào thư mục `data` trong thư mục cài đặt.
           files: installer/MatrixQuesGen_Setup_${{ steps.version.outputs.VERSION }}.exe
           draft: false
           prerelease: false
