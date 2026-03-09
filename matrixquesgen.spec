@@ -103,9 +103,13 @@ if os.path.exists(_xsl_src):
 else:
     print('  [xsl] WARNING: assets/MML2OMML.XSL not found — math OMML disabled in frozen exe')
 
+# Add server/src to pathex so PyInstaller can analyze server code imports.
+# Without this, all api.*, services.*, config.* hiddenimports fail with ERROR.
+_server_src = os.path.join(os.path.dirname(os.path.abspath(SPEC)), 'server', 'src')
+
 a = Analysis(
     ['launcher.py'],
-    pathex=[],
+    pathex=[_server_src],
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries
         + pil_binaries + pystray_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas  # mml2omml = XSL file
@@ -157,43 +161,18 @@ a = Analysis(
         'openpyxl',
         'pdfplumber',
         'pdf2image',
-        'docx',
-        'python_docx',
+        'docx',          # python-docx installs as 'docx'
         'PIL',
-        'pymupdf',
         'dotenv',
-        # API Routes (all routes must be explicitly imported)
-        'api.routes.generate',
-        'api.routes.questions',
-        'api.routes.export',
-        'api.routes.regenerate',
-        'api.routes.google_drive',
-        'api.routes.images',
-        'api.routes.update',
-        'api.models',
-        'api.models.schemas',
-        # Legacy route imports
-        'routes.generate',
-        'routes.questions',
-        'routes.export',
-        'routes.regenerate',
-        'routes.google_drive',
-        'routes.images',
-        'routes.docx_reader',
-        # New services (English generator)
-        'services.english_generator_service.english_generator_service',
-        'services.english_generator_service.matrix_workflow_service',
-        'services.english_generator_service.vertex_async_client',
-        'services.exporters.english_docx_generator',
-        # Phase APIs
-        'api.phase_apis',
-        'api.custom_prompts_api',
-        # Config
-        'config.settings',
-        # Services - REMOVED (already included via datas)
+        # Server modules — pathex includes server/src so these resolve correctly
+        # collect_submodules walks each package and finds all sub-modules
+        *collect_submodules('api'),
+        *collect_submodules('services'),
+        *collect_submodules('config'),
         # System tray (binaries/datas collected above via collect_all)
+        # Note: pystray._win32 is covered by *pystray_hidden; explicit entry fails
+        # during analysis because PIL's C extension isn't resolved yet at that point.
         'pystray',
-        'pystray._win32',
         # PIL hidden imports from collect_all (includes _imaging, Image, Draw, etc.)
         *pil_hidden,
         *pystray_hidden,
@@ -206,15 +185,10 @@ a = Analysis(
         'json',
         'uuid',
         # LaTeX → OMML math conversion (DOCX equation rendering)
-        'latex2mathml',
-        'latex2mathml.converter',
-        'latex2mathml.commands',
-        'latex2mathml.aggregator',
-        'latex2mathml.unimathsymbols',
-        'latex2mathml.exceptions',
-        'latex2mathml.element',
-        'latex2mathml.exporter',
-        'latex2mathml.math_object',
+        # Use collect_submodules for correct list — the old explicit list had wrong
+        # names (aggregator, element, exporter, math_object don't exist; real modules
+        # are commands, tokenizer, walker, symbols_parser).
+        *collect_submodules('latex2mathml'),
         'lxml',
         'lxml.etree',
         'lxml._elementpath',
