@@ -9,6 +9,8 @@ import {
   exportToDocx,
   downloadDocx,
   exportToEnglishDocx,
+  exportToEnglishExamDocx,
+  exportToEnglishStandardDocx,
 } from '../services/api'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 
@@ -178,48 +180,99 @@ export default function GenerateExamPage() {
   //   }
   // }
 
+  // const handleExportEnglishDocx = async () => {
+
+  //   const storedExam = localStorage.getItem("generatedEnglishExam")
+
+  //   if (!storedExam) {
+  //     setError("Không có dữ liệu đề tiếng Anh để xuất file")
+  //     return
+  //   }
+
+  //   const generatedExam = JSON.parse(storedExam)
+
+  //   try {
+  //     setIsExporting(true)
+  //     setError(null)
+
+  //     const response = await exportToEnglishDocx(generatedExam, {
+  //       responseType: "blob"
+  //     })
+
+  //     const blob = new Blob([response.data], {
+  //       type: "application/zip"
+  //     })
+
+  //     const url = window.URL.createObjectURL(blob)
+
+  //     const link = document.createElement("a")
+  //     link.href = url
+  //     link.download = `English_Exam_Files.zip`
+  //     document.body.appendChild(link)
+  //     link.click()
+
+  //     document.body.removeChild(link)
+  //     window.URL.revokeObjectURL(url)
+
+  //     setSuccessMessage("Đã xuất file DOCX thành công")
+
+  //   } catch (err) {
+  //     setError("Lỗi khi xuất file: " + err.message)
+  //   } finally {
+  //     setIsExporting(false)
+  //   }
+  // }
+
   const handleExportEnglishDocx = async () => {
 
-    const storedExam = localStorage.getItem("generatedEnglishExam")
+  const storedExam = localStorage.getItem("generatedEnglishExam");
+  console.log(">>>>>> debug storeExam", storedExam);
 
-    if (!storedExam) {
-      setError("Không có dữ liệu đề tiếng Anh để xuất file")
-      return
-    }
-
-    const generatedExam = JSON.parse(storedExam)
-
-    try {
-      setIsExporting(true)
-      setError(null)
-
-      const response = await exportToEnglishDocx(generatedExam, {
-        responseType: "blob"
-      })
-
-      const blob = new Blob([response.data], {
-        type: "application/zip"
-      })
-
-      const url = window.URL.createObjectURL(blob)
-
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `English_Exam_Files.zip`
-      document.body.appendChild(link)
-      link.click()
-
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      setSuccessMessage("Đã xuất file DOCX thành công")
-
-    } catch (err) {
-      setError("Lỗi khi xuất file: " + err.message)
-    } finally {
-      setIsExporting(false)
-    }
+  if (!storedExam) {
+    setError("Không có dữ liệu đề tiếng Anh để xuất file")
+    return
   }
+
+  const generatedExam = JSON.parse(storedExam)
+
+  try {
+    setIsExporting(true)
+    setError(null)
+
+    const res1 = await exportToEnglishExamDocx(generatedExam, {
+      responseType: "blob"
+    })
+
+    downloadFile(res1.data, "English_Exam.docx")
+
+    const res2 = await exportToEnglishStandardDocx(generatedExam, {
+      responseType: "blob"
+    })
+
+    downloadFile(res2.data, "English_Standard_Exam.docx")
+
+    setSuccessMessage("Đã xuất 2 file DOCX thành công")
+
+  } catch (err) {
+    setError("Lỗi khi xuất file: " + err.message)
+  } finally {
+    setIsExporting(false)
+  }
+}
+
+const downloadFile = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement("a")
+
+  link.href = url
+  link.download = filename
+
+  document.body.appendChild(link)
+  link.click()
+
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
+}
 
   const handleExport = async () => {
     // if (!generatedExam || !sessionId) {
