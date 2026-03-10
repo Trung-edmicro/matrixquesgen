@@ -128,7 +128,24 @@ export const exportToEnglishDocx = async (generatedExam, config) => {
     generatedExam,
     config
   )
+  return response
+}
 
+export const exportToEnglishExamDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToEnglishStandardDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-standard`,
+    generatedExam,
+    config
+  )
   return response
 }
 
