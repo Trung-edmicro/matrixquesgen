@@ -1,8 +1,8 @@
 PROMPTS = {
     "Điền từ": "TA_Dien_tu.md",
     "Sắp xếp": "TA_sap_xep.md",
-    "Đọc hiểu": "Doc_hieu.md",
-    "Điền cụm từ/điền câu": "Dien_cau_cum_tu.md"
+    "Đọc hiểu": "TA_Doc_hieu.md",
+    "Điền cụm từ/điền câu": "TA_Dien_cau_cum_tu.md"
 }
 
 # ============================
@@ -177,6 +177,37 @@ Tạm dịch:
 # Tạm dịch: [Dịch sang tiếng Việt]
 # """.strip()
 
+# READING_COMPREHENSION_EXPLANATION_TEMPLATE = r"""
+# Cấm tuyệt đối viết A B C D trong lời giải, bắt buộc ghi toàn bộ nội dung của các đáp án A B C D
+
+# Question {question_number}. {question_content}
+
+# A. {option_A}
+# B. {option_B}
+# C. {option_C}
+# D. {option_D}
+
+# Lời giải
+# Chọn {correct_answer}
+
+# Phân tích đáp án:
+# Bắt buộc phân tích đáp án phải viết bằng Tiếng Việt
+# {option_A} - viết lại đáp án A
+# → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
+
+#  {option_B} - viết lại đáp án B 
+# → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
+
+#  {option_C} - viết lại đáp án C
+# → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
+
+# {option_D} - viết lại đáp án D
+# → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
+
+# Thông tin: [Trích dẫn nguyên văn]
+# Tạm dịch: [Dịch sang tiếng Việt]
+# """.strip()
+
 READING_COMPREHENSION_EXPLANATION_TEMPLATE = r"""
 Cấm tuyệt đối viết A B C D trong lời giải, bắt buộc ghi toàn bộ nội dung của các đáp án A B C D
 
@@ -191,17 +222,18 @@ Lời giải
 Chọn {correct_answer}
 
 Phân tích đáp án:
+Bắt buộc phân tích đáp án phải viết bằng Tiếng Việt
 
-{option_A} - viết lại đáp án A
+{option_A}
 → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
 
- {option_B} - viết lại đáp án B 
+{option_B}
 → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
 
- {option_C} - viết lại đáp án C
+{option_C}
 → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
 
-{option_D} - viết lại đáp án D
+{option_D}
 → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
 
 Thông tin: [Trích dẫn nguyên văn]

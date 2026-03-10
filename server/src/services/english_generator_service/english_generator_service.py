@@ -5,11 +5,11 @@ from pathlib import Path
 import uuid
 import os
 import json
-from fastapi.responses import FileResponse
+import requests
 import shutil
 from api.callApi import get_credentials
-from services.english_generator_service.vertex_async_client import AsyncVertexClient
-# from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
+# from services.english_generator_service.vertex_async_client import AsyncVertexClient
+from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
 import re
 import html
@@ -23,6 +23,7 @@ from .constants import (CLOZE_EXPLANATION_TEMPLATE,
      CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,
        READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
+from .drive_helper_services import load_vocabulary_from_drive
 
 # ============================
 # CONFIG
@@ -39,14 +40,90 @@ OUTPUT_DIR = APP_DIR / "data" / "outputs"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+
+# DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZdpj8ZrFJhA0cU-xpLBj5Du2"
+
+# DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zIWUMnDNCrFCc_Yw-yR0Pm8PT"
+
+# DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
+
 # ============================
 # PROMPT LOADER
 # ============================
 
+
+
+# def load_prompt(filename: str) -> str:
+#     path = PROMPT_DIR / filename
+#     if not path.exists():
+#         raise Exception(f"Không tìm thấy prompt: {filename}")
+#     return path.read_text(encoding="utf-8")
+
+
+DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+PROMPT_DIR = Path("PROMPT_DIR")
+
+_drive_prompts_cache = None
+
+
+def fetch_drive_md_files():
+    try:
+        folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+        url = f"https://drive.google.com/drive/folders/{folder_id}"
+        html = requests.get(url).text
+
+        file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+        prompts = {}
+
+        for fid in file_ids:
+            download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+            r = requests.get(download_url)
+
+            if r.status_code != 200:
+                continue
+
+            disposition = r.headers.get("content-disposition", "")
+
+            if ".md" not in disposition:
+                continue
+
+            name_match = re.findall(r'filename="(.+)"', disposition)
+
+            if not name_match:
+                continue
+
+            name = name_match[0]
+            prompts[name] = r.text
+
+        return prompts
+
+    except Exception:
+        return {}
+
+
 def load_prompt(filename: str) -> str:
+    global _drive_prompts_cache
+
+    # Load drive 1 lần
+    if _drive_prompts_cache is None:
+        print("🔎 Fetching prompts from Drive...")
+        _drive_prompts_cache = fetch_drive_md_files()
+
+    # Nếu có trên drive
+    if filename in _drive_prompts_cache:
+        print(f"✅ Load từ Drive: {filename}")
+        return _drive_prompts_cache[filename]
+
+    # fallback local
     path = PROMPT_DIR / filename
+
     if not path.exists():
         raise Exception(f"Không tìm thấy prompt: {filename}")
+
+    print(f"📂 Load từ LOCAL: {filename}")
     return path.read_text(encoding="utf-8")
 
 
@@ -79,7 +156,7 @@ def detect_all_levels(row, start_index):
     return found
 
 
-META_COLS = ["STT", "Chủ đề", "Số từ", "Độ khó", "Dạng thức bài đọc (VI)","Dạng thức bài đọc (EN)","Từ vựng tham khảo","Tài liệu tham khảo"]
+META_COLS = ["STT", "Chủ đề", "Số từ","Từ vựng", "Độ khó", "Dạng thức bài đọc (VI)","Dạng thức bài đọc (EN)","Từ vựng tham khảo","Tài liệu tham khảo"]
 
 
 def extract_blocks_from_excel(file_path: str):
@@ -95,7 +172,7 @@ def extract_blocks_from_excel(file_path: str):
 
     for stt, group in grouped:
         topic = group.iloc[0]["Chủ đề"]
-        print(f">>>>>> debug topic {topic}")
+        vocabulary_example = group.iloc[0]["Từ vựng"]
         word_count = str(group.iloc[0]["Số từ"])
         difficulty = group.iloc[0]["Độ khó"]
         text_type = group.iloc[0]["Dạng thức bài đọc (VI)"]
@@ -129,7 +206,9 @@ def extract_blocks_from_excel(file_path: str):
                 "question_count": count,
                 "questions": questions,
                 "vocabulary": vocabulary,
-                "document_sample": document_sample
+                "document_sample": document_sample,
+                "vocabulary_example": vocabulary_example
+
             })
 
     print("\n=== TOTAL QUESTIONS PER COLUMN ===")
@@ -217,17 +296,17 @@ async def generate_exam_docx(blocks, output_path):
 
     credentials, project_id = get_credentials()
 
-    client = AsyncVertexClient(
-        project_id=project_id,
-        creds=credentials,
-        model="gemini-2.5-pro"
-    )
+    # client = AsyncVertexClient(
+    #     project_id=project_id,
+    #     creds=credentials,
+    #     model="gemini-2.5-pro"
+    # )
 
-#     client = AsyncVertexGemini31(
-#     project_id=project_id,
-#     model="gemini-3.1-pro-preview",
-#     thinking_level="high"
-# )
+    client = AsyncVertexGemini31(
+    project_id=project_id,
+    model="gemini-3.1-pro-preview",
+    thinking_level="HIGH"
+)
 
     doc = Document()
     doc.add_heading("ĐỀ THI TIẾNG ANH", level=1)
@@ -240,6 +319,12 @@ async def generate_exam_docx(blocks, output_path):
 
         topic     = block["topic"]
         vocabulary = block["vocabulary"]
+        vocabulary_example = block["vocabulary_example"]
+        if pd.isna(vocabulary) or str(vocabulary).strip() == "":
+            # vocabulary = load_vocabulary_from_drive(topic) or ""
+            vocabulary = load_vocabulary_from_drive(vocabulary_example) or ""
+
+        vocabulary = str(vocabulary)
         q_type    = block["type"]
         text_type = block["text_type"]
         text_type_en = block["text_type_en"]
@@ -247,6 +332,7 @@ async def generate_exam_docx(blocks, output_path):
         so_tu     = block.get("word_count", "")
         questions = block["questions"]
         document_sample = block["document_sample"]
+       
         n_q       = len(questions)
 
         try:
@@ -368,7 +454,7 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{SOURCE_TEXT}", document_sample)
             )
 
-            # print(f">>>>>>> debug formated prompt {formatted_reading_prompt}")
+            print(f">>>>>>> debug formated prompt {formatted_reading_prompt}")
 
 
             ai_input = (
@@ -713,13 +799,13 @@ def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
 
     # Replace chữ cái A/B/C/D đứng độc lập
     # không nằm trong từ
-    pattern = re.compile(r'(?<![A-Za-z])([ABCD])(?![A-Za-z])')
+    # pattern = re.compile(r'(?<![A-Za-z])([ABCD])(?![A-Za-z])')
 
-    def repl_letter(match):
-        key = match.group(1)
-        return f'"{option_map.get(key,"")}"'
+    # def repl_letter(match):
+    #     key = match.group(1)
+    #     return f'"{option_map.get(key,"")}"'
 
-    text = pattern.sub(repl_letter, text)
+    # text = pattern.sub(repl_letter, text)
 
     return text
 
@@ -802,28 +888,28 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
         p.add_run(f"Chọn {answer}").bold = True
 
         # Explanation
-        # if explanation:
-        #     for line in explanation.splitlines():
-        #         line = line.strip()
-        #         if line:
-        #             p = doc.add_paragraph()
-        #             add_text_with_markdown_bold(p, line)
-
         if explanation:
-
-            explanation = _replace_option_reference(
-                explanation,
-                opt_a,
-                opt_b,
-                opt_c,
-                opt_d
-            )
-
             for line in explanation.splitlines():
                 line = line.strip()
                 if line:
                     p = doc.add_paragraph()
                     add_text_with_markdown_bold(p, line)
+
+        # if explanation:
+
+        #     explanation = _replace_option_reference(
+        #         explanation,
+        #         opt_a,
+        #         opt_b,
+        #         opt_c,
+        #         opt_d
+        #     )
+
+        #     for line in explanation.splitlines():
+        #         line = line.strip()
+        #         if line:
+        #             p = doc.add_paragraph()
+        #             add_text_with_markdown_bold(p, line)
 
         # Quote
         if quote:
@@ -908,7 +994,7 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
     }
     """
     num        = parsed.get("question_number", "?")
-    stem       = parsed.get("question_stem", "")
+    stem       = parsed.get("question_stem", "title")
     opt_a      = parsed.get("option_a", "")
     opt_b      = parsed.get("option_b", "")
     opt_c      = parsed.get("option_c", "")
