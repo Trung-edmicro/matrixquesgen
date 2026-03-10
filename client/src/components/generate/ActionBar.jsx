@@ -9,13 +9,7 @@ export default function ActionBar({
   return (
     <div className="flex items-center gap-3">
 
-       <button
-        onClick={onGenerate}
-        disabled={!canGenerate || isGenerating}
-        className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-         Xem prompt
-      </button>
+      
 
       <button
         onClick={onGenerate}

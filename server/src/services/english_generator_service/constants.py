@@ -207,9 +207,8 @@ Tạm dịch:
 # Thông tin: [Trích dẫn nguyên văn]
 # Tạm dịch: [Dịch sang tiếng Việt]
 # """.strip()
-
 READING_COMPREHENSION_EXPLANATION_TEMPLATE = r"""
-Cấm tuyệt đối viết A B C D trong lời giải, bắt buộc ghi toàn bộ nội dung của các đáp án A B C D
+Cấm tuyệt đối viết A B C D trong phần phân tích đáp án, bắt buộc sử dụng nội dung của từng phương án để làm tiêu đề phân tích
 
 Question {question_number}. {question_content}
 
