@@ -29,6 +29,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not $SkipBuild) {
+    # Build React client first so client/dist is up to date
+    Write-Host "Building React client..."
+    Push-Location "client"
+    npm run build
+    if ($LASTEXITCODE -ne 0) {
+        Pop-Location
+        Write-Error "npm run build failed!"
+        exit 1
+    }
+    Pop-Location
+    Write-Host "React client built successfully" -ForegroundColor Green
+
     Write-Host "Building executable with PyInstaller..."
     $pythonExe = ".venv\Scripts\python.exe"
     if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
