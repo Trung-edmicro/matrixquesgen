@@ -507,6 +507,7 @@ async def generate_exam_docx(blocks, output_path):
                 f"Từ vựng tham khảo: {vocabulary}"
                 f"Tài liệu tham khảo: {document_sample}"
                 f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
                 f"{SILENT_PHASE_EXPLANATION_TEMPLATE}\n\n"
                 f"Số từ: {so_tu}\n"
                 f"Độ khó: {diff}\n"
@@ -566,7 +567,7 @@ def generate_docx_from_ai_results(results, output_path):
             _render_fallback(doc, res["type"], raw)
         else:
             if res["type"] in ("CLOZE", "GAP", "RC"):
-                _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"))
+                _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"),qtype=res["type"])
             elif res["type"] == "ARRANGE":
                 _render_arrange_from_json(doc, parsed)
 
@@ -810,7 +811,7 @@ def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
     return text
 
 
-def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False):
+def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False, qtype: str = ""):
     """
     Render CLOZE / GAP / RC từ JSON đã parse.
     Question -> Options -> Lời giải -> Explanation -> Quote -> Translation
@@ -880,6 +881,7 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
             doc.add_paragraph(f"C. {opt_c}")
             doc.add_paragraph(f"D. {opt_d}")
 
+
         # ── Lời giải ──
         p = doc.add_paragraph()
         p.add_run("Lời giải").bold = True
@@ -895,33 +897,30 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
                     p = doc.add_paragraph()
                     add_text_with_markdown_bold(p, line)
 
-        # if explanation:
-
-        #     explanation = _replace_option_reference(
-        #         explanation,
-        #         opt_a,
-        #         opt_b,
-        #         opt_c,
-        #         opt_d
-        #     )
-
-        #     for line in explanation.splitlines():
-        #         line = line.strip()
-        #         if line:
-        #             p = doc.add_paragraph()
-        #             add_text_with_markdown_bold(p, line)
-
         # Quote
-        if quote:
-            p = doc.add_paragraph()
-            p.add_run("Trích bài: ").bold = True
-            p.add_run(quote)
+        # if quote:
+        #     p = doc.add_paragraph()
+        #     p.add_run("Trích bài: ").bold = True
+        #     p.add_run(quote)
 
-        # Translation
-        if translation:
-            p = doc.add_paragraph()
-            p.add_run("Tạm dịch: ").bold = True
-            p.add_run(translation)
+        # # Translation
+        # if translation:
+        #     p = doc.add_paragraph()
+        #     p.add_run("Tạm dịch: ").bold = True
+        #     p.add_run(translation)
+
+        
+        if qtype not in ["RC", "GAP"]:
+
+            if quote:
+                p = doc.add_paragraph()
+                p.add_run("Trích bài: ").bold = True
+                p.add_run(quote)
+
+            if translation:
+                p = doc.add_paragraph()
+                p.add_run("Tạm dịch: ").bold = True
+                p.add_run(translation)
 
         # khoảng cách giữa các câu
         doc.add_paragraph("")
