@@ -5,10 +5,11 @@ from pathlib import Path
 import uuid
 import os
 import json
-from fastapi.responses import FileResponse
+import requests
 import shutil
 from api.callApi import get_credentials
-from services.english_generator_service.vertex_async_client import AsyncVertexClient
+# from services.english_generator_service.vertex_async_client import AsyncVertexClient
+from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
 import re
 import html
@@ -16,10 +17,13 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import logging
-from google.api_core.exceptions import ResourceExhausted
 from collections import defaultdict, Counter
-
+from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
+                        ARRANGE_JSON_SCHEMA,
+     CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,
+       READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
+from .drive_helper_services import load_vocabulary_from_drive
 
 # ============================
 # CONFIG
@@ -36,192 +40,92 @@ OUTPUT_DIR = APP_DIR / "data" / "outputs"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+
+# DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZdpj8ZrFJhA0cU-xpLBj5Du2"
+
+# DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zIWUMnDNCrFCc_Yw-yR0Pm8PT"
+
+# DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
+
 # ============================
 # PROMPT LOADER
 # ============================
 
+
+
+# def load_prompt(filename: str) -> str:
+#     path = PROMPT_DIR / filename
+#     if not path.exists():
+#         raise Exception(f"Không tìm thấy prompt: {filename}")
+#     return path.read_text(encoding="utf-8")
+
+
+DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+PROMPT_DIR = Path("PROMPT_DIR")
+
+_drive_prompts_cache = None
+
+
+def fetch_drive_md_files():
+    try:
+        folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+        url = f"https://drive.google.com/drive/folders/{folder_id}"
+        html = requests.get(url).text
+
+        file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+        prompts = {}
+
+        for fid in file_ids:
+            download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+            r = requests.get(download_url)
+
+            if r.status_code != 200:
+                continue
+
+            disposition = r.headers.get("content-disposition", "")
+
+            if ".md" not in disposition:
+                continue
+
+            name_match = re.findall(r'filename="(.+)"', disposition)
+
+            if not name_match:
+                continue
+
+            name = name_match[0]
+            prompts[name] = r.text
+
+        return prompts
+
+    except Exception:
+        return {}
+
+
 def load_prompt(filename: str) -> str:
+    global _drive_prompts_cache
+
+    # Load drive 1 lần
+    if _drive_prompts_cache is None:
+        print("🔎 Fetching prompts from Drive...")
+        _drive_prompts_cache = fetch_drive_md_files()
+
+    # Nếu có trên drive
+    if filename in _drive_prompts_cache:
+        print(f"✅ Load từ Drive: {filename}")
+        return _drive_prompts_cache[filename]
+
+    # fallback local
     path = PROMPT_DIR / filename
+
     if not path.exists():
         raise Exception(f"Không tìm thấy prompt: {filename}")
+
+    print(f"📂 Load từ LOCAL: {filename}")
     return path.read_text(encoding="utf-8")
 
-PROMPTS = {
-    "Điền từ": "TA_Dien_tu.md",
-    "Sắp xếp": "TA_sap_xep.md",
-    "Đọc hiểu": "Doc_hieu.md",
-    "Điền cụm từ/điền câu": "Dien_cau_cum_tu.md"
-}
-
-# ============================
-# JSON OUTPUT SCHEMAS (thay thế output_rule dạng text)
-# ============================
-
-# ── CLOZE / GAP / RC ────────────────────────────────────────────
-# Schema dùng chung cho Điền từ, Điền cụm từ/điền câu, Đọc hiểu
-# (chỉ khác nhau ở có/không có passage_title)
-
-CLOZE_JSON_SCHEMA = """
-Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-
-{{
-  "passage_title": "<tiêu đề bài đọc, để trống nếu không có>",
-  "passage": "<toàn bộ nội dung bài đọc, giữ nguyên ký hiệu (1)______, (2)______ ...>",
-  "questions": [
-    {{
-      "number": <số thứ tự câu hỏi, integer>,
-      "question_content": "<nội dung câu hỏi, ví dụ: 'Question 1: Choose the best word to fill blank (1).' — để trống nếu không có câu hỏi riêng>",
-      "option_a": "<nội dung đáp án A>",
-      "option_b": "<nội dung đáp án B>",
-      "option_c": "<nội dung đáp án C>",
-      "option_d": "<nội dung đáp án D>",
-      "answer": "<A hoặc B hoặc C hoặc D>",
-      "explanation": "<lý do chọn đáp án đúng>",
-      "quote": "<trích nguyên văn câu chứa đáp án trong bài đọc>",
-      "translation": "<dịch nghĩa tiếng Việt của câu trích>"
-    }}
-  ]
-}}
-
-Quy tắc bắt buộc:
-- questions là mảng có đúng {N_Q} phần tử
-- Đánh số "number" bắt đầu từ {START_NUM}
-- answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
-- KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
-
-CLOZE_WITH_TITLE_JSON_SCHEMA = """
-Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-
-{{
-  "passage_title": "<tiêu đề bài đọc, BẮT BUỘC có vì dạng thức là {TEXT_TYPE}>",
-  "passage": "<toàn bộ nội dung bài đọc, giữ nguyên ký hiệu (1)______, (2)______ ...>",
-  "questions": [
-    {{
-      "number": <số thứ tự câu hỏi, integer>,
-      "question_content": "<nội dung câu hỏi, ví dụ: 'What is the main topic of the passage?' — để trống nếu không có câu hỏi riêng>",
-      "option_a": "<nội dung đáp án A>",
-      "option_b": "<nội dung đáp án B>",
-      "option_c": "<nội dung đáp án C>",
-      "option_d": "<nội dung đáp án D>",
-      "answer": "<A hoặc B hoặc C hoặc D>",
-      "explanation": "<lý do chọn đáp án đúng>",
-      "quote": "<trích nguyên văn câu chứa đáp án trong bài đọc>",
-      "translation": "<dịch nghĩa tiếng Việt của câu trích>"
-    }}
-  ]
-}}
-
-Quy tắc bắt buộc:
-- questions là mảng có đúng {N_Q} phần tử
-- Đánh số "number" bắt đầu từ {START_NUM}
-- answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
-- KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
-
-# ── ARRANGE ──────────────────────────────────────────────────────
-
-ARRANGE_JSON_SCHEMA = """
-Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-
-{{
-  "question_number": {START_NUM},
-  "question_stem": "<mô tả yêu cầu bài sắp xếp>",
-  "option_a": "<phương án A - chuỗi sắp xếp>",
-  "option_b": "<phương án B - chuỗi sắp xếp>",
-  "option_c": "<phương án C - chuỗi sắp xếp>",
-  "option_d": "<phương án D - chuỗi sắp xếp>",
-  "answer": "<A hoặc B hoặc C hoặc D>",
-  "solution_lines": [
-    "<dòng 1 của đoạn hội thoại/văn bản đúng thứ tự>",
-    "<dòng 2>",
-    "..."
-  ],
-  "translation_lines": [
-    "<dịch nghĩa dòng 1>",
-    "<dịch nghĩa dòng 2>",
-    "..."
-  ]
-}}
-
-Quy tắc bắt buộc:
-- answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
-- solution_lines và translation_lines phải có cùng số phần tử
-- KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
-
-# ── EXPLANATION TEMPLATES (vẫn giữ để inject vào prompt) ─────────
-
-CLOZE_EXPLANATION_TEMPLATE = r"""
-Question {QNUM}: 
-A. {OPT_A}		B. {OPT_B}		C. {OPT_C}		D. {OPT_D}
-
-Lời giải
-Chọn {ANSWER}
-
-{EXPLANATION}
-
-Trích bài: {QUOTE}
-Tạm dịch: {TRANSLATION}
-""".strip()
-
-SILENT_PHASE_EXPLANATION_TEMPLATE = r"""
-Question {question_number}.
-{question_stem}
-
-A. {option_A}
-B. {option_B}
-C. {option_C}
-D. {option_D}
-
-====================
-
-Lời giải:
-Chọn {correct_answer}
-
-Phân tích đáp án đúng:
-- Ngữ pháp: [Phân tích cấu trúc câu]
-- Logic – Ngữ cảnh: [Giải thích vì sao đáp án này phù hợp]
-- Từ khóa liên kết: [Chỉ ra keyword nối với câu trước/sau]
-→ Kết luận: [Vì sao đây là đáp án chính xác nhất]
-
-Phân tích đáp án sai:
--option A: [Sai ở điểm nào]
--option B: [Sai vì...]
--option C: [Sai vì...]
--option D: [Sai vì...]
-
-Trích bài: "[Trích nguyên văn câu chứa đáp án]"
-Tạm dịch: [Dịch chính xác sang tiếng Việt]
-""".strip()
-
-ARRANGE_SOLUTION_TEMPLATE = r"""
-Lời giải
-Chọn [A/B/C/D]
-[Ghép đúng thứ tự]
-Tạm dịch:
-[Dịch từng dòng tương ứng]
-""".strip()
-
-READING_COMPREHENSION_EXPLANATION_TEMPLATE = r"""
-Question {question_number}. {question_content}
-
-A. {option_A}
-B. {option_B}
-C. {option_C}
-D. {option_D}
-
-Lời giải:
-Chọn {correct_answer}
-
-- {option_A_keyword}: Giải thích vì sao đúng/sai
-- {option_B_keyword}: Giải thích vì sao đúng/sai
-- {option_C_keyword}: Giải thích vì sao đúng/sai
-- {option_D_keyword}: Giải thích vì sao đúng/sai
-
-Thông tin: [Trích dẫn nguyên văn]
-Tạm dịch: [Dịch sang tiếng Việt]
-""".strip()
 
 
 # ============================
@@ -252,7 +156,7 @@ def detect_all_levels(row, start_index):
     return found
 
 
-META_COLS = ["STT", "Chủ đề", "Số từ", "Độ khó", "Dạng thức bài đọc"]
+META_COLS = ["STT", "Chủ đề", "Số từ","Từ vựng", "Độ khó", "Dạng thức bài đọc (VI)","Dạng thức bài đọc (EN)","Từ vựng tham khảo","Tài liệu tham khảo"]
 
 
 def extract_blocks_from_excel(file_path: str):
@@ -268,9 +172,13 @@ def extract_blocks_from_excel(file_path: str):
 
     for stt, group in grouped:
         topic = group.iloc[0]["Chủ đề"]
+        vocabulary_example = group.iloc[0]["Từ vựng"]
         word_count = str(group.iloc[0]["Số từ"])
         difficulty = group.iloc[0]["Độ khó"]
-        text_type = group.iloc[0]["Dạng thức bài đọc"]
+        text_type = group.iloc[0]["Dạng thức bài đọc (VI)"]
+        text_type_en = group.iloc[0]["Dạng thức bài đọc (EN)"]
+        vocabulary = group.iloc[0]["Từ vựng tham khảo"]
+        document_sample = group.iloc[0]["Tài liệu tham khảo"]
         question_types = defaultdict(list)
 
         for _, row in group.iterrows():
@@ -293,9 +201,14 @@ def extract_blocks_from_excel(file_path: str):
                 "topic": topic,
                 "difficulty": difficulty,
                 "text_type": text_type,
+                "text_type_en": text_type_en,
                 "word_count": word_count,
                 "question_count": count,
-                "questions": questions
+                "questions": questions,
+                "vocabulary": vocabulary,
+                "document_sample": document_sample,
+                "vocabulary_example": vocabulary_example
+
             })
 
     print("\n=== TOTAL QUESTIONS PER COLUMN ===")
@@ -383,11 +296,17 @@ async def generate_exam_docx(blocks, output_path):
 
     credentials, project_id = get_credentials()
 
-    client = AsyncVertexClient(
-        project_id=project_id,
-        creds=credentials,
-        model="gemini-2.5-pro"
-    )
+    # client = AsyncVertexClient(
+    #     project_id=project_id,
+    #     creds=credentials,
+    #     model="gemini-2.5-pro"
+    # )
+
+    client = AsyncVertexGemini31(
+    project_id=project_id,
+    model="gemini-3.1-pro-preview",
+    thinking_level="HIGH"
+)
 
     doc = Document()
     doc.add_heading("ĐỀ THI TIẾNG ANH", level=1)
@@ -399,12 +318,21 @@ async def generate_exam_docx(blocks, output_path):
     for block in blocks:
 
         topic     = block["topic"]
+        vocabulary = block["vocabulary"]
+        vocabulary_example = block["vocabulary_example"]
+        if pd.isna(vocabulary) or str(vocabulary).strip() == "":
+            # vocabulary = load_vocabulary_from_drive(topic) or ""
+            vocabulary = load_vocabulary_from_drive(vocabulary_example) or ""
+
+        vocabulary = str(vocabulary)
         q_type    = block["type"]
         text_type = block["text_type"]
-        print(f">>>>>> debug text_type {text_type}")
+        text_type_en = block["text_type_en"]
         diff      = block["difficulty"]
         so_tu     = block.get("word_count", "")
         questions = block["questions"]
+        document_sample = block["document_sample"]
+       
         n_q       = len(questions)
 
         try:
@@ -423,12 +351,16 @@ async def generate_exam_docx(blocks, output_path):
 
         if q_type == "Điền từ":
 
-            formatted_prompt = (
+            formatted_cloze_prompt = (
                 prompt_template
                     .replace("{TOPIC_NAME}", topic)
                     .replace("{TEXT_TYPE}", text_type)
-                    .replace("{DIFFICULTY_LEVEL}", diff)
+                    .replace("{CEFR_LEVEL}", diff)
+                    .replace("{VOCABULARY_LIST}", vocabulary)
+                    .replace("{TARGET_WORD_COUNT}", so_tu)
             )
+
+            print(f">>>>>>> debug formatted cloze prompt {formatted_cloze_prompt}")
 
             # Chọn schema có/không có tiêu đề tùy text_type
             has_title = text_type in ("Quảng cáo", "Thông báo", "Advertisement", "Announcement")
@@ -445,8 +377,9 @@ async def generate_exam_docx(blocks, output_path):
                 )
 
             ai_input = (
-                f"{formatted_prompt}\n\n"
+                f"{formatted_cloze_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
+                f"Từ vựng tham khảo: {vocabulary}\n"
                 f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
                 f"{CLOZE_EXPLANATION_TEMPLATE}\n\n"
                 f"Số từ: {so_tu}\n"
@@ -460,7 +393,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = client.generate(prompt=ai_input)
             tasks.append(task)
-            block_meta.append(("CLOZE", topic, n_q, q_count))
+            block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
         # ===============================
@@ -471,10 +404,20 @@ async def generate_exam_docx(blocks, output_path):
 
             spec_item = questions[0]
             output_rule = ARRANGE_JSON_SCHEMA.format(START_NUM=q_count)
+            formatted_arrange_prompt = (
+                            prompt_template
+                                .replace("{TOPIC_NAME}", topic)
+                                .replace("{TEXT_TYPE}", text_type)
+                                .replace("{CEFR_LEVEL}", diff)
+                                .replace("{VOCABULARY_LIST}", vocabulary)
+                                .replace("{TARGET_WORD_COUNT}", so_tu)
+                        )
+            print(f">>>>>> debug formatted_arrage_prompt {formatted_arrange_prompt}")
 
             ai_input = (
-                f"{prompt_template}\n\n"
+                f"{formatted_arrange_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
+                f"Từ vựng tham khảo:{vocabulary}\n"
                 f"Độ khó: {diff}\n"
                 f"Dạng thức: {text_type}\n"
                 f"Đặc tả ma trận: {spec_item['spec']}\n"
@@ -486,7 +429,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = client.generate(prompt=ai_input)
             tasks.append(task)
-            block_meta.append(("ARRANGE", topic, 1, q_count))
+            block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en))
             q_count += 1
 
         # ===============================
@@ -501,9 +444,24 @@ async def generate_exam_docx(blocks, output_path):
                 START_NUM=q_count
             )
 
+            formatted_reading_prompt = (
+                prompt_template
+                    .replace("{TOPIC_NAME}", topic)
+                    .replace("{TEXT_TYPE}", text_type)
+                    .replace("{CEFR_LEVEL}", diff)
+                    .replace("{VOCABULARY_LIST}", vocabulary)
+                    .replace("{TARGET_WORD_COUNT}", so_tu)
+                    .replace("{SOURCE_TEXT}", document_sample)
+            )
+
+            print(f">>>>>>> debug formated prompt {formatted_reading_prompt}")
+
+
             ai_input = (
-                f"{prompt_template}\n\n"
+                f"{formatted_reading_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
                 f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
                 f"{READING_COMPREHENSION_EXPLANATION_TEMPLATE}\n\n"
                 f"Số từ: {so_tu}\n"
@@ -517,7 +475,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = client.generate(prompt=ai_input)
             tasks.append(task)
-            block_meta.append(("RC", topic, n_q, q_count))
+            block_meta.append(("RC", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
         # ===============================
@@ -532,10 +490,24 @@ async def generate_exam_docx(blocks, output_path):
                 START_NUM=q_count
             )
 
+            formatted_silent_prompt = (
+                        prompt_template
+                    .replace("{TOPIC_NAME}", topic)
+                    .replace("{TEXT_TYPE}", text_type)
+                    .replace("{CEFR_LEVEL}", diff)
+                    .replace("{VOCABULARY_LIST}", vocabulary)
+                    .replace("{TARGET_WORD_COUNT}", so_tu)
+                    .replace("{SOURCE_TEXT}", document_sample)
+            )
+
+
             ai_input = (
-                f"{prompt_template}\n\n"
+                f"{formatted_silent_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
                 f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
                 f"{SILENT_PHASE_EXPLANATION_TEMPLATE}\n\n"
                 f"Số từ: {so_tu}\n"
                 f"Độ khó: {diff}\n"
@@ -548,13 +520,13 @@ async def generate_exam_docx(blocks, output_path):
 
             task = client.generate(prompt=ai_input)
             tasks.append(task)
-            block_meta.append(("GAP", topic, n_q, q_count))
+            block_meta.append(("GAP", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
     responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     results = []
-    for (block_type, topic, n_q, start_num), response_text in zip(block_meta, responses):
+    for (block_type, topic, n_q, start_num, text_type_en), response_text in zip(block_meta, responses):
         if isinstance(response_text, Exception):
             logger.error(f"Block {block_type}/{topic} failed: {response_text}")
             response_text = ""
@@ -568,7 +540,9 @@ async def generate_exam_docx(blocks, output_path):
             "parsed": parsed,            # dict đã parse
             "question_count": n_q,
             "start_num": start_num,
+            "text_type_en": text_type_en.lower()
         })
+        # print(f">>>>>> debug results {results}")
 
     generate_docx_from_ai_results(results, output_path)
     return results
@@ -593,7 +567,7 @@ def generate_docx_from_ai_results(results, output_path):
             _render_fallback(doc, res["type"], raw)
         else:
             if res["type"] in ("CLOZE", "GAP", "RC"):
-                _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"))
+                _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"),qtype=res["type"])
             elif res["type"] == "ARRANGE":
                 _render_arrange_from_json(doc, parsed)
 
@@ -732,24 +706,19 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
         # Header: "Question N:" + nội dung câu hỏi (nếu có) trên cùng đoạn
         p = doc.add_paragraph()
         p.add_run(f"Question {num}:").bold = True
-        # if question_content:
-        #     p.add_run(f" {question_content}")
-
         if question_content:
+            question_content = question_content.replace("“", '"').replace("”", '"')
             parts = re.split(r'(".*?")', question_content)
 
             for part in parts:
-                # phần nằm trong ""
                 if part.startswith('"') and part.endswith('"'):
-                    word = part[1:-1]  # bỏ dấu "
+                    word = part[1:-1]
                     p.add_run('"')
                     run = p.add_run(word)
                     run.bold = True
                     run.underline = True
                     p.add_run('"')
-
                 else:
-                    # xử lý từ OPPOSITE
                     words = re.split(r'(OPPOSITE)', part)
                     for w in words:
                         run = p.add_run(w)
@@ -766,7 +735,83 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
             doc.add_paragraph(f"C. {opt_c}")
             doc.add_paragraph(f"D. {opt_d}")
 
-def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False):
+# def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
+#     """
+#     Replace các dạng:
+#     - Phương án A/B/C/D
+#     - A , B , C , D (chữ cái + khoảng trắng)
+
+#     bằng nội dung option tương ứng đặt trong dấu ngoặc kép
+#     """
+
+#     option_map = {
+#         "a": opt_a,
+#         "b": opt_b,
+#         "c": opt_c,
+#         "d": opt_d
+#     }
+
+#     # ── Replace "Phương án A" ──
+#     def repl_full(match):
+#         key = match.group(1).lower()
+#         return f'"{option_map.get(key, "")}"'
+
+#     text = re.sub(
+#         r'phương\s*án\s*([abcd])',
+#         repl_full,
+#         text,
+#         flags=re.IGNORECASE
+#     )
+
+#     # ── Replace "A " / "B " / "C " / "D " ──
+#     def repl_letter(match):
+#         key = match.group(1).lower()
+#         return f'"{option_map.get(key, "")}" '
+
+#     text = re.sub(
+#         r'\b([ABCD])\s',
+#         repl_letter,
+#         text
+#     )
+
+#     return text 
+
+
+def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
+
+    option_map = {
+        "A": opt_a,
+        "B": opt_b,
+        "C": opt_c,
+        "D": opt_d
+    }
+
+    # Replace "Phương án A"
+    def repl_phrase(match):
+        key = match.group(1).upper()
+        return f'"{option_map.get(key,"")}"'
+
+    text = re.sub(
+        r'phương\s*án\s*([abcd])',
+        repl_phrase,
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Replace chữ cái A/B/C/D đứng độc lập
+    # không nằm trong từ
+    # pattern = re.compile(r'(?<![A-Za-z])([ABCD])(?![A-Za-z])')
+
+    # def repl_letter(match):
+    #     key = match.group(1)
+    #     return f'"{option_map.get(key,"")}"'
+
+    # text = pattern.sub(repl_letter, text)
+
+    return text
+
+
+def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False, qtype: str = ""):
     """
     Render CLOZE / GAP / RC từ JSON đã parse.
     Question -> Options -> Lời giải -> Explanation -> Quote -> Translation
@@ -806,25 +851,23 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
         p = doc.add_paragraph()
         p.add_run(f"Question {num}:").bold = True
         if question_content:
-                    parts = re.split(r'(".*?")', question_content)
+            question_content = question_content.replace("“", '"').replace("”", '"').replace("**", '"')
+            parts = re.split(r'(".*?")', question_content)
 
-                    for part in parts:
-                        # phần nằm trong ""
-                        if part.startswith('"') and part.endswith('"'):
-                            word = part[1:-1]  # bỏ dấu "
-                            p.add_run('"')
-                            run = p.add_run(word)
+            for part in parts:
+                if part.startswith('"') and part.endswith('"'):
+                    word = part[1:-1]
+                    p.add_run('"')
+                    run = p.add_run(word)
+                    run.bold = True
+                    run.underline = True
+                    p.add_run('"')
+                else:
+                    words = re.split(r'(OPPOSITE)', part)
+                    for w in words:
+                        run = p.add_run(w)
+                        if w == "OPPOSITE":
                             run.bold = True
-                            run.underline = True
-                            p.add_run('"')
-
-                        else:
-                            # xử lý từ OPPOSITE
-                            words = re.split(r'(OPPOSITE)', part)
-                            for w in words:
-                                run = p.add_run(w)
-                                if w == "OPPOSITE":
-                                    run.bold = True
 
 
         # Options
@@ -837,6 +880,7 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
             doc.add_paragraph(f"B. {opt_b}")
             doc.add_paragraph(f"C. {opt_c}")
             doc.add_paragraph(f"D. {opt_d}")
+
 
         # ── Lời giải ──
         p = doc.add_paragraph()
@@ -854,16 +898,29 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
                     add_text_with_markdown_bold(p, line)
 
         # Quote
-        if quote:
-            p = doc.add_paragraph()
-            p.add_run("Trích bài: ").bold = True
-            p.add_run(quote)
+        # if quote:
+        #     p = doc.add_paragraph()
+        #     p.add_run("Trích bài: ").bold = True
+        #     p.add_run(quote)
 
-        # Translation
-        if translation:
-            p = doc.add_paragraph()
-            p.add_run("Tạm dịch: ").bold = True
-            p.add_run(translation)
+        # # Translation
+        # if translation:
+        #     p = doc.add_paragraph()
+        #     p.add_run("Tạm dịch: ").bold = True
+        #     p.add_run(translation)
+
+        
+        if qtype not in ["RC", "GAP"]:
+
+            if quote:
+                p = doc.add_paragraph()
+                p.add_run("Trích bài: ").bold = True
+                p.add_run(quote)
+
+            if translation:
+                p = doc.add_paragraph()
+                p.add_run("Tạm dịch: ").bold = True
+                p.add_run(translation)
 
         # khoảng cách giữa các câu
         doc.add_paragraph("")
@@ -936,7 +993,7 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
     }
     """
     num        = parsed.get("question_number", "?")
-    stem       = parsed.get("question_stem", "")
+    stem       = parsed.get("question_stem", "title")
     opt_a      = parsed.get("option_a", "")
     opt_b      = parsed.get("option_b", "")
     opt_c      = parsed.get("option_c", "")
@@ -1032,7 +1089,7 @@ def _add_instruction(doc, res):
     instruction = doc.add_paragraph()
     if res['type'] == "CLOZE":
         text = (
-            f"Read the following {res.get('title','text')} and mark the letter A, B, C or D "
+            f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D "
             "on your answer sheet to indicate the option that best fits each of the numbered blanks."
         )
     elif res['type'] == "ARRANGE":
@@ -1053,37 +1110,6 @@ def _add_instruction(doc, res):
     run = instruction.add_run(text)
     run.italic = True
 
-
-# def _render_passage(doc, passage):
-#     bold_ul_pattern = r"\*\*(.*?)\*\*"
-#     underline_pattern = r"<u>(.*?)</u>"
-#     roman_pattern = r"\[(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\]"
-#     combined = f"{bold_ul_pattern}|{underline_pattern}|{roman_pattern}"
-
-#     for line in (passage or "").split("\n"):
-#         line = line.strip()
-#         if not line:
-#             continue
-#         p = doc.add_paragraph()
-#         pos = 0
-#         for m in re.finditer(combined, line):
-#             if m.start() > pos:
-#                 p.add_run(line[pos:m.start()])
-#             if m.group(1):
-#                 run = p.add_run(m.group(1))
-#                 run.bold = True
-#                 run.underline = True
-#             elif m.group(2):
-#                 run = p.add_run(m.group(2))
-#                 run.underline = True
-#                 run.bold = True
-#             else:
-#                 run = p.add_run(m.group())
-#                 run.bold = True
-#             pos = m.end()
-#         if pos < len(line):
-#             p.add_run(line[pos:])
-#         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
 def _render_passage(doc, passage):
     bold_ul_pattern = r"\*\*(.*?)\*\*"
@@ -1322,11 +1348,11 @@ async def generate_english_flow(file):
         blocks = extract_blocks_from_excel(str(excel_path))
         results = await generate_exam_docx(blocks, str(output_path))
 
-        FileResponse(
-            path=str(output_path),
-            filename=f"ENGLISH_EXAM_{session_id}.docx",
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        # FileResponse(
+        #     path=str(output_path),
+        #     filename=f"ENGLISH_EXAM_{session_id}.docx",
+        #     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        # )
 
         return {
             "session_id": session_id,

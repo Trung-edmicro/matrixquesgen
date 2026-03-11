@@ -8,6 +8,9 @@ export default function ActionBar({
 }) {
   return (
     <div className="flex items-center gap-3">
+
+      
+
       <button
         onClick={onGenerate}
         disabled={!canGenerate || isGenerating}
