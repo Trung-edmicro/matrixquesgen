@@ -184,7 +184,8 @@ class QuestionGenerator:
     def generate_questions_for_spec(self, spec: QuestionSpec, 
                                    prompt_template_path: str = None,
                                    question_template: str = "",
-                                   content: str = "") -> List[GeneratedQuestion]:
+                                   content: str = "",
+                                   history_context: str = "") -> List[GeneratedQuestion]:
         """
         Sinh câu hỏi cho một QuestionSpec
         
@@ -264,6 +265,9 @@ class QuestionGenerator:
                     )
                 base_prompt_text = f"{base_prompt_text}\n\n{chart_instruction}"
 
+        # history_context is passed as system_instruction (higher priority than prompt body)
+        _sys_instruction = history_context if history_context else None
+
         # Retry loop - chỉ retry AI call, chart đã được tạo sẵn
         for attempt in range(self.max_retries):
             try:
@@ -281,12 +285,14 @@ class QuestionGenerator:
                         prompt=prompt_text,
                         response_schema=tn_schema,
                         model_name=self.fallback_model,
+                        system_instruction=_sys_instruction,
                         enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
                         response_schema=tn_schema,
+                        system_instruction=_sys_instruction,
                         enable_search=True
                     )
                 
@@ -422,7 +428,8 @@ class QuestionGenerator:
     def generate_true_false_question(self, tf_spec: TrueFalseQuestionSpec, 
                                      prompt_template_path: str,
                                      question_template: str = "",
-                                     content: str = "") -> GeneratedTrueFalseQuestion:
+                                     content: str = "",
+                                     history_context: str = "") -> GeneratedTrueFalseQuestion:
         """
         Sinh 1 câu hỏi Đúng/Sai hoàn chỉnh (4 mệnh đề cùng lúc)
         
@@ -447,7 +454,9 @@ class QuestionGenerator:
                     self.prompt_builder.set_prompt_dir(new_dir)
                 prepared_ds = self.prompt_builder.build_prompt_for_ds(tf_spec, content, question_template)
                 prompt = prepared_ds.prompt_text
-                
+                # history_context passed as system_instruction (higher priority than prompt body)
+                _sys_instruction = history_context if history_context else None
+
                 # Debug: Kiểm tra content từ PDF
                 # content_info = f"Content từ PDF: {len(content)} chars" if content else "❌ KHÔNG CÓ CONTENT TỪ PDF"
                 # print(f"\n📤 Gửi prompt DS: {tf_spec.question_code} (Template={len(question_template)} chars, {content_info})")
@@ -469,12 +478,14 @@ class QuestionGenerator:
                         prompt=prompt,
                         response_schema=ds_schema,
                         model_name=self.fallback_model,
+                        system_instruction=_sys_instruction,
                         enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt,
                         response_schema=ds_schema,
+                        system_instruction=_sys_instruction,
                         enable_search=True
                     )
                 
@@ -630,7 +641,8 @@ class QuestionGenerator:
                               spec: QuestionSpec,
                               prompt_template_path: str = None,
                               question_template: str = "",
-                              content: str = "") -> List[GeneratedQuestion]:
+                              content: str = "",
+                              history_context: str = "") -> List[GeneratedQuestion]:
         """
         Sinh câu hỏi TLN (Trắc nghiệm luận) cho một QuestionSpec
         
@@ -663,6 +675,8 @@ class QuestionGenerator:
                         self.prompt_builder.set_prompt_dir(new_dir)
                 prepared_tln = self.prompt_builder.build_prompt_for_tln(spec, content, question_template)
                 prompt_text = prepared_tln.prompt_text
+                # history_context passed as system_instruction (higher priority than prompt body)
+                _sys_instruction = history_context if history_context else None
 
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
@@ -676,12 +690,14 @@ class QuestionGenerator:
                         prompt=prompt_text,
                         response_schema=tln_schema,
                         model_name=self.fallback_model,
+                        system_instruction=_sys_instruction,
                         enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
                         response_schema=tln_schema,
+                        system_instruction=_sys_instruction,
                         enable_search=True
                     )
                 
@@ -770,7 +786,8 @@ class QuestionGenerator:
                              spec: QuestionSpec,
                              prompt_template_path: str = None,
                              question_template: str = "",
-                             content: str = "") -> List[GeneratedEssayQuestion]:
+                             content: str = "",
+                             history_context: str = "") -> List[GeneratedEssayQuestion]:
         """
         Sinh câu hỏi TL (Tự luận) cho một QuestionSpec
         
@@ -803,7 +820,9 @@ class QuestionGenerator:
                         self.prompt_builder.set_prompt_dir(new_dir)
                 prepared_tl = self.prompt_builder.build_prompt_for_tl(spec, content, question_template)
                 prompt_text = prepared_tl.prompt_text
-                
+                # history_context passed as system_instruction (higher priority than prompt body)
+                _sys_instruction = history_context if history_context else None
+
                 if self.verbose:
                     print(f"📝 Generating {spec.num_questions} TL questions for lesson: {spec.lesson_name}")
                     print(f"🎯 Cognitive level: {spec.cognitive_level}")
@@ -824,12 +843,14 @@ class QuestionGenerator:
                         prompt=prompt_text,
                         response_schema=tl_schema,
                         model_name=self.fallback_model,
+                        system_instruction=_sys_instruction,
                         enable_search=False
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
                         prompt=prompt_text,
                         response_schema=tl_schema,
+                        system_instruction=_sys_instruction,
                         enable_search=True
                     )
                 

@@ -18,6 +18,7 @@ from ..core.genai_client import GenAIClient
 from ..generators.question_generator import QuestionGenerator, GeneratedEssayQuestion
 from config.settings import Config
 from ..core.matrix_parser import MatrixParser, QuestionSpec, TrueFalseQuestionSpec
+from ..core.session_history import SessionGenerationHistory
 
 # Import rich content support
 from services.core.rich_content import (
@@ -634,33 +635,58 @@ class AlternativeQuestionGenerationService:
                                 print(f"✅ TL_{level} task added to queue (total tasks now: {len(generation_tasks)})")
 
 
-            # Execute generation tasks in parallel
-            print(f"ALTERNATIVE: Starting parallel generation of {len(generation_tasks)} question tasks...")
+            # Execute generation tasks:
+            # - Parallel across different (chapter, lesson, type) groups  -> keeps speed
+            # - Serial WITHIN each group                                  -> history accumulates
+            print(f"ALTERNATIVE: Starting grouped generation of {len(generation_tasks)} question tasks...")
 
-            # Use fewer workers to avoid rate limiting (429 errors)
-            max_workers = min(5, len(generation_tasks))  # Reduced from 10 to 3
-            print(f"   Using {max_workers} parallel workers to avoid API rate limits")
-            
+            # Group tasks by (chapter, lesson, question_type_prefix)
+            lesson_groups: Dict[tuple, List[Dict]] = {}
+            for _task in generation_tasks:
+                _type_prefix = _task['type'].split('_')[0]  # TN, DS, TLN, TL
+                _key = (str(_task['chapter']), str(_task['lesson']), _type_prefix)
+                lesson_groups.setdefault(_key, []).append(_task)
+
+            # One shared history object -- thread-safe, covers all groups
+            _history = SessionGenerationHistory()
+
+            def _run_group(group_key: tuple, group_tasks: List[Dict]) -> List:
+                """Process a (chapter, lesson, type) group serially so each task sees
+                the stems of all previously generated questions in the same group."""
+                _ch, _ls, _qt = group_key
+                _results = []
+                for _t in group_tasks:
+                    # Inject accumulated history BEFORE this task starts
+                    _t['history_context'] = _history.format_context(_ch, _ls, _qt)
+                    _qs = self._generate_alternative_question_task(_t)
+                    if _qs:
+                        _results.extend(_qs)
+                        for _q in _qs:
+                            _stem = SessionGenerationHistory.extract_stem(_q)
+                            _level = getattr(_q, 'level', '') or ''
+                            _code = getattr(_q, 'question_code', '') or ''
+                            _history.add(_ch, _ls, _qt, _code, _stem, _level)
+                return _results
+
+            max_workers = min(5, len(lesson_groups))
+            print(f"   Groups: {len(lesson_groups)}, using {max_workers} parallel workers")
+
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit tasks with small delay to avoid burst
-                future_to_task = {}
-                for task in generation_tasks:
-                    future_to_task[executor.submit(self._generate_alternative_question_task, task)] = task
-                    time.sleep(0.2)  # Small delay between submissions
+                future_to_key = {}
+                for _key, _tasks in lesson_groups.items():
+                    future_to_key[executor.submit(_run_group, _key, _tasks)] = _key
+                    time.sleep(0.2)  # Small stagger between group submissions
 
-                # Collect results as they complete
-                for future in as_completed(future_to_task):
-                    task = future_to_task[future]
+                for future in as_completed(future_to_key):
+                    _key = future_to_key[future]
+                    _ch, _ls, _qt = _key
                     try:
-                        generated_questions = future.result()
-                        if generated_questions:
-                            all_questions.extend(generated_questions)
-                            task_type = task['type']
-                            chapter = task['chapter']
-                            lesson = task['lesson']
-                            print(f"✅ ALTERNATIVE: Completed {task_type} task for lesson {chapter}.{lesson} - {len(generated_questions)} questions")
-                    except Exception as e:
-                        print(f"❌ ALTERNATIVE: Failed {task['type']} task for lesson {task['chapter']}.{task['lesson']}: {e}")
+                        _group_results = future.result()
+                        if _group_results:
+                            all_questions.extend(_group_results)
+                            print(f"✅ ALTERNATIVE: Completed group ({_qt} ch{_ch}.l{_ls}) - {len(_group_results)} questions")
+                    except Exception as _e:
+                        print(f"❌ ALTERNATIVE: Failed group ({_qt} ch{_ch}.l{_ls}): {_e}")
 
             # Convert to GeneratedQuestion format
             questions = []
@@ -1107,6 +1133,11 @@ class AlternativeQuestionGenerationService:
                     for var, value in template_vars.items():
                         prompt_template = prompt_template.replace("{{" + var + "}}", str(value))
 
+                    # Inject session history to avoid generating duplicate TN questions
+                    _hist_ctx = task.get('history_context', '')
+                    if _hist_ctx:
+                        prompt_template += _hist_ctx
+
                     # Generate questions
                     generated = self.question_generator.generate_questions_with_custom_prompt(
                         prompt_template=prompt_template,
@@ -1170,6 +1201,11 @@ class AlternativeQuestionGenerationService:
 
                     for var, value in template_vars.items():
                         prompt_template = prompt_template.replace("{{" + var + "}}", str(value))
+
+                    # Inject session history to avoid generating duplicate TN_VD questions
+                    _hist_ctx = task.get('history_context', '')
+                    if _hist_ctx:
+                        prompt_template += _hist_ctx
 
                     # Generate VD questions
                     generated = self.question_generator.generate_questions_with_custom_prompt(
@@ -1240,6 +1276,11 @@ class AlternativeQuestionGenerationService:
                     for var, value in template_vars.items():
                         prompt_template = prompt_template.replace("{{" + var + "}}", str(value))
 
+                    # Inject session history to avoid generating duplicate DS material
+                    _hist_ctx = task.get('history_context', '')
+                    if _hist_ctx:
+                        prompt_template += _hist_ctx
+
                     # Generate DS question
                     generated_ds = self.question_generator.generate_ds_with_custom_prompt(
                         prompt_template=prompt_template,
@@ -1299,6 +1340,11 @@ class AlternativeQuestionGenerationService:
                     for var, value in template_vars.items():
                         prompt_template = prompt_template.replace("{{" + var + "}}", str(value))
 
+                    # Inject session history to avoid generating duplicate TLN questions
+                    _hist_ctx = task.get('history_context', '')
+                    if _hist_ctx:
+                        prompt_template += _hist_ctx
+
                     # Generate TLN questions
                     generated = self.question_generator.generate_questions_with_custom_prompt(
                         prompt_template=prompt_template,
@@ -1355,7 +1401,8 @@ class AlternativeQuestionGenerationService:
                         spec=spec,
                         prompt_template_path=prompt_path,
                         content=content,
-                        question_template=question_template
+                        question_template=question_template,
+                        history_context=task.get('history_context', '')
                     )
                     
                     # Add chapter, lesson info and correct codes

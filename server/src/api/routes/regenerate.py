@@ -20,6 +20,7 @@ from services.generators.question_generator import QuestionGenerator
 from services.core.matrix_parser import QuestionSpec, TrueFalseQuestionSpec
 from services.generators.image_description_service import ImageDescriptionService
 from services.core.image_generation import ImageGenerator
+from services.core.session_history import SessionGenerationHistory
 from datetime import datetime
 from config.settings import Config
 
@@ -188,6 +189,26 @@ def _get_question_generator(question_type: str, metadata: dict) -> QuestionGener
     generator.fallback_model = fallback_model
     
     return generator
+
+
+def _build_history_for_regenerate(
+        question_type: str,
+        lesson_name: str,
+        all_questions_of_type: list,
+        exclude_code: str) -> str:
+    """
+    Build history context from questions already in the session for the same
+    (lesson_name, question_type), excluding the question being regenerated.
+    Used to tell the AI which questions already exist so it creates something different.
+    """
+    same_lesson_others = [
+        q for q in all_questions_of_type
+        if q.get('lesson_name') == lesson_name
+        and q.get('question_code') != exclude_code
+    ]
+    return SessionGenerationHistory.build_context_from_question_dicts(
+        question_type, same_lesson_others
+    )
 
 
 def _load_enriched_matrix(subject: str, curriculum: str, grade: str) -> dict:
@@ -501,6 +522,16 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
         # Initialize question generator với prompt phù hợp
         generator = _get_question_generator(request.question_type, metadata)
         
+        # Build history context: questions of same (lesson, type) already in the session
+        _history_ctx = _build_history_for_regenerate(
+            request.question_type,
+            old_question.get('lesson_name', ''),
+            question_list,
+            request.question_code
+        )
+        if _history_ctx:
+            print(f"📚 History context: {len([x for x in question_list if x.get('lesson_name') == old_question.get('lesson_name') and x.get('question_code') != request.question_code])} existing questions injected")
+
         # Lấy question_template từ spec_data
         question_template = spec_data.get('question_template', '')
         # Nếu là list, join thành string hoặc lấy phần tử đầu tiên
@@ -525,7 +556,8 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
                 tf_spec=spec,
                 prompt_template_path=ds_prompt_path,
                 question_template=question_template,
-                content=content  # Sử dụng content từ enriched_matrix
+                content=content,  # Sử dụng content từ enriched_matrix
+                history_context=_history_ctx
             )
             # Convert to dict
             new_question_dict = {
@@ -554,7 +586,8 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
                 spec=spec,
                 prompt_template_path=tln_prompt_path,
                 question_template=question_template,
-                content=content  # Sử dụng content từ enriched_matrix
+                content=content,  # Sử dụng content từ enriched_matrix
+                history_context=_history_ctx
             )
             if not new_questions:
                 raise HTTPException(status_code=500, detail="Không thể sinh câu hỏi mới")
@@ -583,7 +616,8 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
                 spec=spec,
                 prompt_template_path=tl_prompt_path,
                 question_template=question_template,
-                content=content  # Sử dụng content từ enriched_matrix
+                content=content,  # Sử dụng content từ enriched_matrix
+                history_context=_history_ctx
             )
             if not new_questions:
                 raise HTTPException(status_code=500, detail="Không thể sinh câu hỏi mới")
@@ -618,7 +652,8 @@ async def regenerate_single_question(request: RegenerateQuestionRequest):
                 spec=spec,
                 prompt_template_path=tn_prompt_path,
                 question_template=question_template,
-                content=content  # Sử dụng content từ enriched_matrix
+                content=content,  # Sử dụng content từ enriched_matrix
+                history_context=_history_ctx
             )
             
             print(f"✅ AI returned {len(new_questions) if new_questions else 0} questions")
@@ -777,25 +812,37 @@ async def regenerate_bulk_questions(request: RegenerateBulkRequest):
     - **questions**: Danh sách câu hỏi cần sinh lại [{"type": "TN", "code": "C1"}, ...]
     """
     try:
-        print(f"🔄 Bulk regenerate: {len(request.questions)} questions (max 5 parallel workers)")
+        print(f"🔄 Bulk regenerate: {len(request.questions)} questions (group-serial by lesson+type)")
         results = []
         errors = []
-        
-        # Helper function to regenerate a single question (synchronous)
+
+        # Load session once to determine lesson groupings
+        session_data = _load_session_data(request.session_id)
+        questions_map = {q.get('question_code'): q for q in session_data.get('questions', [])}
+
+        # Group by (question_type, lesson_name) so same-lesson questions run serially
+        from collections import defaultdict
+        lesson_groups: dict = defaultdict(list)
+        for q in request.questions:
+            q_session = questions_map.get(q.get('code'), {})
+            lesson_name = q_session.get('lesson_name', '')
+            group_key = (q.get('type', ''), lesson_name)
+            lesson_groups[group_key].append(q)
+
+        print(f"  ↳ {len(lesson_groups)} lesson-type groups formed")
+
+        # Helper: regenerate one question synchronously (own event loop per thread)
         def regenerate_sync(q: dict):
             loop = None
             try:
-                # Create a new event loop for this thread
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                
                 single_request = RegenerateQuestionRequest(
                     session_id=request.session_id,
                     question_type=q.get('type'),
                     question_code=q.get('code')
                 )
                 result = loop.run_until_complete(regenerate_single_question(single_request))
-                
                 return {
                     "type": q.get('type'),
                     "code": q.get('code'),
@@ -810,50 +857,48 @@ async def regenerate_bulk_questions(request: RegenerateBulkRequest):
                     "error": str(e)
                 }
             finally:
-                # Properly cleanup event loop
                 if loop:
                     try:
-                        # Cancel all pending tasks
                         pending = asyncio.all_tasks(loop)
                         for task in pending:
                             task.cancel()
-                        # Run loop until all tasks are cancelled
                         if pending:
                             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                     except Exception:
                         pass
                     finally:
                         loop.close()
-        
-        # Use ThreadPoolExecutor with max 5 workers
-        max_workers = min(5, len(request.questions))
+
+        # Run each group serially (history accumulates via save/reload); groups run in parallel
+        def run_group(group_key, group_questions: list):
+            group_results = []
+            for q in group_questions:
+                result = regenerate_sync(q)
+                group_results.append(result)
+                if result['status'] == 'success':
+                    print(f"✅ Completed {result['type']} {result['code']}")
+                else:
+                    print(f"❌ Failed {result['type']} {result['code']}: {result.get('error')}")
+            return group_results
+
+        max_workers = min(5, len(lesson_groups))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_question = {
-                executor.submit(regenerate_sync, q): q
-                for q in request.questions
+            future_to_group = {
+                executor.submit(run_group, gk, gqs): gk
+                for gk, gqs in lesson_groups.items()
             }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_question):
-                q = future_to_question[future]
+            for future in as_completed(future_to_group):
+                gk = future_to_group[future]
                 try:
-                    result = future.result()
-                    if result['status'] == 'success':
-                        results.append(result)
-                        print(f"✅ Completed {result['type']} {result['code']}")
-                    else:
-                        errors.append(result)
-                        print(f"❌ Failed {result['type']} {result['code']}: {result['error']}")
+                    group_results = future.result()
+                    for result in group_results:
+                        if result['status'] == 'success':
+                            results.append(result)
+                        else:
+                            errors.append(result)
                 except Exception as e:
-                    error_result = {
-                        "type": q.get('type'),
-                        "code": q.get('code'),
-                        "status": "error",
-                        "error": str(e)
-                    }
-                    errors.append(error_result)
-                    print(f"❌ Exception for {q.get('type')} {q.get('code')}: {e}")
+                    print(f"❌ Group {gk} exception: {e}")
+                    errors.append({"type": str(gk[0]), "code": "", "status": "error", "error": str(e)})
         
         return {
             "success": len(errors) == 0,
