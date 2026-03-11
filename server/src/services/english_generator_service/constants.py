@@ -78,7 +78,11 @@ Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text
 
 {{
   "question_number": {START_NUM},
-  "question_stem": "<mô tả yêu cầu bài sắp xếp>",
+   "question_stem": "a. <sentence>\n
+                    b. <sentence>\n
+                    c. <sentence>\n
+                    d. <sentence>\n
+                    e. <sentence>",
   "option_a": "<phương án A - chuỗi sắp xếp>",
   "option_b": "<phương án B - chuỗi sắp xếp>",
   "option_c": "<phương án C - chuỗi sắp xếp>",
@@ -118,20 +122,7 @@ Tạm dịch: {TRANSLATION}
 """.strip()
 
 SILENT_PHASE_EXPLANATION_TEMPLATE = r"""
-
-
-Question {question_number}.
-{question_stem}
-
-A. {option_A}
-B. {option_B}
-C. {option_C}
-D. {option_D}
-
-====================
-
-Lời giải:
-Chọn {correct_answer}
+Trường "explanation" trong JSON CHỈ chứa nội dung hướng dẫn giải bên dưới, KHÔNG chứa câu hỏi, KHÔNG chứa danh sách đáp án A/B/C/D.
 
 Phân tích đáp án đúng:
 - Ngữ pháp: [Phân tích cấu trúc câu]
@@ -140,13 +131,11 @@ Phân tích đáp án đúng:
 → Kết luận: [Vì sao đây là đáp án chính xác nhất]
 
 Phân tích đáp án sai:
--option A - viết lại đáp án A: [Sai ở điểm nào]
--option B - viết lại đáp án B: [Sai vì...]
--option C - viết lại đáp án C: [Sai vì...]
--option D - viết lại đáp án D: [Sai vì...]
+-viết lại đáp án A: [Sai ở điểm nào]
+-viết lại đáp án B: [Sai vì...]
+-viết lại đáp án C: [Sai vì...]
+-viết lại đáp án D: [Sai vì...]
 
-Trích bài: "[Trích nguyên văn câu chứa đáp án]"
-Tạm dịch: [Dịch chính xác sang tiếng Việt]
 """.strip()
 
 ARRANGE_SOLUTION_TEMPLATE = r"""
@@ -208,17 +197,10 @@ Tạm dịch:
 # Tạm dịch: [Dịch sang tiếng Việt]
 # """.strip()
 READING_COMPREHENSION_EXPLANATION_TEMPLATE = r"""
-Cấm tuyệt đối viết A B C D trong phần phân tích đáp án, bắt buộc sử dụng nội dung của từng phương án để làm tiêu đề phân tích
-
-Question {question_number}. {question_content}
-
-A. {option_A}
-B. {option_B}
-C. {option_C}
-D. {option_D}
-
-Lời giải
-Chọn {correct_answer}
+Quy tắc bắt buộc:
+- Cấm tuyệt đối viết A B C D trong phần phân tích đáp án, bắt buộc sử dụng nội dung của từng phương án để làm tiêu đề phân tích
+- Cấm tuyệt đối viết lại câu hỏi và đáp án trong lời giải
+- Cấm viết chữ Lời giải và chọn đáp án nào đúng
 
 Phân tích đáp án:
 Bắt buộc phân tích đáp án phải viết bằng Tiếng Việt
@@ -235,6 +217,4 @@ Bắt buộc phân tích đáp án phải viết bằng Tiếng Việt
 {option_D}
 → [Đúng/Sai]. [Giải thích bằng tiếng Việt]
 
-Thông tin: [Trích dẫn nguyên văn]
-Tạm dịch: [Dịch sang tiếng Việt]
 """.strip()
