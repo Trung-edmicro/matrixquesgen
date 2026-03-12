@@ -292,6 +292,15 @@ def _safe_parse_json(raw: str) -> dict | None:
 # GENERATE DOCX LOGIC
 # ============================
 
+
+def safe_str(val):
+    if val is None:
+        return ""
+    if isinstance(val, float) and pd.isna(val):
+        return ""
+    s = str(val).strip()
+    return "" if s.lower() == "nan" else s
+
 async def generate_exam_docx(blocks, output_path):
 
     credentials, project_id = get_credentials()
@@ -353,11 +362,12 @@ async def generate_exam_docx(blocks, output_path):
 
             formatted_cloze_prompt = (
                 prompt_template
-                    .replace("{TOPIC_NAME}", topic)
-                    .replace("{TEXT_TYPE}", text_type)
-                    .replace("{CEFR_LEVEL}", diff)
-                    .replace("{VOCABULARY_LIST}", vocabulary)
-                    .replace("{TARGET_WORD_COUNT}", so_tu)
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))
             )
 
             print(f">>>>>>> debug formatted cloze prompt {formatted_cloze_prompt}")
@@ -406,11 +416,11 @@ async def generate_exam_docx(blocks, output_path):
             output_rule = ARRANGE_JSON_SCHEMA.format(START_NUM=q_count)
             formatted_arrange_prompt = (
                             prompt_template
-                                .replace("{TOPIC_NAME}", topic)
-                                .replace("{TEXT_TYPE}", text_type)
-                                .replace("{CEFR_LEVEL}", diff)
-                                .replace("{VOCABULARY_LIST}", vocabulary)
-                                .replace("{TARGET_WORD_COUNT}", so_tu)
+                                .replace("{TOPIC_NAME}", safe_str(topic))
+                                .replace("{TEXT_TYPE}", safe_str(text_type))
+                                .replace("{CEFR_LEVEL}", safe_str(diff))
+                                .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                                .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
                         )
             print(f">>>>>> debug formatted_arrage_prompt {formatted_arrange_prompt}")
 
@@ -446,12 +456,12 @@ async def generate_exam_docx(blocks, output_path):
 
             formatted_reading_prompt = (
                 prompt_template
-                    .replace("{TOPIC_NAME}", topic)
-                    .replace("{TEXT_TYPE}", text_type)
-                    .replace("{CEFR_LEVEL}", diff)
-                    .replace("{VOCABULARY_LIST}", vocabulary)
-                    .replace("{TARGET_WORD_COUNT}", so_tu)
-                    .replace("{SOURCE_TEXT}", document_sample)
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))
             )
 
             print(f">>>>>>> debug formated prompt {formatted_reading_prompt}")
@@ -492,12 +502,12 @@ async def generate_exam_docx(blocks, output_path):
 
             formatted_silent_prompt = (
                         prompt_template
-                    .replace("{TOPIC_NAME}", topic)
-                    .replace("{TEXT_TYPE}", text_type)
-                    .replace("{CEFR_LEVEL}", diff)
-                    .replace("{VOCABULARY_LIST}", vocabulary)
-                    .replace("{TARGET_WORD_COUNT}", so_tu)
-                    .replace("{SOURCE_TEXT}", document_sample)
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))
             )
 
 
