@@ -15,7 +15,7 @@ PROMPTS = {
 
 CLOZE_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-Trường "explaination" không được ghi thêm chữ "Lời giải"
+Trường "explaination" không được ghi thêm chữ "Lời giải", không ghi chữ "Phương án 1", Phương án 2", "Phương án n"
 {{
   "passage_title": "<tiêu đề bài đọc, để trống nếu không có>",
   "passage": "<toàn bộ nội dung bài đọc, giữ nguyên ký hiệu (1)______, (2)______ ...>",
@@ -44,7 +44,7 @@ Quy tắc bắt buộc:
 
 CLOZE_WITH_TITLE_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-Trường "explaination" không được ghi thêm chữ "Lời giải"
+Trường "explaination" không được ghi thêm chữ "Lời giải", không ghi chữ "Phương án 1", Phương án 2", "Phương án n"
 {{
   "passage_title": "<tiêu đề bài đọc, BẮT BUỘC có vì dạng thức là {TEXT_TYPE}>",
   "passage": "<toàn bộ nội dung bài đọc, giữ nguyên ký hiệu (1)______, (2)______ ...>",
