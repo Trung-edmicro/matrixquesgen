@@ -21,7 +21,9 @@ EMBEDDED_CREDS = ""
 # load_dotenv(dotenv_path)
  
 if getattr(sys, "frozen", False):
-    base_path = Path(sys._MEIPASS)
+    # sys.executable = path to the installed .exe, its parent = {app} folder
+    # sys._MEIPASS   = temporary extraction folder (no .env there)
+    base_path = Path(sys.executable).parent
 else:
     base_path = Path(__file__).resolve().parents[3]  # lùi 3 cấp
 
