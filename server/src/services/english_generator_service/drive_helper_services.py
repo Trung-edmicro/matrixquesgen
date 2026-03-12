@@ -56,11 +56,62 @@ def fetch_drive_txt_files(folder_url):
 
 _drive_vocab_cache = None
 
+# def load_vocabulary_from_drive(topic):
+#     """
+#     Tìm file txt có tên trùng topic trong 3 folder drive
+#     """
+#     global _drive_vocab_cache
+
+#     if _drive_vocab_cache is None:
+
+#         print("🔎 Fetching vocabulary from Drive folders...")
+
+#         folders = [
+#             DRIVE_VOCABULARY_FOLDER_C10,
+#             DRIVE_VOCABULARY_FOLDER_C11,
+#             DRIVE_VOCABULARY_FOLDER_C12
+#         ]
+
+#         vocab_data = {}
+
+#         for folder in folders:
+#             files = fetch_drive_txt_files(folder)
+#             vocab_data.update(files)
+
+#         _drive_vocab_cache = vocab_data
+
+#     topic_clean = topic.strip().lower()
+
+#     for filename, content in _drive_vocab_cache.items():
+
+#         name = filename.replace(".txt", "").strip().lower()
+
+#         if name == topic_clean:
+#             print(f"✅ Vocabulary loaded from Drive: {filename}")
+#             return content
+
+#     return ""
+
 def load_vocabulary_from_drive(topic):
     """
     Tìm file txt có tên trùng topic trong 3 folder drive
     """
     global _drive_vocab_cache
+
+    # ✅ Handle None / NaN / non-string
+    if topic is None:
+        print("⚠️ Topic is None")
+        return ""
+
+    # convert sang string nếu không phải string
+    if not isinstance(topic, str):
+        topic = str(topic)
+
+    topic_clean = topic.strip().lower()
+
+    if not topic_clean:
+        print("⚠️ Topic is empty")
+        return ""
 
     if _drive_vocab_cache is None:
 
@@ -79,8 +130,6 @@ def load_vocabulary_from_drive(topic):
             vocab_data.update(files)
 
         _drive_vocab_cache = vocab_data
-
-    topic_clean = topic.strip().lower()
 
     for filename, content in _drive_vocab_cache.items():
 
