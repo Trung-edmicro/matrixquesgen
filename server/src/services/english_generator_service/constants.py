@@ -198,20 +198,5 @@ Quy tắc bắt buộc:
 - Cấm tuyệt đối viết A B C D trong phần phân tích đáp án, bắt buộc sử dụng nội dung của từng phương án để làm tiêu đề phân tích
 - Cấm tuyệt đối viết lại câu hỏi và đáp án trong lời giải
 - Cấm viết chữ Lời giải và chọn đáp án nào đúng
-
-Phân tích đáp án:
-Bắt buộc phân tích đáp án phải viết bằng Tiếng Việt
-
-{option_A}
-→ [Đúng/Sai]. [Giải thích bằng tiếng Việt]
-
-{option_B}
-→ [Đúng/Sai]. [Giải thích bằng tiếng Việt]
-
-{option_C}
-→ [Đúng/Sai]. [Giải thích bằng tiếng Việt]
-
-{option_D}
-→ [Đúng/Sai]. [Giải thích bằng tiếng Việt]
-
+- Không cần viết thông tin, tạm dịch vì cấu trúc json trả về đã yêu cầu
 """.strip()
