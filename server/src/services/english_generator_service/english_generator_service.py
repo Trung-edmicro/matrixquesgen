@@ -474,6 +474,8 @@ async def generate_exam_docx(blocks, output_path):
                 f"Tài liệu tham khảo: {document_sample}"
                 f"Số từ: {so_tu}\n"
                 f"Độ khó: {diff}\n"
+                f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
+                f"{READING_COMPREHENSION_EXPLANATION_TEMPLATE}"
                 f"Dạng thức: {text_type}\n"
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
@@ -1012,7 +1014,7 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
 
     # Question stem
     p = doc.add_paragraph()
-    p.add_run(f"Question {num}:").bold = True
+    p.add_run(f"Question {num}: ").bold = True
     if stem:
         doc.add_paragraph(stem)
 
