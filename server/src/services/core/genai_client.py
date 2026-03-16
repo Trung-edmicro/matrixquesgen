@@ -259,45 +259,50 @@ class GenAIClient:
             print(f"✗ Lỗi khi tạo nội dung với schema: {str(e)}")
             raise
     
-    def generate_content_with_schema_with_model(self, 
+    def generate_content_with_schema_with_model(self,
                                                prompt: str,
                                                response_schema: Dict,
                                                model_name: str,
                                                system_instruction: Optional[str] = None,
-                                               enable_search: bool = False) -> str:
+                                               enable_search: bool = False,
+                                               enable_thinking: bool = True) -> str:
         """
         Tạo nội dung với JSON schema và model cụ thể
-        
+
         Args:
             prompt (str): Prompt đầu vào
             response_schema (Dict): JSON schema cho response
             model_name (str): Tên model cần sử dụng
             system_instruction (str, optional): Hướng dẫn hệ thống
             enable_search (bool): Bật Google Search (mặc định: False)
-            
+            enable_thinking (bool): Bật thinking_config (mặc định: True). Set False cho fallback model không hỗ trợ.
+
         Returns:
             str: Nội dung JSON được tạo
         """
         try:
             if self.client is None:
                 self._initialize()
-            
+
             # Thêm instruction vào prompt để yêu cầu JSON output
             json_instruction = "\n\n**QUAN TRỌNG**: Trả về kết quả dưới dạng JSON thuần (raw JSON), KHÔNG bọc trong markdown code block (```json), KHÔNG thêm bất kỳ text nào khác ngoài JSON object."
             enhanced_prompt = prompt + json_instruction
-            
+
             # Tạo tools nếu enable_search
             tools = None
             if enable_search:
                 tools = [types.Tool(google_search=types.GoogleSearch())]
                 # print("🔍 Google Search enabled cho request này")
-            
+
+            # Build thinking_config only if enabled (some models don't support it)
+            thinking_cfg = _make_thinking_config() if enable_thinking else None
+
             # Tạo config với response MIME type
             config = types.GenerateContentConfig(
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
-                thinking_config=_make_thinking_config(),
+                thinking_config=thinking_cfg,
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=response_schema,

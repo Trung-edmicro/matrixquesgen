@@ -258,25 +258,31 @@ class AlternativeQuestionGenerationService:
         """
         if existing_questions is None:
             existing_questions = []
-            
+
         topic_type = self.classify_lesson_topic_type(lesson_data)
+
+        def _material_prompt() -> str:
+            # Try both naming conventions for material-based prompt
+            for name in ["DS_material.txt", "DS_học liệu AI gen.txt"]:
+                p = self.prompts_dir / name
+                if p.exists():
+                    return str(p)
+            return str(self.prompts_dir / "DS_case.txt")  # fallback
 
         if topic_type == 1:
             # Only situation-based
             return str(self.prompts_dir / "DS_case.txt")
         elif topic_type == 2:
             # Only material-based
-            return str(self.prompts_dir / "DS_học liệu AI gen.txt")
+            return _material_prompt()
         else:
             # Type 3: Both possible, decide based on existing questions
             situation_count = sum(1 for q in existing_questions if q.type == "DS" and "tình huống" in (q.source_text or "").lower())
             material_count = sum(1 for q in existing_questions if q.type == "DS" and not ("tình huống" in (q.source_text or "").lower()))
 
             if situation_count > 2:
-                # Too many situation, use material
-                return str(self.prompts_dir / "DS_học liệu AI gen.txt")
+                return _material_prompt()
             elif material_count > 1:
-                # Too many material, use situation
                 return str(self.prompts_dir / "DS_case.txt")
             else:
                 # Default to situation for type 3
@@ -487,33 +493,49 @@ class AlternativeQuestionGenerationService:
                         if vd_specs:
                             print(f"   VD spec codes: {[spec.get('code') for spec in vd_specs]}")
 
-                        # Create individual TN_SINGLE tasks for each NB spec
-                        for spec_data in nb_specs:
+                        # If both NB and TH specs exist, combine them into ONE TN_COMBINED task
+                        if nb_specs and th_specs:
+                            print(f"📦 Creating TN_COMBINED task for lesson {chapter}.{lesson} with {len(nb_specs)} NB + {len(th_specs)} TH specs")
                             task = {
-                                'type': 'TN_SINGLE',
+                                'type': 'TN_COMBINED',
                                 'lesson_data': lesson_data,
                                 'chapter': chapter,
                                 'lesson': lesson,
                                 'content': content,
                                 'supplementary': supplementary,
-                                'spec_data': spec_data,
-                                'level': 'NB'
+                                'nb_specs': nb_specs,
+                                'th_specs': th_specs
                             }
                             generation_tasks.append(task)
+                        else:
+                            # If only NB or only TH, create individual tasks as before
+                            # Create individual TN_SINGLE tasks for each NB spec
+                            for spec_data in nb_specs:
+                                task = {
+                                    'type': 'TN_SINGLE',
+                                    'lesson_data': lesson_data,
+                                    'chapter': chapter,
+                                    'lesson': lesson,
+                                    'content': content,
+                                    'supplementary': supplementary,
+                                    'spec_data': spec_data,
+                                    'level': 'NB'
+                                }
+                                generation_tasks.append(task)
 
-                        # Create individual TN_SINGLE tasks for each TH spec
-                        for spec_data in th_specs:
-                            task = {
-                                'type': 'TN_SINGLE',
-                                'lesson_data': lesson_data,
-                                'chapter': chapter,
-                                'lesson': lesson,
-                                'content': content,
-                                'supplementary': supplementary,
-                                'spec_data': spec_data,
-                                'level': 'TH'
-                            }
-                            generation_tasks.append(task)
+                            # Create individual TN_SINGLE tasks for each TH spec
+                            for spec_data in th_specs:
+                                task = {
+                                    'type': 'TN_SINGLE',
+                                    'lesson_data': lesson_data,
+                                    'chapter': chapter,
+                                    'lesson': lesson,
+                                    'content': content,
+                                    'supplementary': supplementary,
+                                    'spec_data': spec_data,
+                                    'level': 'TH'
+                                }
+                                generation_tasks.append(task)
 
                         # Create separate VD tasks
                         for spec_data in vd_specs:
@@ -985,7 +1007,7 @@ class AlternativeQuestionGenerationService:
                     statements=gen_q.statements,
                     correct_answer=None,
                     explanation=gen_q.explanation,
-                    difficulty=gen_q.level,
+                    difficulty=getattr(gen_q, 'level', 'medium'),
                     subject=existing_set.subject,
                     grade=existing_set.grade,
                     chapter=str(gen_q.chapter_number),
@@ -1006,7 +1028,7 @@ class AlternativeQuestionGenerationService:
                     options=None,
                     correct_answer=gen_q.correct_answer,
                     explanation=gen_q.explanation,
-                    difficulty=gen_q.level,
+                    difficulty=getattr(gen_q, 'level', 'medium'),
                     subject=existing_set.subject,
                     grade=existing_set.grade,
                     chapter=str(gen_q.chapter_number),
@@ -1022,7 +1044,7 @@ class AlternativeQuestionGenerationService:
                     options=gen_q.options,
                     correct_answer=gen_q.correct_answer,
                     explanation=gen_q.explanation,
-                    difficulty=gen_q.level,
+                    difficulty=getattr(gen_q, 'level', 'medium'),
                     subject=existing_set.subject,
                     grade=existing_set.grade,
                     chapter=str(gen_q.chapter_number),
@@ -1111,7 +1133,8 @@ class AlternativeQuestionGenerationService:
                             "NUM_TH": 0,
                             "NB": "Nhận biết",
                             "TH": "Thông hiểu",
-                            "EXPECTED_LEARNING_OUTCOME": spec.learning_outcome,
+                            "EXPECTED_LEARNING_OUTCOME_NB": spec.learning_outcome,
+                            "EXPECTED_LEARNING_OUTCOME_TH": "",
                             "LESSON_NAME": spec.lesson_name,
                             "CONTENT": content,
                             "QUESTION_TEMPLATE_NB": "\n".join(spec_data.get('question_template', [''])),
@@ -1123,7 +1146,8 @@ class AlternativeQuestionGenerationService:
                             "NUM_TH": num_questions,
                             "NB": "Nhận biết",
                             "TH": "Thông hiểu",
-                            "EXPECTED_LEARNING_OUTCOME": spec.learning_outcome,
+                            "EXPECTED_LEARNING_OUTCOME_NB": "",
+                            "EXPECTED_LEARNING_OUTCOME_TH": spec.learning_outcome,
                             "LESSON_NAME": spec.lesson_name,
                             "CONTENT": content,
                             "QUESTION_TEMPLATE_NB": "",
@@ -1151,6 +1175,100 @@ class AlternativeQuestionGenerationService:
                         # Use code from matrix if available
                         if idx < len(question_codes):
                             q.question_code = question_codes[idx]
+                    generated_questions.extend(generated)
+
+                elif task_type == "TN_COMBINED":
+                    # Combined NB + TH generation using TN2.txt
+                    nb_specs = task['nb_specs']
+                    th_specs = task['th_specs']
+
+                    # Collect all NB question codes and learning outcomes
+                    nb_codes = []
+                    nb_learning_outcomes = []
+                    nb_question_templates = []
+                    for spec_data in nb_specs:
+                        codes = spec_data.get('code', [])
+                        if isinstance(codes, list):
+                            nb_codes.extend(codes)
+                        else:
+                            nb_codes.append(codes)
+                        nb_learning_outcomes.append(spec_data.get('learning_outcome', ''))
+                        templates = spec_data.get('question_template', [])
+                        if templates:
+                            nb_question_templates.extend(templates)
+
+                    # Collect all TH question codes and learning outcomes
+                    th_codes = []
+                    th_learning_outcomes = []
+                    th_question_templates = []
+                    for spec_data in th_specs:
+                        codes = spec_data.get('code', [])
+                        if isinstance(codes, list):
+                            th_codes.extend(codes)
+                        else:
+                            th_codes.append(codes)
+                        th_learning_outcomes.append(spec_data.get('learning_outcome', ''))
+                        templates = spec_data.get('question_template', [])
+                        if templates:
+                            th_question_templates.extend(templates)
+
+                    num_nb = len(nb_codes)
+                    num_th = len(th_codes)
+                    total_questions = num_nb + num_th
+
+                    # Combine learning outcomes
+                    combined_nb_outcome = "\n".join([f"- {outcome}" for outcome in nb_learning_outcomes if outcome])
+                    combined_th_outcome = "\n".join([f"- {outcome}" for outcome in th_learning_outcomes if outcome])
+
+                    # Load TN2 prompt template
+                    prompt_template = self.load_prompt_template("TN2.txt")
+                    if not prompt_template:
+                        return []
+
+                    # Replace placeholders in template
+                    template_vars = {
+                        "NUM_NB": num_nb,
+                        "NUM_TH": num_th,
+                        "NB": "Nhận biết",
+                        "TH": "Thông hiểu",
+                        "EXPECTED_LEARNING_OUTCOME_NB": combined_nb_outcome,
+                        "EXPECTED_LEARNING_OUTCOME_TH": combined_th_outcome,
+                        "LESSON_NAME": lesson_data['lesson_name'],
+                        "CONTENT": content,
+                        "QUESTION_TEMPLATE_NB": "\n".join(nb_question_templates) if nb_question_templates else "",
+                        "QUESTION_TEMPLATE_TH": "\n".join(th_question_templates) if th_question_templates else ""
+                    }
+
+                    for var, value in template_vars.items():
+                        prompt_template = prompt_template.replace("{{" + var + "}}", str(value))
+
+                    # Inject session history to avoid generating duplicate TN questions
+                    _hist_ctx = task.get('history_context', '')
+                    if _hist_ctx:
+                        prompt_template += _hist_ctx
+
+                    # Generate all questions in one call
+                    generated = self.question_generator.generate_questions_with_custom_prompt(
+                        prompt_template=prompt_template,
+                        content=content,
+                        num_questions=total_questions
+                    )
+
+                    # Assign codes to generated questions
+                    # First num_nb questions get NB codes, rest get TH codes
+                    all_codes = nb_codes + th_codes
+                    for idx, q in enumerate(generated):
+                        q.chapter_number = int(chapter)
+                        q.lesson_number = int(lesson)
+                        # Use code from matrix if available
+                        if idx < len(all_codes):
+                            q.question_code = all_codes[idx]
+                        # Set cognitive level based on position
+                        if idx < num_nb:
+                            q.cognitive_level = "NB"
+                        else:
+                            q.cognitive_level = "TH"
+
                     generated_questions.extend(generated)
 
                 elif task_type == "TN_VD":

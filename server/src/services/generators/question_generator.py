@@ -286,7 +286,8 @@ class QuestionGenerator:
                         response_schema=tn_schema,
                         model_name=self.fallback_model,
                         system_instruction=_sys_instruction,
-                        enable_search=False
+                        enable_search=False,
+                        enable_thinking=False  # Fallback model doesn't support thinking_config
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
@@ -479,7 +480,8 @@ class QuestionGenerator:
                         response_schema=ds_schema,
                         model_name=self.fallback_model,
                         system_instruction=_sys_instruction,
-                        enable_search=False
+                        enable_search=False,
+                        enable_thinking=False  # Fallback model doesn't support thinking_config
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
@@ -691,7 +693,8 @@ class QuestionGenerator:
                         response_schema=tln_schema,
                         model_name=self.fallback_model,
                         system_instruction=_sys_instruction,
-                        enable_search=False
+                        enable_search=False,
+                        enable_thinking=False  # Fallback model doesn't support thinking_config
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
@@ -844,7 +847,8 @@ class QuestionGenerator:
                         response_schema=tl_schema,
                         model_name=self.fallback_model,
                         system_instruction=_sys_instruction,
-                        enable_search=False
+                        enable_search=False,
+                        enable_thinking=False  # Fallback model doesn't support thinking_config
                     )
                 else:
                     response = self.ai_client.generate_content_with_schema(
@@ -945,7 +949,8 @@ class QuestionGenerator:
                             prompt=prompt_text,
                             response_schema=tl_schema_fallback,
                             model_name=self.fallback_model,
-                            enable_search=False
+                            enable_search=False,
+                            enable_thinking=False  # Fallback model doesn't support thinking_config
                         )
                         
                         # Parse response

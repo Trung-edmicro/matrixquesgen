@@ -263,6 +263,66 @@ class PromptBuilderService:
                 return first.get('code') if isinstance(first, dict) else str(first)
         return None
 
+    def classify_lesson_topic_type(self, content: str) -> int:
+        """
+        Classify lesson topic type based on content for DS prompt selection.
+        Returns:
+          1 → situation-based  → DS_case.txt
+          2 → material-based   → DS_material.txt / DS_học liệu AI gen.txt
+          3 → mixed/balanced   → default DS_case.txt
+        """
+        content_lower = (content or '').lower()
+
+        situation_keywords = [
+            'tình huống', 'thực tế', 'cuộc sống', 'xã hội', 'pháp luật',
+            'kinh tế', 'quyền', 'nghĩa vụ', 'trách nhiệm', 'vi phạm',
+            'hành vi', 'chủ thể', 'bảo vệ', 'thực thi',
+        ]
+        material_keywords = [
+            'chỉ số', 'thống kê', 'báo cáo', 'dữ liệu', 'số liệu',
+            'tăng trưởng', 'phát triển', 'chính sách', 'quy hoạch',
+            'kế hoạch', 'chi tiêu', 'thu nhập', 'ngân sách',
+        ]
+
+        sit_cnt = sum(1 for kw in situation_keywords if kw in content_lower)
+        mat_cnt = sum(1 for kw in material_keywords if kw in content_lower)
+
+        if sit_cnt > mat_cnt * 2:
+            return 1
+        elif mat_cnt > sit_cnt * 2:
+            return 2
+        return 3
+
+    def select_ds_prompt_path(self, content: str) -> Optional[str]:
+        """
+        Return the absolute path to the DS prompt file that matches the topic type.
+        Candidate order:
+          situation  → DS_case.txt
+          material   → DS_material.txt  OR  DS_học liệu AI gen.txt
+          fallback   → DS_case.txt  (if preferred file missing)
+        Returns None if no DS prompt file is found at all.
+        """
+        base = self.prompt_dir or Path('.')
+        topic_type = self.classify_lesson_topic_type(content)
+
+        if topic_type == 2:
+            candidates = [
+                base / "DS_material.txt",
+                base / "DS_học liệu AI gen.txt",
+                base / "DS_case.txt",
+            ]
+        else:
+            candidates = [
+                base / "DS_case.txt",
+                base / "DS_material.txt",
+                base / "DS_học liệu AI gen.txt",
+            ]
+
+        for p in candidates:
+            if p.exists():
+                return str(p)
+        return None
+
     @staticmethod
     def _extract_first_type_code(rich_content_types) -> Optional[str]:
         """Return the first rich-content type code string from a rich_content_types dict."""
@@ -316,17 +376,49 @@ class PromptBuilderService:
             getattr(spec, 'rich_content_types', None))
         self.templates['TN'] = template_text
         prompt_text = template_text
+
+        # For TN2.txt: map NB/TH specific placeholders based on cognitive_level
+        # For TN.txt: map generic placeholders (backward compatible)
+        if 'TN2.txt' in template_name:
+            # TN2.txt requires separate NB and TH mappings
+            _lo = spec.learning_outcome or '[Không có]'
+            _level_desc = self._load_cognitive_level_desc(spec.cognitive_level)
+            _lo_with_desc = f"{_lo}\n\n{_level_desc}" if _level_desc else _lo
+
+            if spec.cognitive_level.upper() == 'NB':
+                prompt_text = prompt_text.replace("{{NUM_NB}}", str(spec.num_questions))
+                prompt_text = prompt_text.replace("{{NUM_TH}}", "0")
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME_NB}}", _lo_with_desc)
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME_TH}}", "")
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE_NB}}", question_template)
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE_TH}}", "")
+            else:  # TH or other levels
+                prompt_text = prompt_text.replace("{{NUM_NB}}", "0")
+                prompt_text = prompt_text.replace("{{NUM_TH}}", str(spec.num_questions))
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME_NB}}", "")
+                prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME_TH}}", _lo_with_desc)
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE_NB}}", "")
+                prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE_TH}}", question_template)
+
+            # Common TN2.txt placeholders
+            prompt_text = prompt_text.replace("{{NB}}", "Nhận biết")
+            prompt_text = prompt_text.replace("{{TH}}", "Thông hiểu")
+        else:
+            # Legacy TN.txt format - backward compatible
+            _lo = spec.learning_outcome or '[Không có]'
+            _level_desc = self._load_cognitive_level_desc(spec.cognitive_level)
+            _lo_with_desc = f"{_lo}\n\n{_level_desc}" if _level_desc else _lo
+            prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", _lo_with_desc)
+            prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
+
+        # Common placeholders for both TN.txt and TN2.txt
         prompt_text = prompt_text.replace("{{NUM}}", str(spec.num_questions))
         prompt_text = prompt_text.replace("{{LESSON_NAME}}", spec.lesson_name)
         prompt_text = prompt_text.replace("{{COGNITIVE_LEVEL}}", spec.cognitive_level)
-        _lo = spec.learning_outcome or '[Không có]'
-        _level_desc = self._load_cognitive_level_desc(spec.cognitive_level)
-        _lo_with_desc = f"{_lo}\n\n{_level_desc}" if _level_desc else _lo
-        prompt_text = prompt_text.replace("{{EXPECTED_LEARNING_OUTCOME}}", _lo_with_desc)
-        prompt_text = prompt_text.replace("{{QUESTION_TEMPLATE}}", question_template)
         prompt_text = prompt_text.replace("{{CONTENT}}", self._convert_content_to_string(content))
         prompt_text = prompt_text.replace("{{RICH_CONTENT_TYPES}}", self._format_rich_content_types(spec))
         prompt_text = prompt_text.replace("{{SUPPLEMENTARY_MATERIAL}}", spec.supplementary_material or "")
+
         if tier == 3:
             prompt_text = self._append_cognitive_level_guide(prompt_text, spec.cognitive_level)
         if self._should_inject_rich_guide(spec):
@@ -339,14 +431,22 @@ class PromptBuilderService:
             template_path=template_name)
 
     def build_prompt_for_ds(self, spec: TrueFalseQuestionSpec, content: str = "",
-                            question_template: str = "") -> PreparedPrompt:
+                            question_template: str = "",
+                            template_path_override: str = None) -> PreparedPrompt:
         # DS may span multiple cognitive levels — pick the dominant level for template selection
         _ds_level = ""
         if spec.statements:
             _ds_level = spec.statements[0].cognitive_level
-        template_text, template_name, tier = self.resolve_template_for_spec(
-            'DS', _ds_level,
-            getattr(spec, 'rich_content_types', None))
+
+        if template_path_override:
+            _p = Path(template_path_override)
+            template_text = _p.read_text(encoding='utf-8') if _p.exists() else ''
+            template_name = _p.name
+            tier = 2
+        else:
+            template_text, template_name, tier = self.resolve_template_for_spec(
+                'DS', _ds_level,
+                getattr(spec, 'rich_content_types', None))
         self.templates['DS'] = template_text
         prompt_text = template_text
         prompt_text = prompt_text.replace("{{NUM}}", "1")
@@ -675,33 +775,165 @@ class PromptBuilderService:
 
                 # ── TN ──────────────────────────────────────────────────────
                 if 'TN' in allowed_types:
-                    for level, specs in lesson_data.get('TN', {}).items():
-                        for spec_data in (specs or []):
-                            try:
-                                codes    = spec_data.get('code', [])
-                                qt       = '\n'.join(spec_data.get('question_template', []))
-                                rich     = spec_data.get('rich_content_types', None)
+                    tn_data = lesson_data.get('TN', {})
+                    nb_specs = tn_data.get('NB', [])
+                    th_specs = tn_data.get('TH', [])
+                    vd_specs = tn_data.get('VD', [])
+
+                    # If both NB and TH exist, combine them into ONE TN2 prompt
+                    if nb_specs and th_specs:
+                        try:
+                            # Collect all NB codes, learning outcomes, and templates
+                            nb_codes = []
+                            nb_outcomes = []
+                            nb_templates = []
+                            for spec_data in nb_specs:
+                                codes = spec_data.get('code', [])
+                                nb_codes.extend(codes if isinstance(codes, list) else [codes])
+                                nb_outcomes.append(spec_data.get('learning_outcome', ''))
+                                templates = spec_data.get('question_template', [])
+                                if templates:
+                                    nb_templates.extend(templates)
+
+                            # Collect all TH codes, learning outcomes, and templates
+                            th_codes = []
+                            th_outcomes = []
+                            th_templates = []
+                            for spec_data in th_specs:
+                                codes = spec_data.get('code', [])
+                                th_codes.extend(codes if isinstance(codes, list) else [codes])
+                                th_outcomes.append(spec_data.get('learning_outcome', ''))
+                                templates = spec_data.get('question_template', [])
+                                if templates:
+                                    th_templates.extend(templates)
+
+                            num_nb = len(nb_codes)
+                            num_th = len(th_codes)
+
+                            # Combine learning outcomes
+                            combined_nb_outcome = "\n".join([f"- {o}" for o in nb_outcomes if o])
+                            combined_th_outcome = "\n".join([f"- {o}" for o in th_outcomes if o])
+
+                            # Load TN2 template directly from file (not from cache which may be overwritten by VD)
+                            tn2_path = self.prompt_dir / 'TN2.txt'
+                            template_filename = 'TN2.txt'
+                            if not tn2_path.exists():
+                                tn2_path = self.prompt_dir / 'TN.txt'  # Fallback
+                                template_filename = 'TN.txt'
+
+                            if tn2_path.exists():
+                                with open(tn2_path, 'r', encoding='utf-8') as f:
+                                    template = f.read()
+                            else:
+                                template = None
+
+                            if template:
+                                # Replace placeholders
+                                template_vars = {
+                                    "NUM_NB": num_nb,
+                                    "NUM_TH": num_th,
+                                    "NB": "Nhận biết",
+                                    "TH": "Thông hiểu",
+                                    "EXPECTED_LEARNING_OUTCOME_NB": combined_nb_outcome,
+                                    "EXPECTED_LEARNING_OUTCOME_TH": combined_th_outcome,
+                                    "LESSON_NAME": lesson_name,
+                                    "CONTENT": content,
+                                    "QUESTION_TEMPLATE_NB": "\n".join(nb_templates) if nb_templates else "",
+                                    "QUESTION_TEMPLATE_TH": "\n".join(th_templates) if th_templates else ""
+                                }
+
+                                prompt_text = template
+                                for var, value in template_vars.items():
+                                    prompt_text = prompt_text.replace("{{" + var + "}}", str(value))
+
+                                # Create PreparedPrompt
                                 spec = QuestionSpec(
                                     lesson_name=lesson_name, competency_level=1,
-                                    cognitive_level=level, question_type='TN',
-                                    num_questions=spec_data.get('num', len(codes)),
-                                    question_codes=codes,
-                                    learning_outcome=spec_data.get('learning_outcome', ''),
+                                    cognitive_level="NB+TH", question_type='TN',
+                                    num_questions=num_nb + num_th,
+                                    question_codes=nb_codes + th_codes,
+                                    learning_outcome=f"{combined_nb_outcome}\n{combined_th_outcome}",
                                     row_index=0,
                                     chapter_number=int(chapter) if chapter else None,
                                     supplementary_material=lesson_supplementary,
-                                    rich_content_types=rich,
+                                    rich_content_types=None,
                                 )
-                                prepared = self.build_prompt_for_tn(spec, content, qt)
-                                if prepared.has_chart:
-                                    prepared = self._append_chart_placeholder(prepared, spec)
-                                label = (f"[Ch.{chapter} L.{lesson}] TN {level}"
-                                         f"  {', '.join(codes)}  [{prepared.template_path}]")
+                                prepared = PreparedPrompt(
+                                    prompt_text=prompt_text,
+                                    question_type='TN',
+                                    lesson_name=lesson_name,
+                                    question_spec=spec,
+                                    has_content=bool(content),
+                                    content_length=len(content),
+                                    template_path=template_filename
+                                )
+
+                                all_codes = nb_codes + th_codes
+                                label = (f"[Ch.{chapter} L.{lesson}] TN NB+TH"
+                                         f"  {', '.join(all_codes)}  [{template_filename}]")
                                 self._write_prompt_block(out, label, prepared)
                                 total += 1
-                            except Exception as e:
-                                out.write(f"  ERROR building TN prompt ({spec_data.get('code','')}): {e}\n"
-                                          f"  {traceback.format_exc()}\n\n")
+                        except Exception as e:
+                            out.write(f"  ERROR building combined TN prompt: {e}\n"
+                                      f"  {traceback.format_exc()}\n\n")
+                    else:
+                        # Process NB and TH separately if only one exists
+                        for level in ['NB', 'TH']:
+                            specs = tn_data.get(level, [])
+                            for spec_data in (specs or []):
+                                try:
+                                    codes    = spec_data.get('code', [])
+                                    qt       = '\n'.join(spec_data.get('question_template', []))
+                                    rich     = spec_data.get('rich_content_types', None)
+                                    spec = QuestionSpec(
+                                        lesson_name=lesson_name, competency_level=1,
+                                        cognitive_level=level, question_type='TN',
+                                        num_questions=spec_data.get('num', len(codes)),
+                                        question_codes=codes,
+                                        learning_outcome=spec_data.get('learning_outcome', ''),
+                                        row_index=0,
+                                        chapter_number=int(chapter) if chapter else None,
+                                        supplementary_material=lesson_supplementary,
+                                        rich_content_types=rich,
+                                    )
+                                    prepared = self.build_prompt_for_tn(spec, content, qt)
+                                    if prepared.has_chart:
+                                        prepared = self._append_chart_placeholder(prepared, spec)
+                                    label = (f"[Ch.{chapter} L.{lesson}] TN {level}"
+                                             f"  {', '.join(codes)}  [{prepared.template_path}]")
+                                    self._write_prompt_block(out, label, prepared)
+                                    total += 1
+                                except Exception as e:
+                                    out.write(f"  ERROR building TN prompt ({spec_data.get('code','')}): {e}\n"
+                                              f"  {traceback.format_exc()}\n\n")
+
+                    # Process VD separately (never combined)
+                    for spec_data in (vd_specs or []):
+                        try:
+                            codes    = spec_data.get('code', [])
+                            qt       = '\n'.join(spec_data.get('question_template', []))
+                            rich     = spec_data.get('rich_content_types', None)
+                            spec = QuestionSpec(
+                                lesson_name=lesson_name, competency_level=1,
+                                cognitive_level='VD', question_type='TN',
+                                num_questions=spec_data.get('num', len(codes)),
+                                question_codes=codes,
+                                learning_outcome=spec_data.get('learning_outcome', ''),
+                                row_index=0,
+                                chapter_number=int(chapter) if chapter else None,
+                                supplementary_material=lesson_supplementary,
+                                rich_content_types=rich,
+                            )
+                            prepared = self.build_prompt_for_tn(spec, content, qt)
+                            if prepared.has_chart:
+                                prepared = self._append_chart_placeholder(prepared, spec)
+                            label = (f"[Ch.{chapter} L.{lesson}] TN VD"
+                                     f"  {', '.join(codes)}  [{prepared.template_path}]")
+                            self._write_prompt_block(out, label, prepared)
+                            total += 1
+                        except Exception as e:
+                            out.write(f"  ERROR building TN VD prompt ({spec_data.get('code','')}): {e}\n"
+                                      f"  {traceback.format_exc()}\n\n")
 
                 # ── DS ──────────────────────────────────────────────────────
                 if 'DS' in allowed_types:
@@ -729,7 +961,10 @@ class PromptBuilderService:
                                 materials=spec_data.get('materials', ''),
                                 rich_content_types=rich,
                             )
-                            prepared = self.build_prompt_for_ds(spec, content, qt)
+                            prepared = self.build_prompt_for_ds(
+                                spec, content, qt,
+                                template_path_override=self.select_ds_prompt_path(content)
+                            )
                             label = (f"[Ch.{chapter} L.{lesson}] DS  {qcode}"
                                      f"  [{prepared.template_path}]  stmts={len(statements)}")
                             self._write_prompt_block(out, label, prepared)
