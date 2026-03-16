@@ -472,10 +472,10 @@ async def generate_exam_docx(blocks, output_path):
                 f"Chủ đề: {topic}\n"
                 f"Từ vựng tham khảo: {vocabulary}"
                 f"Tài liệu tham khảo: {document_sample}"
-                f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
-                f"{READING_COMPREHENSION_EXPLANATION_TEMPLATE}\n\n"
                 f"Số từ: {so_tu}\n"
                 f"Độ khó: {diff}\n"
+                f"## EXPLANATION MICRO-FORMAT (STRICT)\n"
+                f"{READING_COMPREHENSION_EXPLANATION_TEMPLATE}"
                 f"Dạng thức: {text_type}\n"
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
@@ -859,7 +859,7 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
 
         # Question header
         p = doc.add_paragraph()
-        p.add_run(f"Question {num}:").bold = True
+        p.add_run(f"Question {num}: ").bold = True
         if question_content:
             question_content = question_content.replace("“", '"').replace("”", '"').replace("**", '"')
             parts = re.split(r'(".*?")', question_content)
@@ -1014,7 +1014,7 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
 
     # Question stem
     p = doc.add_paragraph()
-    p.add_run(f"Question {num}:").bold = True
+    p.add_run(f"Question {num}: ").bold = True
     if stem:
         doc.add_paragraph(stem)
 
