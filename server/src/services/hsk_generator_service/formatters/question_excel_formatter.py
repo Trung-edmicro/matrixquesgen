@@ -21,6 +21,8 @@ def populate_individual_image_matching(worksheet, data: list):
         
         worksheet[f'D{i}'] = question.get('do_kho', 'NB')
         worksheet[f'F{i}'] = content_f
+        # Cột G: Số lượng lựa chọn (cố định là 4)
+        worksheet[f'G{i}'] = 4 
         
         # Cột H: Đáp án
         worksheet[f'H{i}'] = question.get('correct_answer')
@@ -105,6 +107,9 @@ def populate_shared_image_comprehension(worksheet, data: dict):
         
         # Cột E: Script câu hỏi
         worksheet[f'E{current_row}'] = question.get('script_chinese', '')
+
+        # Cột G: Số lượng lựa chọn (cố định là 4)
+        worksheet[f'G{current_row}'] = 4
         
         # Cột H: Đáp án
         worksheet[f'H{current_row}'] = question.get('correct_answer')
@@ -175,6 +180,9 @@ def populate_image_matching_shared(worksheet, data: dict):
         worksheet[f'H{current_row}'] = question.get('correct_answer')
         # Cột D: Độ khó
         worksheet[f'D{current_row}'] = question.get('do_kho', 'NB')
+
+        # Cột G: Số lượng lựa chọn (cố định là 4)
+        worksheet[f'G{current_row}'] = 4
     print(f"   ✅ Hoàn thành điền học liệu và {num_questions} câu hỏi.")
 
 # Sheet TN câu trả lời đúng (HL) (HSK1)
@@ -220,6 +228,8 @@ def populate_sentence_matching_shared(worksheet, data: dict):
         chinese = question.get('question_text_chinese', '')
         pinyin = question.get('pinyin', '')
         worksheet[f'F{current_row}'] = f"{chinese} （ ）\n{pinyin}"
+        # Cột G: Số lượng lựa chọn (cố định là 4)
+        worksheet[f'G{current_row}'] = 4
         # Cột H: Đáp án
         # tạo map label đáp án với số thứ tự
         map_labels = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5}
@@ -281,6 +291,9 @@ def populate_word_fill_in_shared(worksheet, data: dict):
             question_lines_formatted.append(f"{prefix}{chinese}\n{' ' * len(prefix)}{pinyin}")
         
         worksheet[f'F{current_row}'] = "\n".join(question_lines_formatted)
+
+        # Cột G: Số lượng lựa chọn (cố định là 4)
+        worksheet[f'G{current_row}'] = 4
         
         # Cột H: Đáp án - Logic này không đổi
         answer_label = question.get('correct_answer', '')
