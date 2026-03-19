@@ -50,7 +50,9 @@ def _get_questions_dir() -> Path:
 
 def _get_exports_dir() -> Path:
     """Get exports directory path with lazy loading"""
-    exports_dir = _get_app_dir() / "data" / "exports"
+    exports_dir = _get_app_dir() / "exports"
+    if exports_dir.parent.name == "server":
+        exports_dir = exports_dir.parent.parent / "exports"
     exports_dir.mkdir(parents=True, exist_ok=True)
     return exports_dir
 

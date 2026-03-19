@@ -1,9 +1,18 @@
 import json
 import sys
 import io
+import shutil
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Union, BinaryIO
+from fastapi import HTTPException
+import logging
+import asyncio
+import uuid
+import traceback
+from .utils.matrix_manager import MatrixManager
+from .utils.call_vertex_ai import get_resource_path
+from .run_hsk import HSKPipeline
 
 try:
     import openpyxl
@@ -166,9 +175,6 @@ def process_xlsx(file_input: Union[str, Path, BinaryIO], output_path: Optional[s
 
     return final_result
 
-from fastapi import HTTPException
-import logging
-
 logger = logging.getLogger(__name__)
 
 async def generate_hsk_flow(file):
@@ -176,29 +182,61 @@ async def generate_hsk_flow(file):
     Xử lý logic sinh câu hỏi cho HSK (Tiếng Trung)
     """
     logger.info(f"Bắt đầu xử lý file HSK: {file.filename}")
+    session_id = str(uuid.uuid4())
     
     try:
         content = await file.read()
         file_obj = io.BytesIO(content)
         data = process_xlsx(file_obj)
-        
-        # --- LOG KẾT QUẢ PARSE DỮ LIỆU ---
-        logger.info("=== KẾT QUẢ PARSE DỮ LIỆU ===")
-        # In toàn bộ data gốc theo format JSON dễ nhìn
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-        logger.info("=============================")
-        # --------------------------------
 
-        # Tạm thời trả về kết quả parse để kiểm tra
+        # Xác định hsk_level từ data
+        hsk_level = data.get("Lever", "HSK1").lower()
+        
+        # Đường dẫn tới file vocab
+        vocab_path = get_resource_path("resources/data/hsk_vocab.json")
+        
+        # Khởi tạo MatrixManager với dữ liệu trực tiếp thay vì file path
+        matrix_manager = MatrixManager(vocab_path=str(vocab_path), matrix_data=data)
+        
+        # Chạy logic sinh trong một thread riêng để không block FastAPI
+        def _run_pipeline():
+            pipeline = HSKPipeline(hsk_level=hsk_level)
+            questions_data = pipeline.run_question_generation(matrix_manager)
+            pipeline.run_explanation_generation(questions_data)
+            return pipeline.excel_output_path
+            
+        excel_output_path = await asyncio.to_thread(_run_pipeline)
+        
+        logger.info(f"Đã hoàn thành sinh file Excel tại: {excel_output_path}")
+
+        # Copy the file to exports folder
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+        try:
+            from api.routes.generate import _get_exports_dir
+            exports_dir = _get_exports_dir()
+        except ImportError:
+            # Fallback if cannot import
+            import os
+            app_dir = Path(os.getenv('APP_DIR') or Path(__file__).parent.parent.parent.parent)
+            exports_dir = app_dir / "exports"
+            
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        final_excel_path = exports_dir / f"{hsk_level}_EXAM_{session_id}.xlsx"
+        shutil.copy2(excel_output_path, final_excel_path)
+
         return {
-            "session_id": "test-session",
+            "session_id": session_id,
             "status": "success",
-            "message": "Đã parse file HSK thành công.",
-            "data": data  # Trả về toàn bộ data kèm các câu hỏi chi tiết
+            "message": "Đã sinh đề HSK thành công.",
+            "data": data,
+            "results": {
+                "download_url": f"/api/generate/{session_id}/download-hsk"
+            }
         }
         
     except Exception as e:
         logger.error(f"Lỗi xử lý HSK: {e}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=500, 
             detail=f"Lỗi xử lý file HSK: {str(e)}"

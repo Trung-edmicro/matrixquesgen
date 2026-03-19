@@ -55,6 +55,15 @@ def _get_uploads_dir() -> Path:
     return uploads_dir
 
 
+def _get_exports_dir() -> Path:
+    """Get exports directory path with lazy loading"""
+    exports_dir = _get_app_dir() / "exports"
+    if exports_dir.parent.name == "server":
+        exports_dir = exports_dir.parent.parent / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    return exports_dir
+
+
 def generate_questions_task(
     session_id: str,
     matrix_file_path: str,
@@ -377,6 +386,27 @@ async def generate_questions(
         message="Đã bắt đầu sinh câu hỏi. Vui lòng kiểm tra tiến độ qua session_id."
     )
 
+
+@router.get("/open-exports")
+async def open_exports_folder():
+    """Mở thư mục exports trên máy chủ (thường là local web app)"""
+    import os
+    import platform
+    import subprocess
+    
+    exports_dir = str(_get_exports_dir())
+    
+    try:
+        if platform.system() == "Windows":
+            os.startfile(exports_dir)
+        elif platform.system() == "Darwin":  # macOS
+            subprocess.run(["open", exports_dir])
+        else:  # Linux
+            subprocess.run(["xdg-open", exports_dir])
+            
+        return {"status": "success", "message": "Đã mở thư mục"}
+    except Exception as e:
+        return {"status": "error", "message": f"Không thể mở thư mục: {str(e)}"}
 
 @router.get("/{session_id}/progress")
 async def get_generation_progress(session_id: str):
