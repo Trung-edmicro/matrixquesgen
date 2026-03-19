@@ -322,6 +322,7 @@ const downloadFile = (blob, filename) => {
     }
 
     const isEnglishMatrix = matrixData.file.name.startsWith("MATRIX_ENGLISH_");
+    const isHSKMatrix = matrixData.file.name.startsWith("MATRIX_HSK_");
 
     // Clear data cũ trước khi sinh đề mới
     setGeneratedExam(null)
@@ -333,10 +334,10 @@ const downloadFile = (blob, filename) => {
 
     try {
       // ================================
-      // 🟢 FLOW MATRIX_ENGLISH_
+      // 🟢 FLOW MATRIX_ENGLISH_ OR MATRIX_HSK_
       // ================================
-      if (isEnglishMatrix) {
-        console.log("English matrix detected → wait for full response")
+      if (isEnglishMatrix || isHSKMatrix) {
+        console.log("English/HSK matrix detected → wait for full response")
 
         const result = await generateQuestions(
           matrixData.file,
@@ -345,21 +346,21 @@ const downloadFile = (blob, filename) => {
           pdfFiles?.files
         )
 
-
         if (result) {
-          setGeneratedExam(result)
-
-          localStorage.setItem("generatedEnglishExam", JSON.stringify(result))
-
-          console.log("Saved English exam to localStorage")
-
+          if (isHSKMatrix) {
+            setSuccessMessage("Đã sinh đề HSK thành công! File đã được lưu ở thư mục exports.");
+            setGeneratedExam(result);
+          } else {
+            setGeneratedExam(result)
+            localStorage.setItem("generatedEnglishExam", JSON.stringify(result))
+            console.log("Saved English exam to localStorage")
+          }
         } else {
-          setError(result?.error || "Không nhận được file từ server")
+          setError(result?.error || "Không nhận được phản hồi từ server")
         }
         setIsGenerating(false)
         return
       }
-
 
       setGenerationProgress({
         percentage: 0,
@@ -441,7 +442,20 @@ const downloadFile = (blob, filename) => {
       {/* Success banner */}
       {successMessage && (
         <div className="bg-green-50 border-b border-green-200 px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-green-800">✓ {successMessage}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-green-800">✓ {successMessage}</span>
+            {successMessage.includes("HSK") && (
+              <button
+                onClick={() => {
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                  fetch(`${API_BASE}/api/generate/open-exports`).catch(err => console.error(err));
+                }}
+                className="text-xs bg-green-200 text-green-800 px-3 py-1 rounded hover:bg-green-300 font-medium transition"
+              >
+                Mở thư mục exports
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setSuccessMessage(null)}
             className="text-green-600 hover:text-green-800"
@@ -496,13 +510,29 @@ const downloadFile = (blob, filename) => {
       )}
 
       <div className="flex-1 overflow-hidden">
-        {/* <ExamPreviewPanel 
-            examData={generatedExam}
-            isGenerating={isGenerating}
-            sessionId={sessionId}
-            onDataChange={handleDataChange}
-          /> */}
-        {matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
+        {matrixData?.file?.name?.startsWith("MATRIX_HSK_") && generatedExam ? (
+          <div className="h-full flex flex-col items-center justify-center p-8 bg-white m-4 rounded-xl border border-gray-200 shadow-sm">
+            <svg className="w-16 h-16 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">Đã sinh đề HSK thành công!</h3>
+            <p className="text-gray-500 mb-6 text-center max-w-md">
+              File Excel kết quả đã được lưu trữ trong thư mục exports của hệ thống.
+            </p>
+            <button
+              onClick={() => {
+                const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+                fetch(`${API_BASE}/api/generate/open-exports`).catch(err => console.error(err));
+              }}
+              className="px-6 py-2.5 bg-[#0369a1] text-white rounded-lg hover:bg-[#0284c7] transition-colors font-medium flex items-center gap-2 shadow-sm"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+              </svg>
+              Mở thư mục chứa file Excel
+            </button>
+          </div>
+        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
           <EnglishExamPreviewPanel
             examData={generatedExam}
           />
