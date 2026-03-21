@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import re
 logger = logging.getLogger(__name__)
 import requests
@@ -10,6 +11,50 @@ DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZ
 DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zIWUMnDNCrFCc_Yw-yR0Pm8PT"
 
 DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
+
+
+DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+
+PROMPT_DIR = Path("PROMPT_DIR")
+
+drive_prompts_cache = None
+
+
+def fetch_drive_md_files():
+        try:
+            folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+            url = f"https://drive.google.com/drive/folders/{folder_id}"
+            html = requests.get(url).text
+
+            file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+            prompts = {}
+
+            for fid in file_ids:
+                download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+                r = requests.get(download_url)
+
+                if r.status_code != 200:
+                    continue
+
+                disposition = r.headers.get("content-disposition", "")
+
+                if ".md" not in disposition:
+                    continue
+
+                name_match = re.findall(r'filename="(.+)"', disposition)
+
+                if not name_match:
+                    continue
+
+                name = name_match[0]
+                prompts[name] = r.text
+
+            return prompts
+
+        except Exception:
+            return {}
 
 def fetch_drive_txt_files(folder_url):
     """
@@ -140,3 +185,4 @@ def load_vocabulary_from_drive(topic):
             return content
 
     return ""
+
