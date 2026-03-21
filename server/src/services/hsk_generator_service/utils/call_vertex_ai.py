@@ -32,6 +32,7 @@ class VertexAIClient:
     def __init__(self):
         self.project_id = os.getenv("PROJECT_ID")
         self.location = os.getenv("REGION", "us-central1")
+        print(f">>>>> debug location {self.location}")
         self.model_name = os.getenv("MODEL_NAME", "gemini-2.5-pro") # Dòng model ổn định và nhanh
         self.credentials = self._load_credentials()
         self._initialized = False
