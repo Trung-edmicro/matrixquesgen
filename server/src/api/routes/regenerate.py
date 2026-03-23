@@ -815,7 +815,18 @@ async def regenerate_bulk_questions(request: RegenerateBulkRequest):
 
         # Load session once to determine lesson groupings
         session_data = _load_session_data(request.session_id)
-        questions_map = {q.get('question_code'): q for q in session_data.get('questions', [])}
+        
+        # Flatten all questions from all types into a single map
+        questions_map = {}
+        questions_dict = session_data.get('questions', {})
+        if isinstance(questions_dict, dict):
+            # Standard structure: {'TN': [...], 'DS': [...], 'TLN': [...], 'TL': [...]}
+            for q_type, q_list in questions_dict.items():
+                for q in q_list:
+                    questions_map[q.get('question_code')] = q
+        else:
+            # Fallback for old structure (shouldn't happen, but safety check)
+            questions_map = {q.get('question_code'): q for q in questions_dict if isinstance(q, dict)}
 
         # Group by (question_type, lesson_name) so same-lesson questions run serially
         from collections import defaultdict
