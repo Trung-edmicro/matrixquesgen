@@ -964,7 +964,11 @@ async def edit_single_question(request: EditQuestionRequest):
         )
         
         # Load prompt template
-        prompt_path = Path(__file__).parent.parent / "services" / "prompts" / "edit_question" / "edit_question_prompt.md"
+        # Path(__file__) = server/src/api/routes/regenerate.py
+        # .parent = server/src/api/routes/
+        # .parent.parent = server/src/api/
+        # .parent.parent.parent = server/src/
+        prompt_path = Path(__file__).parent.parent.parent / "services" / "prompts" / "edit_question" / "edit_question_prompt.md"
         if not prompt_path.exists():
             print(f"⚠️ Edit prompt not found at {prompt_path}, checking alternative paths...")
             # Fallback: try from app_dir
