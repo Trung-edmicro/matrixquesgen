@@ -162,6 +162,7 @@ a = Analysis(
         'pdfplumber',
         'pdf2image',
         'docx',          # python-docx installs as 'docx'
+        'bs4',
         'PIL',
         'dotenv',
         # Server modules — pathex includes server/src so these resolve correctly

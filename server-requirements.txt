@@ -39,6 +39,7 @@ python-multipart==0.0.6
 # The old ==2.5.0 pin caused ResolutionImpossible in CI
 pydantic>=2.9.0
 pydantic-settings>=2.1.0
+bs4
 
 
 

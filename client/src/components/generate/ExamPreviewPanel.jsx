@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { updateQuestion, regenerateQuestion, regenerateBulkQuestions } from '../../services/api'
+import { updateQuestion, regenerateQuestion, regenerateBulkQuestions, editQuestion } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
 import RichContentRenderer from '../common/RichContentRenderer'
 
@@ -10,11 +10,13 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   const [isSaving, setIsSaving] = useState(false)
   const [selectedQuestions, setSelectedQuestions] = useState(new Set())
   const [regeneratingQuestions, setRegeneratingQuestions] = useState(new Set())
+  const [editingQuestions, setEditingQuestions] = useState(new Set())
   const [regenerateQueue, setRegenerateQueue] = useState([])
   const [activeRegenerations, setActiveRegenerations] = useState(0)
   const MAX_CONCURRENT_REGENERATIONS = 3 // Giới hạn 3 requests song song
   const saveTimerRef = useRef(null) // Timer cho auto-save sau regenerate
   const needsAutoSaveRef = useRef(false) // Flag để track khi cần auto-save
+  const needsAutoSaveEditRef = useRef(false) // Flag để track khi cần auto-save sau edit
 
   const tabs = [
     { id: 'questions', label: 'Đề' },
@@ -39,6 +41,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       setIsDirty(false)
       setSelectedQuestions(new Set())
       setRegeneratingQuestions(new Set())
+      setEditingQuestions(new Set())
     }
   }, [examData])
 
@@ -67,6 +70,32 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       }
     }
   }, [regeneratingQuestions.size, activeRegenerations, onDataChange])
+
+  // Auto-save sau khi edit xong (debounced)
+  useEffect(() => {
+    // Chỉ auto-save khi không còn editing nào đang chạy VÀ có flag cần save
+    if (editingQuestions.size === 0 && needsAutoSaveEditRef.current) {
+      // Clear timer cũ nếu có
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      
+      // Đợi 1 giây sau khi edit hoàn thành rồi mới save
+      saveTimerRef.current = setTimeout(() => {
+        if (editedData && onDataChange) {
+          console.log('Auto-saving after edit...')
+          onDataChange(editedData, false) // false = không hiển thị thông báo
+          needsAutoSaveEditRef.current = false // Reset flag sau khi save
+        }
+      }, 1000)
+    }
+    
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [editingQuestions.size, onDataChange])
 
   const handleSave = async () => {
     if (!sessionId || !isDirty) return
@@ -199,7 +228,75 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
     executeRegeneration()
   }
 
-  const handleRegenerateBulk = async () => {
+  const handleEditDialogClose = (type, code) => {
+    // This will be passed to QuestionsList to close the edit dialog
+    // The actual closing logic is handled in QuestionsList component
+  }
+
+  const handleEditQuestion = async (type, code, comment, onEditDialogClose) => {
+    if (!sessionId) return
+
+    const questionKey = `${type}:${code}`;
+    if (editingQuestions.has(questionKey)) {
+      return
+    }
+
+    setEditingQuestions(prev => {
+      const next = new Set(prev)
+      next.add(questionKey)
+      return next
+    })
+    
+    try {
+      if (document.activeElement) {
+        document.activeElement.blur()
+      }
+      
+      const result = await editQuestion(sessionId, type, code, comment)
+      
+      const updatedData = (() => {
+        const newData = { ...editedData }
+        if (!newData.questions) newData.questions = {}
+        if (!newData.questions[type]) newData.questions[type] = []
+        
+        const qIndex = newData.questions[type].findIndex(q => q.question_code === code)
+        if (qIndex !== -1) {
+          newData.questions[type][qIndex] = {
+            ...newData.questions[type][qIndex],
+            ...result.question
+          }
+        }
+        return newData
+      })()
+      
+      setEditedData(updatedData)
+      
+      // Đánh dấu cần auto-save
+      needsAutoSaveEditRef.current = true
+      
+      // Update localStorage via parent callback
+      if (onDataChange) {
+        onDataChange(updatedData, false)
+      }
+      
+      toast.success(result.message || 'Đã sửa lại câu ' + code)
+      // Close dialog after success
+      if (onEditDialogClose) onEditDialogClose(type, code)
+    } catch (err) {
+      console.error('Error editing question:', err)
+      toast.error(err.response?.data?.detail || 'Lỗi khi sửa lại câu hỏi')
+      // Close dialog even on error
+      if (onEditDialogClose) onEditDialogClose(type, code)
+    } finally {
+      setEditingQuestions(prev => {
+        const next = new Set(prev)
+        next.delete(questionKey)
+        return next
+      })
+    }
+  }
+
+const handleRegenerateBulk = async () => {
     if (!sessionId || selectedQuestions.size === 0) return
     
     const questionsToRegenerate = Array.from(selectedQuestions).map(key => {
@@ -319,8 +416,10 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
                 selectedQuestions={selectedQuestions}
                 onToggleQuestion={handleToggleQuestion}
                 regeneratingQuestions={regeneratingQuestions}
+                editingQuestions={editingQuestions}
                 onRegenerateQuestion={handleRegenerateQuestion}
                 onRegenerateBulk={handleRegenerateBulk}
+                onEditQuestion={handleEditQuestion}
               />
             )}
             {activeTab === 'answers' && (
@@ -339,11 +438,46 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   )
 }
 
-function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySource, metadata, selectedQuestions, onToggleQuestion, regeneratingQuestions, onRegenerateQuestion, onRegenerateBulk }) {
+function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySource, metadata, selectedQuestions, onToggleQuestion, regeneratingQuestions, editingQuestions, onRegenerateQuestion, onRegenerateBulk, onEditQuestion }) {
+
+  const [editStates, setEditStates] = useState({})
+
+  const toggleEditComment = (type, code) => {
+    const key = type + '_' + code
+    setEditStates(prev => ({
+      ...prev,
+      [key]: { isOpen: !prev[key]?.isOpen, comment: '' }
+    }))
+  }
+
+  const handleCommentChange = (type, code, val) => {
+    const key = type + '_' + code
+    setEditStates(prev => ({
+      ...prev,
+      [key]: { ...prev[key], comment: val }
+    }))
+  }
+
+  const closeEditDialog = (type, code) => {
+    const key = type + '_' + code
+    setEditStates(prev => ({
+      ...prev,
+      [key]: { ...prev[key], isOpen: false }
+    }))
+  }
+
+  const submitEdit = (type, code) => {
+    const key = type + '_' + code
+    const comment = editStates[key]?.comment
+    if (!comment) return
+    onEditQuestion(type, code, comment, closeEditDialog)
+    // Dialog will be closed by handleEditQuestion via closeEditDialog callback
+  }
+
   const getLevelColor = (level) => {
     switch(level) {
       case 'NB': return 'bg-green-100 text-green-800'
-      case 'TH': return 'bg-blue-100 text-blue-800'
+      case 'TH': return 'bg-primary-100 text-primary-800'
       case 'VD': return 'bg-yellow-100 text-yellow-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -405,8 +539,8 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
     <div>
       {/* Header with bulk regenerate button */}
       {sessionId && selectedQuestions && selectedQuestions.size > 0 && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded flex items-center justify-between">
-          <span className="text-sm text-blue-800">
+        <div className="mb-4 p-3 bg-primary-50 border border-primary-200 rounded flex items-center justify-between">
+          <span className="text-sm text-primary-800">
             Đã chọn {selectedQuestions.size} câu hỏi
           </span>
           <button
@@ -427,6 +561,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
             const questionKey = `TN:${q.question_code}`
             const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
             const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            const isEditing = editingQuestions && editingQuestions.has(questionKey)
             
             return (
               <div key={q.question_code} className="mb-5 text-base border-b border-gray-100 pb-5">
@@ -449,6 +584,20 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                   )}
                   <span className="text-sm text-gray-500">[{q.question_code}]</span>
                   
+                  {/* Edit with AI button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => toggleEditComment('TN', q.question_code)}
+                      disabled={isEditing || isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sửa câu hỏi bằng AI"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
                   {/* Regenerate button */}
                   {sessionId && (
                     <button
@@ -480,6 +629,40 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     />
                   )}
                 </div>
+                  {/* Edit box */}
+                  {editStates['TN_' + q.question_code]?.isOpen && (
+                    <div className="mt-3 mb-4 p-4 border border-primary-200 bg-primary-50 rounded-lg">
+                      <h4 className="text-sm font-semibold text-primary-800 mb-2">Yêu cầu sửa câu hỏi</h4>
+                      <textarea
+                        className="w-full p-2 border border-primary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        rows="3"
+                        placeholder="Nhập nhận xét / comment để sửa câu hỏi này..."
+                        value={editStates['TN_' + q.question_code]?.comment || ''}
+                        onChange={(e) => handleCommentChange('TN', q.question_code, e.target.value)}
+                        disabled={isRegenerating}
+                      ></textarea>
+                      <div className="mt-2 flex justify-end space-x-2">
+                        <button
+                          onClick={() => toggleEditComment('TN', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={isEditing}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={() => submitEdit('TN', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700 flex items-center shadow-sm"
+                          disabled={!editStates['TN_' + q.question_code]?.comment || isEditing}
+                        >
+                          {isEditing ? (
+                            <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang sửa...</>
+                          ) : (
+                            'Gửi'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <div className="mb-2 text-gray-700">
                   <RichContentRenderer
                     content={q.question_stem}
@@ -530,6 +713,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
             const questionKey = `DS:${q.question_code}`
             const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
             const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            const isEditing = editingQuestions && editingQuestions.has(questionKey)
             
             return (
               <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
@@ -537,6 +721,20 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                   <span className="font-medium">Câu {idx + 1}:</span>
                   <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
                   
+                  {/* Edit with AI button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => toggleEditComment('DS', q.question_code)}
+                      disabled={isEditing || isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sửa câu hỏi bằng AI"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
                   {/* Regenerate button */}
                   {sessionId && (
                     <button
@@ -568,6 +766,40 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     />
                   )}
                 </div>
+                  {/* Edit box */}
+                  {editStates['DS_' + q.question_code]?.isOpen && (
+                    <div className="mt-3 mb-4 p-4 border border-primary-200 bg-primary-50 rounded-lg">
+                      <h4 className="text-sm font-semibold text-primary-800 mb-2">Yêu cầu sửa câu hỏi</h4>
+                      <textarea
+                        className="w-full p-2 border border-primary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        rows="3"
+                        placeholder="Nhập nhận xét / comment để sửa câu hỏi này..."
+                        value={editStates['DS_' + q.question_code]?.comment || ''}
+                        onChange={(e) => handleCommentChange('DS', q.question_code, e.target.value)}
+                        disabled={isRegenerating}
+                      ></textarea>
+                      <div className="mt-2 flex justify-end space-x-2">
+                        <button
+                          onClick={() => toggleEditComment('DS', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={isEditing}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={() => submitEdit('DS', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700 flex items-center shadow-sm"
+                          disabled={!editStates['DS_' + q.question_code]?.comment || isEditing}
+                        >
+                          {isEditing ? (
+                            <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang sửa...</>
+                          ) : (
+                            'Gửi'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
               
               {/* Always display source_text.content for DS questions */}
               {q.source_text && (
@@ -598,7 +830,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     <div className="mt-1">
                       <span className={`inline-block px-2 py-0.5 text-xs rounded ${
                         q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
-                        q.source_origin === 'scholarly_book' ? 'bg-blue-100 text-blue-700' :
+                        q.source_origin === 'scholarly_book' ? 'bg-primary-100 text-primary-700' :
                         q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
                         'bg-orange-100 text-orange-700'
                       }`}>
@@ -664,6 +896,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
             const questionKey = `TLN:${q.question_code}`
             const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
             const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            const isEditing = editingQuestions && editingQuestions.has(questionKey)
             
             return (
               <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
@@ -674,6 +907,20 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                   </span>
                   <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
                   
+                  {/* Edit with AI button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => toggleEditComment('TLN', q.question_code)}
+                      disabled={isEditing || isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sửa câu hỏi bằng AI"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
                   {sessionId && (
                     <button
                       onClick={() => onRegenerateQuestion('TLN', q.question_code)}
@@ -702,6 +949,40 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     />
                   )}
                 </div>
+                  {/* Edit box */}
+                  {editStates['TLN_' + q.question_code]?.isOpen && (
+                    <div className="mt-3 mb-4 p-4 border border-primary-200 bg-primary-50 rounded-lg">
+                      <h4 className="text-sm font-semibold text-primary-800 mb-2">Yêu cầu sửa câu hỏi</h4>
+                      <textarea
+                        className="w-full p-2 border border-primary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        rows="3"
+                        placeholder="Nhập nhận xét / comment để sửa câu hỏi này..."
+                        value={editStates['TLN_' + q.question_code]?.comment || ''}
+                        onChange={(e) => handleCommentChange('TLN', q.question_code, e.target.value)}
+                        disabled={isRegenerating}
+                      ></textarea>
+                      <div className="mt-2 flex justify-end space-x-2">
+                        <button
+                          onClick={() => toggleEditComment('TLN', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={isEditing}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={() => submitEdit('TLN', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700 flex items-center shadow-sm"
+                          disabled={!editStates['TLN_' + q.question_code]?.comment || isEditing}
+                        >
+                          {isEditing ? (
+                            <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang sửa...</>
+                          ) : (
+                            'Gửi'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <div className="text-gray-700">
                   <RichContentRenderer
                     content={q.question_stem}
@@ -724,6 +1005,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
             const questionKey = `TL:${q.question_code}`
             const isSelected = selectedQuestions && selectedQuestions.has(questionKey)
             const isRegenerating = regeneratingQuestions && regeneratingQuestions.has(questionKey)
+            const isEditing = editingQuestions && editingQuestions.has(questionKey)
             
             return (
               <div key={q.question_code} className="mb-6 text-base border-b border-gray-100 pb-5">
@@ -734,6 +1016,20 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                   </span>
                   <span className="ml-2 text-sm text-gray-500">[{q.question_code}]</span>
                   
+                  {/* Edit with AI button */}
+                  {sessionId && (
+                    <button
+                      onClick={() => toggleEditComment('TL', q.question_code)}
+                      disabled={isEditing || isRegenerating}
+                      className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded disabled:opacity-50"
+                      title="Sửa câu hỏi bằng AI"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
                   {sessionId && (
                     <button
                       onClick={() => onRegenerateQuestion('TL', q.question_code)}
@@ -762,6 +1058,40 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     />
                   )}
                 </div>
+                  {/* Edit box */}
+                  {editStates['TL_' + q.question_code]?.isOpen && (
+                    <div className="mt-3 mb-4 p-4 border border-primary-200 bg-primary-50 rounded-lg">
+                      <h4 className="text-sm font-semibold text-primary-800 mb-2">Yêu cầu sửa câu hỏi</h4>
+                      <textarea
+                        className="w-full p-2 border border-primary-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        rows="3"
+                        placeholder="Nhập nhận xét / comment để sửa câu hỏi này..."
+                        value={editStates['TL_' + q.question_code]?.comment || ''}
+                        onChange={(e) => handleCommentChange('TL', q.question_code, e.target.value)}
+                        disabled={isRegenerating}
+                      ></textarea>
+                      <div className="mt-2 flex justify-end space-x-2">
+                        <button
+                          onClick={() => toggleEditComment('TL', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                          disabled={isEditing}
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          onClick={() => submitEdit('TL', q.question_code)}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded hover:bg-primary-700 flex items-center shadow-sm"
+                          disabled={!editStates['TL_' + q.question_code]?.comment || isEditing}
+                        >
+                          {isEditing ? (
+                            <><svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Đang sửa...</>
+                          ) : (
+                            'Gửi'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <div className="text-gray-700">
                   <RichContentRenderer
                     content={q.question_stem}

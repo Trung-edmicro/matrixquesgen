@@ -233,9 +233,8 @@ def _find_question_spec_in_matrix(enriched_matrix: dict, question_code: str, que
     Tìm spec của câu hỏi trong enriched_matrix
     Returns: (lesson_data, question_spec_list, content)
     """
-    # Tìm lesson trong enriched_matrix
+    # Duyet qua cac lesson de tim ma cau hoi
     for lesson in enriched_matrix.get('lessons', []):
-        if lesson.get('lesson_name') == lesson_name:
             # Lấy content của lesson
             content = lesson.get('content', '')
             
@@ -269,8 +268,6 @@ def _find_question_spec_in_matrix(enriched_matrix: dict, question_code: str, que
                     for spec in specs:
                         if question_code in spec.get('code', []):
                             return lesson, spec, content, level
-            
-            break
     
     raise HTTPException(
         status_code=404,
@@ -915,3 +912,128 @@ async def regenerate_bulk_questions(request: RegenerateBulkRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Lỗi khi sinh lại câu hỏi: {str(e)}")
+
+
+class EditQuestionRequest(BaseModel):
+    session_id: str
+    question_type: str
+    question_code: str
+    comment: str
+
+@router.post("/edit")
+async def edit_single_question(request: EditQuestionRequest):
+    """
+    Sửa lại một câu hỏi cụ thể dựa theo comment
+    """
+    try:
+        # Load session data
+        data = _load_session_data(request.session_id)
+        questions = data.get('questions', {})
+        metadata = data.get('metadata', {})
+
+        # Find the question
+        question_list = questions.get(request.question_type, [])
+        question_idx = None
+        old_question = None
+
+        for idx, q in enumerate(question_list):
+            if q.get('question_code') == request.question_code:
+                question_idx = idx
+                old_question = q
+                break
+
+        if old_question is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Không tìm thấy câu hỏi {request.question_type} - {request.question_code}"
+            )
+
+        # Load enriched_matrix để lấy spec gốc
+        enriched_matrix = _load_enriched_matrix(
+            metadata.get('subject', ''),
+            metadata.get('curriculum', ''),
+            metadata.get('grade', '')
+        )
+
+        # Tìm spec trong enriched_matrix
+        lesson_data, spec_data, content, level = _find_question_spec_in_matrix(
+            enriched_matrix,
+            request.question_code,
+            request.question_type,
+            old_question.get('lesson_name', '')
+        )
+        
+        # Load prompt template
+        prompt_path = _get_app_dir() / 'src' / 'services' / 'prompts' / 'edit_question' / 'edit_question_prompt.md'
+        with open(prompt_path, 'r', encoding='utf-8') as f_prompt:
+            prompt_template = f_prompt.read()
+
+        # Ánh xạ biến
+        current_question_str = json.dumps(old_question, ensure_ascii=False, indent=2)
+        expected_learning_outcome = spec_data.get('expected_learning_outcome', '') or spec_data.get('yccc', '') or spec_data.get('YCCC', '')
+        
+        # Determine SUPPLEMENTARY_MATERIAL if it's DS or has materials
+        supp_mat = ""
+        if request.question_type == 'DS' and lesson_data.get('materials'):
+            supp_mat = json.dumps(lesson_data.get('materials'), ensure_ascii=False)
+            
+        prompt = prompt_template.replace('{{CURRENT_QUESTION}}', current_question_str)
+        prompt = prompt.replace('{{COGNITIVE_LEVEL}}', str(level))
+        prompt = prompt.replace('{{EXPECTED_LEARNING_OUTCOME}}', str(expected_learning_outcome))
+        prompt = prompt.replace('{{CONTENT}}', str(content))
+        prompt = prompt.replace('{{USER_COMMENT}}', str(request.comment))
+        prompt = prompt.replace('{{SUPPLEMENTARY_MATERIAL}}', str(supp_mat))
+        
+        print(f"🤖 Calling AI to edit {request.question_type} question {request.question_code}...")
+        
+        genai_model = os.getenv("VERTEX_AI_MODEL") or Config.VERTEX_AI_MODEL
+        gcp_location = os.getenv("GCP_LOCATION") or Config.GCP_LOCATION
+        
+        client = GenAIClient(
+            project_id=os.getenv("GCP_PROJECT_ID") or Config.GCP_PROJECT_ID,
+            location=gcp_location,
+            credentials_path=os.getenv("GCP_CREDENTIALS_PATH") or Config.GCP_CREDENTIALS_PATH
+        )
+        # Set model name sau khi khởi tạo
+        client.model_name = genai_model
+        
+        response = client.generate_content(prompt)
+        response_text = response if isinstance(response, str) else response.text
+        
+        # Extract JSON
+        import re
+        json_match = re.search(r'```(?:json)?\n(.*?)\n```', response_text, re.DOTALL)
+        if json_match:
+            response_text = json_match.group(1)
+        try:
+            new_question_dict = json.loads(response_text)
+        except:
+             # try to find first { and last }
+             start = response_text.find('{')
+             end = response_text.rfind('}') + 1
+             new_question_dict = json.loads(response_text[start:end])
+        
+        # Ensure question code and type stay the same
+        new_question_dict['question_code'] = request.question_code
+        new_question_dict['question_type'] = request.question_type
+        new_question_dict['lesson_name'] = old_question.get('lesson_name', '')
+        
+        # Update question list
+        question_list[question_idx] = new_question_dict
+        
+        # Save session
+        _save_session_data(request.session_id, data)
+        
+        print(f"✅ Edited {request.question_type} question {request.question_code} successfully")
+        
+        return {
+            "success": True,
+            "message": f"Đã sửa thành công câu {request.question_code}",
+            "question": new_question_dict,
+            "type": request.question_type
+        }
+    except Exception as e:
+        print(f"❌ Lỗi khi sửa câu hỏi: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

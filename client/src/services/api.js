@@ -180,3 +180,12 @@ export const regenerateBulkQuestions = async (sessionId, questions) => {
 }
 
 export default api
+export const editQuestion = async (sessionId, questionType, questionCode, comment) => {
+  const response = await api.post('/api/regenerate/edit', {
+    session_id: sessionId,
+    question_type: questionType,
+    question_code: questionCode,
+    comment: comment
+  })
+  return response.data
+}
