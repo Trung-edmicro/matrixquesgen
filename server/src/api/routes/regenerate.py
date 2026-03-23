@@ -964,7 +964,16 @@ async def edit_single_question(request: EditQuestionRequest):
         )
         
         # Load prompt template
-        prompt_path = _get_app_dir() / 'src' / 'services' / 'prompts' / 'edit_question' / 'edit_question_prompt.md'
+        prompt_path = Path(__file__).parent.parent / "services" / "prompts" / "edit_question" / "edit_question_prompt.md"
+        if not prompt_path.exists():
+            print(f"⚠️ Edit prompt not found at {prompt_path}, checking alternative paths...")
+            # Fallback: try from app_dir
+            alt_path = _get_app_dir() / "server" / "src" / "services" / "prompts" / "edit_question" / "edit_question_prompt.md"
+            if alt_path.exists():
+                prompt_path = alt_path
+            else:
+                raise FileNotFoundError(f"Edit question prompt not found at {prompt_path} or {alt_path}")
+        
         with open(prompt_path, 'r', encoding='utf-8') as f_prompt:
             prompt_template = f_prompt.read()
 
