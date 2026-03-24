@@ -759,7 +759,7 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
 
         # Header: "Question N:" + nội dung câu hỏi (nếu có) trên cùng đoạn
         p = doc.add_paragraph()
-        p.add_run(f"Question {num}:").bold = True
+        p.add_run(f"Question {num}: ").bold = True
         if question_content:
             question_content = question_content.replace("“", '"').replace("”", '"')
             parts = re.split(r'(".*?")', question_content)
