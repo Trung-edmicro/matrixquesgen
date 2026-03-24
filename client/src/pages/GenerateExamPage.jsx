@@ -135,98 +135,10 @@ export default function GenerateExamPage() {
       setTimeout(() => setSuccessMessage(null), 3000)
     }
   }, [])
-  // const handleExportEnglishDocx = async () => {
-
-  //   const storedExam = localStorage.getItem("generatedEnglishExam")
-  //   console.log(">>> debug storedExam", storedExam)
-  //   if (!storedExam) {
-  //     setError("Không có dữ liệu đề tiếng Anh để xuất file")
-  //     return
-  //   }
-
-  //   const generatedExam = JSON.parse(storedExam)
-
-  //   try {
-  //     setIsExporting(true)
-  //     setError(null)
-
-  //     const response = await exportToEnglishDocx(generatedExam, {
-  //       responseType: "blob"
-  //     })
-
-  //     const blob = new Blob([response.data], {
-  //       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  //     })
-
-  //     const url = window.URL.createObjectURL(blob)
-
-  //     const link = document.createElement("a")
-  //     link.href = url
-  //     link.download = `English_Exam.docx`
-  //     document.body.appendChild(link)
-  //     link.click()
-
-  //     document.body.removeChild(link)
-  //     window.URL.revokeObjectURL(url)
-
-  //     setSuccessMessage("Đã xuất file DOCX tiếng Anh thành công")
-  //     setTimeout(() => setSuccessMessage(null), 3000)
-
-  //   } catch (err) {
-  //     console.log(">>>>>>> debug err", err)
-  //     setError("Lỗi khi xuất file Tiếng Anh: " + err.message)
-  //   } finally {
-  //     setIsExporting(false)
-  //   }
-  // }
-
-  // const handleExportEnglishDocx = async () => {
-
-  //   const storedExam = localStorage.getItem("generatedEnglishExam")
-
-  //   if (!storedExam) {
-  //     setError("Không có dữ liệu đề tiếng Anh để xuất file")
-  //     return
-  //   }
-
-  //   const generatedExam = JSON.parse(storedExam)
-
-  //   try {
-  //     setIsExporting(true)
-  //     setError(null)
-
-  //     const response = await exportToEnglishDocx(generatedExam, {
-  //       responseType: "blob"
-  //     })
-
-  //     const blob = new Blob([response.data], {
-  //       type: "application/zip"
-  //     })
-
-  //     const url = window.URL.createObjectURL(blob)
-
-  //     const link = document.createElement("a")
-  //     link.href = url
-  //     link.download = `English_Exam_Files.zip`
-  //     document.body.appendChild(link)
-  //     link.click()
-
-  //     document.body.removeChild(link)
-  //     window.URL.revokeObjectURL(url)
-
-  //     setSuccessMessage("Đã xuất file DOCX thành công")
-
-  //   } catch (err) {
-  //     setError("Lỗi khi xuất file: " + err.message)
-  //   } finally {
-  //     setIsExporting(false)
-  //   }
-  // }
-
+  
   const handleExportEnglishDocx = async () => {
 
   const storedExam = localStorage.getItem("generatedEnglishExam");
-  console.log(">>>>>> debug storeExam", storedExam);
 
   if (!storedExam) {
     setError("Không có dữ liệu đề tiếng Anh để xuất file")

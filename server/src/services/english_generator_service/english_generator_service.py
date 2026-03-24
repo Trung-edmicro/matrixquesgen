@@ -1,29 +1,33 @@
-import shutil
-import uuid
+import random
+
+from bs4 import BeautifulSoup
 from fastapi import HTTPException
 import pandas as pd
 from collections import defaultdict
 from pathlib import Path
+import uuid
 import os
 import json
+import requests
+import shutil
 from api.callApi import get_credentials
 # from services.english_generator_service.vertex_async_client import AsyncVertexClient
-from .english_excel_helper import extract_blocks_from_excel
-from .docx_helper_english import add_formatted_paragraph, render_formatted_paragraph
+from .docx_helper_english import add_formatted_paragraph
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
 import re
+import html
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import logging
+from collections import defaultdict, Counter
 from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
                         ARRANGE_JSON_SCHEMA,
      CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,
        READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
-from .drive_helper_services import fetch_drive_md_files, load_vocabulary_from_drive
-from bs4 import BeautifulSoup
+from .drive_helper_services import load_vocabulary_from_drive
 
 # ============================
 # CONFIG
@@ -33,11 +37,75 @@ LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
 
 APP_DIR = Path(os.environ['APP_DIR']) if os.environ.get('APP_DIR') else Path(__file__).parent.parent.parent.parent.parent
 PROMPT_DIR = APP_DIR / "data" / "prompts" / "TIENGANH"
+print(f">>>>>> debug APP_DIR: {APP_DIR}")
 UPLOAD_DIR = APP_DIR / "data" / "uploads"
 OUTPUT_DIR = APP_DIR / "data" / "outputs"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+
+# DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZdpj8ZrFJhA0cU-xpLBj5Du2"
+
+# DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zIWUMnDNCrFCc_Yw-yR0Pm8PT"
+
+# DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
+
+# ============================
+# PROMPT LOADER
+# ============================
+
+
+
+# def load_prompt(filename: str) -> str:
+#     path = PROMPT_DIR / filename
+#     if not path.exists():
+#         raise Exception(f"Không tìm thấy prompt: {filename}")
+#     return path.read_text(encoding="utf-8")
+
+
+DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+PROMPT_DIR = Path("PROMPT_DIR")
+
+_drive_prompts_cache = None
+
+
+def fetch_drive_md_files():
+    try:
+        folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+        url = f"https://drive.google.com/drive/folders/{folder_id}"
+        html = requests.get(url).text
+
+        file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+        prompts = {}
+
+        for fid in file_ids:
+            download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+            r = requests.get(download_url)
+
+            if r.status_code != 200:
+                continue
+
+            disposition = r.headers.get("content-disposition", "")
+
+            if ".md" not in disposition:
+                continue
+
+            name_match = re.findall(r'filename="(.+)"', disposition)
+
+            if not name_match:
+                continue
+
+            name = name_match[0]
+            prompts[name] = r.text
+
+        return prompts
+
+    except Exception:
+        return {}
 
 
 def load_prompt(filename: str) -> str:
@@ -62,6 +130,101 @@ def load_prompt(filename: str) -> str:
     print(f"📂 Load từ LOCAL: {filename}")
     return path.read_text(encoding="utf-8")
 
+
+
+# ============================
+# EXCEL EXTRACT LOGIC
+# ============================
+
+def detect_type_columns(df):
+    col_map = {}
+    for i, col in enumerate(df.columns):
+        col_lower = str(col).lower()
+        if "điền từ" in col_lower:
+            col_map["Điền từ"] = i
+        elif "sắp xếp" in col_lower:
+            col_map["Sắp xếp"] = i
+        elif "đọc hiểu" in col_lower:
+            col_map["Đọc hiểu"] = i
+        elif "điền cụm" in col_lower:
+            col_map["Điền cụm từ/điền câu"] = i
+    return col_map
+
+
+def detect_all_levels(row, start_index):
+    found = []
+    for offset in range(4):
+        cell = row.iloc[start_index + offset]
+        if pd.notna(cell) and str(cell).strip() != "":
+            found.append(LEVELS[offset])
+    return found
+
+
+META_COLS = ["STT", "Chủ đề", "Số từ","Từ vựng", "Độ khó", "Dạng thức bài đọc (VI)","Dạng thức bài đọc (EN)","Từ vựng tham khảo","Tài liệu tham khảo"]
+
+
+def extract_blocks_from_excel(file_path: str):
+
+    df = pd.read_excel(file_path, sheet_name="Ma trận")
+    df.columns = [str(col).strip() for col in df.columns]
+    df[META_COLS] = df[META_COLS].ffill()
+
+    type_col_map = detect_type_columns(df)
+    blocks = []
+    total_counts = Counter()
+    grouped = df.groupby("STT")
+
+    for stt, group in grouped:
+        topic = group.iloc[0]["Chủ đề"]
+        vocabulary_example = group.iloc[0]["Từ vựng"]
+        word_count = str(group.iloc[0]["Số từ"])
+        difficulty = group.iloc[0]["Độ khó"]
+        text_type = group.iloc[0]["Dạng thức bài đọc (VI)"]
+        text_type_en = group.iloc[0]["Dạng thức bài đọc (EN)"]
+        vocabulary = group.iloc[0]["Từ vựng tham khảo"]
+        document_sample = group.iloc[0]["Tài liệu tham khảo"]
+        question_types = defaultdict(list)
+
+        for _, row in group.iterrows():
+            spec = row.get("Đặc tả ma trận")
+            if pd.isna(spec):
+                continue
+            spec = str(spec).strip()
+            for q_type, start_col in type_col_map.items():
+                levels = detect_all_levels(row, start_col)
+                for lv in levels:
+                    question_types[q_type].append({"spec": spec, "level": lv})
+
+        print(f"\n=== STT {stt} ===")
+        for q_type, questions in question_types.items():
+            count = len(questions)
+            print(f"{q_type}: {count} questions")
+            total_counts[q_type] += count
+            blocks.append({
+                "type": q_type,
+                "topic": topic,
+                "difficulty": difficulty,
+                "text_type": text_type,
+                "text_type_en": text_type_en,
+                "word_count": word_count,
+                "question_count": count,
+                "questions": questions,
+                "vocabulary": vocabulary,
+                "document_sample": document_sample,
+                "vocabulary_example": vocabulary_example
+
+            })
+
+    print("\n=== TOTAL QUESTIONS PER COLUMN ===")
+    for q_type, count in total_counts.items():
+        print(f"{q_type}: {count}")
+
+    return blocks
+
+
+# ============================
+# JSON PARSE HELPERS
+# ============================
 
 def _safe_parse_json(raw: str) -> dict | None:
     """
@@ -142,9 +305,45 @@ def safe_str(val):
     s = str(val).strip()
     return "" if s.lower() == "nan" else s
 
+SEM = asyncio.Semaphore(3)   # có thể chỉnh 2–5 tùy quota
+
+async def generate_with_retry(client, prompt, max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return await client.generate(prompt=prompt)
+
+        except Exception as e:
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                logger.warning(f"⚠️ 429 hit. Retry after {wait_time:.2f}s")
+                await asyncio.sleep(wait_time)
+            else:
+                raise e
+
+    raise Exception("❌ Max retries exceeded")
+
+
+async def limited_generate(client, prompt):
+    async with SEM:
+        result = await generate_with_retry(client, prompt)
+
+        # throttle nhẹ để tránh spike
+        await asyncio.sleep(2)
+
+        return result
+
+
+async def run_in_batches(tasks, batch_size=3):
+    results = []
+    for i in range(0, len(tasks), batch_size):
+        batch = tasks[i:i + batch_size]
+        res = await asyncio.gather(*batch, return_exceptions=True)
+        results.extend(res)
+    return results
+
 async def generate_exam_docx(blocks, output_path):
 
-    project_id = get_credentials()
+    credentials, project_id = get_credentials()
 
     # client = AsyncVertexClient(
     #     project_id=project_id,
@@ -153,7 +352,7 @@ async def generate_exam_docx(blocks, output_path):
     # )
 
     client = AsyncVertexGemini31(
-    project_id="onluyen-media",
+    project_id=project_id,
     model="gemini-3.1-pro-preview",
     thinking_level="HIGH"
 )
@@ -242,7 +441,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule
             )
 
-            task = client.generate(prompt=ai_input)
+            # task = client.generate(prompt=ai_input)
+            task = limited_generate(client, ai_input)
             tasks.append(task)
             block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -278,7 +478,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule
             )
 
-            task = client.generate(prompt=ai_input)
+            # task = client.generate(prompt=ai_input)
+            task = limited_generate(client, ai_input)
             tasks.append(task)
             block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en))
             q_count += 1
@@ -324,7 +525,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule
             )
 
-            task = client.generate(prompt=ai_input)
+            # task = client.generate(prompt=ai_input)
+            task = limited_generate(client, ai_input)
             tasks.append(task)
             block_meta.append(("RC", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -369,7 +571,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule
             )
 
-            task = client.generate(prompt=ai_input)
+            # task = client.generate(prompt=ai_input)
+            task = limited_generate(client, ai_input)
             tasks.append(task)
             block_meta.append(("GAP", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -411,10 +614,15 @@ def generate_docx_from_ai_results(results, output_path):
         _add_instruction(doc, res)
         parsed = res.get("parsed")
 
-
-        if res["type"] in ("CLOZE", "GAP", "RC"):
+        if parsed is None:
+            # Fallback: dùng raw text parser cũ nếu JSON parse thất bại
+            logger.warning(f"Falling back to text parser for block {res['type']}/{res['title']}")
+            raw = res.get("data") or ""
+            _render_fallback(doc, res["type"], raw)
+        else:
+            if res["type"] in ("CLOZE", "GAP", "RC"):
                 _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"),qtype=res["type"])
-        elif res["type"] == "ARRANGE":
+            elif res["type"] == "ARRANGE":
                 _render_arrange_from_json(doc, parsed)
 
         _add_separator(doc)
@@ -444,11 +652,15 @@ def export_standard_docx_from_data(json_data, output_path):
         parsed = res.get("parsed")
         res_type = res.get("type")
 
-        if res_type in ("CLOZE", "GAP", "RC"):
-                _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-        elif res_type == "ARRANGE":
-                _render_standard_arrange_from_json(doc, parsed)
+        if parsed is None:
+            raw = res.get("data") or ""
+            _render_fallback(doc, res_type, raw)
         else:
+            if res_type in ("CLOZE", "GAP", "RC"):
+                _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
+            elif res_type == "ARRANGE":
+                _render_standard_arrange_from_json(doc, parsed)
+            else:
                 logger.warning(f"Unknown type: {res_type}")
 
         _add_separator(doc)
@@ -480,11 +692,15 @@ def export_docx_from_data(json_data, output_path):
         parsed = res.get("parsed")
         res_type = res.get("type")
 
-        if res_type in ("CLOZE", "GAP", "RC"):
-                _render_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-        elif res_type == "ARRANGE":
-                _render_arrange_from_json(doc, parsed)
+        if parsed is None:
+            raw = res.get("data") or ""
+            _render_fallback(doc, res_type, raw)
         else:
+            if res_type in ("CLOZE", "GAP", "RC"):
+                _render_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
+            elif res_type == "ARRANGE":
+                _render_arrange_from_json(doc, parsed)
+            else:
                 logger.warning(f"Unknown type: {res_type}")
 
         _add_separator(doc)
@@ -573,9 +789,101 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
             doc.add_paragraph(f"C. {opt_c}")
             doc.add_paragraph(f"D. {opt_d}")
 
+# def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
+#     """
+#     Replace các dạng:
+#     - Phương án A/B/C/D
+#     - A , B , C , D (chữ cái + khoảng trắng)
+
+#     bằng nội dung option tương ứng đặt trong dấu ngoặc kép
+#     """
+
+#     option_map = {
+#         "a": opt_a,
+#         "b": opt_b,
+#         "c": opt_c,
+#         "d": opt_d
+#     }
+
+#     # ── Replace "Phương án A" ──
+#     def repl_full(match):
+#         key = match.group(1).lower()
+#         return f'"{option_map.get(key, "")}"'
+
+#     text = re.sub(
+#         r'phương\s*án\s*([abcd])',
+#         repl_full,
+#         text,
+#         flags=re.IGNORECASE
+#     )
+
+#     # ── Replace "A " / "B " / "C " / "D " ──
+#     def repl_letter(match):
+#         key = match.group(1).lower()
+#         return f'"{option_map.get(key, "")}" '
+
+#     text = re.sub(
+#         r'\b([ABCD])\s',
+#         repl_letter,
+#         text
+#     )
+
+#     return text 
 
 
+def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
 
+    option_map = {
+        "A": opt_a,
+        "B": opt_b,
+        "C": opt_c,
+        "D": opt_d
+    }
+
+    # Replace "Phương án A"
+    def repl_phrase(match):
+        key = match.group(1).upper()
+        return f'"{option_map.get(key,"")}"'
+
+    text = re.sub(
+        r'phương\s*án\s*([abcd])',
+        repl_phrase,
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Replace chữ cái A/B/C/D đứng độc lập
+    # không nằm trong từ
+    # pattern = re.compile(r'(?<![A-Za-z])([ABCD])(?![A-Za-z])')
+
+    # def repl_letter(match):
+    #     key = match.group(1)
+    #     return f'"{option_map.get(key,"")}"'
+
+    # text = pattern.sub(repl_letter, text)
+
+    return text
+
+
+def add_html_paragraph(doc, text, prefix=None):
+    p = doc.add_paragraph()
+
+    # prefix (in đậm)
+    if prefix:
+        run = p.add_run(prefix)
+        run.bold = True
+
+    soup = BeautifulSoup(text, "html.parser")
+
+    for element in soup.descendants:
+        if element.name is None and element.string:
+            parent = element.parent
+
+            run = p.add_run(element.string)
+
+            run.bold = any(tag.name in ["strong", "b"] for tag in parent.parents) or parent.name in ["strong", "b"]
+            run.underline = parent.find_parent("u") is not None or parent.name == "u"
+            run.italic = parent.find_parent("i") is not None or parent.name == "i"
 
 def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False, qtype: str = ""):
     """
@@ -660,9 +968,8 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
             for line in explanation.splitlines():
                 line = line.strip()
                 if line:
-                    # p = doc.add_paragraph()
-                    # add_text_with_markdown_bold(p, line)
-                    render_formatted_paragraph(doc, line)
+                    p = doc.add_paragraph()
+                    add_text_with_markdown_bold(p, line)
 
         # Quote
         # if quote:
@@ -685,11 +992,14 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
                 # p.add_run(quote)
                 add_formatted_paragraph(doc, "Trích bài: ", quote)
 
+
+
             if translation:
                 # p = doc.add_paragraph()
                 # p.add_run("Tạm dịch: ").bold = True
                 # p.add_run(translation)
                 add_formatted_paragraph(doc, "Tạm dịch: ", translation)
+
         # khoảng cách giữa các câu
         doc.add_paragraph("")
 
@@ -787,8 +1097,7 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
 
     for line in sol_lines:
         if line.strip():
-            # doc.add_paragraph(line.strip())
-            add_html_paragraph(doc, line.strip())
+            doc.add_paragraph(line.strip())
 
     # Tạm dịch
     if trans_lines:
@@ -797,31 +1106,51 @@ def _render_arrange_from_json(doc: Document, parsed: dict):
         for line in trans_lines:
             if line.strip():
                 # doc.add_paragraph(line.strip())
-                 add_html_paragraph(doc, line.strip())
+                add_html_paragraph(doc, line.strip())
 
 
-def add_html_paragraph(doc, text, prefix=None):
-    p = doc.add_paragraph()
+# ============================
+# FALLBACK: TEXT PARSERS (giữ lại phòng khi JSON parse thất bại)
+# ============================
 
-    # prefix (in đậm)
-    if prefix:
-        run = p.add_run(prefix)
-        run.bold = True
-
-    soup = BeautifulSoup(text, "html.parser")
-
-    for element in soup.descendants:
-        if element.name is None and element.string:
-            parent = element.parent
-
-            run = p.add_run(element.string)
-
-            run.bold = any(tag.name in ["strong", "b"] for tag in parent.parents) or parent.name in ["strong", "b"]
-            run.underline = parent.find_parent("u") is not None or parent.name == "u"
-            run.italic = parent.find_parent("i") is not None or parent.name == "i"
+def _render_fallback(doc: Document, block_type: str, raw: str):
+    """Fallback về text parser cũ khi JSON parse thất bại."""
+    logger.warning(f"Using text fallback renderer for type={block_type}")
+    if block_type in ("CLOZE", "GAP", "RC"):
+        _render_cloze_or_gap(doc, raw, merge_options=(block_type == "CLOZE"))
+    elif block_type == "ARRANGE":
+        _render_arrange(doc, raw)
+    else:
+        doc.add_paragraph(raw or "(No content)")
 
 
+def _render_cloze_or_gap(doc, raw_text, merge_options=False):
+    blocks = extract_cloze_sections(raw_text)
+    _render_passage(doc, blocks["passage"])
+    q_lines = normalize_question_lines(blocks["questions"])
+    if merge_options:
+        q_lines = merge_options_single_line(q_lines)
+    _render_questions(doc, q_lines)
+    _render_answer_key(doc, blocks["answer_key"])
+    _render_explanation(doc, blocks["explanation"])
 
+
+def _render_arrange(doc, raw_text):
+    parts = extract_arrange_sections(raw_text)
+    q_lines = normalize_question_lines(parts["question_block"])
+    q_lines = merge_options_single_line(q_lines)
+    _render_questions(doc, q_lines)
+    doc.add_paragraph().add_run("Lời giải").bold = True
+    if parts["answer_letter"]:
+        doc.add_paragraph(f"Chọn {parts['answer_letter']}")
+    if parts["solution_text"]:
+        for ln in parts["solution_text"].splitlines():
+            p = doc.add_paragraph()
+            add_text_with_markdown_bold(p, ln.strip())
+    if parts["translation"]:
+        doc.add_paragraph().add_run("Tạm dịch:").bold = True
+        for ln in parts["translation"].splitlines():
+            doc.add_paragraph(ln.strip())
 
 
 # ============================
@@ -909,6 +1238,38 @@ def _render_passage(doc, passage):
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
 
+def _render_questions(doc, lines):
+    for line in lines:
+        p = doc.add_paragraph()
+        if re.match(r"^Question\s+\d+[:\.]", line, re.I):
+            r = p.add_run(line)
+            r.bold = True
+        else:
+            p.add_run(line)
+
+
+def _render_answer_key(doc, key_block):
+    if not key_block:
+        return
+    doc.add_paragraph().add_run("ANSWER KEY").bold = True
+    pairs = parse_answer_key_block(key_block)
+    if pairs:
+        ak_text = ", ".join([f"{i}-{k}" for i, k in pairs])
+        doc.add_paragraph(ak_text)
+    else:
+        doc.add_paragraph(key_block)
+
+
+def _render_explanation(doc, explanation):
+    if not explanation:
+        return
+    doc.add_paragraph().add_run("HƯỚNG DẪN GIẢI CHI TIẾT").bold = True
+    for line in explanation.split('\n'):
+        text = line.strip()
+        if not text:
+            continue
+        p = doc.add_paragraph()
+        add_text_with_markdown_bold(p, text)
 
 
 def _add_separator(doc):
@@ -927,12 +1288,132 @@ def add_text_with_markdown_bold(paragraph, text):
             paragraph.add_run(part)
 
 
+# ============================
+# LEGACY TEXT EXTRACT (FALLBACK)
+# ============================
+
+def extract_cloze_sections(raw_text):
+    print(f">>>>>> debug raw_text (fallback): {raw_text[:200]}")
+    s = html.unescape(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    PASS_HDR = "BÀI ĐỌC (PASSAGE)"
+    KEY1 = "ANSWER KEY"
+    EXPL1 = "HƯỚNG DẪN GIẢI CHI TIẾT"
+    EXPL2 = "HƯỚNG DẪN GIẢI"
+
+    pos_pass = s.find(PASS_HDR)
+    if pos_pass < 0:
+        return {"passage": s[:200], "questions": s[200:], "answer_key": "", "explanation": ""}
+
+    start_pass = pos_pass + len(PASS_HDR)
+    pos_first_q = s.find("Question", start_pass)
+    if pos_first_q < 0:
+        return {"passage": s[start_pass:].strip(), "questions": "", "answer_key": "", "explanation": ""}
+
+    passage = s[start_pass:pos_first_q].strip()
+    pos_key = s.find(KEY1, pos_first_q)
+    pos_expl = -1
+    for h in [EXPL1, EXPL2]:
+        p = s.find(h, pos_first_q)
+        if p >= 0:
+            pos_expl = p
+            break
+
+    cut = min([p for p in [pos_key, pos_expl] if p >= 0], default=len(s))
+    questions = s[pos_first_q:cut].strip()
+
+    answer_key = ""
+    explanation = ""
+    if pos_key >= 0:
+        key_end = pos_expl if pos_expl > pos_key else len(s)
+        answer_key = s[pos_key + len(KEY1):key_end].strip()
+    if pos_expl >= 0:
+        expl_hdr = EXPL1 if s.find(EXPL1) == pos_expl else EXPL2
+        explanation = s[pos_expl + len(expl_hdr):].strip()
+
+    return {"passage": passage, "questions": questions,
+            "answer_key": answer_key, "explanation": explanation}
 
 
+def extract_arrange_sections(raw_text):
+    s = html.unescape(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    result = {"question_block": "", "answer_letter": "", "solution_text": "", "translation": ""}
+    pos_loi = re.search(r"^Lời giải", s, re.MULTILINE)
+    if not pos_loi:
+        result["question_block"] = s
+        return result
+    result["question_block"] = s[:pos_loi.start()].strip()
+    after = s[pos_loi.end():]
+    m_chon = re.search(r"Chọn\s+([ABCD])", after)
+    if m_chon:
+        result["answer_letter"] = m_chon.group(1)
+        after2 = after[m_chon.end():]
+    else:
+        after2 = after
+    pos_tam = after2.find("Tạm dịch:")
+    if pos_tam >= 0:
+        result["solution_text"] = after2[:pos_tam].strip()
+        result["translation"] = after2[pos_tam + len("Tạm dịch:"):].strip()
+    else:
+        result["solution_text"] = after2.strip()
+    return result
 
-# # ============================
-# # MAIN FLOW
-# # ============================
+
+def normalize_question_lines(qtext):
+    lines = []
+    for raw in (qtext or "").splitlines():
+        line = html.unescape(raw).strip()
+        if not line:
+            continue
+        line = re.sub(r"\sA\.\s", "\tA. ", line)
+        line = re.sub(r"\sB\.\s", "\tB. ", line)
+        line = re.sub(r"\sC\.\s", "\tC. ", line)
+        line = re.sub(r"\sD\.\s", "\tD. ", line)
+        lines.append(line)
+    return lines
+
+
+def parse_answer_key_block(key_block):
+    s = (key_block or "").replace("\r\n", "\n")
+    pairs = []
+    for m in re.finditer(r"(\d+)\s*[-=:]\s*([ABCD])", s, re.I):
+        pairs.append((int(m.group(1)), m.group(2).upper()))
+    if pairs:
+        return sorted(pairs, key=lambda x: x[0])
+    for m in re.finditer(r"(\d+)\s+([ABCD])\b", s, re.I):
+        pairs.append((int(m.group(1)), m.group(2).upper()))
+    return sorted(pairs, key=lambda x: x[0])
+
+
+def merge_options_single_line(lines):
+    merged = []
+    buffer = []
+    current_question = None
+
+    for line in lines:
+        if re.match(r"^Question\s+\d+[:\.]", line, re.I):
+            if current_question:
+                if buffer:
+                    merged.append("\t".join(buffer))
+                    buffer = []
+            merged.append(line)
+            current_question = line
+        elif re.match(r"^[ABCD]\.\s", line):
+            buffer.append(line.strip())
+        else:
+            if buffer:
+                merged.append("\t".join(buffer))
+                buffer = []
+            merged.append(line)
+
+    if buffer:
+        merged.append("\t".join(buffer))
+
+    return merged
+
+
+# ============================
+# MAIN FLOW
+# ============================
 
 async def generate_english_flow(file):
     session_id = str(uuid.uuid4())

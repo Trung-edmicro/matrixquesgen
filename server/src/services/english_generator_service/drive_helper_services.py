@@ -20,41 +20,84 @@ PROMPT_DIR = Path("PROMPT_DIR")
 drive_prompts_cache = None
 
 
+# def fetch_drive_md_files():
+#         try:
+#             folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+#             url = f"https://drive.google.com/drive/folders/{folder_id}"
+#             html = requests.get(url).text
+
+#             file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+#             prompts = {}
+
+#             for fid in file_ids:
+#                 download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+#                 r = requests.get(download_url)
+
+#                 if r.status_code != 200:
+#                     continue
+
+#                 disposition = r.headers.get("content-disposition", "")
+
+#                 if ".md" not in disposition:
+#                     continue
+
+#                 name_match = re.findall(r'filename="(.+)"', disposition)
+
+#                 if not name_match:
+#                     continue
+
+#                 name = name_match[0]
+#                 prompts[name] = r.text
+
+#             return prompts
+
+#         except Exception:
+#             return {}
+
 def fetch_drive_md_files():
-        try:
-            folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+    try:
+        folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
 
-            url = f"https://drive.google.com/drive/folders/{folder_id}"
-            html = requests.get(url).text
+        url = f"https://drive.google.com/drive/folders/{folder_id}"
+        html = requests.get(url).text
 
-            file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+        file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+        print(f">>>>> debug file_ids {file_ids}")
 
-            prompts = {}
+        prompts = {}
 
-            for fid in file_ids:
-                download_url = f"https://drive.google.com/uc?export=download&id={fid}"
-                r = requests.get(download_url)
+        for fid in file_ids:
+            download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+            r = requests.get(download_url)
 
-                if r.status_code != 200:
-                    continue
+            if r.status_code != 200:
+                continue
 
-                disposition = r.headers.get("content-disposition", "")
+            # fallback nếu không có header
+            filename = None
 
-                if ".md" not in disposition:
-                    continue
+            disposition = r.headers.get("content-disposition", "")
+            name_match = re.findall(r'filename="(.+)"', disposition)
 
-                name_match = re.findall(r'filename="(.+)"', disposition)
+            if name_match:
+                filename = name_match[0]
+            else:
+                # fallback: đoán tên
+                filename = f"{fid}.md"
 
-                if not name_match:
-                    continue
+            if not filename.endswith(".md"):
+                continue
 
-                name = name_match[0]
-                prompts[name] = r.text
+            prompts[filename] = r.text
 
-            return prompts
+        print(f"✅ Loaded {len(prompts)} prompts from Drive")
+        return prompts
 
-        except Exception:
-            return {}
+    except Exception as e:
+        print("❌ Error fetching drive prompts:", e)
+        return {}
 
 def fetch_drive_txt_files(folder_url):
     """
@@ -182,6 +225,7 @@ def load_vocabulary_from_drive(topic):
 
         if name == topic_clean:
             print(f"✅ Vocabulary loaded from Drive: {filename}")
+            print(f">>>>> debug content {content}")
             return content
 
     return ""
