@@ -9,6 +9,7 @@ import {
   exportToDocx,
   downloadDocx
 } from '../services/api'
+import SoluteActionBar from '../components/generate/SoluteActionBar'
 
 // Storage
 const STORAGE_KEY = 'matrixquesgen_solute_page_state'
@@ -73,7 +74,7 @@ export default function SoluteExamPage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           generatedExam,
           sessionId,
-          examPdf,
+          // examPdf,
           timestamp: Date.now()
         }))
       } catch (err) {
@@ -98,13 +99,24 @@ export default function SoluteExamPage() {
     setIsDirty(false)
   }
 
+  const handleExportEnglishDocx = async() => {
+
+  }
+  
   // =========================
   // Solve Exam
   // =========================
   const handleSolve = async () => {
+    
     if (!examPdf?.files) {
       setError('Vui lòng chọn file PDF đề bài')
       return
+    }
+
+    const isEnglishPdf = examPdf.file.name.startsWith("ENGLISH_PDF_");
+
+    if(isEnglishPdf) {
+      return;
     }
 
     setGeneratedExam(null)
@@ -118,6 +130,10 @@ export default function SoluteExamPage() {
         phase: 'initializing',
         status: 'processing'
       })
+
+      if(isEnglishPdf) {
+        
+      }
 
       const result = await generateQuestions(
         null, // không dùng matrix
@@ -254,14 +270,14 @@ export default function SoluteExamPage() {
         </div>
 
         {/* Action buttons */}
-        <ActionBar
-          onGenerate={handleSolve}
+        <SoluteActionBar
+          onSolve={handleSolve}
           onExport={handleExport}
           isGenerating={isGenerating}
           isExporting={isExporting}
-          canGenerate={!!examPdf}
-          canExport={!!generatedExam && !isDirty}
-          generateLabel="Giải đề"
+          examPdf={examPdf}
+          generatedExam={generatedExam}
+          isDirty={isDirty}
         />
 
       </div>

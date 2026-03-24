@@ -88,6 +88,7 @@
 import asyncio
 from google import genai
 from google.genai import types
+from pathlib import Path
 
 class AsyncVertexGemini31:
     def __init__(
@@ -151,6 +152,60 @@ class AsyncVertexGemini31:
         except Exception as e:
             print(f"Error generating content: {e}")
             return ""
+        
+    async def solute(self, prompt: str,pdf_path: None, temperature: float = 1.0, max_tokens: int = 65536):
+        thinking_config = types.ThinkingConfig(
+            include_thoughts=True, # Cho phép trả về quá trình suy nghĩ
+            thinking_level=self.thinking_level_str
+        )
+
+        # 2. Cấu hình Generation
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+            thinking_config=thinking_config
+        )
+
+        # 3. Chuẩn bị nội dung (Contents)
+        contents = []
+        
+        # Nếu có truyền file PDF
+        if pdf_path:
+            try:
+                path = Path(pdf_path)
+                if not path.exists():
+                    raise FileNotFoundError(f"Không tìm thấy file tại: {pdf_path}")
+                
+                # Đọc file dưới dạng bytes
+                pdf_data = path.read_bytes()
+                
+                # Tạo component PDF
+                pdf_part = types.Part.from_bytes(
+                    data=pdf_data,
+                    mime_type="application/pdf"
+                )
+                contents.append(pdf_part)
+            except Exception as e:
+                print(f"Lỗi xử lý file PDF: {e}")
+                return None
+
+        # Thêm text prompt
+        contents.append(prompt)
+
+        try:
+            # 4. Gọi API async trực tiếp
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=config
+            )
+            
+            # Trả về kết quả văn bản
+            return response.text if response.text else ""
+            
+        except Exception as e:
+            print(f"Error generating content: {e}")
+            return None
 
 # Cách sử dụng:
 # async def main():
