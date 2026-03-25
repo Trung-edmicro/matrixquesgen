@@ -37,7 +37,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
       'Content-Type': 'multipart/form-data',
     },
   })
-  console.log(">>>>>> debug 1123213 response ", response.data);
+
   return response.data
   }catch(error) {
     console.log(">>>>>> error", error)
@@ -45,6 +45,43 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   }
 
 }
+
+export const generateSolutions = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
+  try {
+      const formData = new FormData()
+  formData.append('file', file)
+  
+  // Thêm template DOCX nếu có
+  if (templateDocx) {
+    formData.append('template_docx', templateDocx)
+  }
+  
+  // Thêm PDF files nếu có
+  if (pdfFiles && pdfFiles.length > 0) {
+    for (const pdf of pdfFiles) {
+      formData.append('pdf_files', pdf)
+    }
+  }
+  
+  if (config.max_workers) formData.append('max_workers', config.max_workers)
+  if (config.min_interval) formData.append('min_interval', config.min_interval)
+  if (config.max_retries) formData.append('max_retries', config.max_retries)
+  if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+  const response = await api.post('/api/solute-english-exam', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+
+  return response.data
+  }catch(error) {
+    console.log(">>>>>> error", error)
+    throw error;
+  }
+
+}
+
 
 export const generateQuestionsEnglish = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
   const formData = new FormData()

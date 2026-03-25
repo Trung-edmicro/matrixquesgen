@@ -7,7 +7,8 @@ import {
   getGenerationProgress,
   getSessionDetail,
   exportToDocx,
-  downloadDocx
+  downloadDocx,
+  generateSolutions
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 
@@ -135,7 +136,7 @@ export default function SoluteExamPage() {
         
       }
 
-      const result = await generateQuestions(
+      const result = await  generateSolutions(
         null, // không dùng matrix
         generationConfig,
         null,
