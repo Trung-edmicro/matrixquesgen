@@ -3,6 +3,42 @@ import re
 
 from bs4 import BeautifulSoup,NavigableString
 
+def add_html_formatted_text(paragraph, html_text: str):
+    """
+    Parse đơn giản các tag: <u>, <i>, <strong>, <b>
+    """
+    
+    # regex bắt các cụm có tag hoặc text thường
+    pattern = r'(<[^>]+>.*?</[^>]+>|[^<]+)'
+    parts = re.findall(pattern, html_text)
+
+    for part in parts:
+        text = part
+        bold = False
+        italic = False
+        underline = False
+
+        # detect tag
+        if "<u>" in part:
+            underline = True
+            text = re.sub(r"</?u>", "", text)
+
+        if "<i>" in part:
+            italic = True
+            text = re.sub(r"</?i>", "", text)
+
+        if "<strong>" in part or "<b>" in part:
+            bold = True
+            text = re.sub(r"</?(strong|b)>", "", text)
+
+        # remove leftover tags
+        text = re.sub(r"<.*?>", "", text)
+
+        run = paragraph.add_run(text)
+        run.bold = bold
+        run.italic = italic
+        run.underline = underline
+
 
 def render_formatted_paragraph(doc, text, prefix=None):
     """

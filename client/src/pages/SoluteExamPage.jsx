@@ -18,7 +18,7 @@ const STORAGE_EXPIRY_HOURS = 5
 
 export default function SoluteExamPage() {
   const [examPdf, setExamPdf] = useState(null)
-  const [generatedExam, setGeneratedExam] = useState(null)
+  const [generatedExam, setSolutedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -94,7 +94,7 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
-    setGeneratedExam(null)
+    setSolutedExam(null)
     setSessionId(null)
     setError(null)
     setIsDirty(false)
@@ -114,26 +114,28 @@ export default function SoluteExamPage() {
       return
     }
 
-    const isEnglishPdf = examPdf.file.name.startsWith("ENGLISH_PDF_");
+    const isEnglishPdf = examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_");
+    console.log(">>>>>>>>> debug isEnglishPDF", isEnglishPdf);
 
-    if(isEnglishPdf) {
-      return;
-    }
-
-    setGeneratedExam(null)
+    setSolutedExam(null)
     setSessionId(null)
     setIsGenerating(true)
     setError(null)
 
     try {
-      setGenerationProgress({
-        percentage: 0,
-        phase: 'initializing',
-        status: 'processing'
-      })
 
       if(isEnglishPdf) {
-        
+          const result = await generateQuestions(
+          matrixData.file,
+          generationConfig,
+          templateDocx?.file,
+          pdfFiles?.files
+        )
+        if(result) {
+          console.log(">>>>>> debug {result", result);
+          localStorage.setItem("solutedEnglishExam", JSON.stringify(result))
+
+        }
       }
 
       const result = await  generateSolutions(

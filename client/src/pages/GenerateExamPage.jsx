@@ -257,7 +257,9 @@ const downloadFile = (blob, filename) => {
           pdfFiles?.files
         )
 
+        
         if (result) {
+          console.log(">>>>>>> d123 123 debug", result);
           if (isHSKMatrix) {
             setSuccessMessage("Đã sinh đề HSK thành công! File đã được lưu ở thư mục exports.");
             setGeneratedExam(result);
