@@ -8,7 +8,6 @@ import {
   getSessionDetail,
   exportToDocx,
   downloadDocx,
-  exportToEnglishDocx,
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
 } from '../services/api'
