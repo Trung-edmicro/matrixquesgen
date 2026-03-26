@@ -2,6 +2,7 @@
 import re
 from bs4 import BeautifulSoup,NavigableString
 from docx import Document
+from docx.shared import Inches
 
 def add_html_formatted_text(paragraph, html_text: str):
     """
@@ -151,4 +152,485 @@ def add_formatted_paragraph(doc, prefix, text):
 
 
 
+def render_standard_sentence_completion_group(doc, results, start_index):
+    title_added = False
+    i = start_index
+    n = len(results)
 
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Add title (chỉ 1 lần) =====
+        if not title_added:
+            title_para = doc.add_paragraph()
+            title_run = title_para.add_run(
+                "Sentence completion: Choose A, B, C or D to complete each sentence."
+            )
+            title_run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # Question
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            run_normal = p.add_run(q['question'])
+
+            # Options (1 dòng)
+            p = doc.add_paragraph()
+            tab_stops = p.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(1.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+
+            p.add_run(
+                f"A. {q['option_a']}\t"
+                f"B. {q['option_b']}\t"
+                f"C. {q['option_c']}\t"
+                f"D. {q['option_d']}"
+            )
+            
+
+        i += 1
+
+    return i
+
+
+def render_standard_logical_thinking_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "LOGICAL_THINKING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold, 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Logical thinking and problem solving: Choose A, B, C or D to answer each question."
+            )
+            run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question number =====
+            # doc.add_paragraph(f"Question {q['number']}:")
+            p = doc.add_paragraph()  # only 1 paragraph for this question
+    
+            # Bold part: "Question 1:"
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            # ===== Scenario =====
+            if q.get("scenario"):
+                doc.add_paragraph(q["scenario"])
+
+            # ===== Dialogue =====
+            if q.get("speaker_a"):
+                doc.add_paragraph(f"{q['speaker_a']}")
+            if q.get("speaker_b"):
+                doc.add_paragraph(f"{q['speaker_b']}")
+
+            # ===== Question text =====
+            if q.get("question"):
+                doc.add_paragraph(q["question"])
+
+            # ===== Options (mỗi dòng riêng) =====
+            doc.add_paragraph(f"A. {q['option_a']}")
+            doc.add_paragraph(f"B. {q['option_b']}")
+            doc.add_paragraph(f"C. {q['option_c']}")
+            doc.add_paragraph(f"D. {q['option_d']}")
+        i += 1
+
+    return i
+
+def render_standard_sentence_transformation_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+    current_group_type = None  # rewriting / combination
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "SENTENCE_TRANSFORMATION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        questions = parsed.get("questions", [])
+        if not questions:
+            break
+
+        q_type = questions[0].get("type", "").lower()
+
+        # ===== Nếu khác group → break =====
+        if current_group_type is None:
+            current_group_type = q_type
+        elif q_type != current_group_type:
+            break
+
+        # ===== Add title (1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run()
+
+            if q_type == "rewriting":
+                run.text = ("Sentence rewriting: Choose A, B, C or D that has the CLOSEST "
+                            "meaning to the given sentence in each question.")
+            else:  # combination
+                run.text = ("Sentence combination: Choose A, B, C or D that has the CLOSEST "
+                            "meaning to the given pair of sentences in each question.")
+
+            run.bold = True
+            title_added = True
+
+        # ===== Render câu hỏi =====
+        for q in questions:
+            # doc.add_paragraph(f"Question {q['number']}: {q['question']}")
+
+            p = doc.add_paragraph()  # only 1 paragraph for this question
+    
+            # Bold part: "Question 1:"
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            
+            # Normal part: the actual question text
+            run_normal = p.add_run(q['question'])
+            # ===== Options (mỗi đáp án 1 dòng) =====
+            doc.add_paragraph(f"A. {q['option_a']}")
+            doc.add_paragraph(f"B. {q['option_b']}")
+            doc.add_paragraph(f"C. {q['option_c']}")
+            doc.add_paragraph(f"D. {q['option_d']}")
+
+        i += 1
+
+    return i
+
+def render_standard_word_reordering_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+        if res.get("type") != "WORD_REORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, 1 lần) =====
+        if not title_added:
+            p_title = doc.add_paragraph()
+            run = p_title.add_run("Reorder the words given to make correct sentences.")
+            run.bold = True
+            run.italic = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question =====
+            p_question = doc.add_paragraph()
+            # Phần bold
+            run_bold = p_question.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            # Phần bình thường
+            run_normal = p_question.add_run(q.get('word_list', ''))
+
+            # ===== Options ===== (mỗi option 1 paragraph riêng)
+            for label in ["option_a", "option_b", "option_c", "option_d"]:
+                option_text = q.get(label)
+                if option_text:
+                    doc.add_paragraph(f"{label[-1].upper()}. {option_text}")
+
+
+        
+        i += 1
+
+    return i
+
+def render_standard_error_identification_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ERROR_IDENTIFICATION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, chỉ 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Mark the letter A, B, C, or D to indicate the underlined part that needs correction in the following questions."
+            )
+            run.bold = True
+            run.italic = True
+
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question (có format HTML) =====
+
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            add_html_formatted_text(p, q["question"])
+
+            # ===== Options =====
+            p_opt = doc.add_paragraph()
+            tab_stops = p_opt.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(1.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+
+            p_opt.add_run(
+                f"A. {q['option_a']}\t"
+                f"B. {q['option_b']}\t"
+                f"C. {q['option_c']}\t"
+                f"D. {q['option_d']}"
+            )
+
+        i += 1
+
+    return i
+
+def render_standard_pronunciation_stress_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "PRONUNCIATION_STRESS":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, chỉ 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Mark the letter A, B, C, or D on your answer sheet to indicate the word whose underlined part differs from the other three in pronunciation in each of the following questions."
+            )
+            run.bold = True
+            run.italic = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question + options cùng dòng =====
+            # 
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            # A
+            run_a = p.add_run("A. ")
+            run_a.bold = True
+            add_html_formatted_text(p, q['option_a'])
+            p.add_run("\t")
+
+            # B
+            run_b = p.add_run("B. ")
+            run_b.bold = True
+            add_html_formatted_text(p, q['option_b'])
+            p.add_run("\t")
+
+            # C
+            run_c = p.add_run("C. ")
+            run_c.bold = True
+            add_html_formatted_text(p, q['option_c'])
+            p.add_run("\t")
+
+            # D
+            run_d = p.add_run("D. ")
+            run_d.bold = True
+            add_html_formatted_text(p, q['option_d'])
+
+
+        i += 1
+
+    return i
+
+
+def render_standard_synonym_antonym_group(doc, results, start_index):
+    first_res = results[start_index]
+    questions = first_res.get("parsed", {}).get("questions", [])
+
+    if not questions:
+        return start_index + 1
+
+    group_type = questions[0].get("type", "").lower()
+
+    # ===== Title =====
+    title_para = doc.add_paragraph()
+    title_run = title_para.add_run()
+
+    if group_type == "synonym":
+        title_run.text = (
+            "Synonyms: Choose A, B, C or D that has the CLOSEST "
+            "meaning to the underlined word/phrase in each question."
+        )
+    else:
+        title_run.text = (
+            "Antonyms: Choose A, B, C or D that has the OPPOSITE "
+            "meaning to the underlined word/phrase in each question."
+        )
+
+    title_run.bold = True
+
+    i = start_index
+    n = len(results)
+
+    while i < n:
+        res = results[i]
+
+        # ❌ dừng nếu khác loại block
+        if res.get("type") != "SYNONYM_ANTONYM":
+            break
+
+        parsed = res.get("parsed") or {}
+        questions = parsed.get("questions") or []
+
+        if not questions:
+            break
+
+        current_type = questions[0].get("type", "").lower()
+
+        # ❌ dừng nếu khác synonym / antonym
+        if current_type != group_type:
+            break
+
+        # ===== render từng câu =====
+        for q in questions:
+            # đảm bảo question có HTML vẫn render đúng
+            if "question" in q and q["question"]:
+                # dùng hàm đã sửa trước đó
+                render_standard_single_synonym_question(doc, q)
+            else:
+                # fallback nếu thiếu data
+                doc.add_paragraph(f"Question {q.get('number', '')}: [Missing question]")
+
+        i += 1
+
+    return i
+
+def render_standard_single_synonym_question(doc, q):
+    p = doc.add_paragraph()
+    
+    # tránh crash nếu thiếu number
+    question_number = q.get("number", "")
+    run_bold = p.add_run(f"Question {question_number}: ")
+    run_bold.bold = True
+
+    # render HTML cho question
+    add_html_formatted_text(p, q.get("question", ""))
+
+    # options 1 dòng
+    p = doc.add_paragraph()
+    tab_stops = p.paragraph_format.tab_stops
+    tab_stops.add_tab_stop(Inches(1.5))
+    tab_stops.add_tab_stop(Inches(2.5))
+    tab_stops.add_tab_stop(Inches(2.5))
+
+    p.add_run(
+        f"A. {q.get('option_a', '')}\t"
+        f"B. {q.get('option_b', '')}\t"
+        f"C. {q.get('option_c', '')}\t"
+        f"D. {q.get('option_d', '')}"
+    )
+
+
+
+def render_standard_dialogue_completion_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "DIALOUGE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold, 1 lần) =====
+        if not title_added:
+            instruction = parsed.get("instruction", "")
+            p = doc.add_paragraph()
+            run = p.add_run(instruction)
+            run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question =====
+            # doc.add_paragraph(f"Question {q['number']}:")
+            p_question = doc.add_paragraph()
+            run_bold = p_question.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            if q.get("speaker_a"):
+                doc.add_paragraph(q["speaker_a"])
+            if q.get("speaker_b"):
+                doc.add_paragraph(q["speaker_b"])
+
+            # ===== Options dòng 1 (A B) =====
+            p1 = doc.add_paragraph()
+            tab_stops = p1.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(3))
+
+            p1.add_run(f"A. {q['option_a']}\tB. {q['option_b']}")
+
+            # ===== Options dòng 2 (C D) =====
+            p2 = doc.add_paragraph()
+            tab_stops = p2.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(3))
+
+            p2.add_run(f"C. {q['option_c']}\tD. {q['option_d']}")
+
+
+        i += 1
+
+    return i

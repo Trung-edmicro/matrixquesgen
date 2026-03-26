@@ -1,5 +1,4 @@
 import random
-
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
 import pandas as pd
@@ -11,8 +10,7 @@ import json
 import requests
 import shutil
 from api.callApi import get_credentials
-# from services.english_generator_service.vertex_async_client import AsyncVertexClient
-from .docx_helper_english import add_formatted_paragraph, add_html_formatted_text
+from .docx_helper_english import add_formatted_paragraph, add_html_formatted_text, render_standard_dialogue_completion_group, render_standard_logical_thinking_group, render_standard_sentence_completion_group, render_standard_single_synonym_question, render_standard_pronunciation_stress_group,render_standard_word_reordering_group,render_standard_sentence_transformation_group,render_standard_error_identification_group,render_standard_synonym_antonym_group
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
 import re
@@ -155,7 +153,6 @@ def detect_type_columns(df):
     col_map = {}
     for i, col in enumerate(df.columns):
         col_lower = str(col).lower()
-
         if "điền từ" in col_lower:
             col_map["Điền từ"] = i
         elif "sắp xếp từ" in col_lower:
@@ -166,8 +163,6 @@ def detect_type_columns(df):
             col_map["Đọc hiểu"] = i
         elif "điền cụm" in col_lower:
             col_map["Điền cụm từ/điền câu"] = i
-
-        # ==== ADD THÊM ====
         elif "hoàn thành câu" in col_lower:
             col_map["Hoàn thành câu"] = i
         elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
@@ -182,8 +177,6 @@ def detect_type_columns(df):
             col_map["Câu giao tiếp"] = i
         elif "tình huống" in col_lower or "tư duy" in col_lower:
             col_map["Tư duy/Tình huống"] = i
-        # ==================
-
     return col_map
 
 
@@ -931,16 +924,55 @@ def generate_docx_from_ai_results(results, output_path):
     doc.save(output_path)
 
 
+# def export_standard_docx_from_data(json_data, output_path):
+#     """
+#     Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
+#     Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
+#     """
+#     results = json_data.get("results")
+#     if not results:
+#         raise Exception("No 'results' found in JSON")
+
+#     # Nếu result chưa có 'parsed', thử parse từ 'data'
+#     for res in results:
+#         if "parsed" not in res or res["parsed"] is None:
+#             res["parsed"] = _safe_parse_json(res.get("data") or "")
+
+#     doc = Document()
+#     _apply_default_style(doc)
+
+#     for res in results:
+#         _add_instruction(doc, res)
+#         parsed = res.get("parsed")
+#         res_type = res.get("type")
+
+#         if parsed is None:
+#             raw = res.get("data") or ""
+#             _render_fallback(doc, res_type, raw)
+#         else:
+#             if res_type in ("CLOZE", "GAP", "RC"):
+#                 _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
+#             elif res_type == "ARRANGE":
+#                 _render_standard_arrange_from_json(doc, parsed)
+#             else:
+#                 logger.warning(f"Unknown type: {res_type}")
+
+
+#     doc.save(output_path)
+#     return output_path
+
 def export_standard_docx_from_data(json_data, output_path):
     """
-    Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
-    Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
+    Nhận trực tiếp JSON object (dict), render docx (STANDARD FORMAT).
+    - Hỗ trợ parsed + raw data
+    - Có grouping giống export_docx_from_data
     """
+
     results = json_data.get("results")
     if not results:
         raise Exception("No 'results' found in JSON")
 
-    # Nếu result chưa có 'parsed', thử parse từ 'data'
+    # ===== Ensure parsed =====
     for res in results:
         if "parsed" not in res or res["parsed"] is None:
             res["parsed"] = _safe_parse_json(res.get("data") or "")
@@ -948,22 +980,70 @@ def export_standard_docx_from_data(json_data, output_path):
     doc = Document()
     _apply_default_style(doc)
 
-    for res in results:
-        _add_instruction(doc, res)
+    i = 0
+    n = len(results)
+
+    while i < n:
+        res = results[i]
         parsed = res.get("parsed")
         res_type = res.get("type")
 
+        # ===== FALLBACK =====
         if parsed is None:
+            _add_instruction(doc, res)
             raw = res.get("data") or ""
             _render_fallback(doc, res_type, raw)
-        else:
-            if res_type in ("CLOZE", "GAP", "RC"):
-                _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-            elif res_type == "ARRANGE":
-                _render_standard_arrange_from_json(doc, parsed)
-            else:
-                logger.warning(f"Unknown type: {res_type}")
+            i += 1
+            continue
 
+        # ===== CLOZE / GAP / RC =====
+        if res_type in ("CLOZE", "GAP", "RC"):
+            _add_instruction(doc, res)
+            _render_standard_cloze_from_json(
+                doc,
+                parsed,
+                merge_options=(res_type == "CLOZE")
+            )
+            i += 1
+
+        # ===== ARRANGE =====
+        elif res_type == "ARRANGE":
+            _add_instruction(doc, res)
+            _render_standard_arrange_from_json(doc, parsed)
+            i += 1
+
+        # ===== SYNONYM / ANTONYM (GROUP) =====
+        elif res_type == "SYNONYM_ANTONYM":
+            i = render_standard_synonym_antonym_group(doc, results, i)
+
+        # ===== SENTENCE COMPLETION =====
+        elif res_type == "SENTENCE_COMPLETION":
+            i =  render_standard_sentence_completion_group(doc, results, i)
+
+        # ===== ERROR IDENTIFICATION =====
+        elif res_type == "ERROR_IDENTIFICATION":
+            i = render_standard_error_identification_group(doc, results, i)
+
+        # ===== SENTENCE TRANSFORMATION =====
+        elif res_type == "SENTENCE_TRANSFORMATION":
+            i = render_standard_sentence_transformation_group(doc, results, i)
+
+        # ===== PRONUNCIATION / STRESS =====
+        elif res_type == "PRONUNCIATION_STRESS":
+            i = render_standard_pronunciation_stress_group(doc, results, i)
+
+        # ===== LOGICAL THINKING =====
+        elif res_type == "LOGICAL_THINKING":
+            i = render_standard_logical_thinking_group(doc, results, i)
+
+        # ===== WORD REORDERING =====
+        elif res_type == "WORD_REORDERING":
+            i = render_standard_word_reordering_group(doc, results, i)
+
+        # ===== UNKNOWN =====
+        else:
+            logger.warning(f"Unknown type: {res_type}")
+            i += 1
 
     doc.save(output_path)
     return output_path
@@ -1039,7 +1119,6 @@ def export_docx_from_data(json_data, output_path):
             _add_instruction(doc, res)
             raw = res.get("data") or ""
             _render_fallback(doc, res_type, raw)
-            _add_separator(doc)
             i += 1
             continue
 

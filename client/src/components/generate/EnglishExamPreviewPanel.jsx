@@ -543,3 +543,114 @@ function WordReorderingBlock({ data }) {
     </div>
   )
 }
+
+
+function LogicalThinkingBlock({ data }) {
+
+  const questions = data?.questions || []
+
+  if (!questions.length) return null
+
+  return (
+    <div className="mb-12">
+
+      {/* TITLE (chỉ 1 lần) */}
+      <p className="font-bold mb-6">
+        Logical thinking and problem solving: Choose A, B, C or D to answer each question.
+      </p>
+
+      {questions.map(q => (
+        <div key={q.number} className="mb-8">
+
+          {/* QUESTION NUMBER */}
+          <p className="font-semibold">
+            Question {q.number}:
+          </p>
+
+          {/* SCENARIO */}
+          {q.scenario && (
+            <p className="mt-1">
+              {q.scenario}
+            </p>
+          )}
+
+          {/* DIALOGUE */}
+          {q.speaker_a && (
+            <p className="mt-1">
+              {q.speaker_a}
+            </p>
+          )}
+
+          {q.speaker_b && (
+            <p>
+              {q.speaker_b}
+            </p>
+          )}
+
+          {/* QUESTION */}
+          {q.question && (
+            <p className="mt-1">
+              {q.question}
+            </p>
+          )}
+
+          {/* OPTIONS */}
+          <div className="pl-6 mt-2 space-y-1">
+            <p>A. {q.option_a}</p>
+            <p>B. {q.option_b}</p>
+            <p>C. {q.option_c}</p>
+            <p>D. {q.option_d}</p>
+          </div>
+
+          {/* EXPLANATION */}
+          <div className="mt-3 pl-6 text-gray-800">
+
+            <p className="font-semibold">
+              Lời giải
+            </p>
+
+            <p className="font-semibold">
+              Chọn {q.answer}
+            </p>
+
+            {q.explanation && (
+              <p className="mt-1 whitespace-pre-line">
+                {q.explanation}
+              </p>
+            )}
+
+            {/* TRANSLATION */}
+            {q.translation && (
+              <div className="mt-2 space-y-1">
+
+                {q.translation.scenario && (
+                  <p>
+                    <b>Tình huống:</b> {q.translation.scenario}
+                  </p>
+                )}
+
+                {q.translation.question && (
+                  <p>
+                    <b>Câu hỏi:</b> {q.translation.question}
+                  </p>
+                )}
+
+                {q.translation.speaker_a && (
+                  <p>{q.translation.speaker_a}</p>
+                )}
+
+                {q.translation.speaker_b && (
+                  <p>{q.translation.speaker_b}</p>
+                )}
+
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      ))}
+
+    </div>
+  )
+}
