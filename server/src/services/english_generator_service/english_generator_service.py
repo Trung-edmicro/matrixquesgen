@@ -1,5 +1,4 @@
 import random
-
 from bs4 import BeautifulSoup
 from fastapi import HTTPException
 import pandas as pd
@@ -11,20 +10,19 @@ import json
 import requests
 import shutil
 from api.callApi import get_credentials
-# from services.english_generator_service.vertex_async_client import AsyncVertexClient
-from .docx_helper_english import add_formatted_paragraph
+from .docx_helper_english import add_formatted_paragraph, add_html_formatted_text, render_standard_dialogue_completion_group, render_standard_logical_thinking_group, render_standard_sentence_completion_group, render_standard_single_synonym_question, render_standard_pronunciation_stress_group,render_standard_word_reordering_group,render_standard_sentence_transformation_group,render_standard_error_identification_group,render_standard_synonym_antonym_group
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
 import re
 import html
 from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
 import logging
 from collections import defaultdict, Counter
 from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
                         ARRANGE_JSON_SCHEMA,
-     CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,
+     CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,SENTENCE_COMPLETION_JSON_SCHEMA,SYNONYM_ANTONYM_JSON_SCHEMA,ERROR_IDENTIFICATION_JSON_SCHEMA,SENTENCE_TRANSFORMATION_JSON_SCHEMA,WORD_REORDERING_JSON_SCHEMA,PRONUNCIATION_STRESS_JSON_SCHEMA,DIALOGUE_COMPLETION_JSON_SCHEMA,LOGICAL_THINKING_JSON_SCHEMA,
        READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
 from .drive_helper_services import load_vocabulary_from_drive
@@ -136,18 +134,49 @@ def load_prompt(filename: str) -> str:
 # EXCEL EXTRACT LOGIC
 # ============================
 
+# def detect_type_columns(df):
+#     col_map = {}
+#     for i, col in enumerate(df.columns):
+#         col_lower = str(col).lower()
+#         if "điền từ" in col_lower:
+#             col_map["Điền từ"] = i
+#         elif "sắp xếp" in col_lower:
+#             col_map["Sắp xếp"] = i
+#         elif "đọc hiểu" in col_lower:
+#             col_map["Đọc hiểu"] = i
+#         elif "điền cụm" in col_lower:
+#             col_map["Điền cụm từ/điền câu"] = i
+        
+#     return col_map
+
 def detect_type_columns(df):
     col_map = {}
     for i, col in enumerate(df.columns):
         col_lower = str(col).lower()
         if "điền từ" in col_lower:
             col_map["Điền từ"] = i
+        elif "sắp xếp từ" in col_lower:
+            col_map["Sắp xếp từ"] = i
         elif "sắp xếp" in col_lower:
             col_map["Sắp xếp"] = i
         elif "đọc hiểu" in col_lower:
             col_map["Đọc hiểu"] = i
         elif "điền cụm" in col_lower:
             col_map["Điền cụm từ/điền câu"] = i
+        elif "hoàn thành câu" in col_lower:
+            col_map["Hoàn thành câu"] = i
+        elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
+            col_map["Đồng nghĩa/Trái nghĩa"] = i
+        elif "tìm lỗi sai" in col_lower:
+            col_map["Tìm lỗi sai"] = i
+        elif "kết hợp" in col_lower or "viết lại" in col_lower:
+            col_map["Kết hợp/viết lại câu"] = i
+        elif "phát âm" in col_lower or "trọng âm" in col_lower:
+            col_map["Phát âm/Trọng âm"] = i
+        elif "giao tiếp" in col_lower:
+            col_map["Câu giao tiếp"] = i
+        elif "tình huống" in col_lower or "tư duy" in col_lower:
+            col_map["Tư duy/Tình huống"] = i
     return col_map
 
 
@@ -352,13 +381,11 @@ async def generate_exam_docx(blocks, output_path):
     # )
 
     client = AsyncVertexGemini31(
-    project_id=project_id,
+    project_id="onluyen-media",
     model="gemini-3.1-pro-preview",
     thinking_level="HIGH"
 )
-
-    doc = Document()
-    doc.add_heading("ĐỀ THI TIẾNG ANH", level=1)
+    # doc.add_heading("ĐỀ THI TIẾNG ANH", level=1)
 
     q_count = 1
     tasks = []
@@ -410,23 +437,21 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{SOURCE_TEXT}", safe_str(document_sample))
             )
 
-            print(f">>>>>>> debug formatted cloze prompt {formatted_cloze_prompt}")
-
             # Chọn schema có/không có tiêu đề tùy text_type
             has_title = text_type in ("Quảng cáo", "Thông báo", "Advertisement", "Announcement")
             if has_title:
-                output_rule = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
+                output_rule_cloze = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
                     TEXT_TYPE=text_type,
                     N_Q=n_q,
                     START_NUM=q_count
                 )
             else:
-                output_rule = CLOZE_JSON_SCHEMA.format(
+                output_rule_cloze = CLOZE_JSON_SCHEMA.format(
                     N_Q=n_q,
                     START_NUM=q_count
                 )
 
-            ai_input = (
+            ai_input_cloze = (
                 f"{formatted_cloze_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
                 f"Từ vựng tham khảo: {vocabulary}\n"
@@ -438,11 +463,11 @@ async def generate_exam_docx(blocks, output_path):
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
-                + output_rule
+                + output_rule_cloze
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input)
+            task = limited_generate(client, ai_input_cloze)
             tasks.append(task)
             block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -454,7 +479,7 @@ async def generate_exam_docx(blocks, output_path):
         elif q_type == "Sắp xếp":
 
             spec_item = questions[0]
-            output_rule = ARRANGE_JSON_SCHEMA.format(START_NUM=q_count)
+            output_rule_arranage = ARRANGE_JSON_SCHEMA.format(START_NUM=q_count)
             formatted_arrange_prompt = (
                             prompt_template
                                 .replace("{TOPIC_NAME}", safe_str(topic))
@@ -463,9 +488,8 @@ async def generate_exam_docx(blocks, output_path):
                                 .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                                 .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
                         )
-            print(f">>>>>> debug formatted_arrage_prompt {formatted_arrange_prompt}")
 
-            ai_input = (
+            ai_input_arrange = (
                 f"{formatted_arrange_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
                 f"Từ vựng tham khảo:{vocabulary}\n"
@@ -475,11 +499,11 @@ async def generate_exam_docx(blocks, output_path):
                 f"Mức độ: {spec_item['level']}\n"
                 f"Đánh số câu: Question {q_count}\n\n"
                 f"## OUTPUT FORMAT\n"
-                + output_rule
+                + output_rule_arranage
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input)
+            task = limited_generate(client, ai_input_arrange)
             tasks.append(task)
             block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en))
             q_count += 1
@@ -490,7 +514,7 @@ async def generate_exam_docx(blocks, output_path):
 
         elif q_type == "Đọc hiểu":
 
-            output_rule = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
+            output_rule_reading_comprehensive = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
                 TEXT_TYPE=text_type,
                 N_Q=n_q,
                 START_NUM=q_count
@@ -506,10 +530,7 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{SOURCE_TEXT}", safe_str(document_sample))
             )
 
-            print(f">>>>>>> debug formated prompt {formatted_reading_prompt}")
-
-
-            ai_input = (
+            ai_input_reading_comprehensive = (
                 f"{formatted_reading_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
                 f"Từ vựng tham khảo: {vocabulary}"
@@ -522,11 +543,11 @@ async def generate_exam_docx(blocks, output_path):
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
-                + output_rule
+                + output_rule_reading_comprehensive
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input)
+            task = limited_generate(client, ai_input_reading_comprehensive)
             tasks.append(task)
             block_meta.append(("RC", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -537,7 +558,7 @@ async def generate_exam_docx(blocks, output_path):
 
         elif q_type == "Điền cụm từ/điền câu":
 
-            output_rule = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
+            output_rule_fill_in_phrase = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
                 TEXT_TYPE=text_type,
                 N_Q=n_q,
                 START_NUM=q_count
@@ -554,7 +575,7 @@ async def generate_exam_docx(blocks, output_path):
             )
 
 
-            ai_input = (
+            ai_input_silent = (
                 f"{formatted_silent_prompt}\n\n"
                 f"Chủ đề: {topic}\n"
                 f"Từ vựng tham khảo: {vocabulary}"
@@ -568,13 +589,286 @@ async def generate_exam_docx(blocks, output_path):
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
-                + output_rule
+                + output_rule_fill_in_phrase
             )
+           
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input)
+            task = limited_generate(client, ai_input_silent)
             tasks.append(task)
             block_meta.append(("GAP", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+        
+        elif q_type == "Hoàn thành câu":
+            spec_item = questions[0]
+            output_rule_sentence_completion = SENTENCE_COMPLETION_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_sentence_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            ai_input_sentence_completion = (
+                f"{formatted_sentence_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_sentence_completion
+            )
+
+            task = limited_generate(client, ai_input_sentence_completion)
+            tasks.append(task)
+            block_meta.append(("SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Đồng nghĩa/Trái nghĩa":
+            spec_item = questions[0]
+            output_rule_synonum_antonym = SYNONYM_ANTONYM_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_synonum_antonym_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_synonym_antonym = (
+                f"{formatted_synonum_antonym_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_synonum_antonym
+            )
+
+            task = limited_generate(client, ai_input_synonym_antonym)
+            tasks.append(task)
+            block_meta.append(("SYNONYM_ANTONYM", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tìm lỗi sai":
+            spec_item = questions[0]
+            output_rule_error_identification = ERROR_IDENTIFICATION_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_error_identification_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            ai_input_error_identification = (
+                f"{formatted_error_identification_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_error_identification
+            )
+
+            task = limited_generate(client, ai_input_error_identification)
+            tasks.append(task)
+            block_meta.append(("ERROR_IDENTIFICATION", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+        
+        elif q_type == "Kết hợp/viết lại câu":
+            spec_item = questions[0]
+            output_rule_sentence_transformation = SENTENCE_TRANSFORMATION_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_sentence_transformation_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_sentence_transformation = (
+                f"{formatted_sentence_transformation_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_sentence_transformation
+            )
+
+            print(f">>>>> debug ai_input_sentence_transformation: {ai_input_sentence_transformation}")
+
+            task = limited_generate(client, ai_input_sentence_transformation)
+            tasks.append(task)
+            block_meta.append(("SENTENCE_TRANSFORMATION", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Sắp xếp từ":
+            spec_item = questions[0]
+            output_rule_word_reordering = WORD_REORDERING_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_word_reordering_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_word_reordering = (
+                f"{formatted_word_reordering_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_word_reordering
+            )
+
+            task = limited_generate(client, ai_input_word_reordering)
+            tasks.append(task)
+            block_meta.append(("WORD_REORDERING", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+        
+        elif q_type == "Phát âm/Trọng âm":
+            spec_item = questions[0]
+            output_rule_pronounciation_stress = PRONUNCIATION_STRESS_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_word_reordering_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            ai_input_pronounciation_stress = (
+                f"{formatted_word_reordering_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_pronounciation_stress
+            )
+
+            task = limited_generate(client, ai_input_pronounciation_stress)
+            tasks.append(task)
+            block_meta.append(("PRONUNCIATION_STRESS", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Câu giao tiếp":
+            spec_item = questions[0]
+            output_rule_dialouge_completion = DIALOGUE_COMPLETION_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_dialouge_completion_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_pronounciation_stress = (
+                f"{formatted_dialouge_completion_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_dialouge_completion
+            )
+
+            task = limited_generate(client, ai_input_pronounciation_stress)
+            tasks.append(task)
+            block_meta.append(("DIALOUGE_COMPLETION", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tư duy/Tình huống":
+            spec_item = questions[0]
+
+            output_rule_logical_thinking = LOGICAL_THINKING_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_logical_thinking_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_logical_thinking = (
+                f"{formatted_logical_thinking_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## OUTPUT FORMAT\n"
+                + output_rule_logical_thinking
+            )
+
+            task = limited_generate(client, ai_input_logical_thinking)
+            tasks.append(task)
+            block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
     responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -589,8 +883,7 @@ async def generate_exam_docx(blocks, output_path):
 
         results.append({
             "type": block_type,
-            "title": topic,
-            "data": response_text,       # raw text (giữ lại để debug)
+            "title": topic,    # raw text (giữ lại để debug)
             "parsed": parsed,            # dict đã parse
             "question_count": n_q,
             "start_num": start_num,
@@ -598,7 +891,7 @@ async def generate_exam_docx(blocks, output_path):
         })
         # print(f">>>>>> debug results {results}")
 
-    generate_docx_from_ai_results(results, output_path)
+    # generate_docx_from_ai_results(results, output_path)
     return results
 
 
@@ -622,24 +915,27 @@ def generate_docx_from_ai_results(results, output_path):
         else:
             if res["type"] in ("CLOZE", "GAP", "RC"):
                 _render_cloze_from_json(doc, parsed, merge_options=(res["type"] == "CLOZE"),qtype=res["type"])
+            # if res["type"] == "SENTENCE_COMPLETION":
+
             elif res["type"] == "ARRANGE":
                 _render_arrange_from_json(doc, parsed)
 
-        _add_separator(doc)
 
     doc.save(output_path)
 
 
 def export_standard_docx_from_data(json_data, output_path):
     """
-    Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
-    Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
+    Nhận trực tiếp JSON object (dict), render docx (STANDARD FORMAT).
+    - Hỗ trợ parsed + raw data
+    - Có grouping giống export_docx_from_data
     """
+
     results = json_data.get("results")
     if not results:
         raise Exception("No 'results' found in JSON")
 
-    # Nếu result chưa có 'parsed', thử parse từ 'data'
+    # ===== Ensure parsed =====
     for res in results:
         if "parsed" not in res or res["parsed"] is None:
             res["parsed"] = _safe_parse_json(res.get("data") or "")
@@ -647,39 +943,86 @@ def export_standard_docx_from_data(json_data, output_path):
     doc = Document()
     _apply_default_style(doc)
 
-    for res in results:
-        _add_instruction(doc, res)
+    i = 0
+    n = len(results)
+
+    while i < n:
+        res = results[i]
         parsed = res.get("parsed")
         res_type = res.get("type")
 
+        # ===== FALLBACK =====
         if parsed is None:
+            _add_instruction(doc, res)
             raw = res.get("data") or ""
             _render_fallback(doc, res_type, raw)
-        else:
-            if res_type in ("CLOZE", "GAP", "RC"):
-                _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-            elif res_type == "ARRANGE":
-                _render_standard_arrange_from_json(doc, parsed)
-            else:
-                logger.warning(f"Unknown type: {res_type}")
+            i += 1
+            continue
 
-        _add_separator(doc)
+        # ===== CLOZE / GAP / RC =====
+        if res_type in ("CLOZE", "GAP", "RC"):
+            _add_instruction(doc, res)
+            _render_standard_cloze_from_json(
+                doc,
+                parsed,
+                merge_options=(res_type == "CLOZE")
+            )
+            i += 1
+
+        # ===== ARRANGE =====
+        elif res_type == "ARRANGE":
+            _add_instruction(doc, res)
+            _render_standard_arrange_from_json(doc, parsed)
+            i += 1
+
+        # ===== SYNONYM / ANTONYM (GROUP) =====
+        elif res_type == "SYNONYM_ANTONYM":
+            i = render_standard_synonym_antonym_group(doc, results, i)
+
+        # ===== SENTENCE COMPLETION =====
+        elif res_type == "SENTENCE_COMPLETION":
+            i =  render_standard_sentence_completion_group(doc, results, i)
+
+        # ===== ERROR IDENTIFICATION =====
+        elif res_type == "ERROR_IDENTIFICATION":
+            i = render_standard_error_identification_group(doc, results, i)
+
+        # ===== SENTENCE TRANSFORMATION =====
+        elif res_type == "SENTENCE_TRANSFORMATION":
+            i = render_standard_sentence_transformation_group(doc, results, i)
+
+        # ===== PRONUNCIATION / STRESS =====
+        elif res_type == "PRONUNCIATION_STRESS":
+            i = render_standard_pronunciation_stress_group(doc, results, i)
+
+        # ===== LOGICAL THINKING =====
+        elif res_type == "LOGICAL_THINKING":
+            i = render_standard_logical_thinking_group(doc, results, i)
+
+        # ===== WORD REORDERING =====
+        elif res_type == "WORD_REORDERING":
+            i = render_standard_word_reordering_group(doc, results, i)
+
+        # ===== UNKNOWN =====
+        else:
+            logger.warning(f"Unknown type: {res_type}")
+            i += 1
 
     doc.save(output_path)
     return output_path
 
 
-
 def export_docx_from_data(json_data, output_path):
     """
-    Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
-    Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
+    Render docx từ JSON.
+    - Hỗ trợ parsed + raw data
+    - Tối ưu: group SYNONYM / ANTONYM liên tiếp
     """
     results = json_data.get("results")
     if not results:
         raise Exception("No 'results' found in JSON")
 
-    # Nếu result chưa có 'parsed', thử parse từ 'data'
+    # ===== Ensure parsed =====
     for res in results:
         if "parsed" not in res or res["parsed"] is None:
             res["parsed"] = _safe_parse_json(res.get("data") or "")
@@ -687,23 +1030,62 @@ def export_docx_from_data(json_data, output_path):
     doc = Document()
     _apply_default_style(doc)
 
-    for res in results:
-        _add_instruction(doc, res)
+    i = 0
+    n = len(results)
+
+    while i < n:
+        res = results[i]
         parsed = res.get("parsed")
         res_type = res.get("type")
 
+        # ===== FALLBACK =====
         if parsed is None:
+            _add_instruction(doc, res)
             raw = res.get("data") or ""
             _render_fallback(doc, res_type, raw)
-        else:
-            if res_type in ("CLOZE", "GAP", "RC"):
-                _render_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-            elif res_type == "ARRANGE":
-                _render_arrange_from_json(doc, parsed)
-            else:
-                logger.warning(f"Unknown type: {res_type}")
+            i += 1
+            continue
 
-        _add_separator(doc)
+        # ===== CLOZE / GAP / RC =====
+        if res_type in ("CLOZE", "GAP", "RC"):
+            _add_instruction(doc, res)
+            _render_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
+           
+            i += 1
+
+        # ===== ARRANGE =====
+        elif res_type == "ARRANGE":
+            _add_instruction(doc, res)
+            _render_arrange_from_json(doc, parsed)
+        
+            i += 1
+
+        # ===== SYNONYM / ANTONYM (GROUP) =====
+        elif res_type == "SYNONYM_ANTONYM":
+            i = render_synonym_antonym_group(doc, results, i)
+           
+        
+        elif res_type == "SENTENCE_COMPLETION":
+            i = render_sentence_completion_group(doc, results, i)
+           
+        elif res_type == "ERROR_IDENTIFICATION":
+            i = render_error_identification_group(doc, results, i)
+            
+        elif res_type == "SENTENCE_TRANSFORMATION":
+            i = render_sentence_transformation_group(doc, results, i)
+            
+        elif res_type == "PRONUNCIATION_STRESS":
+            i = render_pronunciation_stress_group(doc, results, i)
+            
+        elif res_type == "LOGICAL_THINKING":
+            i = render_logical_thinking_group(doc, results, i)
+        elif res_type == "WORD_REORDERING":
+            i = render_word_reordering_group(doc, results, i)
+           
+        # ===== UNKNOWN =====
+        else:
+            logger.warning(f"Unknown type: {res_type}")
+            i += 1
 
     doc.save(output_path)
     return output_path
@@ -789,80 +1171,7 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
             doc.add_paragraph(f"C. {opt_c}")
             doc.add_paragraph(f"D. {opt_d}")
 
-# def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
-#     """
-#     Replace các dạng:
-#     - Phương án A/B/C/D
-#     - A , B , C , D (chữ cái + khoảng trắng)
 
-#     bằng nội dung option tương ứng đặt trong dấu ngoặc kép
-#     """
-
-#     option_map = {
-#         "a": opt_a,
-#         "b": opt_b,
-#         "c": opt_c,
-#         "d": opt_d
-#     }
-
-#     # ── Replace "Phương án A" ──
-#     def repl_full(match):
-#         key = match.group(1).lower()
-#         return f'"{option_map.get(key, "")}"'
-
-#     text = re.sub(
-#         r'phương\s*án\s*([abcd])',
-#         repl_full,
-#         text,
-#         flags=re.IGNORECASE
-#     )
-
-#     # ── Replace "A " / "B " / "C " / "D " ──
-#     def repl_letter(match):
-#         key = match.group(1).lower()
-#         return f'"{option_map.get(key, "")}" '
-
-#     text = re.sub(
-#         r'\b([ABCD])\s',
-#         repl_letter,
-#         text
-#     )
-
-#     return text 
-
-
-def _replace_option_reference(text, opt_a, opt_b, opt_c, opt_d):
-
-    option_map = {
-        "A": opt_a,
-        "B": opt_b,
-        "C": opt_c,
-        "D": opt_d
-    }
-
-    # Replace "Phương án A"
-    def repl_phrase(match):
-        key = match.group(1).upper()
-        return f'"{option_map.get(key,"")}"'
-
-    text = re.sub(
-        r'phương\s*án\s*([abcd])',
-        repl_phrase,
-        text,
-        flags=re.IGNORECASE
-    )
-
-    # Replace chữ cái A/B/C/D đứng độc lập
-    # không nằm trong từ
-    # pattern = re.compile(r'(?<![A-Za-z])([ABCD])(?![A-Za-z])')
-
-    # def repl_letter(match):
-    #     key = match.group(1)
-    #     return f'"{option_map.get(key,"")}"'
-
-    # text = pattern.sub(repl_letter, text)
-
-    return text
 
 
 def add_html_paragraph(doc, text, prefix=None):
@@ -884,6 +1193,619 @@ def add_html_paragraph(doc, text, prefix=None):
             run.bold = any(tag.name in ["strong", "b"] for tag in parent.parents) or parent.name in ["strong", "b"]
             run.underline = parent.find_parent("u") is not None or parent.name == "u"
             run.italic = parent.find_parent("i") is not None or parent.name == "i"
+
+def add_multiline_text(doc, text: str):
+    p = doc.add_paragraph()
+    lines = text.split("\n")
+    
+    for i, line in enumerate(lines):
+        run = p.add_run(line)
+        if i < len(lines) - 1:
+            run.add_break()  # xuống dòng trong cùng paragraph
+
+def render_sentence_completion_group(doc, results, start_index):
+    title_added = False
+    i = start_index
+    n = len(results)
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Add title (chỉ 1 lần) =====
+        if not title_added:
+            title_para = doc.add_paragraph()
+            title_run = title_para.add_run(
+                "Sentence completion: Choose A, B, C or D to complete each sentence."
+            )
+            title_run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # Question
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            run_normal = p.add_run(q['question'])
+
+            # Options (1 dòng)
+            p = doc.add_paragraph()
+            tab_stops = p.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(1.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+
+            p.add_run(
+                f"A. {q['option_a']}\t"
+                f"B. {q['option_b']}\t"
+                f"C. {q['option_c']}\t"
+                f"D. {q['option_d']}"
+            )
+            
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            # Answer
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # Explanation
+            add_multiline_text(doc, q["explanation"])
+
+            # Translation
+            doc.add_paragraph(f"Tạm dich: {q['translation']}")
+
+
+        i += 1
+
+    return i
+
+
+def render_logical_thinking_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "LOGICAL_THINKING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold, 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Logical thinking and problem solving: Choose A, B, C or D to answer each question."
+            )
+            run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question number =====
+            # doc.add_paragraph(f"Question {q['number']}:")
+            p = doc.add_paragraph()  # only 1 paragraph for this question
+    
+            # Bold part: "Question 1:"
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            # ===== Scenario =====
+            if q.get("scenario"):
+                doc.add_paragraph(q["scenario"])
+
+            # ===== Dialogue =====
+            if q.get("speaker_a"):
+                doc.add_paragraph(f"{q['speaker_a']}")
+            if q.get("speaker_b"):
+                doc.add_paragraph(f"{q['speaker_b']}")
+
+            # ===== Question text =====
+            if q.get("question"):
+                doc.add_paragraph(q["question"])
+
+            # ===== Options (mỗi dòng riêng) =====
+            doc.add_paragraph(f"A. {q['option_a']}")
+            doc.add_paragraph(f"B. {q['option_b']}")
+            doc.add_paragraph(f"C. {q['option_c']}")
+            doc.add_paragraph(f"D. {q['option_d']}")
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+            # ===== Answer =====
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q["explanation"])
+
+            # ===== Translation =====
+            trans = q.get("translation", {})
+            if trans:
+                if trans.get("scenario"):
+                    doc.add_paragraph(f"Tình huống: {trans['scenario']}")
+                if trans.get("question"):
+                    doc.add_paragraph(f"Câu hỏi: {trans['question']}")
+                if trans.get("speaker_a"):
+                    doc.add_paragraph(f"{trans['speaker_a']}")
+                if trans.get("speaker_b"):
+                    doc.add_paragraph(f"{trans['speaker_b']}")
+
+
+        i += 1
+
+    return i
+
+def render_sentence_transformation_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+    current_group_type = None  # rewriting / combination
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "SENTENCE_TRANSFORMATION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        questions = parsed.get("questions", [])
+        if not questions:
+            break
+
+        q_type = questions[0].get("type", "").lower()
+
+        # ===== Nếu khác group → break =====
+        if current_group_type is None:
+            current_group_type = q_type
+        elif q_type != current_group_type:
+            break
+
+        # ===== Add title (1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run()
+
+            if q_type == "rewriting":
+                run.text = ("Sentence rewriting: Choose A, B, C or D that has the CLOSEST "
+                            "meaning to the given sentence in each question.")
+            else:  # combination
+                run.text = ("Sentence combination: Choose A, B, C or D that has the CLOSEST "
+                            "meaning to the given pair of sentences in each question.")
+
+            run.bold = True
+            title_added = True
+
+        # ===== Render câu hỏi =====
+        for q in questions:
+            # doc.add_paragraph(f"Question {q['number']}: {q['question']}")
+
+            p = doc.add_paragraph()  # only 1 paragraph for this question
+    
+            # Bold part: "Question 1:"
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            
+            # Normal part: the actual question text
+            run_normal = p.add_run(q['question'])
+            # ===== Options (mỗi đáp án 1 dòng) =====
+            doc.add_paragraph(f"A. {q['option_a']}")
+            doc.add_paragraph(f"B. {q['option_b']}")
+            doc.add_paragraph(f"C. {q['option_c']}")
+            doc.add_paragraph(f"D. {q['option_d']}")
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            # ===== Answer =====
+            # doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q["explanation"])
+
+            # ===== Translation =====
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+            # ===== Correct translation (nếu có) =====
+            if q.get("correct_translation"):
+                doc.add_paragraph(f"→ {q['correct_translation']}")
+        i += 1
+
+    return i
+
+def render_word_reordering_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+        if res.get("type") != "WORD_REORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, 1 lần) =====
+        if not title_added:
+            p_title = doc.add_paragraph()
+            run = p_title.add_run("Reorder the words given to make correct sentences.")
+            run.bold = True
+            run.italic = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question =====
+            p_question = doc.add_paragraph()
+            # Phần bold
+            run_bold = p_question.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            # Phần bình thường
+            run_normal = p_question.add_run(q.get('word_list', ''))
+
+            # ===== Options ===== (mỗi option 1 paragraph riêng)
+            for label in ["option_a", "option_b", "option_c", "option_d"]:
+                option_text = q.get(label)
+                if option_text:
+                    doc.add_paragraph(f"{label[-1].upper()}. {option_text}")
+
+            # ===== Lời giải (bold) =====
+            p_ex = doc.add_paragraph()
+            run_ex = p_ex.add_run("Lời giải")
+            run_ex.bold = True
+
+            # ===== Answer =====
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            # ===== Translation =====
+            translation = q.get("translation")
+            if translation:
+                doc.add_paragraph(translation)
+
+         
+
+        i += 1
+
+    return i
+
+def render_error_identification_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ERROR_IDENTIFICATION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, chỉ 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Mark the letter A, B, C, or D to indicate the underlined part that needs correction in the following questions."
+            )
+            run.bold = True
+            run.italic = True
+
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question (có format HTML) =====
+
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+            add_html_formatted_text(p, q["question"])
+
+            # ===== Options =====
+            p_opt = doc.add_paragraph()
+            tab_stops = p_opt.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(1.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+            tab_stops.add_tab_stop(Inches(2.5))
+
+            p_opt.add_run(
+                f"A. {q['option_a']}\t"
+                f"B. {q['option_b']}\t"
+                f"C. {q['option_c']}\t"
+                f"D. {q['option_d']}"
+            )
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            # ===== Answer =====
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q["explanation"])
+
+            # ===== Correction =====
+            doc.add_paragraph(f"Sửa: {q['correction']}")
+
+            # ===== Translation =====
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+def render_pronunciation_stress_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "PRONUNCIATION_STRESS":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold + italic, chỉ 1 lần) =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Mark the letter A, B, C, or D on your answer sheet to indicate the word whose underlined part differs from the other three in pronunciation in each of the following questions."
+            )
+            run.bold = True
+            run.italic = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question + options cùng dòng =====
+            # 
+            p = doc.add_paragraph()
+            run_bold = p.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            # A
+            run_a = p.add_run("A. ")
+            run_a.bold = True
+            add_html_formatted_text(p, q['option_a'])
+            p.add_run("\t")
+
+            # B
+            run_b = p.add_run("B. ")
+            run_b.bold = True
+            add_html_formatted_text(p, q['option_b'])
+            p.add_run("\t")
+
+            # C
+            run_c = p.add_run("C. ")
+            run_c.bold = True
+            add_html_formatted_text(p, q['option_c'])
+            p.add_run("\t")
+
+            # D
+            run_d = p.add_run("D. ")
+            run_d.bold = True
+            add_html_formatted_text(p, q['option_d'])
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            # ===== Answer =====
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Details =====
+            for d in q.get("details", []):
+                doc.add_paragraph(
+                    f"{d['word']} /{d['ipa']}/ ({d['pos']}): {d['meaning']}"
+                )
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q["explanation"])
+
+        i += 1
+
+    return i
+
+
+def render_synonym_antonym_group(doc, results, start_index):
+    first_res = results[start_index]
+    questions = first_res.get("parsed", {}).get("questions", [])
+
+    if not questions:
+        return start_index + 1
+
+    group_type = questions[0].get("type", "").lower()
+
+    # ===== Title =====
+    title_para = doc.add_paragraph()
+    title_run = title_para.add_run()
+
+    if group_type == "synonym":
+        title_run.text = (
+            "Synonyms: Choose A, B, C or D that has the CLOSEST "
+            "meaning to the underlined word/phrase in each question."
+        )
+    else:
+        title_run.text = (
+            "Antonyms: Choose A, B, C or D that has the OPPOSITE "
+            "meaning to the underlined word/phrase in each question."
+        )
+
+    title_run.bold = True
+
+    i = start_index
+    n = len(results)
+
+    while i < n:
+        res = results[i]
+
+        # ❌ dừng nếu khác loại block
+        if res.get("type") != "SYNONYM_ANTONYM":
+            break
+
+        parsed = res.get("parsed") or {}
+        questions = parsed.get("questions") or []
+
+        if not questions:
+            break
+
+        current_type = questions[0].get("type", "").lower()
+
+        # ❌ dừng nếu khác synonym / antonym
+        if current_type != group_type:
+            break
+
+        # ===== render từng câu =====
+        for q in questions:
+            # đảm bảo question có HTML vẫn render đúng
+            if "question" in q and q["question"]:
+                # dùng hàm đã sửa trước đó
+                render_single_synonym_question(doc, q)
+            else:
+                # fallback nếu thiếu data
+                doc.add_paragraph(f"Question {q.get('number', '')}: [Missing question]")
+
+        i += 1
+
+    return i
+
+def render_single_synonym_question(doc, q):
+    p = doc.add_paragraph()
+    
+    # tránh crash nếu thiếu number
+    question_number = q.get("number", "")
+    run_bold = p.add_run(f"Question {question_number}: ")
+    run_bold.bold = True
+
+    # render HTML cho question
+    add_html_formatted_text(p, q.get("question", ""))
+
+    # options 1 dòng
+    p = doc.add_paragraph()
+    tab_stops = p.paragraph_format.tab_stops
+    tab_stops.add_tab_stop(Inches(1.5))
+    tab_stops.add_tab_stop(Inches(2.5))
+    tab_stops.add_tab_stop(Inches(2.5))
+
+    p.add_run(
+        f"A. {q.get('option_a', '')}\t"
+        f"B. {q.get('option_b', '')}\t"
+        f"C. {q.get('option_c', '')}\t"
+        f"D. {q.get('option_d', '')}"
+    )
+
+    p = doc.add_paragraph()
+    p.add_run("Lời giải").bold = True
+
+    doc.add_paragraph(f"Chọn {q.get('answer', '')}")
+
+    add_multiline_text(doc, q.get("explanation", ""))
+
+    doc.add_paragraph(f"Tạm dịch: {q.get('translation', '')}")
+
+
+
+def render_dialogue_completion_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "DIALOUGE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== Title (bold, 1 lần) =====
+        if not title_added:
+            instruction = parsed.get("instruction", "")
+            p = doc.add_paragraph()
+            run = p.add_run(instruction)
+            run.bold = True
+            title_added = True
+
+        questions = parsed.get("questions", [])
+
+        for q in questions:
+            # ===== Question =====
+            # doc.add_paragraph(f"Question {q['number']}:")
+            p_question = doc.add_paragraph()
+            run_bold = p_question.add_run(f"Question {q['number']}: ")
+            run_bold.bold = True
+
+            if q.get("speaker_a"):
+                doc.add_paragraph(q["speaker_a"])
+            if q.get("speaker_b"):
+                doc.add_paragraph(q["speaker_b"])
+
+            # ===== Options dòng 1 (A B) =====
+            p1 = doc.add_paragraph()
+            tab_stops = p1.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(3))
+
+            p1.add_run(f"A. {q['option_a']}\tB. {q['option_b']}")
+
+            # ===== Options dòng 2 (C D) =====
+            p2 = doc.add_paragraph()
+            tab_stops = p2.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(Inches(3))
+
+            p2.add_run(f"C. {q['option_c']}\tD. {q['option_d']}")
+
+            # ===== Lời giải (bold) =====
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            # ===== Answer =====
+            doc.add_paragraph(f"Chọn {q['answer']}")
+
+            # ===== Explanation =====
+            add_multiline_text(doc, q["explanation"])
+
+            # ===== Translation =====
+            trans = q.get("translation", {})
+            if trans:
+                if trans.get("speaker_a"):
+                    doc.add_paragraph(trans["speaker_a"])
+                if trans.get("speaker_b"):
+                    doc.add_paragraph(trans["speaker_b"])
+
+
+        i += 1
+
+    return i
 
 def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = False, qtype: str = ""):
     """
@@ -971,19 +1893,6 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
                     p = doc.add_paragraph()
                     add_text_with_markdown_bold(p, line)
 
-        # Quote
-        # if quote:
-        #     p = doc.add_paragraph()
-        #     p.add_run("Trích bài: ").bold = True
-        #     p.add_run(quote)
-
-        # # Translation
-        # if translation:
-        #     p = doc.add_paragraph()
-        #     p.add_run("Tạm dịch: ").bold = True
-        #     p.add_run(translation)
-
-        
         if qtype not in ["RC", "GAP"]:
 
             if quote:
@@ -1001,7 +1910,6 @@ def _render_cloze_from_json(doc: Document, parsed: dict, merge_options: bool = F
                 add_formatted_paragraph(doc, "Tạm dịch: ", translation)
 
         # khoảng cách giữa các câu
-        doc.add_paragraph("")
 
 
 def _render_standard_arrange_from_json(doc: Document, parsed: dict):
@@ -1024,9 +1932,6 @@ def _render_standard_arrange_from_json(doc: Document, parsed: dict):
     opt_b      = parsed.get("option_b", "")
     opt_c      = parsed.get("option_c", "")
     opt_d      = parsed.get("option_d", "")
-    answer     = parsed.get("answer", "?")
-    sol_lines  = parsed.get("solution_lines") or []
-    trans_lines = parsed.get("translation_lines") or []
 
     # Question stem
     p = doc.add_paragraph()
@@ -1037,23 +1942,6 @@ def _render_standard_arrange_from_json(doc: Document, parsed: dict):
     # Options (ghép 1 dòng như chuẩn cũ)
     opts_line = f"A. {opt_a}\t\tB. {opt_b}\t\tC. {opt_c}\t\tD. {opt_d}"
     doc.add_paragraph(opts_line)
-
-    # Lời giải
-    # p = doc.add_paragraph()
-    # p.add_run("Lời giải").bold = True
-    # doc.add_paragraph(f"Chọn {answer}")
-
-    # for line in sol_lines:
-    #     if line.strip():
-    #         doc.add_paragraph(line.strip())
-
-    # # Tạm dịch
-    # if trans_lines:
-    #     p = doc.add_paragraph()
-    #     p.add_run("Tạm dịch:").bold = True
-    #     for line in trans_lines:
-    #         if line.strip():
-    #             doc.add_paragraph(line.strip())
 
 
 def _render_arrange_from_json(doc: Document, parsed: dict):
@@ -1161,7 +2049,7 @@ def _apply_default_style(doc):
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Times New Roman'
-    font.size = Pt(12)
+    font.size = Pt(13)
 
 
 def _add_instruction(doc, res):
@@ -1181,11 +2069,25 @@ def _add_instruction(doc, res):
             f"Read the following passage and mark the letter A, B, C or D "
             "on your answer sheet to indicate the correct answer to each of the following questions."
         )
-    else:  # GAP
+    elif res['type'] == "GAP":  # GAP
         text = (
             f"Read the following passage and mark the letter A, B, C or D "
             "on your answer sheet to indicate the option that best fits each of the numbered blank."
         )
+    elif res['type'] == "DIALOUGE_COMPLETION":
+        text = (
+            f"Dialogue completion: Choose A, B, C or D to complete each dialogue."
+        )
+    elif res['type'] == "SENTENCE_COMPLETION":
+        text = (
+            f"Sentence completion: Choose A, B, C or D to complete each sentence."
+        )
+    elif res['type'] == "LOGICAL_THINKING":
+        text = (f"Logical thinking and problem-solving: Choose A, B, C or D to answer each question.")
+    elif res['type'] == "EERROR_IDENTIFICATION":
+        text = (f"Mark the letter A, B, C, or D on your answer sheet to indicate the underlined part that needs correction in the following question.")
+    elif res['type'] == "WORD_REORDERING":
+        text = (f"Reorder the words given to make a correct sentence.")
     run = instruction.add_run(text)
     run.italic = True
 
