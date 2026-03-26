@@ -924,43 +924,6 @@ def generate_docx_from_ai_results(results, output_path):
     doc.save(output_path)
 
 
-# def export_standard_docx_from_data(json_data, output_path):
-#     """
-#     Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
-#     Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
-#     """
-#     results = json_data.get("results")
-#     if not results:
-#         raise Exception("No 'results' found in JSON")
-
-#     # Nếu result chưa có 'parsed', thử parse từ 'data'
-#     for res in results:
-#         if "parsed" not in res or res["parsed"] is None:
-#             res["parsed"] = _safe_parse_json(res.get("data") or "")
-
-#     doc = Document()
-#     _apply_default_style(doc)
-
-#     for res in results:
-#         _add_instruction(doc, res)
-#         parsed = res.get("parsed")
-#         res_type = res.get("type")
-
-#         if parsed is None:
-#             raw = res.get("data") or ""
-#             _render_fallback(doc, res_type, raw)
-#         else:
-#             if res_type in ("CLOZE", "GAP", "RC"):
-#                 _render_standard_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-#             elif res_type == "ARRANGE":
-#                 _render_standard_arrange_from_json(doc, parsed)
-#             else:
-#                 logger.warning(f"Unknown type: {res_type}")
-
-
-#     doc.save(output_path)
-#     return output_path
-
 def export_standard_docx_from_data(json_data, output_path):
     """
     Nhận trực tiếp JSON object (dict), render docx (STANDARD FORMAT).
@@ -1048,45 +1011,6 @@ def export_standard_docx_from_data(json_data, output_path):
     doc.save(output_path)
     return output_path
 
-
-
-# def export_docx_from_data(json_data, output_path):
-#     """
-#     Nhận trực tiếp JSON object (dict), lấy key 'results', render docx.
-#     Hỗ trợ cả format mới (có 'parsed') và format cũ (chỉ có 'data' text).
-#     """
-#     results = json_data.get("results")
-#     if not results:
-#         raise Exception("No 'results' found in JSON")
-
-#     # Nếu result chưa có 'parsed', thử parse từ 'data'
-#     for res in results:
-#         if "parsed" not in res or res["parsed"] is None:
-#             res["parsed"] = _safe_parse_json(res.get("data") or "")
-
-#     doc = Document()
-#     _apply_default_style(doc)
-
-#     for res in results:
-#         _add_instruction(doc, res)
-#         parsed = res.get("parsed")
-#         res_type = res.get("type")
-
-#         if parsed is None:
-#             raw = res.get("data") or ""
-#             _render_fallback(doc, res_type, raw)
-#         else:
-#             if res_type in ("CLOZE", "GAP", "RC"):
-#                 _render_cloze_from_json(doc, parsed, merge_options=(res_type == "CLOZE"))
-#             elif res_type == "ARRANGE":
-#                 _render_arrange_from_json(doc, parsed)
-#             else:
-#                 logger.warning(f"Unknown type: {res_type}")
-
-#         _add_separator(doc)
-
-#     doc.save(output_path)
-#     return output_path
 
 def export_docx_from_data(json_data, output_path):
     """
