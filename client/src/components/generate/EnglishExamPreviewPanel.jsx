@@ -88,7 +88,6 @@ export default function EnglishExamPreviewPanel({ examData }) {
 }
 
 
-
 function ClozeBlock({ data }) {
 
   const title = data?.passage_title
@@ -183,10 +182,13 @@ function ClozeBlock({ data }) {
               )}
 
               {q.quote && (
-                <p className="mt-1">
-                  <b>Trích bài:</b> {q.quote}
-                </p>
-              )}
+                      <p
+                        className="mt-1"
+                        dangerouslySetInnerHTML={{
+                          __html: `<b>Trích bài:</b> ${q.quote}`
+                        }}
+                      />
+          )}
 
               {q.translation && (
                 <p className="mt-1">
