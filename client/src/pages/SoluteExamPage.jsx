@@ -100,15 +100,15 @@ export default function SoluteExamPage() {
     setIsDirty(false)
   }
 
-  const handleExportEnglishDocx = async() => {
+  const handleExportEnglishDocx = async () => {
 
   }
-  
+
   // =========================
   // Solve Exam
   // =========================
   const handleSolve = async () => {
-    
+
     if (!examPdf?.files) {
       setError('Vui lòng chọn file PDF đề bài')
       return
@@ -124,21 +124,21 @@ export default function SoluteExamPage() {
 
     try {
 
-      if(isEnglishPdf) {
-          const result = await generateQuestions(
+      if (isEnglishPdf) {
+        const result = await generateQuestions(
           matrixData.file,
           generationConfig,
           templateDocx?.file,
           pdfFiles?.files
         )
-        if(result) {
+        if (result) {
           console.log(">>>>>> debug {result", result);
           localStorage.setItem("solutedEnglishExam", JSON.stringify(result))
 
         }
       }
 
-      const result = await  generateSolutions(
+      const result = await generateSolutions(
         null, // không dùng matrix
         generationConfig,
         null,
@@ -303,7 +303,7 @@ export default function SoluteExamPage() {
       )}
 
       {/* Preview */}
-      <div className="flex-1 overflow-hidden">
+      {/* <div className="flex-1 overflow-hidden">
         {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_") ? (
           <EnglishExamPreviewPanel examData={generatedExam} />
         ) : (
@@ -314,7 +314,7 @@ export default function SoluteExamPage() {
             onDataChange={handleDataChange}
           />
         )}
-      </div>
+      </div> */}
 
     </div>
   )

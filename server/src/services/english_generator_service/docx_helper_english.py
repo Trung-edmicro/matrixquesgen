@@ -1,43 +1,56 @@
 
 import re
-
 from bs4 import BeautifulSoup,NavigableString
+from docx import Document
 
 def add_html_formatted_text(paragraph, html_text: str):
     """
-    Parse đơn giản các tag: <u>, <i>, <strong>, <b>
+    Parse đơn giản các tag: <u>, <i>, <strong>, <b> 
+    Hỗ trợ nested tag, nhiều tag cùng lúc.
     """
-    
-    # regex bắt các cụm có tag hoặc text thường
-    pattern = r'(<[^>]+>.*?</[^>]+>|[^<]+)'
-    parts = re.findall(pattern, html_text)
+    # mapping tag -> run attribute
+    tag_map = {
+        "b": "bold",
+        "strong": "bold",
+        "i": "italic",
+        "u": "underline"
+    }
 
-    for part in parts:
-        text = part
-        bold = False
-        italic = False
-        underline = False
+    # regex để tách tag và text
+    pattern = r'(<(/?)(strong|b|i|u)>)'
+    tags_stack = []
+    pos = 0
 
-        # detect tag
-        if "<u>" in part:
-            underline = True
-            text = re.sub(r"</?u>", "", text)
+    for match in re.finditer(pattern, html_text):
+        start, end = match.span()
+        tag_full, closing, tag_name = match.groups()
 
-        if "<i>" in part:
-            italic = True
-            text = re.sub(r"</?i>", "", text)
+        # text giữa các tag
+        if start > pos:
+            text_segment = html_text[pos:start]
+            if text_segment.strip():
+                run = paragraph.add_run(text_segment)
+                # apply tất cả tag đang active trong stack
+                for active_tag in tags_stack:
+                    attr = tag_map[active_tag]
+                    setattr(run, attr, True)
+        pos = end
 
-        if "<strong>" in part or "<b>" in part:
-            bold = True
-            text = re.sub(r"</?(strong|b)>", "", text)
+        # update stack
+        if closing:  # </tag>
+            if tag_name in tags_stack:
+                tags_stack.remove(tag_name)
+        else:  # <tag>
+            tags_stack.append(tag_name)
 
-        # remove leftover tags
-        text = re.sub(r"<.*?>", "", text)
-
-        run = paragraph.add_run(text)
-        run.bold = bold
-        run.italic = italic
-        run.underline = underline
+    # phần text còn lại sau tag cuối
+    if pos < len(html_text):
+        text_segment = html_text[pos:]
+        if text_segment.strip():
+            run = paragraph.add_run(text_segment)
+            for active_tag in tags_stack:
+                attr = tag_map[active_tag]
+                setattr(run, attr, True)
 
 
 def render_formatted_paragraph(doc, text, prefix=None):
@@ -135,3 +148,7 @@ def add_formatted_paragraph(doc, prefix, text):
             run.bold = any(tag.name in ["strong", "b"] for tag in parent.parents) or parent.name in ["strong", "b"]
             run.underline = any(tag.name == "u" for tag in parent.parents) or parent.name == "u"
             run.italic = any(tag.name == "i" for tag in parent.parents) or parent.name == "i"
+
+
+
+

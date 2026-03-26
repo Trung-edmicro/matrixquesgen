@@ -134,56 +134,56 @@ export default function GenerateExamPage() {
       setTimeout(() => setSuccessMessage(null), 3000)
     }
   }, [])
-  
+
   const handleExportEnglishDocx = async () => {
 
-  const storedExam = localStorage.getItem("generatedEnglishExam");
+    const storedExam = localStorage.getItem("generatedEnglishExam");
 
-  if (!storedExam) {
-    setError("Không có dữ liệu đề tiếng Anh để xuất file")
-    return
+    if (!storedExam) {
+      setError("Không có dữ liệu đề tiếng Anh để xuất file")
+      return
+    }
+
+    const generatedExam = JSON.parse(storedExam)
+
+    try {
+      setIsExporting(true)
+      setError(null)
+
+      const res1 = await exportToEnglishExamDocx(generatedExam, {
+        responseType: "blob"
+      })
+
+      downloadFile(res1.data, "English_Exam.docx")
+
+      const res2 = await exportToEnglishStandardDocx(generatedExam, {
+        responseType: "blob"
+      })
+
+      downloadFile(res2.data, "English_Standard_Exam.docx")
+
+      setSuccessMessage("Đã xuất 2 file DOCX thành công")
+
+    } catch (err) {
+      setError("Lỗi khi xuất file: " + err.message)
+    } finally {
+      setIsExporting(false)
+    }
   }
 
-  const generatedExam = JSON.parse(storedExam)
+  const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
 
-  try {
-    setIsExporting(true)
-    setError(null)
+    link.href = url
+    link.download = filename
 
-    const res1 = await exportToEnglishExamDocx(generatedExam, {
-      responseType: "blob"
-    })
+    document.body.appendChild(link)
+    link.click()
 
-    downloadFile(res1.data, "English_Exam.docx")
-
-    const res2 = await exportToEnglishStandardDocx(generatedExam, {
-      responseType: "blob"
-    })
-
-    downloadFile(res2.data, "English_Standard_Exam.docx")
-
-    setSuccessMessage("Đã xuất 2 file DOCX thành công")
-
-  } catch (err) {
-    setError("Lỗi khi xuất file: " + err.message)
-  } finally {
-    setIsExporting(false)
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
   }
-}
-
-const downloadFile = (blob, filename) => {
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement("a")
-
-  link.href = url
-  link.download = filename
-
-  document.body.appendChild(link)
-  link.click()
-
-  document.body.removeChild(link)
-  window.URL.revokeObjectURL(url)
-}
 
   const handleExport = async () => {
     // if (!generatedExam || !sessionId) {
@@ -257,7 +257,7 @@ const downloadFile = (blob, filename) => {
           pdfFiles?.files
         )
 
-        
+
         if (result) {
           console.log(">>>>>>> d123 123 debug", result);
           if (isHSKMatrix) {
@@ -445,10 +445,12 @@ const downloadFile = (blob, filename) => {
               Mở thư mục chứa file Excel
             </button>
           </div>
+        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") && generatedExam ? (
+          <EnglishExamPreviewPanel examData={generatedExam} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
-          <EnglishExamPreviewPanel
-            examData={generatedExam}
-          />
+          <div className="h-full flex items-center justify-center text-gray-500">
+            Đang sinh đề tiếng Anh...
+          </div>
         ) : (
           <ExamPreviewPanel
             examData={generatedExam}
