@@ -375,6 +375,7 @@ function ErrorIdentificationBlock({ data }) {
 
 
 function SentenceTransformationBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
 
@@ -418,6 +419,7 @@ function SentenceTransformationBlock({ data }) {
 
 
 function PronunciationBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
 
@@ -455,45 +457,68 @@ function PronunciationBlock({ data }) {
 
 
 function DialogueBlock({ data }) {
+
+  const renderText = (val) => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object") {
+      // ưu tiên field text nếu có
+      if (val.text) return val.text;
+
+      // fallback an toàn
+      return JSON.stringify(val);
+    }
+    return val;
+  };
+
+  if (!data?.questions || !Array.isArray(data.questions)) {
+    return <div>Invalid data</div>;
+  }
+
   return (
     <div className="mb-10">
-
-      {data.questions.map(q => (
-        <div key={q.number} className="mb-6">
+      {data.questions.map((q, index) => (
+        <div key={q?.number ?? index} className="mb-6">
 
           <p className="font-semibold">
-            Question {q.number}:
+            Question {renderText(q?.number)}:
           </p>
 
-          {q.speaker_a && (
-            <p><b>A:</b> {q.speaker_a}</p>
+          {q?.speaker_a && (
+            <p><b>A:</b> {renderText(q.speaker_a)}</p>
           )}
 
-          {q.speaker_b && (
-            <p><b>B:</b> {q.speaker_b}</p>
+          {q?.speaker_b && (
+            <p><b>B:</b> {renderText(q.speaker_b)}</p>
           )}
 
           <div className="pl-6 mt-2 space-y-1">
-            <p>A. {q.option_a}</p>
-            <p>B. {q.option_b}</p>
-            <p>C. {q.option_c}</p>
-            <p>D. {q.option_d}</p>
+            {q?.option_a && <p>A. {renderText(q.option_a)}</p>}
+            {q?.option_b && <p>B. {renderText(q.option_b)}</p>}
+            {q?.option_c && <p>C. {renderText(q.option_c)}</p>}
+            {q?.option_d && <p>D. {renderText(q.option_d)}</p>}
           </div>
 
           <div className="mt-3 pl-6">
-            <p className="font-semibold">Chọn {q.answer}</p>
-            <p>{q.explanation}</p>
+            {q?.answer && (
+              <p className="font-semibold">
+                Chọn {renderText(q.answer)}
+              </p>
+            )}
+
+            {q?.explanation && (
+              <p>{renderText(q.explanation)}</p>
+            )}
           </div>
 
         </div>
       ))}
-
     </div>
-  )
+  );
 }
 
 
 function WordReorderingBlock({ data }) {
+  if (!data || typeof data !== 'object') return null 
   return (
     <div className="mb-10">
 
