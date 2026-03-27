@@ -100,10 +100,6 @@ export default function SoluteExamPage() {
     setIsDirty(false)
   }
 
-  const handleExportEnglishDocx = async () => {
-
-  }
-
   // =========================
   // Solve Exam
   // =========================
@@ -125,17 +121,22 @@ export default function SoluteExamPage() {
     try {
 
       if (isEnglishPdf) {
-        const result = await generateQuestions(
-          matrixData.file,
+        const result = await generateSolutions(
+          null,
           generationConfig,
-          templateDocx?.file,
-          pdfFiles?.files
-        )
+          null,
+         examPdf.files
+        );
         if (result) {
           console.log(">>>>>> debug {result", result);
-          localStorage.setItem("solutedEnglishExam", JSON.stringify(result))
+
+          setSolutedExam(result);
+
+          localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
 
         }
+        setIsGenerating(false);
+        return;
       }
 
       const result = await generateSolutions(

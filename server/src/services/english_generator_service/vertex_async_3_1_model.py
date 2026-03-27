@@ -94,7 +94,7 @@ class AsyncVertexGemini31:
         project_id: str,
         location: str = "global",
         model: str = "gemini-3.1-pro-preview",
-        thinking_level: str = "HIGH"
+        thinking_level: str = "MEDIUM"
     ):
         """
         Gemini 3.1 Async Client cho Vertex AI
@@ -119,7 +119,7 @@ class AsyncVertexGemini31:
     async def generate(
         self,
         prompt: str,
-        temperature: float = 1.0, # Docs khuyên giữ 1.0 cho Gemini 3
+        temperature: float = 0.5, # Docs khuyên giữ 1.0 cho Gemini 3
         max_tokens: int = 64000
     ):
         """
