@@ -356,8 +356,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-3 text-base border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-primary-600 text-primary-700'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
             >
               {tab.label}
@@ -828,9 +828,9 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     {shouldDisplaySource && q.source_origin && (
                       <div className="mt-1">
                         <span className={`inline-block px-2 py-0.5 text-xs rounded ${q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
-                            q.source_origin === 'scholarly_book' ? 'bg-primary-100 text-primary-700' :
-                              q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
-                                'bg-orange-100 text-orange-700'
+                          q.source_origin === 'scholarly_book' ? 'bg-primary-100 text-primary-700' :
+                            q.source_origin === 'official_document' ? 'bg-green-100 text-green-700' :
+                              'bg-orange-100 text-orange-700'
                           }`}>
                           {q.source_origin === 'academic_journal' ? '📚 Tạp chí học thuật' :
                             q.source_origin === 'scholarly_book' ? '📖 Sách chuyên khảo' :
