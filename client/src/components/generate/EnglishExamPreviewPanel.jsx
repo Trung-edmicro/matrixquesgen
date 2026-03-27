@@ -209,13 +209,14 @@ function ClozeBlock({ data }) {
 
 
 function ArrangeBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
 
   return (
     <div className="mb-12">
 
       {/* QUESTION */}
       <p className="font-semibold">
-        Question {data.question_number}:
+        Question {data?.question_number ?? 'N/A'}:
       </p>
 
       {data.question_stem && (
@@ -264,6 +265,7 @@ function ArrangeBlock({ data }) {
 }
 
 function SentenceCompletionBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
       {data.questions.map(q => (
@@ -303,6 +305,7 @@ function SentenceCompletionBlock({ data }) {
 
 
 function SynonymBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
       {data.questions.map(q => (
@@ -336,6 +339,7 @@ function SynonymBlock({ data }) {
 
 
 function ErrorIdentificationBlock({ data }) {
+  if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
       {data.questions.map(q => (

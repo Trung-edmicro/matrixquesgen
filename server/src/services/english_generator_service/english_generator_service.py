@@ -343,7 +343,7 @@ def safe_str(val):
     s = str(val).strip()
     return "" if s.lower() == "nan" else s
 
-SEM = asyncio.Semaphore(1)   # có thể chỉnh 2–5 tùy quota
+SEM = asyncio.Semaphore(50)   # có thể chỉnh 2–5 tùy quota
 
 async def generate_with_retry(client, prompt, max_retries=5):
     for attempt in range(max_retries):
