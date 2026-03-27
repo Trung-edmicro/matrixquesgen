@@ -18,7 +18,7 @@ const STORAGE_EXPIRY_HOURS = 5
 
 export default function SoluteExamPage() {
   const [examPdf, setExamPdf] = useState(null)
-  const [generatedExam, setGeneratedExam] = useState(null)
+  const [generatedExam, setSolutedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -94,49 +94,52 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
-    setGeneratedExam(null)
+    setSolutedExam(null)
     setSessionId(null)
     setError(null)
     setIsDirty(false)
   }
 
-  const handleExportEnglishDocx = async() => {
-
-  }
-  
   // =========================
   // Solve Exam
   // =========================
   const handleSolve = async () => {
-    
+
     if (!examPdf?.files) {
       setError('Vui lòng chọn file PDF đề bài')
       return
     }
 
-    const isEnglishPdf = examPdf.file.name.startsWith("ENGLISH_PDF_");
+    const isEnglishPdf = examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_");
+    console.log(">>>>>>>>> debug isEnglishPDF", isEnglishPdf);
 
-    if(isEnglishPdf) {
-      return;
-    }
-
-    setGeneratedExam(null)
+    setSolutedExam(null)
     setSessionId(null)
     setIsGenerating(true)
     setError(null)
 
     try {
-      setGenerationProgress({
-        percentage: 0,
-        phase: 'initializing',
-        status: 'processing'
-      })
 
-      if(isEnglishPdf) {
-        
+      if (isEnglishPdf) {
+        const result = await generateSolutions(
+          null,
+          generationConfig,
+          null,
+         examPdf.files
+        );
+        if (result) {
+          console.log(">>>>>> debug {result", result);
+
+          setSolutedExam(result);
+
+          localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
+
+        }
+        setIsGenerating(false);
+        return;
       }
 
-      const result = await  generateSolutions(
+      const result = await generateSolutions(
         null, // không dùng matrix
         generationConfig,
         null,
@@ -301,7 +304,7 @@ export default function SoluteExamPage() {
       )}
 
       {/* Preview */}
-      <div className="flex-1 overflow-hidden">
+      {/* <div className="flex-1 overflow-hidden">
         {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_") ? (
           <EnglishExamPreviewPanel examData={generatedExam} />
         ) : (
@@ -312,7 +315,7 @@ export default function SoluteExamPage() {
             onDataChange={handleDataChange}
           />
         )}
-      </div>
+      </div> */}
 
     </div>
   )
