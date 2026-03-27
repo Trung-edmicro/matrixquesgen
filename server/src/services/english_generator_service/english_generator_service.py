@@ -10,6 +10,7 @@ import json
 import requests
 import shutil
 from api.callApi import get_credentials
+from .vertex_async_client import AsyncVertexClient
 from .docx_helper_english import add_formatted_paragraph, add_html_formatted_text, render_standard_dialogue_completion_group, render_standard_logical_thinking_group, render_standard_sentence_completion_group, render_standard_single_synonym_question, render_standard_pronunciation_stress_group,render_standard_word_reordering_group,render_standard_sentence_transformation_group,render_standard_error_identification_group,render_standard_synonym_antonym_group
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 import asyncio
@@ -180,6 +181,14 @@ def detect_type_columns(df):
     return col_map
 
 
+def detect_types_in_row(row, type_col_map):
+    row_types = []
+    for q_type, start_col in type_col_map.items():
+        levels = detect_all_levels(row, start_col)
+        if levels:  # có ít nhất 1 level
+            row_types.append((q_type, levels))
+    return row_types
+
 def detect_all_levels(row, start_index):
     found = []
     for offset in range(4):
@@ -334,7 +343,7 @@ def safe_str(val):
     s = str(val).strip()
     return "" if s.lower() == "nan" else s
 
-SEM = asyncio.Semaphore(3)   # có thể chỉnh 2–5 tùy quota
+SEM = asyncio.Semaphore(1)   # có thể chỉnh 2–5 tùy quota
 
 async def generate_with_retry(client, prompt, max_retries=5):
     for attempt in range(max_retries):
@@ -352,40 +361,78 @@ async def generate_with_retry(client, prompt, max_retries=5):
     raise Exception("❌ Max retries exceeded")
 
 
-async def limited_generate(client, prompt):
+async def generate_with_fallback(client_31, client_25, prompt, max_retries=3):
+    """
+    Ưu tiên dùng Gemini 3.1. Nếu gặp lỗi 429 (Resource Exhausted), 
+    sẽ chuyển sang dùng Gemini 2.5 Pro.
+    """
+    # 1. Thử dùng Gemini 3.1 trước
+    try:
+        logger.info("--- Attempting generation with Gemini 3.1 ---")
+        return await client_31.generate(prompt=prompt)
+    except Exception as e:
+        error_msg = str(e).upper()
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            logger.warning(f"⚠️ Gemini 3.1 hit quota limit (429). Falling back to Gemini 2.5 Pro...")
+            
+            # 2. Fallback sang Gemini 2.5 Pro với cơ chế retry thông thường
+            for attempt in range(max_retries):
+                try:
+                    return await client_25.generate(prompt=prompt)
+                except Exception as e2:
+                    if "429" in str(e2) or "RESOURCE_EXHAUSTED" in str(e2):
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        logger.warning(f"⚠️ Gemini 2.5 also hit 429. Retry {attempt+1} after {wait_time:.2f}s")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        raise e2
+            raise Exception("❌ Cả Gemini 3.1 và 2.5 đều vượt ngưỡng giới hạn yêu cầu (429).")
+        else:
+            # Nếu là lỗi khác (không phải 429), raise lỗi để debug
+            logger.error(f"❌ Gemini 3.1 failed with non-429 error: {e}")
+            raise e
+
+
+# async def limited_generate(client, prompt):
+#     async with SEM:
+#         result = await generate_with_retry(client, prompt)
+
+#         # throttle nhẹ để tránh spike
+#         await asyncio.sleep(2)
+
+#         return result
+async def limited_generate(client_31, client_25, prompt):
     async with SEM:
-        result = await generate_with_retry(client, prompt)
-
-        # throttle nhẹ để tránh spike
-        await asyncio.sleep(2)
-
+        # Sử dụng hàm fallback mới
+        result = await generate_with_fallback(client_31, client_25, prompt)
+        # Nghỉ ngắn giữa các request để tránh spam liên tục
+        await asyncio.sleep(1)
         return result
 
 
-async def run_in_batches(tasks, batch_size=3):
+async def run_in_batches(tasks, batch_size=1): # Chạy tuần tự từng cái một
     results = []
-    for i in range(0, len(tasks), batch_size):
-        batch = tasks[i:i + batch_size]
-        res = await asyncio.gather(*batch, return_exceptions=True)
-        results.extend(res)
+    for task in tasks:
+        res = await task
+        results.append(res)
+        await asyncio.sleep(2) # Nghỉ giữa các task
     return results
 
 async def generate_exam_docx(blocks, output_path):
 
     credentials, project_id = get_credentials()
 
-    # client = AsyncVertexClient(
-    #     project_id=project_id,
-    #     creds=credentials,
-    #     model="gemini-2.5-pro"
-    # )
+    client_25 = AsyncVertexClient(
+        project_id=project_id,
+        creds=credentials,
+        model="gemini-2.5-pro"
+    )
 
-    client = AsyncVertexGemini31(
+    client_31 = AsyncVertexGemini31(
     project_id="onluyen-media",
     model="gemini-3.1-pro-preview",
     thinking_level="HIGH"
 )
-    # doc.add_heading("ĐỀ THI TIẾNG ANH", level=1)
 
     q_count = 1
     tasks = []
@@ -467,7 +514,7 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input_cloze)
+            task = limited_generate(client_31, client_25, ai_input_cloze)
             tasks.append(task)
             block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -503,7 +550,7 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input_arrange)
+            task = limited_generate(client_31, client_25, ai_input_arrange)
             tasks.append(task)
             block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en))
             q_count += 1
@@ -547,7 +594,7 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input_reading_comprehensive)
+            task = limited_generate(client_31, client_25, ai_input_reading_comprehensive)
             tasks.append(task)
             block_meta.append(("RC", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -594,7 +641,7 @@ async def generate_exam_docx(blocks, output_path):
            
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client, ai_input_silent)
+            task = limited_generate(client_31, client_25, ai_input_silent)
             tasks.append(task)
             block_meta.append(("GAP", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -627,7 +674,7 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_sentence_completion
             )
 
-            task = limited_generate(client, ai_input_sentence_completion)
+            task = limited_generate(client_31, client_25, ai_input_sentence_completion)
             tasks.append(task)
             block_meta.append(("SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -661,7 +708,7 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_synonum_antonym
             )
 
-            task = limited_generate(client, ai_input_synonym_antonym)
+            task = limited_generate(client_31, client_25, ai_input_synonym_antonym)
             tasks.append(task)
             block_meta.append(("SYNONYM_ANTONYM", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -694,7 +741,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_error_identification
             )
 
-            task = limited_generate(client, ai_input_error_identification)
+            # task = limited_generate(client, ai_input_error_identification)
+            task = limited_generate(client_31, client_25, ai_input_error_identification)
             tasks.append(task)
             block_meta.append(("ERROR_IDENTIFICATION", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -730,7 +778,7 @@ async def generate_exam_docx(blocks, output_path):
 
             print(f">>>>> debug ai_input_sentence_transformation: {ai_input_sentence_transformation}")
 
-            task = limited_generate(client, ai_input_sentence_transformation)
+            task = limited_generate(client_31, client_25,  ai_input_sentence_transformation)
             tasks.append(task)
             block_meta.append(("SENTENCE_TRANSFORMATION", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -764,7 +812,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_word_reordering
             )
 
-            task = limited_generate(client, ai_input_word_reordering)
+            # task = limited_generate(client, ai_input_word_reordering)
+            task = limited_generate(client_31, client_25, ai_input_word_reordering)
             tasks.append(task)
             block_meta.append(("WORD_REORDERING", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -776,15 +825,16 @@ async def generate_exam_docx(blocks, output_path):
                 START_NUM = q_count
             )
 
-            formatted_word_reordering_prompt = (prompt_template
+            formatted_pronounciation_stress_prompt = (prompt_template
                     .replace("{TOPIC_NAME}", safe_str(topic))
                     .replace("{TEXT_TYPE}", safe_str(text_type))
                     .replace("{CEFR_LEVEL}", safe_str(diff))
                     .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
                     .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
             ai_input_pronounciation_stress = (
-                f"{formatted_word_reordering_prompt}\n\n"
+                f"{formatted_pronounciation_stress_prompt}\n\n"
                 f"Từ vựng tham khảo: {vocabulary}"
                 f"Tài liệu tham khảo: {document_sample}"
                 f"Đặc tả ma trận: {spec_item['spec']}\n"
@@ -797,7 +847,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_pronounciation_stress
             )
 
-            task = limited_generate(client, ai_input_pronounciation_stress)
+            # task = limited_generate(client, ai_input_pronounciation_stress)
+            task = limited_generate(client_31, client_25, ai_input_pronounciation_stress)
             tasks.append(task)
             block_meta.append(("PRONUNCIATION_STRESS", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -817,7 +868,7 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
                     .replace("{SOURCE_TEXT}", safe_str(document_sample)))
             
-            ai_input_pronounciation_stress = (
+            ai_input_dialouge_completion_stress = (
                 f"{formatted_dialouge_completion_prompt}\n\n"
                 f"Từ vựng tham khảo: {vocabulary}"
                 f"Tài liệu tham khảo: {document_sample}"
@@ -831,7 +882,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_dialouge_completion
             )
 
-            task = limited_generate(client, ai_input_pronounciation_stress)
+            # task = limited_generate(client, ai_input_pronounciation_stress)
+            task = limited_generate(client_31, client_25, ai_input_dialouge_completion_stress)
             tasks.append(task)
             block_meta.append(("DIALOUGE_COMPLETION", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -866,7 +918,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_logical_thinking
             )
 
-            task = limited_generate(client, ai_input_logical_thinking)
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25, ai_input_logical_thinking)
             tasks.append(task)
             block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en))
             q_count += n_q
@@ -994,6 +1047,9 @@ def export_standard_docx_from_data(json_data, output_path):
         # ===== PRONUNCIATION / STRESS =====
         elif res_type == "PRONUNCIATION_STRESS":
             i = render_standard_pronunciation_stress_group(doc, results, i)
+        
+        elif res_type == "DIALOUGE_COMPLETION":
+            i = render_standard_dialogue_completion_group(doc,results, i)
 
         # ===== LOGICAL THINKING =====
         elif res_type == "LOGICAL_THINKING":
@@ -1076,7 +1132,8 @@ def export_docx_from_data(json_data, output_path):
             
         elif res_type == "PRONUNCIATION_STRESS":
             i = render_pronunciation_stress_group(doc, results, i)
-            
+        elif res_type == "DIALOUGE_COMPLETION":
+            i = render_dialogue_completion_group(doc, results, i)
         elif res_type == "LOGICAL_THINKING":
             i = render_logical_thinking_group(doc, results, i)
         elif res_type == "WORD_REORDERING":
@@ -1558,6 +1615,19 @@ def render_error_identification_group(doc, results, start_index):
 
     return i
 
+def normalize_ipa(ipa: str) -> str:
+    if not ipa:
+        return ""
+
+    ipa = ipa.strip()
+
+    if not ipa.startswith("/"):
+        ipa = "/" + ipa
+    if not ipa.endswith("/"):
+        ipa = ipa + "/"
+
+    return ipa
+
 def render_pronunciation_stress_group(doc, results, start_index):
     i = start_index
     n = len(results)
@@ -1623,8 +1693,9 @@ def render_pronunciation_stress_group(doc, results, start_index):
 
             # ===== Details =====
             for d in q.get("details", []):
+                ipa = normalize_ipa(d['ipa'])
                 doc.add_paragraph(
-                    f"{d['word']} /{d['ipa']}/ ({d['pos']}): {d['meaning']}"
+                    f"{d['word']} {ipa} ({d['pos']}): {d['meaning']}"
                 )
 
             # ===== Explanation =====

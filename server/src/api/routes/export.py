@@ -58,32 +58,25 @@ def _get_exports_dir() -> Path:
 
 
 
-# @routerEnglish.post("/export-english")
-# async def export_english(payload: dict):
+@routerEnglish.post("/export-english-solution")
+async def export_english_solution(payload: dict):
 
-#     output_dir = _get_exports_dir()
+    return FileResponse(
+        # path=str(file_path),
+        filename="English_Solution.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
-#     file1 = output_dir / "English_Exam.docx"
-#     file2 = output_dir / "English_Standard_Exam.docx"
+@routerEnglish.post("/export-standard-english-solution")
+async def export_standard_english_solution(payload: dict):
 
-#     # generate file 1
-#     export_docx_from_data(payload, str(file1))
 
-#     # generate file 2
-#     export_standard_docx_from_data(payload, str(file2))
+    return FileResponse(
+        # path=str(file_path),
+        filename="English_Standard_Solution.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
-#     # tạo zip
-#     zip_path = output_dir / "English_Exam_Files.zip"
-
-#     with zipfile.ZipFile(zip_path, "w") as zipf:
-#         zipf.write(file1, file1.name)
-#         zipf.write(file2, file2.name)
-
-#     return FileResponse(
-#         path=str(zip_path),
-#         filename="English_Exam_Files.zip",
-#         media_type="application/zip"
-#     )
 
 @routerEnglish.post("/export-english-exam")
 async def export_english_exam(payload: dict):
