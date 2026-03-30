@@ -50,16 +50,19 @@ export default function SoluteExamPage() {
       const parsed = JSON.parse(saved)
 
       if (parsed.timestamp) {
-        const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000
+        const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000;
         if (Date.now() > expiry) {
-          localStorage.removeItem(STORAGE_KEY)
-          return
+          localStorage.removeItem(STORAGE_KEY);
+
+          return;
         }
       }
 
-      if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam)
-      if (parsed.sessionId) setSessionId(parsed.sessionId)
-      if (parsed.examPdf) setExamPdf(parsed.examPdf)
+      if (parsed.generatedExam) setSolutedExam(parsed.generatedExam);
+
+      if (parsed.sessionId) setSessionId(parsed.sessionId);
+
+      if (parsed.examPdf) setExamPdf(parsed.examPdf);
 
     } catch (err) {
       console.error('Restore error:', err)
@@ -79,7 +82,7 @@ export default function SoluteExamPage() {
           timestamp: Date.now()
         }))
       } catch (err) {
-        console.error('Save error:', err)
+        console.error('Save error:', err);
       }
     }
   }, [generatedExam, sessionId, examPdf])
@@ -94,10 +97,13 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
-    setSolutedExam(null)
-    setSessionId(null)
-    setError(null)
-    setIsDirty(false)
+    setSolutedExam(null);
+
+    setSessionId(null);
+
+    setError(null);
+
+    setIsDirty(false);
   }
 
   // =========================
@@ -127,11 +133,15 @@ export default function SoluteExamPage() {
           null,
          examPdf.files
         );
+
+        
         if (result) {
           console.log(">>>>>> debug {result", result);
 
-          setSolutedExam(result);
+            const formatted = { results: result };
 
+            setSolutedExam(formatted);
+            
           localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
 
         }
@@ -207,13 +217,14 @@ export default function SoluteExamPage() {
       if (exportResult && exportResult.file_path) {
         const url = downloadDocx(sessionId)
 
-        const link = document.createElement('a')
-        link.href = url
-        link.download = exportResult.file_name || `solution_${sessionId}.docx`
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = exportResult.file_name || `solution_${sessionId}.docx`;
+        
 
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
         setSuccessMessage('Đã xuất file DOCX thành công')
         setTimeout(() => setSuccessMessage(null), 3000)
@@ -304,8 +315,8 @@ export default function SoluteExamPage() {
       )}
 
       {/* Preview */}
-      {/* <div className="flex-1 overflow-hidden">
-        {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_") ? (
+      <div className="flex-1 overflow-hidden">
+        {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_") ? (
           <EnglishExamPreviewPanel examData={generatedExam} />
         ) : (
           <ExamPreviewPanel
@@ -315,7 +326,7 @@ export default function SoluteExamPage() {
             onDataChange={handleDataChange}
           />
         )}
-      </div> */}
+      </div>
 
     </div>
   )

@@ -5,17 +5,18 @@ from typing import List
 import os
 from pathlib import Path
 import uuid
+from services.solute_exam_service.solute_english_exam_service import solve_english_exam
 
-router = APIRouter(
+routerSolute = APIRouter(
     prefix="/api",
     tags=["Solute"]
 )
 
 # Giả sử bạn sẽ viết service xử lý ở đây
-from services.english_generator_service.english_generator_service import solve_english_exam
+from services.solute_exam_service.solute_english_exam_service import solve_english_exam
 
 
-@router.post("/solute-english-exam")
+@routerSolute.post("/solute-english-exam")
 async def solute_english_exam(
     pdf_files: List[UploadFile] = File(...)
 ):
@@ -45,10 +46,11 @@ async def solute_english_exam(
             file_paths.append(str(file_path))
 
         # 🚀 Gọi service xử lý
-        result = solve_english_exam(file_paths)
+        result = await solve_english_exam(file_paths)
+
+        print(f">>>>>>> debug result {result}")
 
         return {
-            "status": "completed",
             "data": result
         }
 

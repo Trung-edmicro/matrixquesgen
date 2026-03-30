@@ -40,7 +40,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
     console.log(">>>>>> debug response", response.data);
   return response.data
   }catch(error) {
-    console.log(">>>>>> error", error)
+    console.log(">>>>>> error", error);
     throw error;
   }
 
@@ -73,10 +73,10 @@ export const generateSolutions = async (file, config = {}, templateDocx = null, 
       'Content-Type': 'multipart/form-data',
     },
   })
-   console.log(">>>>>> debug response", response.data);
+   console.log(">>>>>> debug response  english", response.data);
   return response.data
   }catch(error) {
-    console.log(">>>>>> error", error)
+    console.log(">>>>>> error generete solutions", error)
     throw error;
   }
 
