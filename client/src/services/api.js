@@ -169,6 +169,25 @@ export const exportToEnglishDocx = async (generatedExam, config) => {
   return response
 }
 
+export const exportToSolutedEnglishExamDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-english-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToSolutedEnglishStandardDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-english-standard`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+
 export const exportToEnglishExamDocx = async (generatedExam, config) => {
   const response = await api.post(
     `/api/export-english-exam`,
@@ -177,6 +196,8 @@ export const exportToEnglishExamDocx = async (generatedExam, config) => {
   )
   return response
 }
+
+
 
 export const exportToEnglishStandardDocx = async (generatedExam, config) => {
   const response = await api.post(

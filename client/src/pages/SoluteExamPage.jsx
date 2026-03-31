@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import ActionBar from '../components/generate/ActionBar'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
-import {
-  generateQuestions, // hoặc đổi thành solveExam nếu backend tách riêng
+import SoluteEnglishPreviewPanel from '../components/generate/SoluteEnglishExamPreviewPanel'
+import { 
   getGenerationProgress,
   getSessionDetail,
   exportToDocx,
   downloadDocx,
-  generateSolutions
+  generateSolutions,
+  exportToSolutedEnglishExamDocx
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 
@@ -18,7 +18,7 @@ const STORAGE_EXPIRY_HOURS = 5
 
 export default function SoluteExamPage() {
   const [examPdf, setExamPdf] = useState(null)
-  const [generatedExam, setSolutedExam] = useState(null)
+  const [generatedExam, setGeneratedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -58,7 +58,7 @@ export default function SoluteExamPage() {
         }
       }
 
-      if (parsed.generatedExam) setSolutedExam(parsed.generatedExam);
+      if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam);
 
       if (parsed.sessionId) setSessionId(parsed.sessionId);
 
@@ -97,7 +97,7 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
-    setSolutedExam(null);
+    setGeneratedExam(null);
 
     setSessionId(null);
 
@@ -119,7 +119,7 @@ export default function SoluteExamPage() {
     const isEnglishPdf = examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_");
     console.log(">>>>>>>>> debug isEnglishPDF", isEnglishPdf);
 
-    setSolutedExam(null)
+    setGeneratedExam(null)
     setSessionId(null)
     setIsGenerating(true)
     setError(null)
@@ -135,13 +135,14 @@ export default function SoluteExamPage() {
         );
 
         
-        if (result) {
+        if (result && result.data) {
           console.log(">>>>>> debug {result", result);
 
-            const formatted = { results: result };
+            const rawBlocks = Array.isArray(result.data[0]) ? result.data[0] : result.data;
 
-            setSolutedExam(formatted);
-            
+    // Chỉ set mảng các blocks vào results
+          setGeneratedExam({ results: rawBlocks });
+
           localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
 
         }
@@ -199,44 +200,57 @@ export default function SoluteExamPage() {
     }
   }
 
+  const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = filename
+
+    document.body.appendChild(link)
+    link.click()
+
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   // =========================
   // Export DOCX
   // =========================
   const handleExport = async () => {
-    if (!sessionId) {
-      setError('Không có dữ liệu để xuất')
-      return
-    }
-
-    try {
-      setIsExporting(true)
-      setError(null)
-
-      const exportResult = await exportToDocx(sessionId)
-
-      if (exportResult && exportResult.file_path) {
-        const url = downloadDocx(sessionId)
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = exportResult.file_name || `solution_${sessionId}.docx`;
-        
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setSuccessMessage('Đã xuất file DOCX thành công')
-        setTimeout(() => setSuccessMessage(null), 3000)
-      } else {
-        setError('Lỗi khi xuất file')
-      }
-
-    } catch (err) {
-      setError('Lỗi khi xuất file: ' + err.message)
-    } finally {
-      setIsExporting(false)
-    }
+      const storedExam = localStorage.getItem("solutedEnglishExam");
+      console.log(">>>>>>> debug storedExam", storedExam);
+   
+       if (!storedExam) {
+         setError("Không có dữ liệu đề tiếng Anh để xuất file");
+         return
+       }
+   
+       const generatedExam = JSON.parse(storedExam)
+   
+       try {
+         setIsExporting(true)
+         setError(null)
+   
+         const res1 = await exportToSolutedEnglishExamDocx(generatedExam, {
+           responseType: "blob"
+         })
+   
+         downloadFile(res1.data, "Soluted_English_Exam.docx")
+   
+        //  const res2 = await exportToSolutedEnglishExamDocx(generatedExam, {
+        //    responseType: "blob"
+        //  })
+   
+        //  downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
+   
+        //  setSuccessMessage("Đã xuất 2 file DOCX thành công")
+   
+       } catch (err) {
+         setError("Lỗi khi xuất file: " + err.message)
+       } finally {
+         setIsExporting(false)
+       }
   }
 
   const handleDataChange = useCallback((data) => {
@@ -317,7 +331,7 @@ export default function SoluteExamPage() {
       {/* Preview */}
       <div className="flex-1 overflow-hidden">
         {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_") ? (
-          <EnglishExamPreviewPanel examData={generatedExam} />
+          <SoluteEnglishPreviewPanel examData={generatedExam} />
         ) : (
           <ExamPreviewPanel
             examData={generatedExam}

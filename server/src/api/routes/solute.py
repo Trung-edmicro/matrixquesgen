@@ -5,8 +5,10 @@ from typing import List
 import os
 from pathlib import Path
 import uuid
-from services.solute_exam_service.solute_english_exam_service import solve_english_exam
 
+from fastapi.responses import FileResponse
+from services.solute_exam_service.solute_english_exam_service import solve_english_exam
+from services.solute_exam_service.docx_export_exam_service import export_soluted_english_exam_from_data
 routerSolute = APIRouter(
     prefix="/api",
     tags=["Solute"]
@@ -14,6 +16,33 @@ routerSolute = APIRouter(
 
 # Giả sử bạn sẽ viết service xử lý ở đây
 from services.solute_exam_service.solute_english_exam_service import solve_english_exam
+
+
+@routerSolute.post("/export-soluted-english-exam")
+async def export_soluted_english_exam(payload: dict):
+    file_path = "output_exam.docx"
+
+    export_soluted_english_exam_from_data(payload, file_path)
+
+    return FileResponse(
+        file_path,
+        filename="Soluted_English_Exam.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+# @routerSolute.post("/export-soluted-standard-english-exam")
+# async def export_soluted_standard_english_exam(payload: dict):
+
+#     file_path = "output_standard_exam.docx"
+
+#     export_soluted_standard_english_exam_from_data(payload, file_path)
+
+#     return FileResponse(
+#         file_path,
+#         filename="Soluted_Standard_English_Exam.docx",
+#         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+#     )
+
 
 
 @routerSolute.post("/solute-english-exam")
@@ -56,3 +85,5 @@ async def solute_english_exam(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+

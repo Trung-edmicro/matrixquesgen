@@ -41,10 +41,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
 [
   {
     "type": "CLOZE",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "passage_title": "string",
       "passage": "string",
@@ -66,17 +65,16 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "RC",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "passage_title": "string",
       "passage": "string",
       "questions": [
         {
           "number": "number",
-          "question_content": "string",
+          "question_content": "string", 
           "option_a": "string",
           "option_b": "string",
           "option_c": "string",
@@ -91,10 +89,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "GAP",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "passage_title": "string",
       "passage": "string",
@@ -116,13 +113,12 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "ARRANGE",
-    "title": "string",
-    "question_count": 1,
+    "titleQuestion": "string",
+    "question_count": "number,
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "question_number": "number",
-      "question_stem": "string",
+      "question_content": ["string"],
       "option_a": "string",
       "option_b": "string",
       "option_c": "string",
@@ -134,10 +130,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "SENTENCE_COMPLETION",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -156,10 +151,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "SYNONYM_ANTONYM",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -179,10 +173,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "ERROR_IDENTIFICATION",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -202,16 +195,14 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "SENTENCE_TRANSFORMATION",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
           "number": "number",
           "type": "rewriting | combination",
-          "instruction": "string",
           "question": "string",
           "option_a": "string",
           "option_b": "string",
@@ -227,10 +218,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "WORD_REORDERING",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -249,10 +239,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "PRONUNCIATION_STRESS",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -278,10 +267,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "DIALOGUE_COMPLETION",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "instruction": "string",
       "questions": [
@@ -305,10 +293,9 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   },
   {
     "type": "LOGICAL_THINKING",
-    "title": "string",
+    "titleQuestion": "string",
     "question_count": "number",
     "start_num": "number",
-    "text_type_en": "string",
     "parsed": {
       "questions": [
         {
@@ -350,41 +337,55 @@ def extract_folder_id(url):
 
 
 def get_md_file_from_drive():
-    folder_id = extract_folder_id(DRIVE_FOLDER)
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
 
-    # 1. List files trong folder
-    list_url = "https://www.googleapis.com/drive/v3/files"
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
 
-    params = {
-        "key": API_KEY,
-        "q": f"'{folder_id}' in parents and name = 'TA_Huong_dan_giai.md'",
-        "fields": "files(id, name, mimeType)"
-    }
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'TA_Huong_dan_giai.md'",
+            "fields": "files(id, name, mimeType)"
+        }
 
-    res = requests.get(list_url, params=params)
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
 
-    if res.status_code != 200:
-        raise Exception("Không lấy được danh sách file")
+        files = res.json().get("files", [])
 
-    files = res.json().get("files", [])
+        if not files:
+            raise Exception("❌ Không tìm thấy file TA_Huong_dan_giai.md")
 
-    if not files:
-        raise Exception("Không tìm thấy file TA_Huong_dan_giai.md")
+        file_id = files[0]["id"]
 
-    file_id = files[0]["id"]
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}/export"
 
-    # 2. Download file content
-    download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={API_KEY}"
+        params = {
+            "mimeType": "text/plain",
+            "key": API_KEY
+        }
 
-    file_res = requests.get(download_url)
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
 
-    if file_res.status_code != 200:
-        raise Exception("Không download được file")
+        content = file_res.content.decode("utf-8")
 
+        print(f">>>>> debug content {content}")
+        return content
 
-    content = file_res.content.decode("utf-8")
-    print(f">>>>> debug content {content}")
-    return content
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
 
 # ============================
 # FALLBACK LOGIC
@@ -530,8 +531,12 @@ OUTPUT FORMAT (STRICT JSON):
 
 {ENGLISH_SCHEMA_SOLUTE}
 
-### Lưu ý:
-Trong các trường passage theo schema có những phần tử hoặc các từ được in nghiêng và in đậm trong đoạn văn hãy viết format dạng <strong><u>abc</u></strong>, ví dụ <strong><u>contribute positively</u></strong>
+### QUY TẮC NGHIÊM NGẶT PHẢI TUÂN THỦ:
+
+#### 1.Trong các trường passage hoặc tất cả các key và value theo schema có những phần tử hoặc các từ được in nghiêng và in đậm trong đoạn văn hãy viết format dạng <strong><u>abc</u></strong>, ví dụ <strong><u>contribute positively</u></strong> không được bỏ sót
+
+### 2. KHÔNG ĐƯỢC BỎ SÓT FORMATTING 
+ - Phải quét tất cả các kí tự được in đậm in nghiêng gạch chân và trả về dạng <strong><u><i>abc</i></u></strong> không được thiếu bất kì 1 kí tự nào.
 """
 
         credentials, project_id = get_credentials()
@@ -558,6 +563,7 @@ Trong các trường passage theo schema có những phần tử hoặc các t�
         # ✅ FIX HERE
         results = await run_all()
         cleaned_results = clean_json(results)
+        print(f">>>>> debug cleaned_results {cleaned_results}")
         return cleaned_results
 
 
