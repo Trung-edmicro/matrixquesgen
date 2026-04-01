@@ -18,7 +18,7 @@ import re
 import html
 from docx import Document
 from docx.shared import Inches, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import logging
 from collections import defaultdict, Counter
 from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
@@ -27,6 +27,7 @@ from .constants import (CLOZE_EXPLANATION_TEMPLATE,
        READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
 from .drive_helper_services import load_vocabulary_from_drive
+from services.solute_exam_service.solute_english_exam_service import API_KEY
 
 # ============================
 # CONFIG
@@ -45,24 +46,6 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
 
-# DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZdpj8ZrFJhA0cU-xpLBj5Du2"
-
-# DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zIWUMnDNCrFCc_Yw-yR0Pm8PT"
-
-# DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
-
-# ============================
-# PROMPT LOADER
-# ============================
-
-
-
-# def load_prompt(filename: str) -> str:
-#     path = PROMPT_DIR / filename
-#     if not path.exists():
-#         raise Exception(f"Không tìm thấy prompt: {filename}")
-#     return path.read_text(encoding="utf-8")
-
 
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
 PROMPT_DIR = Path("PROMPT_DIR")
@@ -70,55 +53,118 @@ PROMPT_DIR = Path("PROMPT_DIR")
 _drive_prompts_cache = None
 
 
+# def fetch_drive_md_files():
+#     try:
+#         folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+
+#         url = f"https://drive.google.com/drive/folders/{folder_id}"
+#         html = requests.get(url).text
+
+#         file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+
+#         prompts = {}
+
+#         for fid in file_ids:
+#             download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+#             r = requests.get(download_url)
+
+#             if r.status_code != 200:
+#                 continue
+
+#             disposition = r.headers.get("content-disposition", "")
+
+#             if ".md" not in disposition:
+#                 continue
+
+#             name_match = re.findall(r'filename="(.+)"', disposition)
+
+#             if not name_match:
+#                 continue
+
+#             name = name_match[0]
+#             prompts[name] = r.text
+
+#         return prompts
+
+#     except Exception:
+#         return {}
+
+
+# def load_prompt(filename: str) -> str:
+#     global _drive_prompts_cache
+
+#     # Load drive 1 lần
+#     if _drive_prompts_cache is None:
+#         print("🔎 Fetching prompts from Drive...")
+#         _drive_prompts_cache = fetch_drive_md_files()
+
+#     # Nếu có trên drive
+#     if filename in _drive_prompts_cache:
+#         print(f"✅ Load từ Drive: {filename}")
+#         return _drive_prompts_cache[filename]
+
+#     # fallback local
+#     path = PROMPT_DIR / filename
+
+#     if not path.exists():
+#         raise Exception(f"Không tìm thấy prompt: {filename}")
+
+#     print(f"📂 Load từ LOCAL: {filename}")
+#     return path.read_text(encoding="utf-8")
+
+
+def extract_folder_id(url):
+    return re.search(r"folders/([a-zA-Z0-9_-]+)", url).group(1)
+
+
 def fetch_drive_md_files():
     try:
-        folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
+        folder_id = extract_folder_id(DRIVE_FOLDER)
 
-        url = f"https://drive.google.com/drive/folders/{folder_id}"
-        html = requests.get(url).text
+        list_url = "https://www.googleapis.com/drive/v3/files"
 
-        file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
+        params = {
+            "q": f"'{folder_id}' in parents and name contains '.md' and trashed=false",
+            "key": API_KEY,
+            "fields": "files(id, name)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
 
         prompts = {}
 
-        for fid in file_ids:
-            download_url = f"https://drive.google.com/uc?export=download&id={fid}"
+        for file in files:
+            name = file["name"]
+            file_id = file["id"]
+
+            download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={API_KEY}"
+
             r = requests.get(download_url)
 
             if r.status_code != 200:
                 continue
 
-            disposition = r.headers.get("content-disposition", "")
-
-            if ".md" not in disposition:
-                continue
-
-            name_match = re.findall(r'filename="(.+)"', disposition)
-
-            if not name_match:
-                continue
-
-            name = name_match[0]
-            prompts[name] = r.text
-
+            prompts[name] = r.content.decode("utf-8", errors="replace")
+            
         return prompts
 
-    except Exception:
+    except Exception as e:
+        print("❌ Error:", e)
         return {}
 
 
 def load_prompt(filename: str) -> str:
-    global _drive_prompts_cache
+    print("🔎 Fetching prompts from Drive...")
 
-    # Load drive 1 lần
-    if _drive_prompts_cache is None:
-        print("🔎 Fetching prompts from Drive...")
-        _drive_prompts_cache = fetch_drive_md_files()
+    drive_prompts = fetch_drive_md_files()
 
-    # Nếu có trên drive
-    if filename in _drive_prompts_cache:
+    # Ưu tiên Drive
+    if filename in drive_prompts:
         print(f"✅ Load từ Drive: {filename}")
-        return _drive_prompts_cache[filename]
+        return drive_prompts[filename]
 
     # fallback local
     path = PROMPT_DIR / filename
@@ -129,26 +175,6 @@ def load_prompt(filename: str) -> str:
     print(f"📂 Load từ LOCAL: {filename}")
     return path.read_text(encoding="utf-8")
 
-
-
-# ============================
-# EXCEL EXTRACT LOGIC
-# ============================
-
-# def detect_type_columns(df):
-#     col_map = {}
-#     for i, col in enumerate(df.columns):
-#         col_lower = str(col).lower()
-#         if "điền từ" in col_lower:
-#             col_map["Điền từ"] = i
-#         elif "sắp xếp" in col_lower:
-#             col_map["Sắp xếp"] = i
-#         elif "đọc hiểu" in col_lower:
-#             col_map["Đọc hiểu"] = i
-#         elif "điền cụm" in col_lower:
-#             col_map["Điền cụm từ/điền câu"] = i
-        
-#     return col_map
 
 def detect_type_columns(df):
     col_map = {}

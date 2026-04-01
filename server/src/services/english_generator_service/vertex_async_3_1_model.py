@@ -135,7 +135,7 @@ class AsyncVertexGemini31:
         config = types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
-            thinking_config=thinking_config
+            thinking_config=thinking_config,
         )
 
         try:

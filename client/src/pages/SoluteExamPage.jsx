@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import ActionBar from '../components/generate/ActionBar'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
-import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
-import {
-  generateQuestions, // hoặc đổi thành solveExam nếu backend tách riêng
+import SoluteEnglishPreviewPanel from '../components/generate/SoluteEnglishExamPreviewPanel'
+import { 
   getGenerationProgress,
   getSessionDetail,
-  exportToDocx,
-  downloadDocx,
-  generateSolutions
+  generateSolutions,
+  exportToSolutedEnglishExamDocx,exportToSolutedEnglishStandardDocx
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 
@@ -18,7 +15,7 @@ const STORAGE_EXPIRY_HOURS = 5
 
 export default function SoluteExamPage() {
   const [examPdf, setExamPdf] = useState(null)
-  const [generatedExam, setSolutedExam] = useState(null)
+  const [generatedExam, setGeneratedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -50,16 +47,19 @@ export default function SoluteExamPage() {
       const parsed = JSON.parse(saved)
 
       if (parsed.timestamp) {
-        const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000
+        const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000;
         if (Date.now() > expiry) {
-          localStorage.removeItem(STORAGE_KEY)
-          return
+          localStorage.removeItem(STORAGE_KEY);
+
+          return;
         }
       }
 
-      if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam)
-      if (parsed.sessionId) setSessionId(parsed.sessionId)
-      if (parsed.examPdf) setExamPdf(parsed.examPdf)
+      if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam);
+
+      if (parsed.sessionId) setSessionId(parsed.sessionId);
+
+      if (parsed.examPdf) setExamPdf(parsed.examPdf);
 
     } catch (err) {
       console.error('Restore error:', err)
@@ -79,7 +79,7 @@ export default function SoluteExamPage() {
           timestamp: Date.now()
         }))
       } catch (err) {
-        console.error('Save error:', err)
+        console.error('Save error:', err);
       }
     }
   }, [generatedExam, sessionId, examPdf])
@@ -94,10 +94,13 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
-    setSolutedExam(null)
-    setSessionId(null)
-    setError(null)
-    setIsDirty(false)
+    setGeneratedExam(null);
+
+    setSessionId(null);
+
+    setError(null);
+
+    setIsDirty(false);
   }
 
   // =========================
@@ -113,7 +116,7 @@ export default function SoluteExamPage() {
     const isEnglishPdf = examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_");
     console.log(">>>>>>>>> debug isEnglishPDF", isEnglishPdf);
 
-    setSolutedExam(null)
+    setGeneratedExam(null)
     setSessionId(null)
     setIsGenerating(true)
     setError(null)
@@ -124,13 +127,14 @@ export default function SoluteExamPage() {
         const result = await generateSolutions(
           null,
           generationConfig,
-          null,
          examPdf.files
         );
-        if (result) {
-          console.log(">>>>>> debug {result", result);
 
-          setSolutedExam(result);
+        
+        if (result && result.data) {
+            const rawBlocks = Array.isArray(result.data[0]) ? result.data[0] : result.data;
+
+          setGeneratedExam({ results: rawBlocks });
 
           localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
 
@@ -142,7 +146,6 @@ export default function SoluteExamPage() {
       const result = await generateSolutions(
         null, // không dùng matrix
         generationConfig,
-        null,
         examPdf.files
       )
 
@@ -189,43 +192,55 @@ export default function SoluteExamPage() {
     }
   }
 
+  const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = filename
+
+    document.body.appendChild(link)
+    link.click()
+
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   // =========================
   // Export DOCX
   // =========================
   const handleExport = async () => {
-    if (!sessionId) {
-      setError('Không có dữ liệu để xuất')
-      return
-    }
-
-    try {
-      setIsExporting(true)
-      setError(null)
-
-      const exportResult = await exportToDocx(sessionId)
-
-      if (exportResult && exportResult.file_path) {
-        const url = downloadDocx(sessionId)
-
-        const link = document.createElement('a')
-        link.href = url
-        link.download = exportResult.file_name || `solution_${sessionId}.docx`
-
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-
-        setSuccessMessage('Đã xuất file DOCX thành công')
-        setTimeout(() => setSuccessMessage(null), 3000)
-      } else {
-        setError('Lỗi khi xuất file')
-      }
-
-    } catch (err) {
-      setError('Lỗi khi xuất file: ' + err.message)
-    } finally {
-      setIsExporting(false)
-    }
+      const storedExam = localStorage.getItem("solutedEnglishExam");   
+       if (!storedExam) {
+         setError("Không có dữ liệu đề tiếng Anh để xuất file");
+         return
+       }
+   
+       const generatedExam = JSON.parse(storedExam)
+   
+       try {
+         setIsExporting(true)
+         setError(null)
+   
+         const res1 = await exportToSolutedEnglishExamDocx(generatedExam, {
+           responseType: "blob"
+         })
+   
+         downloadFile(res1.data, "Soluted_English_Exam.docx")
+   
+         const res2 = await exportToSolutedEnglishStandardDocx(generatedExam, {
+           responseType: "blob"
+         })
+   
+         downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
+   
+         setSuccessMessage("Đã xuất 2 file DOCX thành công")
+   
+       } catch (err) {
+         setError("Lỗi khi xuất file: " + err.message)
+       } finally {
+         setIsExporting(false)
+       }
   }
 
   const handleDataChange = useCallback((data) => {
@@ -304,9 +319,9 @@ export default function SoluteExamPage() {
       )}
 
       {/* Preview */}
-      {/* <div className="flex-1 overflow-hidden">
-        {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_") ? (
-          <EnglishExamPreviewPanel examData={generatedExam} />
+      <div className="flex-1 overflow-hidden">
+        {examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_") ? (
+          <SoluteEnglishPreviewPanel examData={generatedExam} />
         ) : (
           <ExamPreviewPanel
             examData={generatedExam}
@@ -315,7 +330,7 @@ export default function SoluteExamPage() {
             onDataChange={handleDataChange}
           />
         )}
-      </div> */}
+      </div>
 
     </div>
   )
