@@ -165,6 +165,8 @@ a = Analysis(
         'bs4',
         'PIL',
         'dotenv',
+        # Explicitly include newly added exam-solving route
+        'api.routes.solute',
         # Server modules — pathex includes server/src so these resolve correctly
         # collect_submodules walks each package and finds all sub-modules
         *collect_submodules('api'),

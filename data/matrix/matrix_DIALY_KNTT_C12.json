@@ -3,7 +3,7 @@
     "subject": "DIALY",
     "curriculum": "KNTT",
     "grade": "C12",
-    "filename": "180894e8-75fb-48b1-96e4-50daf6cf76a8_Ma trận_DIALY_KNTT_C12.xlsx"
+    "filename": "af29508e-ddaf-4f62-9b9e-38c47fba1a11_Ma trận_DIALY_KNTT_C12.xlsx"
   },
   "rich_content_type_definitions": {
     "LT": {
@@ -137,7 +137,7 @@
                 {
                   "type": "BD",
                   "chart_type": "pie",
-                  "dimensions": "3x3",
+                  "dimensions": "2x3",
                   "name": "Biểu đồ",
                   "description": ""
                 }

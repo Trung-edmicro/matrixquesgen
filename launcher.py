@@ -148,7 +148,7 @@ def main():
         
         # Import routes
         try:
-            from api.routes import generate, questions, export, regenerate, google_drive, images
+            from api.routes import generate, questions, export, regenerate, google_drive, images, solute
             from api.routes import update as update_route
             print("✓ Đã import routes thành công")
         except Exception as e:
@@ -217,6 +217,8 @@ def main():
             print("✓ Đã mount update router")
             app.include_router(export.routerEnglish)
             print("✓ Đã mount routerEnglish")
+            app.include_router(solute.routerSolute)
+            print("✓ Đã mount solute router")
         except Exception as e:
             print(f"✗ Lỗi khi mount routers: {e}")
             import traceback

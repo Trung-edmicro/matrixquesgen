@@ -577,6 +577,72 @@ function resolveChartOptionPlaceholders(options) {
 function ChartRenderer({ content, metadata }) {
   const chartRef = useRef(null)
   const chartInstance = useRef(null)
+  const containerRef = useRef(null)
+
+  // Parse metadata if it's a string - MUST BE FIRST
+  const parsedMetadata = useMemo(() => {
+    if (typeof metadata === 'string') {
+      try {
+        return JSON.parse(metadata)
+      } catch (e) {
+        console.error('Failed to parse metadata:', e)
+        return null
+      }
+    }
+    return metadata
+  }, [metadata])
+
+  // Responsive sizing hook - use metadata from backend if provided
+  const [dimensions, setDimensions] = useState({ width: '100%', maxWidth: '850px', height: '500px' })
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (!containerRef.current) return
+
+      const screenWidth = window.innerWidth
+      let calculatedMaxWidth = '850px'
+      let calculatedHeight = '500px'
+
+      // Responsive sizing based on viewport
+      // Allow backend metadata to override (for pie charts with square dimensions)
+      if (parsedMetadata?.width && parsedMetadata?.height) {
+        // Use exact backend dimensions (converted to px if number)
+        calculatedMaxWidth = typeof parsedMetadata.width === 'number' ? `${parsedMetadata.width}px` : parsedMetadata.width
+        calculatedHeight = typeof parsedMetadata.height === 'number' ? `${parsedMetadata.height}px` : parsedMetadata.height
+      } else {
+        // Fallback: responsive based on viewport for bar/line charts
+        // Aspect ratio: 1.7:1 (width:height) - compact, balanced
+        if (screenWidth < 640) {
+          // Mobile: full width, proportional height
+          calculatedMaxWidth = '100%'
+          calculatedHeight = '300px'
+        } else if (screenWidth < 1024) {
+          // Tablet: proportional scaling
+          calculatedMaxWidth = '95%'
+          calculatedHeight = '450px'
+        } else if (screenWidth < 1280) {
+          // Small desktop
+          calculatedMaxWidth = '820px'
+          calculatedHeight = '480px'
+        } else {
+          // Large desktop: full 850x500
+          calculatedMaxWidth = '850px'
+          calculatedHeight = '500px'
+        }
+      }
+
+      setDimensions({
+        width: '100%',
+        maxWidth: calculatedMaxWidth,
+        height: calculatedHeight,
+      })
+    }
+
+    updateDimensions()
+    const resizeListener = () => updateDimensions()
+    window.addEventListener('resize', resizeListener)
+    return () => window.removeEventListener('resize', resizeListener)
+  }, [parsedMetadata])
 
   useEffect(() => {
     if (!chartRef.current) return
@@ -614,8 +680,82 @@ function ChartRenderer({ content, metadata }) {
 
       chartInstance.current.setOption(resolvedOptions)
 
+      // ✨ KEY FIX: Increase canvas DOM width to prevent content cutoff
+      // For pie charts: use minimal buffer to maintain perfect circles
+      // For bar/line charts: use 50px buffer for content breathing room
+      try {
+        const canvas = chartRef.current?.querySelector('canvas')
+        if (canvas) {
+          // Get dimensions - parse CSS width/height to numbers
+          let cssWidth = 850  // Default
+          let cssHeight = 500  // Default
+          
+          // Try to get from offset first
+          const offsetWidth = chartRef.current?.offsetWidth
+          const offsetHeight = chartRef.current?.offsetHeight
+          
+          if (offsetWidth && offsetWidth > 0) {
+            cssWidth = offsetWidth
+          } else if (dimensions.maxWidth) {
+            // Fallback: parse from dimensions string
+            const widthStr = String(dimensions.maxWidth)
+            const parsed = parseInt(widthStr)
+            if (!isNaN(parsed) && parsed > 0) {
+              cssWidth = parsed
+            }
+          }
+          
+          if (offsetHeight && offsetHeight > 0) {
+            cssHeight = offsetHeight
+          } else if (dimensions.height) {
+            // Fallback: parse from dimensions string
+            const heightStr = String(dimensions.height)
+            const parsed = parseInt(heightStr)
+            if (!isNaN(parsed) && parsed > 0) {
+              cssHeight = parsed
+            }
+          }
+          
+          // Detect if pie chart (square aspect ratio - width ≈ height)
+          const isPieChart = Math.abs(cssWidth - cssHeight) < 50
+          
+          let domWidth, domHeight
+          if (isPieChart) {
+            // Pie chart: keep square to avoid distortion
+            domWidth = cssWidth
+            domHeight = cssHeight
+          } else {
+            // Bar/Line/Area chart: 50px horizontal buffer for content
+            domWidth = cssWidth + 50
+            domHeight = cssHeight
+          }
+          
+          // Ensure values are positive integers
+          domWidth = Math.max(50, Math.floor(domWidth))
+          domHeight = Math.max(50, Math.floor(domHeight))
+          
+          canvas.setAttribute('width', domWidth.toString())
+          canvas.setAttribute('height', domHeight.toString())
+          
+          // Force re-render after attribute change
+          chartInstance.current.resize()
+        }
+      } catch (e) {
+        console.error('Error adjusting canvas dimensions:', e)
+        // Silently fail - chart will still render with default echarts sizing
+      }
+
+      // Handle resize
+      const handleResize = () => {
+        if (chartInstance.current) {
+          chartInstance.current.resize()
+        }
+      }
+      window.addEventListener('resize', handleResize)
+
       // Cleanup on unmount
       return () => {
+        window.removeEventListener('resize', handleResize)
         if (chartInstance.current) {
           chartInstance.current.dispose()
           chartInstance.current = null
@@ -626,32 +766,31 @@ function ChartRenderer({ content, metadata }) {
     }
   }, [content])
 
-  // Parse metadata if it's a string
-  const parsedMetadata = useMemo(() => {
-    if (typeof metadata === 'string') {
-      try {
-        return JSON.parse(metadata)
-      } catch (e) {
-        console.error('Failed to parse metadata:', e)
-        return null
-      }
-    }
-    return metadata
-  }, [metadata])
-
   return (
-    <div className="my-3 flex flex-col items-center">
-      <div ref={chartRef} style={{ width: '100%', maxWidth: '900px', height: '600px' }} />
-      {/* {parsedMetadata?.caption && (
-        <div className="text-sm text-gray-600 mt-2 text-center italic">
-          <LaTeXRenderer>{parsedMetadata.caption}</LaTeXRenderer>
-        </div>
-      )} */}
-      {/* {parsedMetadata?.source && (
-        <div className="text-xs text-gray-500 mt-1 text-center">
-          <LaTeXRenderer>{`Nguồn: ${parsedMetadata.source}`}</LaTeXRenderer>
-        </div>
-      )} */}
+    <div 
+      ref={containerRef}
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+        margin: 0,
+        padding: 0
+      }}
+    >
+      <div
+        ref={chartRef}
+        style={{
+          position: 'relative',
+          width: dimensions.maxWidth,
+          height: dimensions.height,
+          padding: '0px',
+          margin: '0px',
+          borderWidth: '0px',
+          cursor: 'default',
+          flexShrink: 0
+        }}
+      />
     </div>
   )
 }

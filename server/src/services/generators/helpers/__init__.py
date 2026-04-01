@@ -9,6 +9,7 @@ from .chart_generation_helper import (
     validate_chart_completeness,
     extract_chart_summary,
     optimize_grid_for_width,
+    optimize_font_sizes_for_chart_area,
     apply_layout
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     'validate_chart_completeness',
     'extract_chart_summary',
     'optimize_grid_for_width',
+    'optimize_font_sizes_for_chart_area',
     'apply_layout'
 ]

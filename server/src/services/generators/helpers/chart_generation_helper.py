@@ -837,9 +837,9 @@ def apply_layout(echarts: Dict) -> Dict:
         # Tính toán độ cao cần thiết phía dưới
         total_bottom_height = current_bottom + padding_from_grid  # Tính bằng pixels
         
-        # Assume canvas height = 850px (từ metadata)
+        # Assume canvas height = 550px (từ metadata mới - square sizing for pie)
         # Tỉ lệ phần trăm cho blocks phía dưới
-        canvas_height = 850
+        canvas_height = 550
         blocks_height_percent = (total_bottom_height / canvas_height) * 100
         
         # Pie chart nên độc chiếm khoảng 60-70% canvas (để có chỗ cho title trên + blocks dưới)
@@ -890,6 +890,104 @@ def apply_layout(echarts: Dict) -> Dict:
                     g["style"]["textAlign"] = "center"
                     # Xóa align nếu có (deprecated)
                     g["style"].pop("align", None)
+    
+    return echarts
+
+
+def optimize_font_sizes_for_chart_area(echarts: Dict, container_width: int = 1100) -> Dict:
+    """
+    Tối ưu hóa kích thước font dựa trên diện tích chart có sẵn
+    Giúp tránh crowding và overlap khi chart nhỏ
+    
+    Strategy:
+    - Width >= 1100px: Giữ font size nguyên
+    - Width 900-1100px: Giảm nhẹ (90-95%)
+    - Width < 900px: Giảm mạnh (80-85%)
+    
+    Args:
+        echarts: ECharts config
+        container_width: Độ rộng container
+    
+    Returns:
+        Dict: ECharts config với font size đã optimize
+    """
+    # Tính font scale factor
+    if container_width >= 1100:
+        scale_factor = 1.0  # 100%
+    elif container_width >= 900:
+        # Linear scale: 900px → 0.92, 1100px → 1.0
+        scale_factor = 0.92 + (container_width - 900) / 200 * 0.08
+    else:
+        # Aggressive: 800px → 0.83, 900px → 0.92
+        scale_factor = max(0.80, 0.83 + (container_width - 800) / 100 * 0.09)
+    
+    # Apply scaling to axis labels, legend, title fonts
+    def scale_font_size(size):
+        if isinstance(size, (int, float)):
+            return int(max(10, size * scale_factor))
+        return size
+    
+    # 1. Scale xAxis labels
+    if "xAxis" in echarts:
+        x_axis = echarts["xAxis"]
+        if isinstance(x_axis, dict):
+            if "axisLabel" in x_axis and isinstance(x_axis["axisLabel"], dict):
+                if "fontSize" in x_axis["axisLabel"]:
+                    x_axis["axisLabel"]["fontSize"] = scale_font_size(x_axis["axisLabel"]["fontSize"])
+            if "nameTextStyle" in x_axis and isinstance(x_axis["nameTextStyle"], dict):
+                if "fontSize" in x_axis["nameTextStyle"]:
+                    x_axis["nameTextStyle"]["fontSize"] = scale_font_size(x_axis["nameTextStyle"]["fontSize"])
+    
+    # 2. Scale yAxis labels
+    if "yAxis" in echarts:
+        y_axis = echarts["yAxis"]
+        if isinstance(y_axis, dict):
+            if "axisLabel" in y_axis and isinstance(y_axis["axisLabel"], dict):
+                if "fontSize" in y_axis["axisLabel"]:
+                    y_axis["axisLabel"]["fontSize"] = scale_font_size(y_axis["axisLabel"]["fontSize"])
+            if "nameTextStyle" in y_axis and isinstance(y_axis["nameTextStyle"], dict):
+                if "fontSize" in y_axis["nameTextStyle"]:
+                    y_axis["nameTextStyle"]["fontSize"] = scale_font_size(y_axis["nameTextStyle"]["fontSize"])
+    
+    # 3. Scale legend text
+    if "legend" in echarts and isinstance(echarts["legend"], dict):
+        legend = echarts["legend"]
+        if "textStyle" in legend and isinstance(legend["textStyle"], dict):
+            if "fontSize" in legend["textStyle"]:
+                legend["textStyle"]["fontSize"] = scale_font_size(legend["textStyle"]["fontSize"])
+    
+    # 4. Scale title text
+    if "title" in echarts:
+        titles = echarts["title"]
+        if isinstance(titles, list):
+            for title in titles:
+                if isinstance(title, dict) and "textStyle" in title:
+                    if "fontSize" in title["textStyle"]:
+                        title["textStyle"]["fontSize"] = scale_font_size(title["textStyle"]["fontSize"])
+                    if "fontSize" in title:
+                        title["fontSize"] = scale_font_size(title["fontSize"])
+        elif isinstance(titles, dict):
+            if "textStyle" in titles and "fontSize" in titles["textStyle"]:
+                titles["textStyle"]["fontSize"] = scale_font_size(titles["textStyle"]["fontSize"])
+            if "fontSize" in titles:
+                titles["fontSize"] = scale_font_size(titles["fontSize"])
+    
+    # 5. Scale series labels (bar/pie/etc labels)
+    if "series" in echarts and isinstance(echarts["series"], list):
+        for series in echarts["series"]:
+            if isinstance(series, dict):
+                # Label style
+                if "label" in series and isinstance(series["label"], dict):
+                    if "fontSize" in series["label"]:
+                        series["label"]["fontSize"] = scale_font_size(series["label"]["fontSize"])
+                
+                # ItemStyle textStyle
+                if "itemStyle" in series and isinstance(series["itemStyle"], dict):
+                    if "textStyle" in series["itemStyle"]:
+                        if "fontSize" in series["itemStyle"]["textStyle"]:
+                            series["itemStyle"]["textStyle"]["fontSize"] = scale_font_size(
+                                series["itemStyle"]["textStyle"]["fontSize"]
+                            )
     
     return echarts
 
@@ -945,6 +1043,8 @@ def merge_chart_into_question(
                 
                 # Apply grid optimization trước layout resolution
                 echarts = optimize_grid_for_width(chart_data.get('echarts', {}), container_width)
+                # Optimize font sizes cho chart area
+                echarts = optimize_font_sizes_for_chart_area(echarts, container_width)
                 # Apply layout resolution (tính grid.bottom)
                 echarts = apply_layout(echarts)
                 
@@ -955,8 +1055,27 @@ def merge_chart_into_question(
                 }
                 # Thêm metadata nếu chưa có
                 if 'metadata' not in item:
-                    chart_height = 850  # Tăng chiều cao để hiển thị rõ ràng hơn
-                    chart_width = 1100  # Tăng width để không bị cắt nội dung (legend, labels)
+                    # Detect chart type để set appropriate dimensions
+                    # Pie chart: square (550x550) để không bóp méo tròn
+                    # Bar/Line/Area: landscape (850x500)
+                    is_pie = False
+                    if 'series' in chart_data.get('echarts', {}):
+                        series = chart_data['echarts']['series']
+                        if isinstance(series, list):
+                            for s in series:
+                                if isinstance(s, dict) and s.get('type') == 'pie':
+                                    is_pie = True
+                                    break
+                    
+                    if is_pie:
+                        # Pie chart: use square dimensions to prevent distortion
+                        chart_height = 550
+                        chart_width = 550
+                    else:
+                        # Bar/Line/Area: wide landscape for legend space
+                        chart_height = 500
+                        chart_width = 850
+                    
                     item['metadata'] = {
                         'caption': chart_data.get('title'),
                         'width': chart_width,
@@ -972,6 +1091,8 @@ def merge_chart_into_question(
         for chart_id, chart_data in charts_map.items():
             # Apply grid optimization trước layout resolution
             echarts = optimize_grid_for_width(chart_data.get('echarts', {}), 1100)
+            # Optimize font sizes cho chart area
+            echarts = optimize_font_sizes_for_chart_area(echarts, 1100)
             # Apply layout resolution
             echarts = apply_layout(echarts)
             chart_item = {
