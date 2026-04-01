@@ -74,7 +74,7 @@ ENGLISH_SCHEMA_SOLUTE = r"""
       "questions": [
         {
           "number": "number",
-          "question_content": "string", 
+          "question_content": "string | null", 
           "option_a": "string",
           "option_b": "string",
           "option_c": "string",
@@ -93,12 +93,12 @@ ENGLISH_SCHEMA_SOLUTE = r"""
     "question_count": "number",
     "start_num": "number",
     "parsed": {
-      "passage_title": "string",
+      "passage_title": "string | null",
       "passage": "string",
       "questions": [
         {
           "number": "number",
-          "question_content": "string",
+          "question_content": "string | null",
           "option_a": "string",
           "option_b": "string",
           "option_c": "string",

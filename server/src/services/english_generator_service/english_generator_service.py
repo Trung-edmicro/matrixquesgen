@@ -147,8 +147,8 @@ def fetch_drive_md_files():
             if r.status_code != 200:
                 continue
 
-            prompts[name] = r.text
-
+            prompts[name] = r.content.decode("utf-8", errors="replace")
+            
         return prompts
 
     except Exception as e:

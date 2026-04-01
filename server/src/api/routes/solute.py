@@ -2,13 +2,11 @@
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import List
-import os
 from pathlib import Path
 import uuid
-
 from fastapi.responses import FileResponse
 from services.solute_exam_service.solute_english_exam_service import solve_english_exam
-from services.solute_exam_service.docx_export_exam_service import export_soluted_english_exam_from_data
+from services.solute_exam_service.docx_export_exam_service import export_soluted_english_exam_from_data, export_soluted_standard_english_exam_from_data
 routerSolute = APIRouter(
     prefix="/api",
     tags=["Solute"]
@@ -17,6 +15,15 @@ routerSolute = APIRouter(
 # Giả sử bạn sẽ viết service xử lý ở đây
 from services.solute_exam_service.solute_english_exam_service import solve_english_exam
 
+
+def delete_temp_file(path: str):
+    try:
+        file = Path(path)
+        if file.exists():
+            file.unlink()
+            print(f">>>>>>> deleted temp file: {path}")
+    except Exception as e:
+        print(f">>>>>>> failed to delete {path}: {e}")
 
 @routerSolute.post("/export-soluted-english-exam")
 async def export_soluted_english_exam(payload: dict):
@@ -30,18 +37,18 @@ async def export_soluted_english_exam(payload: dict):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-# @routerSolute.post("/export-soluted-standard-english-exam")
-# async def export_soluted_standard_english_exam(payload: dict):
+@routerSolute.post("/export-soluted-standard-english-exam")
+async def export_soluted_standard_english_exam(payload: dict):
 
-#     file_path = "output_standard_exam.docx"
+    file_path = "output_standard_exam.docx"
 
-#     export_soluted_standard_english_exam_from_data(payload, file_path)
+    export_soluted_standard_english_exam_from_data(payload, file_path)
 
-#     return FileResponse(
-#         file_path,
-#         filename="Soluted_Standard_English_Exam.docx",
-#         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-#     )
+    return FileResponse(
+        file_path,
+        filename="Soluted_Standard_English_Exam.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
 
 
@@ -86,4 +93,14 @@ async def solute_english_exam(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+    finally:
+        # ✅ Luôn xóa file temp dù thành công hay lỗi
+        for path in file_paths:
+            try:
+                file = Path(path)
+                if file.exists():
+                    file.unlink()
+                    print(f">>>>>>> deleted temp file: {path}")
+            except Exception as cleanup_error:
+                print(f">>>>>>> failed to delete {path}: {cleanup_error}")
 

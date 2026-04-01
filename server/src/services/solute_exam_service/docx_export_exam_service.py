@@ -38,7 +38,13 @@ def export_soluted_english_exam_from_data(data: dict, output_path: str):
             _render_pronunciation_group(doc, group)
         elif res_type == "ERROR_IDENTIFICATION":
             _render_error_group(doc, group)
-        elif res_type == "DIALOUGE_COMPLETION":
+        elif res_type == "SYNONYM_ANTONYM":
+            _render_synonym_antonym_group(doc, group)
+        elif res_type == "SENTENCE_COMPLETION":
+            _render_sentence_completion_group(doc, group)
+        elif res_type == "SENTENCE_TRANSFORMATION":
+            _render_transformation_group(doc, group)
+        elif res_type == "DIALOGUE_COMPLETION":
             _render_dialogue_group(doc, group)
         elif res_type == "LOGICAL_THINKING":
             _render_logical_group(doc, group)
@@ -51,6 +57,62 @@ def export_soluted_english_exam_from_data(data: dict, output_path: str):
 
     doc.save(output_path)
     return output_path
+
+def export_soluted_standard_english_exam_from_data(data: dict, output_path: str):
+    # Lấy dữ liệu từ results hoặc data
+    results = data.get("results") or data.get("data", [])
+    if isinstance(results, list) and len(results) > 0 and isinstance(results[0], list):
+        results = results[0]
+
+    if not results:
+        raise Exception("Không tìm thấy dữ liệu để xuất file")
+
+    doc = Document()
+    _apply_default_style(doc)
+
+    i = 0
+    n = len(results)
+
+    while i < n:
+        # Gom nhóm các câu có cùng type và titleQuestion
+        group, next_i = _collect_same_group(results, i)
+        res_type = group[0].get("type")
+        
+        # 1. Thêm tiêu đề nhóm (titleQuestion) - render BOLD
+        title_text = group[0].get("titleQuestion")
+        if title_text:
+            _add_group_title(doc, title_text)
+
+        # 2. Điều hướng render theo loại block
+        if res_type in ("RC", "CLOZE", "GAP"):
+            _render_standard_passage_based_group(doc, group)
+        elif res_type == "ARRANGE":
+            _render_standard_arrange_group(doc, group)
+        elif res_type == "PRONUNCIATION_STRESS":
+            _render_standard_pronunciation_group(doc, group)
+        elif res_type == "ERROR_IDENTIFICATION":
+            _render_standard_error_group(doc, group)
+        elif res_type == "SYNONYM_ANTONYM":
+            _render_standard_synonym_antonym_group(doc, group)
+        elif res_type == "SENTENCE_COMPLETION":
+            _render_standard_sentence_completion_group(doc, group)
+        elif res_type == "SENTENCE_TRANSFORMATION":
+            _render_standard_transformation_group(doc, group)
+        elif res_type == "DIALOGUE_COMPLETION":
+            _render_standard_dialogue_group(doc, group)
+        elif res_type == "LOGICAL_THINKING":
+            _render_standard_logical_group(doc, group)
+        elif res_type == "WORD_REORDERING":
+            _render_standard_reordering_group(doc, group)
+        else:
+            _render_standard_simple_question_group(doc, group)
+
+        i = next_i
+
+    doc.save(output_path)
+    return output_path
+
+
 
 # ============================
 # HELPERS (STYLE, GROUPING, HTML)
@@ -198,6 +260,71 @@ def _preprocess_question_content(text):
     
     return text
 
+def _render_synonym_antonym_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            # Question number
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            # Nếu có type thì thêm (Synonym / Antonym)
+            # if q.get("type"):
+            #     p.add_run(f"({q.get('type').capitalize()}) ").italic = True
+
+            # Nội dung câu hỏi
+            _render_html_text(p, q.get("question"))
+
+            # Options
+            _render_options(doc, q)
+
+            # Solution
+            _render_solution_block(doc, q)
+
+def _render_sentence_completion_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            if q.get("question"):
+                p.add_run(q["question"])
+            # Options
+            _render_options(doc, q)
+
+            # Solution
+            _render_solution_block(doc, q)
+
+def _render_transformation_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            # Loại bài (rewriting / combination)
+            if q.get("question"):
+                p.add_run(q["question"])
+
+            # Options
+            _render_options(doc, q)
+
+            # Solution
+            _render_solution_block(doc, q)
+
+            # Dịch câu đúng
+            if q.get("correct_translation"):
+                p_corr = doc.add_paragraph()
+                p_corr.add_run("Dịch câu đúng: ").bold = True
+                p_corr.add_run(str(q["correct_translation"]))
+
+
+
+
 def _render_passage_based_group(doc, group):
     """Điền từ, Đọc hiểu, Điền cụm từ - Sử dụng HTML render cho PASSAGE"""
     first_res = group[0]
@@ -230,10 +357,24 @@ def _render_passage_based_group(doc, group):
         q_list = res.get("parsed", {}).get("questions", [])
         for q in q_list:
             p = doc.add_paragraph()
-            p.add_run(f"Question {q.get('number')}: ").bold = True
-            # _render_html_text(p, q.get("question_content"))
-            processed_content = _preprocess_question_content(q.get("question_content"))
-            _render_html_text(p, processed_content)
+            # p.add_run(f"Question {q.get('number')}: ").bold = True
+            # # _render_html_text(p, q.get("question_content"))
+            # processed_content = _preprocess_question_content(q.get("question_content"))
+            # _render_html_text(p, processed_content)
+            content = (q.get("question_content") or "").strip()
+            number = q.get("number")
+
+            expected = f"Question {number}:"
+
+            # Normalize nhẹ (tránh lệch do khoảng trắng)
+            if content.lower() == expected.lower():
+                # Nếu giống hoàn toàn → chỉ render 1 lần và bold
+                p.add_run(expected).bold = True
+            else:
+                # Bình thường
+                p.add_run(expected + " ").bold = True
+                processed_content = _preprocess_question_content(content)
+                _render_html_text(p, processed_content)
             
             # doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
             _render_options(doc, q)
@@ -285,11 +426,30 @@ def _render_dialogue_group(doc, group):
         q_list = res.get("parsed", {}).get("questions", [])
         for q in q_list:
             p = doc.add_paragraph()
-           
             p.add_run(f"Question {q.get('number')}: ").bold = True
-            if q.get("speaker_a"): doc.add_paragraph(q["speaker_a"])
-            if q.get("speaker_b"): doc.add_paragraph(q["speaker_b"])
-            doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
+
+            # Speaker A
+            if q.get("speaker_a"):
+                p = doc.add_paragraph()
+                p.add_run("A: ").bold = True
+                p.add_run(q["speaker_a"])
+
+            # Speaker B
+            if q.get("speaker_b"):
+                p = doc.add_paragraph()
+                p.add_run("B: ").bold = True
+                p.add_run(q["speaker_b"])
+
+            # ✅ Options riêng từng dòng
+            if q.get("option_a"):
+                doc.add_paragraph(f"A. {q.get('option_a')}")
+            if q.get("option_b"):
+                doc.add_paragraph(f"B. {q.get('option_b')}")
+            if q.get("option_c"):
+                doc.add_paragraph(f"C. {q.get('option_c')}")
+            if q.get("option_d"):
+                doc.add_paragraph(f"D. {q.get('option_d')}")
+
             _render_solution_block(doc, q)
 
 def _render_logical_group(doc, group):
@@ -297,11 +457,26 @@ def _render_logical_group(doc, group):
         q_list = res.get("parsed", {}).get("questions", [])
         for q in q_list:
             p = doc.add_paragraph()
-           
             p.add_run(f"Question {q.get('number')}: ").bold = True
-            if q.get("scenario"): doc.add_paragraph(q["scenario"]).italic = True
-            if q.get("question"): doc.add_paragraph(q["question"])
-            doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
+
+            # Scenario (in nghiêng)
+            if q.get("scenario"):
+                doc.add_paragraph(q["scenario"]).italic = True
+
+            # Question
+            if q.get("question"):
+                doc.add_paragraph(q["question"])
+
+            # ✅ Options riêng từng dòng
+            if q.get("option_a"):
+                doc.add_paragraph(f"A. {q.get('option_a')}")
+            if q.get("option_b"):
+                doc.add_paragraph(f"B. {q.get('option_b')}")
+            if q.get("option_c"):
+                doc.add_paragraph(f"C. {q.get('option_c')}")
+            if q.get("option_d"):
+                doc.add_paragraph(f"D. {q.get('option_d')}")
+
             _render_solution_block(doc, q)
 
 def _render_reordering_group(doc, group):
@@ -366,3 +541,266 @@ def _render_arrange_group(doc, group):
 
             for line in parsed["translation_lines"]:
                 doc.add_paragraph(str(line))
+
+
+def _render_standard_synonym_antonym_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            # Question number
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            # Nội dung câu hỏi
+            _render_html_text(p, q.get("question"))
+
+            # Options
+            _render_options(doc, q)
+
+            # Solution
+            # _render_solution_block(doc, q)
+
+def _render_standard_sentence_completion_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            if q.get("question"):
+                p.add_run(q["question"])
+            # Options
+            _render_options(doc, q)
+
+            # Solution
+            # _render_solution_block(doc, q)
+
+def _render_standard_transformation_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            # Nội dung question viết tiếp cùng paragraph
+            if q.get("question"):
+                p.add_run(q["question"])
+            # Options
+            _render_options(doc, q)
+
+
+
+
+
+def _render_standard_passage_based_group(doc, group):
+    """Điền từ, Đọc hiểu, Điền cụm từ - Sử dụng HTML render cho PASSAGE"""
+    first_res = group[0]
+    parsed_main = first_res.get("parsed", {})
+    
+    # 1. Render Passage Title (Dùng HTML render)
+    if parsed_main.get("passage_title"):
+        p_t = doc.add_paragraph()
+        p_t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        _render_html_text(p_t, parsed_main["passage_title"])
+        
+        # Ép tất cả run trong paragraph thành bold
+        for run in p_t.runs:
+            run.bold = True
+    
+    # 2. Render Passage (Sử dụng HTML render cho từng đoạn văn)
+    if parsed_main.get("passage"):
+        passage_content = str(parsed_main["passage"])
+        # Chia nhỏ theo dòng để giữ paragraph
+        lines = passage_content.split('\n')
+        for line in lines:
+            if line.strip():
+                p_p = doc.add_paragraph()
+                p_p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                _render_html_text(p_p, line.strip())
+
+    # 3. Render Questions
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+            # p.add_run(f"Question {q.get('number')}: ").bold = True
+            # # _render_html_text(p, q.get("question_content"))
+            # processed_content = _preprocess_question_content(q.get("question_content"))
+            # _render_html_text(p, processed_content)
+            content = (q.get("question_content") or "").strip()
+            number = q.get("number")
+
+            expected = f"Question {number}:"
+
+            # Normalize nhẹ (tránh lệch do khoảng trắng)
+            if content.lower() == expected.lower():
+                # Nếu giống hoàn toàn → chỉ render 1 lần và bold
+                p.add_run(expected).bold = True
+            else:
+                # Bình thường
+                p.add_run(expected + " ").bold = True
+                processed_content = _preprocess_question_content(content)
+                _render_html_text(p, processed_content)
+            
+            # doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
+            _render_options(doc, q)
+            # _render_solution_block(doc, q)
+
+def _render_standard_simple_question_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+            
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+            _render_html_text(p, q.get("question") or q.get("question_content"))
+            doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
+            # _render_solution_block(doc, q)
+
+def _render_standard_pronunciation_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+           
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+            for label in ['a', 'b', 'c', 'd']:
+                p.add_run(f"{label.upper()}. ")
+                _render_html_text(p, q.get(f"option_{label}"))
+                p.add_run("\t")
+            # _render_solution_block(doc, q)
+            # if q.get("details"):
+            #     for d in q["details"]:
+            #         doc.add_paragraph(f"- {d.get('word')}: {d.get('ipa')} ({d.get('pos')}): {d.get('meaning')}")
+
+def _render_standard_error_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+            _render_html_text(p, q.get("question"))
+            doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
+            # _render_solution_block(doc, q)
+            # if q.get("correction"):
+            #     p_corr = doc.add_paragraph()
+            #     p_corr.add_run("Sửa lại: ").bold = True
+            #     p_corr.add_run(str(q['correction']))
+
+def _render_standard_dialogue_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+           
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            if q.get("speaker_a"):
+                doc.add_paragraph(q["speaker_a"])
+
+            if q.get("speaker_b"):
+                doc.add_paragraph(q["speaker_b"])
+
+            # ✅ Mỗi đáp án 1 dòng riêng
+            if q.get("option_a"):
+                doc.add_paragraph(f"A. {q.get('option_a')}")
+            if q.get("option_b"):
+                doc.add_paragraph(f"B. {q.get('option_b')}")
+            if q.get("option_c"):
+                doc.add_paragraph(f"C. {q.get('option_c')}")
+            if q.get("option_d"):
+                doc.add_paragraph(f"D. {q.get('option_d')}")
+            # _render_solution_block(doc, q)
+
+def _render_standard_logical_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+           
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+
+            if q.get("scenario"):
+                doc.add_paragraph(q["scenario"]).italic = True
+
+            if q.get("question"):
+                doc.add_paragraph(q["question"])
+
+            # ✅ Mỗi đáp án là 1 paragraph riêng
+            if q.get("option_a"):
+                doc.add_paragraph(f"A. {q.get('option_a')}")
+            if q.get("option_b"):
+                doc.add_paragraph(f"B. {q.get('option_b')}")
+            if q.get("option_c"):
+                doc.add_paragraph(f"C. {q.get('option_c')}")
+            if q.get("option_d"):
+                doc.add_paragraph(f"D. {q.get('option_d')}")
+
+            # _render_solution_block(doc, q)
+
+def _render_standard_reordering_group(doc, group):
+    for res in group:
+        q_list = res.get("parsed", {}).get("questions", [])
+        for q in q_list:
+            p = doc.add_paragraph()
+           
+            p.add_run(f"Question {q.get('number')}: ").bold = True
+            p.add_run(str(q.get("word_list", "")))
+            doc.add_paragraph(f"A. {q.get('option_a')}")
+            doc.add_paragraph(f"B. {q.get('option_b')}")
+            doc.add_paragraph(f"C. {q.get('option_c')}")
+            doc.add_paragraph(f"D. {q.get('option_d')}")
+            # _render_solution_block(doc, q)
+
+def _add_options_line(doc, parsed):
+    p = doc.add_paragraph()
+
+    options = [
+        ("A", parsed.get("option_a")),
+        ("B", parsed.get("option_b")),
+        ("C", parsed.get("option_c")),
+        ("D", parsed.get("option_d")),
+    ]
+
+    for idx, (label, value) in enumerate(options):
+        run = p.add_run(f"{label}. ")
+        run.bold = True
+
+        p.add_run(str(value) if value else "")
+
+        if idx < len(options) - 1:
+            p.add_run("\t")
+
+def _render_standard_arrange_group(doc, group):
+    for res in group:
+        parsed = res.get("parsed", {})
+
+        p = doc.add_paragraph()
+        p.add_run(f"Question {parsed.get('question_number') or parsed.get('number')}: ").bold = True
+
+        if parsed.get("question_content"):
+            for line in parsed["question_content"]:
+                doc.add_paragraph(str(line))
+
+        # ✅ FIX HERE
+        _add_options_line(doc, parsed)
+
+        # p_ans = doc.add_paragraph()
+        # p_ans.add_run("Lời giải").bold = True
+
+        # doc.add_paragraph(f"Chọn {parsed.get('answer')}")
+
+        # if parsed.get("solution_lines"):
+        #     for line in parsed["solution_lines"]:
+        #         doc.add_paragraph(str(line))
+
+        # if parsed.get("translation_lines"):
+        #     p_t_h = doc.add_paragraph()
+        #     p_t_h.add_run("Tạm dịch:").bold = True
+
+        #     for line in parsed["translation_lines"]:
+        #         doc.add_paragraph(str(line))

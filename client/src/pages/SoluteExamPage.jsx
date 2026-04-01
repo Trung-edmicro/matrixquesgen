@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
-import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import SoluteEnglishPreviewPanel from '../components/generate/SoluteEnglishExamPreviewPanel'
 import { 
   getGenerationProgress,
   getSessionDetail,
-  exportToDocx,
-  downloadDocx,
   generateSolutions,
-  exportToSolutedEnglishExamDocx
+  exportToSolutedEnglishExamDocx,exportToSolutedEnglishStandardDocx
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 
@@ -130,17 +127,13 @@ export default function SoluteExamPage() {
         const result = await generateSolutions(
           null,
           generationConfig,
-          null,
          examPdf.files
         );
 
         
         if (result && result.data) {
-          console.log(">>>>>> debug {result", result);
-
             const rawBlocks = Array.isArray(result.data[0]) ? result.data[0] : result.data;
 
-    // Chỉ set mảng các blocks vào results
           setGeneratedExam({ results: rawBlocks });
 
           localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
@@ -153,7 +146,6 @@ export default function SoluteExamPage() {
       const result = await generateSolutions(
         null, // không dùng matrix
         generationConfig,
-        null,
         examPdf.files
       )
 
@@ -218,9 +210,7 @@ export default function SoluteExamPage() {
   // Export DOCX
   // =========================
   const handleExport = async () => {
-      const storedExam = localStorage.getItem("solutedEnglishExam");
-      console.log(">>>>>>> debug storedExam", storedExam);
-   
+      const storedExam = localStorage.getItem("solutedEnglishExam");   
        if (!storedExam) {
          setError("Không có dữ liệu đề tiếng Anh để xuất file");
          return
@@ -238,13 +228,13 @@ export default function SoluteExamPage() {
    
          downloadFile(res1.data, "Soluted_English_Exam.docx")
    
-        //  const res2 = await exportToSolutedEnglishExamDocx(generatedExam, {
-        //    responseType: "blob"
-        //  })
+         const res2 = await exportToSolutedEnglishStandardDocx(generatedExam, {
+           responseType: "blob"
+         })
    
-        //  downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
+         downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
    
-        //  setSuccessMessage("Đã xuất 2 file DOCX thành công")
+         setSuccessMessage("Đã xuất 2 file DOCX thành công")
    
        } catch (err) {
          setError("Lỗi khi xuất file: " + err.message)
