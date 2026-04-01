@@ -543,7 +543,8 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[Union[Dict, Li
     
     Args:
         rich_content_types: Dict hoặc List từ matrix
-            - Dict format: {"C1": [{"code": "LT"}, ...], "C2": [{"code": "BD"}, {"code": "TT"}]}
+            - Dict format OLD: {"C1": [{"code": "LT"}, ...], "C2": [{"code": "BD"}, {"code": "TT"}]}
+            - Dict format NEW (chart): {"C1": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
             - List format: ['BK'] hoặc ['BD', 'TT']
     
     Returns:
@@ -556,12 +557,15 @@ def get_content_schema_by_rich_types(rich_content_types: Optional[Union[Dict, Li
     type_codes = []
     
     if isinstance(rich_content_types, dict):
-        # Dict format: {"C1": [{"code": "LT", ...}], ...}
+        # Dict format - hỗ trợ cả old {'code': 'BD'} và new {'type': 'BD', 'chart_type': ...}
         for question_code, types_list in rich_content_types.items():
             if isinstance(types_list, list):
                 for type_obj in types_list:
-                    if isinstance(type_obj, dict) and 'code' in type_obj:
-                        type_codes.append(type_obj['code'])
+                    if isinstance(type_obj, dict):
+                        # Try 'type' field first (new format), then 'code' field (old format)
+                        type_value = type_obj.get('type') or type_obj.get('code')
+                        if type_value:
+                            type_codes.append(type_value)
                     elif isinstance(type_obj, str):
                         type_codes.append(type_obj)
     elif isinstance(rich_content_types, list):
@@ -1480,5 +1484,160 @@ def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict
             }
         },
         "required": ["questions"]
+    }
+
+
+def get_chart_data_generation_schema() -> Dict:
+    """
+    Schema cho AI sinh DỮ LIỆU biểu đồ (chart data generation)
+    Output sẽ được convert thành ECharts option bằng GenChart utilities
+    
+    Dựa trên format input của GenChart (README.md section "Chuẩn bị dữ liệu đầu vào")
+    
+    Returns:
+        Dict: JSON schema cho chart data generation
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "chart_type": {
+                "type": "string",
+                "enum": ["bar", "line", "pie", "area", "combo"],
+                "description": "Loại biểu đồ: bar (cột), line (đường), pie (tròn), area (miền), combo (kết hợp cột+đường)"
+            },
+            "data": {
+                "type": "object",
+                "description": "Dữ liệu thô của biểu đồ - Backend sẽ convert thành ECharts option",
+                "properties": {
+                    "categories": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Trục hoành (X-axis) - Mảng các nhãn. VD: ['2010', '2015', '2021', '2024']. ⚠️ KHÔNG dùng cho Pie chart."
+                    },
+                    "series": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "Mảng các chuỗi dữ liệu - Mỗi series là một chỉ tiêu cần biểu diễn",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Tên chuỗi dữ liệu. VD: 'Nông nghiệp', 'Công nghiệp', 'Dịch vụ'"
+                                },
+                                "data": {
+                                    "anyOf": [
+                                        {
+                                            "type": "array",
+                                            "items": {"type": "number"},
+                                            "description": "Dữ liệu dạng số (cho bar, line, area, combo). VD: [15.4, 14.5, 12.6, 11.9]"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "name": {"type": "string"},
+                                                    "value": {"type": "number"}
+                                                },
+                                                "required": ["name", "value"]
+                                            },
+                                            "description": "Dữ liệu dạng {name, value} (chỉ cho pie). VD: [{'name': 'Nông nghiệp', 'value': 15.4}]"
+                                        }
+                                    ],
+                                    "description": "Dữ liệu của series - Format khác nhau cho từng loại chart"
+                                },
+                                "unit": {
+                                    "type": "string",
+                                    "description": "Đơn vị của dữ liệu. VD: '%', 'Tỷ VNĐ', 'triệu người', '°C'"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "enum": ["bar", "line"],
+                                    "description": "⚠️ BẮT BUỘC CHỈ cho chart_type='combo': Loại biểu đồ con (bar hoặc line) để kết hợp"
+                                }
+                            },
+                            "required": ["name", "data", "unit"],
+                            "description": "Một chuỗi dữ liệu - Chứa tên, dữ liệu và đơn vị"
+                        }
+                    }
+                },
+                "required": ["series"],
+                "description": "⚠️ LƯU Ý: 'categories' BẮT BUỘC cho bar/line/area/combo, KHÔNG dùng cho pie"
+            },
+            "options": {
+                "type": "object",
+                "description": "Tùy chọn hiển thị biểu đồ",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Tiêu đề biểu đồ - Ngắn gọn, IN HOA. VD: 'CƠ CẤU GDP GIAI ĐOẠN 2010-2024'"
+                    },
+                    "subtitle": {
+                        "type": "string",
+                        "description": "Tiêu đề phụ (mặc định để trống, chỉ cần title đủ truyền đạt nội dung chính)"
+                    },
+                    "show_legend": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Hiển thị chú giải (legend)"
+                    },
+                    "show_data_labels": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Hiển thị giá trị trên biểu đồ"
+                    },
+                    "x_axis_unit": {
+                        "type": "string",
+                        "description": "Tên đơn vị trục X. VD: 'Năm', 'Tháng', 'Quý' (mặc định: 'năm')"
+                    },
+                    "bar_style": {
+                        "type": "string",
+                        "enum": ["grouped", "stacked"],
+                        "default": "grouped",
+                        "description": "Kiểu cột (chỉ cho bar/combo): 'grouped' (cột ghép nhóm) hoặc 'stacked' (cột xếp chồng)"
+                    },
+                    "smooth": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Làm mịn đường (chỉ cho line)"
+                    },
+                    "show_percentage": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Hiển thị % trên lát cắt (chỉ cho pie)"
+                    },
+                    "source": {
+                        "type": "string",
+                        "description": "Nguồn dữ liệu. VD: 'Nguồn: Tổng cục Thống kê', 'Nguồn: Niên giám Thống kê 2023'"
+                    },
+                    "x_label_rotate": {
+                        "type": "number",
+                        "description": "Góc xoay nhãn trục X (độ). VD: 45"
+                    },
+                    "y_axis_left_unit": {
+                        "type": "string",
+                        "description": "Đơn vị trục Y bên trái (chỉ cho combo)"
+                    },
+                    "y_axis_right_unit": {
+                        "type": "string",
+                        "description": "Đơn vị trục Y bên phải (chỉ cho combo)"
+                    },
+                    "radius": {
+                        "type": "string",
+                        "description": "Bán kính biểu đồ tròn (chỉ cho pie). VD: '45%', '60%'"
+                    },
+                    "center": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Vị trí tâm biểu đồ tròn (chỉ cho pie). VD: ['50%', '50%']"
+                    }
+                },
+                "description": "Các tùy chọn hiển thị - Một số tùy chọn chỉ áp dụng cho loại chart cụ thể"
+            }
+        },
+        "required": ["chart_type", "data", "options"],
+        "description": """Schema cho AI sinh DỮ LIỆU biểu đồ (KHÔNG phải ECharts option đầy đủ).
+⚠️ LUỒNG: AI sinh data → Backend validate → Convert thành ECharts option bằng GenChart → Merge vào câu hỏi."""
     }
 

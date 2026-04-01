@@ -212,11 +212,13 @@ class MatrixParser:
         Args:
             cell_value: Giá trị ô 
                 VD: "2 (C1,2)" hoặc "1 (C10)"
-                VD với rich content: "1 (C3-[BK])" hoặc "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
+                VD với rich content (format cũ): "1 (C3-[BK])" hoặc "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
+                VD với chart dimensions (format mới): "1 (C1-Bar2x3)" hoặc "2 (C1-Line3x4,C2-Pie1x5)"
             
         Returns:
             Tuple[int, List[str], Dict[str, List[str]]]: (số câu hỏi, danh sách mã câu, rich_content_types)
-                rich_content_types: {"C1": ["BD"], "C2": ["BK", "TT"]}
+                rich_content_types (format cũ): {"C1": ["BD"], "C2": ["BK", "TT"]}
+                rich_content_types (format mới): {"C1": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
         """
         if pd.isna(cell_value):
             return 0, [], {}
@@ -256,24 +258,51 @@ class MatrixParser:
                 parts.append(current_part.strip())
             
             for part in parts:
-                # Check if has rich content type: "C4-[BD]" hoặc "C1-[BK,TT]"
+                # Check NEW FORMAT FIRST: "C1-Bar2x3", "C2-Line3x4", "C3-Pie1x5"
+                match_chart_dimensions = re.match(r'([Cc]?\d+[A-Za-z]*)-([A-Za-z]+)(\d+)x(\d+)', part)
+                
+                if match_chart_dimensions:
+                    # Format mới: C1-Bar2x3 → {"type": "BD", "chart_type": "bar", "dimensions": "2x3"}
+                    code_part = match_chart_dimensions.group(1)
+                    chart_type_raw = match_chart_dimensions.group(2).lower()  # bar, line, pie, area, combo
+                    rows = match_chart_dimensions.group(3)
+                    cols = match_chart_dimensions.group(4)
+                    
+                    # Normalize code
+                    code = self._normalize_question_code(code_part)
+                    codes.append(code)
+                    
+                    # Validate chart_type
+                    valid_chart_types = ['bar', 'line', 'pie', 'area', 'combo']
+                    if chart_type_raw not in valid_chart_types:
+                        print(f"⚠️  Warning: Invalid chart_type '{chart_type_raw}' for {code}, defaulting to 'bar'")
+                        chart_type_raw = 'bar'
+                    
+                    # Store as dict format
+                    rich_types[code] = [{
+                        "type": "BD",  # Biểu đồ
+                        "chart_type": chart_type_raw,
+                        "dimensions": f"{rows}x{cols}"
+                    }]
+                    continue
+                
+                # Check OLD FORMAT: "C4-[BD]" hoặc "C1-[BK,TT]"
                 match_with_type = re.match(r'([Cc]?\d+[A-Za-z]*)-\[([^\]]+)\]', part)
                 
                 if match_with_type:
-                    # Có rich content type
+                    # Format cũ với bracket
                     code_part = match_with_type.group(1)
                     types_str = match_with_type.group(2)
 
                     # Normalize code — preserves lowercase suffix for TL sub-items
                     code = self._normalize_question_code(code_part)
-
                     codes.append(code)
 
                     # Parse types: "BD" hoặc "BK,TT"
                     types = [t.strip().upper() for t in types_str.split(',')]
                     rich_types[code] = types
                 else:
-                    # Không có rich content type, format cũ
+                    # Không có rich content type
                     code = self._normalize_question_code(part)
                     codes.append(code)
             

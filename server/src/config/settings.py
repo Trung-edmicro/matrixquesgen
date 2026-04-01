@@ -25,7 +25,7 @@ class Config:
     GCP_CREDENTIALS_PATH = os.getenv("GCP_CREDENTIALS_PATH", "")
     
     # Vertex AI Model settings
-    VERTEX_AI_MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-3-pro-preview")
+    VERTEX_AI_MODEL = os.getenv("VERTEX_AI_MODEL", "gemini-3.1-pro-preview")
     VERTEX_AI_FALLBACK_MODEL = os.getenv("VERTEX_AI_FALLBACK_MODEL", "gemini-2.5-pro")
     VERTEX_AI_TEMPERATURE = float(os.getenv("VERTEX_AI_TEMPERATURE", "0.7"))
     VERTEX_AI_TOP_P = float(os.getenv("VERTEX_AI_TOP_P", "0.95"))

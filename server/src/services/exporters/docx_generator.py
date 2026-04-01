@@ -472,7 +472,16 @@ class DocxGenerator:
             print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
         
         # Lấy thông tin cơ bản từ echarts
-        title = echarts.get('title', {}).get('text', 'Biểu đồ')
+        # Title có thể là dict (bar/line/area) hoặc list (pie with multiple pies)
+        title_data = echarts.get('title', {})
+        if isinstance(title_data, list):
+            # Nếu là list (multiple pie charts), lấy title đầu tiên
+            title = title_data[0].get('text', 'Biểu đồ') if title_data else 'Biểu đồ'
+        elif isinstance(title_data, dict):
+            # Nếu là dict (bar/line/area)
+            title = title_data.get('text', 'Biểu đồ')
+        else:
+            title = 'Biểu đồ'
         
         # Render chart thành ảnh nếu có playwright
         if PLAYWRIGHT_AVAILABLE:
@@ -533,6 +542,182 @@ class DocxGenerator:
                 run.italic = True
                 run.font.size = Pt(10)
     
+    def _resolve_chart_placeholders_to_js(self, echarts_config: Dict) -> str:
+        """
+        Convert echarts config với placeholders thành JavaScript code
+        
+        Args:
+            echarts_config: ECharts config dict có chứa placeholders
+            
+        Returns:
+            JavaScript code string defining the option variable
+        """
+        import re
+        
+        # Deep copy để không modify original
+        config_copy = json.loads(json.dumps(echarts_config))
+        
+        # Tăng font-size cho xuất DOCX (tăng 4 size để đủ lớn với deviceScaleFactor=2)
+        font_changes = []
+        def increase_font_size(obj, path=''):
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if key == 'fontSize' and isinstance(value, (int, float)):
+                        old_val = obj[key]
+                        obj[key] = value + 4  # Tăng 4 thay vì 2
+                        font_changes.append(f"{path}.{key}: {old_val} → {obj[key]}")
+                    elif isinstance(value, (dict, list)):
+                        increase_font_size(value, f"{path}.{key}" if path else key)
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    increase_font_size(item, f"{path}[{i}]")
+        
+        increase_font_size(config_copy)
+        
+        if self.verbose and font_changes:
+            print(f"  Font size increases: {len(font_changes)} changes")
+            for change in font_changes[:5]:  # Show first 5
+                print(f"    {change}")
+        
+        # Process _patternType - có thể ở series level (bar/line) hoặc data level (pie)
+        pattern_replacements = []
+        if 'series' in config_copy:
+            for idx, series in enumerate(config_copy['series']):
+                # Case 1: _patternType ở series level (Bar, Line, Area)
+                if '_patternType' in series:
+                    pattern_type = series['_patternType']
+                    # Ensure itemStyle exists
+                    if 'itemStyle' not in series:
+                        series['itemStyle'] = {}
+                    # Set color as placeholder that will be replaced
+                    series['itemStyle']['color'] = f'PATTERN_PLACEHOLDER_{pattern_type}'
+                    pattern_replacements.append(f"series[{idx}]: {pattern_type}")
+                    # Remove the meta field
+                    del series['_patternType']
+                
+                # Case 2: _patternType ở data item level (Pie)
+                if 'data' in series and isinstance(series['data'], list):
+                    for item_idx, item in enumerate(series['data']):
+                        if isinstance(item, dict) and '_patternType' in item:
+                            pattern_type = item['_patternType']
+                            # Ensure itemStyle exists
+                            if 'itemStyle' not in item:
+                                item['itemStyle'] = {}
+                            # Set color as placeholder that will be replaced
+                            item['itemStyle']['color'] = f'PATTERN_PLACEHOLDER_{pattern_type}'
+                            pattern_replacements.append(f"series[{idx}].data[{item_idx}]: {pattern_type}")
+                            # Remove the meta field
+                            del item['_patternType']
+        
+        if self.verbose and pattern_replacements:
+            print(f"  Pattern replacements: {len(pattern_replacements)}")
+            for pr in pattern_replacements:
+                print(f"    {pr}")
+        
+        # Convert thành JSON string
+        json_str = json.dumps(config_copy, ensure_ascii=False, indent=2)
+        
+        # Get yAxis max value for formatter (nếu có)
+        y_axis_max = config_copy.get('yAxis', {})
+        if isinstance(y_axis_max, list):
+            y_axis_max = y_axis_max[0].get('max') if y_axis_max else None
+        else:
+            y_axis_max = y_axis_max.get('max')
+        
+        # Replace pattern placeholders
+        # PATTERN_PLACEHOLDER_dots → {type: 'pattern', image: createPattern('dots'), repeat: 'repeat'}
+        pattern_count = len(re.findall(r'"PATTERN_PLACEHOLDER_\w+"', json_str))
+        json_str = re.sub(
+            r'"PATTERN_PLACEHOLDER_(\w+)"',
+            lambda m: '{type: "pattern", image: createPattern("' + m.group(1) + '"), repeat: "repeat"}',
+            json_str
+        )
+        
+        if self.verbose and pattern_count > 0:
+            print(f"  Replaced {pattern_count} pattern placeholders in JSON")
+        
+        # Replace formatter placeholders
+        replacements = {
+            '"FORMATTER_PLACEHOLDER"': f'''function(val) {{
+                if ({y_axis_max} && val > {y_axis_max} - 1) return '';
+                return '{{value|' + val.toFixed(1).replace('.', ',') + '}}{{tick|}}';
+            }}''',
+            
+            '"FORMATTER_LABEL_PLACEHOLDER_BAR"': '''function(params) {
+                let val = params.value;
+                if (typeof val === 'number') {
+                    if (val > 1000000) return (val / 1000000).toFixed(1).replace('.', ',') + 'M';
+                    if (val > 1000) return (val / 1000).toFixed(1).replace('.', ',') + 'K';
+                    return val.toFixed(1).replace('.', ',');
+                }
+                return val?.toString() || '';
+            }''',
+            
+            '"FORMATTER_LABEL_PLACEHOLDER_PIE"': '''function(params) {
+                if (params.value !== null && params.value !== undefined) {
+                    if (typeof params.value === 'number') {
+                        return params.value.toFixed(1).replace('.', ',');
+                    }
+                    return params.value.toString();
+                }
+                return '';
+            }''',
+            
+            '"FORMATTER_LABEL_PLACEHOLDER"': '''function(params) {
+                // Bỏ label cho điểm đầu tiên (tiếp điểm với trục tung)
+                if (params.dataIndex === 0) {
+                    return '';
+                }
+                let val = params.value;
+                if (typeof val === 'number') {
+                    if (val > 1000000) return (val / 1000000).toFixed(1).replace('.', ',') + 'M';
+                    if (val > 1000) return (val / 1000).toFixed(1).replace('.', ',') + 'K';
+                    return val.toFixed(1).replace('.', ',');
+                }
+                return val?.toString() || '';
+            }''',
+            
+            '"FORMATTER_SCATTER_LABEL_PLACEHOLDER"': '''function(params) {
+                // params.value là array [x_index, y_value] cho scatter series
+                // Lấy realValue từ data nếu có, nếu không thì dùng y_value
+                if (params.data && params.data.realValue !== undefined) {
+                    let val = params.data.realValue;
+                    if (typeof val === 'number') {
+                        return val.toFixed(1).replace('.', ',');
+                    }
+                    return val?.toString() || '';
+                }
+                // Fallback: lấy từ value array
+                if (Array.isArray(params.value)) {
+                    let val = params.value[1];
+                    if (typeof val === 'number') {
+                        return val.toFixed(1).replace('.', ',');
+                    }
+                    return val?.toString() || '';
+                }
+                return '';
+            }''',
+            
+            '"FORMATTER_X_PLACEHOLDER"': '''function(value) {
+                if (typeof value === 'string' && value.startsWith('_')) {
+                    return '';
+                }
+                return value.toString();
+            }''',
+            
+            '"FORMATTER_X_INTERVAL_PLACEHOLDER"': '''function(index, value) {
+                if (typeof value === 'string' && value.startsWith('_')) {
+                    return false;
+                }
+                return true;
+            }'''
+        }
+        
+        for placeholder, js_func in replacements.items():
+            json_str = json_str.replace(placeholder, js_func)
+        
+        return f"var option = {json_str};"
+    
     def _render_chart_to_image(self, echarts_config: Dict) -> Optional[str]:
         """
         Render ECharts config thành PNG image sử dụng Playwright
@@ -568,24 +753,48 @@ class DocxGenerator:
                     _echarts_script_tag = f'<script>{_echarts_js}</script>'
                     break
 
+            # Resolve placeholders thành JavaScript code
+            option_js = self._resolve_chart_placeholders_to_js(echarts_config)
+            
+            # Import createPattern function từ utils
+            from services.utils.chart.utils import create_pattern_js_function
+            pattern_function = create_pattern_js_function()
+
             # Tạo HTML chứa ECharts với animation tắt
+            # Chart dimensions: 1200x900 để có tỷ lệ 4:3 phù hợp với DOCX
             html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     {_echarts_script_tag}
     <style>
-        body {{ margin: 0; padding: 30px; background: white; }}
-        #chart {{ width: 900px; height: 850px; }}
+        body {{ 
+            margin: 0; 
+            padding: 0; 
+            background: white; 
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 1200px;
+            height: 900px;
+        }}
+        #chart {{ 
+            width: 1200px; 
+            height: 900px; 
+        }}
     </style>
 </head>
 <body>
     <div id="chart"></div>
     <script>
+        {pattern_function}
+        
         var chartDom = document.getElementById('chart');
         var myChart = echarts.init(chartDom);
-        var option = {json.dumps(echarts_config, ensure_ascii=False)};
+        {option_js}
         
         // Set option với animation tắt
         myChart.setOption(option);
@@ -631,10 +840,10 @@ class DocxGenerator:
                         if browser is None:
                             raise Exception(f"Cannot launch any browser. Last error: {last_err}")
                         
-                        # Tăng viewport để đủ chứa chart + padding (900x850 + 60px padding = 960x910)
+                        # Viewport phù hợp với chart 1200x900 (tỷ lệ 4:3)
                         # Set deviceScaleFactor = 2 để ảnh sắc nét hơn (Retina-quality)
                         page = browser.new_page(
-                            viewport={'width': 960, 'height': 910},
+                            viewport={'width': 1200, 'height': 900},
                             device_scale_factor=2
                         )
                         
@@ -647,9 +856,8 @@ class DocxGenerator:
                         # Đợi thêm để đảm bảo chart render hoàn toàn (tăng từ 1s lên 2s)
                         page.wait_for_timeout(2000)
                         
-                        # Screenshot với full quality
-                        chart_element = page.locator('#chart')
-                        chart_element.screenshot(path=png_path, type='png')
+                        # Screenshot full page thay vì chỉ element để tránh lệch
+                        page.screenshot(path=png_path, type='png', full_page=False)
                         
                         browser.close()
                         result['path'] = png_path

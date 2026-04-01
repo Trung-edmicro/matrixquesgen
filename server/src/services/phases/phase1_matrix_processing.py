@@ -182,37 +182,49 @@ class MatrixProcessingService:
 
         return metadata, lessons, drive_paths, all_specs, true_false_specs, rich_content_type_definitions
 
-    def _expand_rich_content_types(self, rich_types: Dict[str, List[str]], 
-                                   definitions: Dict[str, Dict[str, str]]) -> Dict[str, List[Dict]]:
-        """Expand rich content type codes to full definitions
+    def _expand_rich_content_types(self, rich_types: Dict[str, List], 
+                                   definitions: Dict[str, Dict[str, str]]) -> Dict[str, List]:
+        """Mở rộng rich content types với definitions (nếu có)
+        Hỗ trợ cả hai format:
+        - Format cũ: {"C3": ["BK", "BD"]}
+        - Format mới: {"C3": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
         
         Args:
-            rich_types: {"C3": ["BK", "BD"]}
+            rich_types: Danh sách các loại nội dung phong phú (có thể là string hoặc dict)
             definitions: {"BK": {"name": "Bảng khảo", "description": ""}}
         
         Returns:
-            {"C3": [{"code": "BK", "name": "Bảng khảo", "description": ""}, ...]}
+            expanded dict kết hợp định nghĩa nếu có
         """
-        if not definitions:
-            return rich_types
-        
         expanded = {}
         for code, types in rich_types.items():
             expanded[code] = []
-            for type_code in types:
-                if type_code in definitions:
-                    expanded[code].append({
-                        'code': type_code,
-                        'name': definitions[type_code]['name'],
-                        'description': definitions[type_code]['description']
-                    })
+            for type_item in types:
+                # Xử lý format mới (dictionary)
+                if isinstance(type_item, dict):
+                    # Giữ nguyên toàn bộ dictionary, chỉ thêm definitions nếu có
+                    if definitions and 'type' in type_item:
+                        type_code = type_item['type']
+                        if type_code in definitions:
+                            type_item['name'] = definitions[type_code].get('name', type_code)
+                            type_item['description'] = definitions[type_code].get('description', '')
+                    expanded[code].append(type_item)
+                # Xử lý format cũ (string)
                 else:
-                    # If definition not found, just use the code
-                    expanded[code].append({
-                        'code': type_code,
-                        'name': type_code,
-                        'description': ''
-                    })
+                    type_code = type_item
+                    if definitions and type_code in definitions:
+                        expanded[code].append({
+                            'code': type_code,
+                            'name': definitions[type_code]['name'],
+                            'description': definitions[type_code]['description']
+                        })
+                    else:
+                        # If definition not found, just use the code
+                        expanded[code].append({
+                            'code': type_code,
+                            'name': type_code,
+                            'description': ''
+                        })
         return expanded
     
     def save_matrix_data(self, metadata: MatrixMetadata, lessons: List[LessonInfo],

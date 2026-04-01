@@ -25,6 +25,14 @@ KIẾN TRÚC LAYOUT SYSTEM (4 tầng):
 """
 from typing import Dict, List, Optional
 import json
+import sys
+from pathlib import Path
+
+# Import GenChart utilities - use full module path consistent with codebase
+from services.utils.chart.chart_bar import generate_bar_chart
+from services.utils.chart.chart_line import generate_line_chart
+from services.utils.chart.chart_pie import generate_pie_chart
+from services.utils.chart.chart_area import generate_area_chart
 
 
 def get_chart_data_schema() -> Dict:
@@ -510,6 +518,90 @@ Output: JSON với array charts
     return prompt
 
 
+def extract_chart_summary(echarts_option: Dict) -> Dict:
+    """
+    Trích xuất thông tin chi tiết từ echarts config để gửi kèm prompt sinh câu hỏi.
+    Giúp AI hiểu rõ chart chứa dữ liệu gì → sinh câu hỏi liên quan.
+    
+    Args:
+        echarts_option: Full ECharts config dict
+    
+    Returns:
+        Dict với các key: xAxis_labels, yAxis_unit, series_names, data_summary
+    """
+    try:
+        summary = {
+            'xAxis_labels': [],
+            'yAxis_unit': '',
+            'series_names': [],
+            'data_summary': ''
+        }
+        
+        # Extract xAxis labels (danh mục)
+        xAxis = echarts_option.get('xAxis', {})
+        if isinstance(xAxis, dict):
+            xAxis_labels = xAxis.get('data', [])
+            if isinstance(xAxis_labels, list) and xAxis_labels:
+                summary['xAxis_labels'] = xAxis_labels[:10]  # Limit 10 items
+        
+        # Extract yAxis unit/name
+        yAxis = echarts_option.get('yAxis', {})
+        if isinstance(yAxis, dict):
+            y_name = yAxis.get('name', '')
+            summary['yAxis_unit'] = y_name if y_name else yAxis.get('type', '')
+        elif isinstance(yAxis, list) and yAxis:
+            # Dual yAxis - lấy cái đầu
+            y_name = yAxis[0].get('name', '')
+            summary['yAxis_unit'] = y_name if y_name else yAxis[0].get('type', '')
+        
+        # Extract series names
+        series = echarts_option.get('series', [])
+        if isinstance(series, list):
+            series_names = []
+            for s in series:
+                if isinstance(s, dict):
+                    name = s.get('name', '')
+                    if name and name != 'Labels':  # Skip label series
+                        series_names.append(name)
+            summary['series_names'] = series_names
+        
+        # Build data summary (mô tả ngắn)
+        try:
+            title = echarts_option.get('title', {})
+            title_text = ''
+            if isinstance(title, dict):
+                title_text = title.get('text', '')
+            elif isinstance(title, list) and title:
+                title_text = title[0].get('text', '') if isinstance(title[0], dict) else ''
+            
+            # Tóm tắt thông tin
+            parts = []
+            if title_text:
+                parts.append(f"Tiêu đề: {title_text}")
+            if summary['xAxis_labels']:
+                parts.append(f"Danh mục X: {', '.join(map(str, summary['xAxis_labels'][:5]))}")
+                if len(summary['xAxis_labels']) > 5:
+                    parts.append(f"(+ {len(summary['xAxis_labels']) - 5} danh mục khác)")
+            if summary['yAxis_unit']:
+                parts.append(f"Đơn vị Y: {summary['yAxis_unit']}")
+            if summary['series_names']:
+                parts.append(f"Các chỉ tiêu: {', '.join(summary['series_names'])}")
+            
+            summary['data_summary'] = " | ".join(parts)
+        except:
+            pass
+        
+        return summary
+    except Exception as e:
+        print(f"⚠️ Lỗi extract_chart_summary: {str(e)[:100]}")
+        return {
+            'xAxis_labels': [],
+            'yAxis_unit': '',
+            'series_names': [],
+            'data_summary': ''
+        }
+
+
 def build_question_with_chart_prompt(
     lesson_name: str,
     charts_info: List[Dict],
@@ -521,17 +613,38 @@ def build_question_with_chart_prompt(
     
     Args:
         lesson_name: Tên bài học
-        charts_info: List thông tin các chart đã tạo
+        charts_info: List thông tin các chart đã tạo (mỗi item có chart_id, title, + optional summary fields)
         num_questions: Số câu hỏi cần tạo
         cognitive_level: Cấp độ nhận thức
     
     Returns:
         str: Instruction để thêm vào prompt chính
     """
-    chart_list = "\n".join([
-        f"- {chart['chart_id']}: {chart['title']}" 
-        for chart in charts_info
-    ])
+    # Build chart list với chi tiết nếu có
+    chart_details = []
+    for chart in charts_info:
+        chart_id = chart.get('chart_id', '')
+        title = chart.get('title', '')
+        
+        # Tạo mô tả chi tiết từ summary fields
+        detail_parts = [f"- {chart_id}: {title}"]
+        
+        # Thêm thông tin chi tiết nếu có
+        if 'data_summary' in chart and chart['data_summary']:
+            detail_parts.append(f"  📊 {chart['data_summary']}")
+        elif 'xAxis_labels' in chart or 'series_names' in chart:
+            # Fallback: build từ components
+            components = []
+            if chart.get('xAxis_labels'):
+                components.append(f"Danh mục: {', '.join(map(str, chart['xAxis_labels'][:5]))}{' ...' if len(chart['xAxis_labels']) > 5 else ''}")
+            if chart.get('series_names'):
+                components.append(f"Chỉ tiêu: {', '.join(chart['series_names'])}")
+            if components:
+                detail_parts.append(f"  📊 {' | '.join(components)}")
+        
+        chart_details.append("\n".join(detail_parts))
+    
+    chart_list = "\n".join(chart_details)
     
     instruction = f"""
 
@@ -544,39 +657,53 @@ Các biểu đồ sau đã được tạo sẵn với dữ liệu đầy đủ:
 
 **CÁCH SỬ DỤNG CHART TRONG CÂU HỎI:**
 
-1. **question_stem format:**
+1. **🔍 Đọc kỹ thông tin chi tiết của chart:**
+   - Tiêu đề chart là gì (chủ đề, dữ liệu)?
+   - Danh mục X: Những gì được so sánh? (năm, địa danh, chỉ tiêu)
+   - Kiểu dữ liệu Y: Đơn vị gì? (mm, %, triệu, tỷ USD, ...)
+   - Các chỉ tiêu (series): Mấy đường/cột, tên gì?
+
+2. **✍️ Sinh câu hỏi DỰA TRÊN DỮ LIỆU THỰC TỪ CHART:**
+   Dùng từ danh mục X, yAxis unit, và series names đã cung cấp.
+
+3. **Format question_stem:**
    ```json
    {{
      "type": "chart",
      "content": [
-       "Cho biểu đồ dân số thành thị:",
+       "Cho biểu đồ [DỰA VÀO TIÊU ĐỀ/NỘI DUNG CHART]:",
        {{
          "type": "chart",
-         "chart_id": "chart_1"
+         "chart_id": "C1"
        }},
-       "Nhận xét nào sau đây ĐÚNG về xu hướng biến đổi?"
+       "[CÂU HỎI LIÊN QUAN ĐẾN DỮ LIỆU CHART]?"
      ]
    }}
    ```
 
-2. **QUAN TRỌNG:**
-   - CHỈ cần ghi chart_id, KHÔNG tạo lại echarts
-   - content là array: [text_before, chart_object, text_after]
-   - Chart object CHỈ có: {{"type": "chart", "chart_id": "..."}}
-
-3. **CÂU HỎI PHẢI LIÊN QUAN TRỰC TIẾP ĐẾN CHART:**
-   - Hỏi về xu hướng, tốc độ tăng/giảm
-   - So sánh giữa các năm, các chỉ số
-   - Phân tích nguyên nhân, hệ quả từ dữ liệu
-   - Đáp án dựa trên SỐ LIỆU trong chart
-
-4. **VÍ DỤ CÂU HỎI TỐT:**
-   ✅ "Giai đoạn nào dân số thành thị tăng nhanh nhất?"
-   ✅ "Tỉ lệ tăng trưởng trung bình giai đoạn 2010-2021 là bao nhiêu?"
-   ✅ "Nhận xét nào đúng về mối quan hệ giữa GDP và dân số?"
+4. **⚠️ QUY TẮC TẠO CÂU HỎI:**
    
-   ❌ "ASEAN được thành lập năm nào?" (không liên quan chart)
-   ❌ "Đặc điểm khí hậu nhiệt đới là gì?" (không dùng data chart)
+   ✅ **PHẢI HỎI VỀ:**
+   - Giá trị cụ thể: "Năm nào [chỉ tiêu1] cao nhất?"
+   - So sánh: "So sánh [chỉ tiêu1] và [chỉ tiêu2] năm 2020?"
+   - Xu hướng: "[Chỉ tiêu] có xu hướng [tăng/giảm] từ [năm] đến [năm]?"
+   - Phân tích: "Nguyên nhân [chỉ tiêu] từ [giá trị1] tăng lên [giá trị2]?"
+   
+   ❌ **KHÔNG HỎI VỀ:**
+   - Chủ đề không liên quan: "ASEAN được thành lập năm nào?"
+   - Dữ liệu không có trong chart: "Dân số Đức năm 2020?" (nếu chart không có Đức)
+   - Từ khác xa: "Đặc điểm khí hậu nhiệt đới?" (nếu chart chỉ về dân số)
+
+5. **📌 VÍ DỤ CỤ THỂ:**
+   
+   **CHART:** Tiêu đề "Dân số thành thị 3 vùng", Danh mục X: "Hà Nội, Huế, TP.HCM", Y: "triệu người"
+   
+   ✅ "Dân số thành thị vùng nào cao nhất?"
+   ✅ "Từ 2010 đến 2021, dân số Hà Nội tăng hay giảm?"
+   ✅ "So với 2010, dân số TP.HCM năm 2021 tăng bao nhiêu phần trăm?"
+   
+   ❌ "Vì sao dân số Hà Nội tăng cao?" (Không dùng dữ liệu chart, yêu cầu phân tích ngoài)
+   ❌ "Tính số người thêm ở Đà Nẵng" (Đà Nẵng không có trong danh mục X)
 
 {'='*70}
 """
@@ -584,9 +711,69 @@ Các biểu đồ sau đã được tạo sẵn với dữ liệu đầy đủ:
     return instruction
 
 
+def optimize_grid_for_width(echarts: Dict, container_width: int = 1100) -> Dict:
+    """
+    Điều chỉnh grid config dựa trên container width để không bị cắt nội dung
+    
+    Strategy:
+    - Hạ grid padding để maximize chart area
+    - Với width 1100px, set left/right = 50 (tối ưu hóa cho legend, labels)
+    - Với width < 900px, scale down tương ứng
+    
+    Args:
+        echarts: ECharts config
+        container_width: Độ rộng container (default 1100px)
+    
+    Returns:
+        Dict: ECharts config đã optimize grid
+    """
+    # Không xử lý pie chart (không dùng grid)
+    series = echarts.get("series", [])
+    if isinstance(series, list):
+        for s in series:
+            if isinstance(s, dict) and s.get("type") == "pie":
+                return echarts  # Skip pie charts
+    
+    # Get current grid config
+    grid = echarts.get("grid", {})
+    if not isinstance(grid, dict):
+        return echarts
+    
+    # Tính toán grid padding hiệu quả
+    current_left = grid.get("left", 80)
+    current_right = grid.get("right", 80)
+    
+    # Strategy: Scale padding dựa trên container width
+    # Reference: width=1100 -> left=50, right=50 (900px chart area)
+    # Reference: width=900 -> left=63, right=63 (774px chart area via scale)
+    # Reference: width=800 -> left=70, right=70 (660px chart area via scale)
+    
+    if container_width >= 1100:
+        # Optimal: 1100px container → 50px padding mỗi side
+        grid["left"] = 50
+        grid["right"] = 50
+    elif container_width >= 900:
+        # Medium: Scale linearly between 900-1100
+        # At 900: scale factor = 1.0 (use ~63 to have 774px chart area)
+        # At 1100: scale factor = 0 (use 50)
+        scale = (container_width - 900) / 200  # 0 to 1
+        grid["left"] = int(63 - (13 * scale))  # 63 → 50
+        grid["right"] = int(63 - (13 * scale))
+    else:
+        # Small: Aggressive reduce to minimum viable padding
+        adjusted_left = max(45, int(current_left * (container_width / 900)))
+        adjusted_right = max(45, int(current_right * (container_width / 900)))
+        grid["left"] = adjusted_left
+        grid["right"] = adjusted_right
+    
+    echarts["grid"] = grid
+    return echarts
+
+
 def apply_layout(echarts: Dict) -> Dict:
     """
     Tính toán grid.bottom và vị trí các block dựa trên layoutLevel (Runtime Layout Resolution)
+    Xử lý riêng cho pie chart (không dùng grid)
     
     Đây là nơi layout THỰC SỰ được áp dụng:
     - AI chỉ khai báo (layoutLevel + layoutKey)
@@ -602,6 +789,15 @@ def apply_layout(echarts: Dict) -> Dict:
     layout = echarts.get("layoutLevel", [])
     if not layout:
         return echarts
+    
+    # Phát hiện loại chart dựa trên series
+    is_pie_chart = False
+    series = echarts.get("series", [])
+    if isinstance(series, list):
+        for s in series:
+            if isinstance(s, dict) and s.get("type") == "pie":
+                is_pie_chart = True
+                break
     
     # Height ước tính cho từng block (bao gồm content + margin)
     block_heights = {
@@ -631,15 +827,52 @@ def apply_layout(echarts: Dict) -> Dict:
         if idx < len(layout) - 1:  # Không thêm gap sau block cuối cùng
             current_bottom += gap_between_blocks
     
-    # Set grid.bottom (tổng khoảng cách + padding)
-    grid = echarts.setdefault("grid", {})
-    grid["bottom"] = current_bottom + padding_from_grid
+    # ===== XỬ LÝ RIÊNG CHO PIE CHART =====
+    if is_pie_chart:
+        # Pie chart không dùng grid, dùng center để định vị
+        # center = [horizontal%, vertical%] - đặt vị trí từ top-left của canvas
+        # Để đẩy pie chart LÊN (giảm white space trên), điều chỉnh vertical% xuống
+        # Ví dụ: ["50%", "50%"] → ["50%", "35%"] = di chuyển lên
+        
+        # Tính toán độ cao cần thiết phía dưới
+        total_bottom_height = current_bottom + padding_from_grid  # Tính bằng pixels
+        
+        # Assume canvas height = 850px (từ metadata)
+        # Tỉ lệ phần trăm cho blocks phía dưới
+        canvas_height = 850
+        blocks_height_percent = (total_bottom_height / canvas_height) * 100
+        
+        # Pie chart nên độc chiếm khoảng 60-70% canvas (để có chỗ cho title trên + blocks dưới)
+        # center[1] = 20-30% sẽ đẩy chart lên với padding phía trên
+        pie_vertical_percent = 25  # Cố định ở 25% để đẩy chart lên consistently
+        
+        # Cập nhật center cho tất cả pie series
+        for s in echarts.get("series", []):
+            if isinstance(s, dict) and s.get("type") == "pie":
+                if "center" in s:
+                    center = s["center"]
+                    if isinstance(center, list) and len(center) >= 2:
+                        # Giữ horizontal, điều chỉnh vertical
+                        s["center"] = [center[0], f"{pie_vertical_percent}%"]
+    else:
+        # ===== XỬ LÝ CHO BAR/LINE/AREA/COMBO CHART =====
+        # Set grid.bottom (tổng khoảng cách + padding)
+        grid = echarts.setdefault("grid", {})
+        grid["bottom"] = current_bottom + padding_from_grid
     
-    # Set vị trí cụ thể cho từng block
+    # Set vị trí cụ thể cho từng block (dùng cho cả pie và non-pie charts)
     # 1. Title (đặt dưới biểu đồ)
     if "title" in positions and "title" in echarts:
-        echarts["title"]["bottom"] = positions["title"]
-        echarts["title"].pop("top", None)  # Xóa top nếu có
+        title = echarts["title"]
+        if isinstance(title, list):
+            # Multiple titles - update từng cái
+            for t in title:
+                if isinstance(t, dict):
+                    t["bottom"] = positions["title"]
+                    t.pop("top", None)
+        else:
+            title["bottom"] = positions["title"]
+            title.pop("top", None)  # Xóa top nếu có
     
     # 2. Legend (đặt dưới biểu đồ)
     if "legend" in positions and "legend" in echarts:
@@ -705,8 +938,15 @@ def merge_chart_into_question(
             if chart_id and chart_id in charts_map:
                 chart_data = charts_map[chart_id]
                 
+                # Extract metadata width for grid optimization
+                container_width = 1100  # Default width
+                if 'metadata' in item and isinstance(item['metadata'], dict):
+                    container_width = item['metadata'].get('width', 1100)
+                
+                # Apply grid optimization trước layout resolution
+                echarts = optimize_grid_for_width(chart_data.get('echarts', {}), container_width)
                 # Apply layout resolution (tính grid.bottom)
-                echarts = apply_layout(chart_data.get('echarts', {}))
+                echarts = apply_layout(echarts)
                 
                 # Merge echarts đã resolve vào item
                 item['content'] = {
@@ -716,9 +956,10 @@ def merge_chart_into_question(
                 # Thêm metadata nếu chưa có
                 if 'metadata' not in item:
                     chart_height = 850  # Tăng chiều cao để hiển thị rõ ràng hơn
+                    chart_width = 1100  # Tăng width để không bị cắt nội dung (legend, labels)
                     item['metadata'] = {
                         'caption': chart_data.get('title'),
-                        'width': 900,
+                        'width': chart_width,
                         'height': chart_height
                     }
                 charts_merged.add(chart_id)
@@ -729,7 +970,10 @@ def merge_chart_into_question(
         # Tìm vị trí inject: sau text đầu tiên nếu có, nếu không thì đầu array
         insert_pos = 1 if content and isinstance(content[0], str) else 0
         for chart_id, chart_data in charts_map.items():
-            echarts = apply_layout(chart_data.get('echarts', {}))
+            # Apply grid optimization trước layout resolution
+            echarts = optimize_grid_for_width(chart_data.get('echarts', {}), 1100)
+            # Apply layout resolution
+            echarts = apply_layout(echarts)
             chart_item = {
                 'type': 'chart',
                 'chart_id': chart_id,
@@ -739,7 +983,7 @@ def merge_chart_into_question(
                 },
                 'metadata': {
                     'caption': chart_data.get('title'),
-                    'width': 900,
+                    'width': 1100,  # Tăng từ 900 để không bị cắt nội dung
                     'height': 850
                 }
             }
@@ -960,3 +1204,226 @@ def validate_chart_completeness(chart_data: Dict) -> tuple[bool, str]:
                 return False, f"graphic[{i}].style.text rỗng"
     
     return True, ""
+
+
+def build_chart_data_generation_prompt(
+    lesson_name: str,
+    chart_type: str,
+    dimensions: str,
+    cognitive_level: str,
+    expected_learning_outcome: str,
+    supplementary_materials: str = ""
+) -> str:
+    """
+    Build prompt cho AI sinh dữ liệu chart từ template gen_data_chart.md
+    
+    Args:
+        lesson_name: Tên bài học (VD: "Dân số thành thị Việt Nam")
+        chart_type: Loại biểu đồ (bar, line, pie, area, combo)
+        dimensions: Kích thước dữ liệu (VD: "2x3" = 2 hàng 3 cột)
+        cognitive_level: Mức độ nhận thức (NB, TH, VD, VDC)
+        expected_learning_outcome: Kết quả học tập mong đợi
+        supplementary_materials: Tài liệu bổ sung (dataset)
+    
+    Returns:
+        str: Prompt đầy đủ đã mapping các biến
+    """
+    from pathlib import Path
+    
+    # Load template từ file
+    # Path: helpers/ -> generators/ -> services/ -> prompts/chart/gen_data_chart.md
+    template_path = Path(__file__).parent.parent.parent / "prompts" / "chart" / "gen_data_chart.md"
+    
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Không tìm thấy template: {template_path}")
+    
+    # Map chart_type thành tên tiếng Việt
+    chart_type_vn = {
+        'bar': 'Bar (Cột)',
+        'line': 'Line (Đường)',
+        'pie': 'Pie (Tròn)',
+        'area': 'Area (Miền)',
+        'combo': 'Combo (Kết hợp Cột+Đường)'
+    }.get(chart_type.lower(), chart_type)
+    
+    # Mapping các biến trong template
+    prompt = template.replace('[LESSON_NAME]', lesson_name)
+    prompt = prompt.replace('[TYPE_CHART]', chart_type_vn)
+    prompt = prompt.replace('[DIMENSIONS]', dimensions)
+    prompt = prompt.replace('[COGNITIVE_LEVEL]', cognitive_level)
+    prompt = prompt.replace('[EXPECTED_LEARNING_OUTCOME]', expected_learning_outcome)
+    prompt = prompt.replace('[SUPPLEMENTARY_MATERIALS]', supplementary_materials if supplementary_materials else "Không có dataset cụ thể - Tìm kiếm dữ liệu từ nguồn uy tín")
+    
+    return prompt
+
+
+def validate_chart_data_generation(chart_data: Dict, chart_type: str = None, dimensions: str = None) -> bool:
+    """
+    Validate dữ liệu chart do AI sinh ra
+    
+    Args:
+        chart_data: Dict chứa chart data từ AI
+        chart_type: Loại chart mong đợi (optional, để so sánh)
+        dimensions: Kích thước mong đợi "XxY" (optional, để so sánh)
+    
+    Returns:
+        bool: True nếu valid
+    
+    Raises:
+        ValueError: Nếu data không hợp lệ
+    """
+    # Check required fields
+    if not isinstance(chart_data, dict):
+        raise ValueError(f"chart_data phải là dict, nhận được: {type(chart_data)}")
+    
+    if 'chart_type' not in chart_data:
+        raise ValueError("Thiếu field 'chart_type'")
+    
+    if 'data' not in chart_data:
+        raise ValueError("Thiếu field 'data'")
+    
+    if 'options' not in chart_data:
+        raise ValueError("Thiếu field 'options'")
+    
+    # Validate chart_type
+    valid_types = ['bar', 'line', 'pie', 'area', 'combo']
+    if chart_data['chart_type'] not in valid_types:
+        raise ValueError(f"chart_type không hợp lệ: {chart_data['chart_type']}, phải là một trong: {valid_types}")
+    
+    # Check nếu chart_type khớp với mong đợi
+    if chart_type and chart_data['chart_type'] != chart_type.lower():
+        raise ValueError(f"chart_type không khớp: mong đợi '{chart_type}', nhận được '{chart_data['chart_type']}'")
+    
+    # Validate data structure
+    data = chart_data['data']
+    if not isinstance(data, dict):
+        raise ValueError(f"data phải là dict, nhận được: {type(data)}")
+    
+    if 'series' not in data:
+        raise ValueError("Thiếu field 'data.series'")
+    
+    series = data['series']
+    if not isinstance(series, list) or len(series) == 0:
+        raise ValueError(f"data.series phải là list không rỗng, nhận được: {series}")
+    
+    # Validate series items
+    for idx, s in enumerate(series):
+        if not isinstance(s, dict):
+            raise ValueError(f"series[{idx}] phải là dict, nhận được: {type(s)}")
+        
+        if 'name' not in s:
+            raise ValueError(f"series[{idx}] thiếu field 'name'")
+        
+        if 'data' not in s:
+            raise ValueError(f"series[{idx}] thiếu field 'data'")
+        
+        if 'unit' not in s:
+            raise ValueError(f"series[{idx}] thiếu field 'unit'")
+        
+        # Validate data field
+        if not isinstance(s['data'], list) or len(s['data']) == 0:
+            raise ValueError(f"series[{idx}].data phải là list không rỗng")
+    
+    # Validate categories (bắt buộc cho bar/line/area/combo)
+    chart_type_val = chart_data['chart_type']
+    if chart_type_val in ['bar', 'line', 'area', 'combo']:
+        if 'categories' not in data:
+            raise ValueError(f"chart_type='{chart_type_val}' yêu cầu field 'data.categories'")
+        
+        if not isinstance(data['categories'], list) or len(data['categories']) == 0:
+            raise ValueError(f"data.categories phải là list không rỗng")
+    
+    # Validate dimensions nếu được cung cấp
+    if dimensions:
+        try:
+            expected_rows, expected_cols = map(int, dimensions.split('x'))
+            
+            # Check số series (rows - không tính header)
+            actual_rows = len(series)
+            if actual_rows != expected_rows:
+                print(f"⚠️  Warning: Số series không khớp dimensions. Mong đợi {expected_rows} hàng, nhận được {actual_rows}")
+                print(f"   Expected: {expected_rows} series, Got: {actual_rows} series")
+                print(f"   Dimension requirement: {dimensions}")
+            
+            # Check số categories (cols - không tính cột tên)
+            # Lưu ý: Pie chart là trường hợp đặc biệt - mỗi slice là một "category" của cấu trúc data
+            if chart_type_val in ['bar', 'line', 'area', 'combo']:
+                actual_cols = len(data['categories'])
+                if actual_cols != expected_cols:
+                    print(f"⚠️  Warning: Số categories không khớp dimensions. Mong đợi {expected_cols} cột, nhận được {actual_cols}")
+                    print(f"   Expected: {expected_cols} categories, Got: {actual_cols} categories")
+                    print(f"   Dimension requirement: {dimensions}")
+            elif chart_type_val == 'pie':
+                # Pie chart: số series = số pie charts cần tạo
+                if actual_rows != expected_cols:
+                    print(f"⚠️  Warning: Pie chart - Số pies không khớp dimensions. Mong đợi {expected_cols} pie charts, nhận được {actual_rows}")
+                    print(f"   For Pie chart {dimensions}: cần {expected_cols} pie charts (mỗi pie=1 cột)")
+        
+        except ValueError as e:
+            print(f"⚠️  Warning: dimensions format không hợp lệ: {dimensions}, lỗi: {e}")
+    
+    # Validate options
+    options = chart_data['options']
+    if not isinstance(options, dict):
+        raise ValueError(f"options phải là dict, nhận được: {type(options)}")
+    
+    # Check title (recommended)
+    if 'title' not in options or not options['title']:
+        print("⚠️  Warning: options.title trống, nên có tiêu đề cho biểu đồ")
+    
+    # Check source (recommended)
+    if 'source' not in options or not options['source']:
+        print("⚠️  Warning: options.source trống, nên ghi rõ nguồn dữ liệu")
+    
+    return True
+
+
+def process_chart_data_to_option(chart_data: Dict) -> Dict:
+    """
+    Convert chart data (từ AI) thành ECharts option (bằng GenChart utilities)
+    
+    Args:
+        chart_data: Dict chứa chart data đã validate
+            {
+                "chart_type": "bar",
+                "data": {"categories": [...], "series": [...]},
+                "options": {..."title": ...}
+            }
+    
+    Returns:
+        Dict: ECharts option đầy đủ
+    
+    Raises:
+        ValueError: Nếu chart_type không được hỗ trợ
+    """
+    chart_type = chart_data.get('chart_type', '').lower()
+    
+    # Routing chart_type → GenChart function
+    chart_generators = {
+        'bar': generate_bar_chart,
+        'line': generate_line_chart,
+        'pie': generate_pie_chart,
+        'area': generate_area_chart,
+        # 'combo': generate_combo_chart,  # TODO: Implement if needed
+    }
+    
+    generator_func = chart_generators.get(chart_type)
+    
+    if generator_func is None:
+        supported_types = list(chart_generators.keys())
+        raise ValueError(f"chart_type '{chart_type}' không được hỗ trợ. Các loại hỗ trợ: {supported_types}")
+    
+    try:
+        # Call GenChart function
+        echarts_option = generator_func(chart_data)
+        
+        if not echarts_option or not isinstance(echarts_option, dict):
+            raise ValueError(f"GenChart trả về option không hợp lệ: {echarts_option}")
+        
+        return echarts_option
+        
+    except Exception as e:
+        raise ValueError(f"Lỗi khi convert chart data thành ECharts option: {str(e)}")

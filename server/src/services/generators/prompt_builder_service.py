@@ -156,9 +156,17 @@ class PromptBuilderService:
                 if not isinstance(types_list, list):
                     continue
                 for type_obj in types_list:
-                    type_code = type_obj.get('code', '') if isinstance(type_obj, dict) else str(type_obj)
-                    type_name = (f"{type_obj['code']} ({type_obj.get('name', '')})"
-                                 if isinstance(type_obj, dict) else type_obj)
+                    # Xử lý cả format cũ (code) và format mới (type)
+                    if isinstance(type_obj, dict):
+                        # Format mới: {"type": "BD", "chart_type": "bar", ...}
+                        # Format cũ: {"code": "BD", "name": "...", ...}
+                        type_code = type_obj.get('type') or type_obj.get('code', '')
+                        type_name_val = type_obj.get('name', type_code)
+                        type_name = f"{type_code} ({type_name_val})" if type_name_val else type_code
+                    else:
+                        # String format (rất hiếm)
+                        type_code = str(type_obj)
+                        type_name = type_code
                     if type_code in SECONDARY_TYPES:
                         secondary_found.setdefault(code, []).append(type_name)
                     else:
@@ -205,9 +213,14 @@ class PromptBuilderService:
                 if not isinstance(types_list, list):
                     continue
                 for type_obj in types_list:
-                    type_code = type_obj.get('code', '') if isinstance(type_obj, dict) else str(type_obj)
-                    type_name = (f"{type_obj['code']} ({type_obj.get('name', '')})"
-                                 if isinstance(type_obj, dict) else type_obj)
+                    # Xử lý cả format cũ (code) và format mới (type)
+                    if isinstance(type_obj, dict):
+                        type_code = type_obj.get('type') or type_obj.get('code', '')
+                        type_name_val = type_obj.get('name', type_code)
+                        type_name = f"{type_code} ({type_name_val})" if type_name_val else type_code
+                    else:
+                        type_code = str(type_obj)
+                        type_name = type_code
                     (secondary_found if type_code in SECONDARY_TYPES else primary_found).append(type_name)
         except Exception as exc:
             print(f"⚠️ PromptBuilderService._format_rich_content_types_tf error: {exc}")
@@ -228,16 +241,31 @@ class PromptBuilderService:
     def _detect_chart(self, spec) -> bool:
         """Return True if any question code has BD type."""
         if not hasattr(spec, 'rich_content_types') or not spec.rich_content_types:
+            print(f"🔍 _detect_chart: NO rich_content_types - {getattr(spec, 'rich_content_types', 'KHÔNG CÓ')}")
             return False
         if not isinstance(spec.rich_content_types, dict):
+            print(f"🔍 _detect_chart: rich_content_types type={type(spec.rich_content_types)} (expected dict)")
             return False
-        for types_list in spec.rich_content_types.values():
+        
+        print(f"🔍 _detect_chart: rich_content_types keys={list(spec.rich_content_types.keys())}")
+        
+        for code, types_list in spec.rich_content_types.items():
             if not isinstance(types_list, list):
+                print(f"  - {code}: NOT a list, type={type(types_list)}")
                 continue
             for type_obj in types_list:
-                code = type_obj.get('code', '') if isinstance(type_obj, dict) else str(type_obj)
-                if code == 'BD':
+                print(f"    • type_obj={type_obj}, type={type(type_obj)}")
+                # Xử lý cả format cũ (code) và format mới (type)
+                if isinstance(type_obj, dict):
+                    type_code = type_obj.get('type') or type_obj.get('code', '')
+                    if type_code == 'BD':
+                        print(f"      ✅ Found BD chart: {type_obj}")
+                        return True
+                elif type_obj == 'BD':
+                    print(f"      ✅ Found BD (string format)")
                     return True
+        
+        print(f"🔍 _detect_chart: NO BD types found")
         return False
 
     def _apply_rich_guide(self, prompt_text: str, spec, label: str = '') -> str:

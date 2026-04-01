@@ -299,6 +299,279 @@ function ImageRenderer({ content, metadata }) {
 }
 
 /**
+ * Create pattern canvas function - dùng để tạo fills với patterns
+ * Note: Này sẽ được export vào window scope để các formatter có thể dùng
+ */
+function createPattern(type) {
+  let canvas = document.createElement('canvas')
+  let ctx = canvas.getContext('2d')
+  canvas.width = 16
+  canvas.height = 16
+
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, 16, 16)
+  ctx.strokeStyle = '#000'
+  ctx.fillStyle = '#000'
+  ctx.lineWidth = 1
+
+  if (type === 'dots') {
+    // Chấm bi
+    ctx.beginPath()
+    ctx.arc(4, 4, 1.5, 0, Math.PI * 2)
+    ctx.arc(12, 12, 1.5, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (type === 'diagonal') {
+    // Sọc chéo
+    ctx.beginPath()
+    ctx.moveTo(0, 16)
+    ctx.lineTo(16, 0)
+    ctx.moveTo(-8, 8)
+    ctx.lineTo(8, -8)
+    ctx.moveTo(8, 24)
+    ctx.lineTo(24, 8)
+    ctx.stroke()
+  } else if (type === 'zigzag') {
+    // Gợn sóng/Zigzag
+    ctx.beginPath()
+    ctx.moveTo(0, 4)
+    ctx.lineTo(4, 0)
+    ctx.lineTo(8, 4)
+    ctx.lineTo(12, 0)
+    ctx.lineTo(16, 4)
+    ctx.moveTo(0, 12)
+    ctx.lineTo(4, 8)
+    ctx.lineTo(8, 12)
+    ctx.lineTo(12, 8)
+    ctx.lineTo(16, 12)
+    ctx.stroke()
+  } else if (type === 'cross') {
+    // Caro
+    ctx.fillStyle = '#ddd'
+    ctx.fillRect(0, 0, 16, 16)
+    ctx.strokeStyle = '#000'
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(16, 16)
+    ctx.moveTo(16, 0)
+    ctx.lineTo(0, 16)
+    ctx.stroke()
+  } else if (type === 'horizontal') {
+    // Kẻ ngang
+    for (let i = 4; i < 16; i += 3) {
+      ctx.beginPath()
+      ctx.moveTo(0, i)
+      ctx.lineTo(16, i)
+      ctx.stroke()
+    }
+  } else if (type === 'vertical') {
+    // Kẻ dọc
+    for (let i = 4; i < 16; i += 3) {
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i, 16)
+      ctx.stroke()
+    }
+  } else if (type === 'grid') {
+    // Lưới
+    for (let i = 4; i < 16; i += 3) {
+      ctx.beginPath()
+      ctx.moveTo(0, i)
+      ctx.lineTo(16, i)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i, 16)
+      ctx.stroke()
+    }
+  } else if (type === 'diagonal_reverse') {
+    // Sọc chéo ngược
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(16, 16)
+    ctx.moveTo(16, -8)
+    ctx.lineTo(-8, 16)
+    ctx.moveTo(24, 0)
+    ctx.lineTo(8, 16)
+    ctx.stroke()
+  }
+
+  return canvas
+}
+
+/**
+ * Function để resolve placeholders trong ECharts option
+ * Chuyển các string placeholder thành actual functions
+ * 
+ * Hỗ trợ các placeholder từ tất cả các loại chart:
+ * - FORMATTER_PLACEHOLDER: Y-axis label formatter
+ * - FORMATTER_LABEL_PLACEHOLDER_BAR: Bar chart label formatter
+ * - FORMATTER_LABEL_PLACEHOLDER_PIE: Pie chart label formatter
+ * - FORMATTER_LABEL_PLACEHOLDER: Line chart label formatter
+ * - FORMATTER_SCATTER_LABEL_PLACEHOLDER: Scatter label formatter (Area chart)
+ * - FORMATTER_X_PLACEHOLDER: Line chart X-axis formatter
+ * - FORMATTER_X_INTERVAL_PLACEHOLDER: Bar/Area chart X-axis interval
+ * - PATTERN_PLACEHOLDER_*: Pattern canvas for fills
+ */
+function resolveChartOptionPlaceholders(options) {
+  if (!options || typeof options !== 'object') {
+    return options
+  }
+
+  // Deep clone để tránh modify original
+  const resolved = JSON.parse(JSON.stringify(options))
+
+  // Get yAxis max value for FORMATTER_PLACEHOLDER
+  const yAxisMax = resolved.yAxis?.max || 100
+  const yAxisInterval = resolved.yAxis?.interval || 10
+  const axisMaxDisplay = yAxisMax - (yAxisInterval * 0.5)
+
+  // Helper: apply function recursively
+  const applyFunctionReplacements = (obj) => {
+    if (!obj || typeof obj !== 'object') return
+
+    if (Array.isArray(obj)) {
+      obj.forEach((item) => applyFunctionReplacements(item))
+    } else {
+      for (const [key, value] of Object.entries(obj)) {
+        // Check for formatter placeholders
+        if (key === 'formatter' && typeof value === 'string') {
+          if (value === 'FORMATTER_PLACEHOLDER') {
+            // Y-axis label formatter with rich text for fake tick marks
+            // Returns: {value|NUMBER}{tick|} - draws the value + a fake tick mark
+            obj[key] = function (value) {
+              if (value > axisMaxDisplay) {
+                return '' // Hide top tick (arrow tip)
+              }
+              // Return rich text: value + tick mark render as a small black line
+              return '{value|' + value + '}{tick|}'
+            }
+          } else if (value === 'FORMATTER_LABEL_PLACEHOLDER_BAR') {
+            // Label formatter cho bar chart - format number with comma
+            obj[key] = function (params) {
+              let val = params.value.toString().replace('.', ',')
+              if (!val.includes(',')) val += ',0'
+              return val
+            }
+          } else if (value === 'FORMATTER_LABEL_PLACEHOLDER_PIE') {
+            // Label formatter cho pie chart - format number with comma
+            obj[key] = function (params) {
+              let val = params.value.toString().replace('.', ',')
+              if (!val.includes(',')) val += ',0'
+              return val
+            }
+          } else if (value === 'FORMATTER_LABEL_PLACEHOLDER') {
+            // Label formatter cho line chart
+            // Ẩn label tại index 0 (giao với trục tung), format số
+            obj[key] = function (params) {
+              if (params.dataIndex === 0) return '' // Hide label at origin
+              let val = params.value.toString().replace('.', ',')
+              if (!val.includes(',')) val += ',0'
+              return val
+            }
+          } else if (value === 'FORMATTER_SCATTER_LABEL_PLACEHOLDER') {
+            // Label formatter cho scatter labels (Area chart)
+            // Dùng realValue từ params.data
+            obj[key] = function (params) {
+              let val = params.data.realValue.toString().replace('.', ',')
+              if (!val.includes(',')) val += ',0'
+              return val
+            }
+          } else if (value === 'FORMATTER_X_PLACEHOLDER') {
+            // X-axis formatter cho line chart
+            // Tạo rich text: tick trên + value dưới
+            // Format: {tick|}\n{value|TEXT}
+            const xCategories = resolved.xAxis?.data || []
+            obj[key] = function (value, index) {
+              if (index >= xCategories.length) {
+                return '' // Hide top tick (arrow tip)
+              }
+              // Return rich text with tick above value
+              return '{tick|}\n{value|' + value + '}'
+            }
+          } else if (value === 'FORMATTER_X_INTERVAL_PLACEHOLDER') {
+            // X-axis interval cho bar/area chart - just mark for later handling
+            // Will be replaced with 0 (show all labels) in special handling section
+            obj[key] = 'FORMATTER_X_INTERVAL_PLACEHOLDER' // Keep as-is for now
+          }
+        }
+
+        // ✨ Handle _patternType meta field - apply pattern to itemStyle AND areaStyle (for area charts)
+        if (key === '_patternType' && typeof value === 'string') {
+          // Create itemStyle if it doesn't exist
+          if (!obj.itemStyle) {
+            obj.itemStyle = {}
+          }
+          // Apply pattern config object to itemStyle (for line markers)
+          obj.itemStyle.color = {
+            type: 'pattern',
+            image: createPattern(value),
+            repeat: 'repeat'
+          }
+          
+          // Also apply to areaStyle if it exists (for area charts)
+          if (obj.areaStyle) {
+            obj.areaStyle.color = {
+              type: 'pattern',
+              image: createPattern(value),
+              repeat: 'repeat'
+            }
+          }
+          
+          // Remove meta field after processing
+          delete obj[key]
+        }
+
+        // Check for pattern placeholders in itemStyle.color
+        if (key === 'color' && typeof value === 'object' && value !== null) {
+          if (value.image && typeof value.image === 'string' && value.image.startsWith('PATTERN_PLACEHOLDER_')) {
+            const patternType = value.image.replace('PATTERN_PLACEHOLDER_', '')
+            obj[key] = {
+              ...value,
+              image: createPattern(patternType)
+            }
+          }
+        }
+
+        // Recursive check trong nested objects
+        if (typeof value === 'object' && value !== null) {
+          applyFunctionReplacements(value)
+        }
+      }
+    }
+  }
+
+  applyFunctionReplacements(resolved)
+
+  // SPECIAL HANDLING: Fix X-axis labels for bar charts
+  // Add formatter to hide "-" values and ensure labels display
+  if (resolved.xAxis && resolved.xAxis.axisLabel) {
+    const xAxisLabel = resolved.xAxis.axisLabel
+    
+    // If interval needs fixing
+    if (xAxisLabel.interval === 'FORMATTER_X_INTERVAL_PLACEHOLDER') {
+      xAxisLabel.interval = 0 // Show all labels
+    }
+    
+    // Add formatter to hide "-" values if we have series data
+    if (resolved.series && resolved.series[0] && !xAxisLabel.formatter) {
+      const seriesData = resolved.series[0].data
+      xAxisLabel.formatter = function(value, index) {
+        // Hide empty placeholders for year gaps
+        if (seriesData && seriesData[index] !== undefined && seriesData[index] !== null) {
+          if (seriesData[index] === '-' || seriesData[index].toString().startsWith('_')) {
+            return ''
+          }
+        }
+        return value
+      }
+    }
+  }
+
+  console.log('✅ [ChartResolver] Resolved chart option ready for echarts')
+  return resolved
+}
+
+/**
  * Component để render ECharts chart
  */
 function ChartRenderer({ content, metadata }) {
@@ -331,12 +604,15 @@ function ChartRenderer({ content, metadata }) {
         options = chartData
       }
 
+      // ✨ RESOLVE PLACEHOLDERS: Convert string placeholders to actual functions
+      const resolvedOptions = resolveChartOptionPlaceholders(options)
+
       // Initialize or update chart
       if (!chartInstance.current) {
         chartInstance.current = echarts.init(chartRef.current)
       }
 
-      chartInstance.current.setOption(options)
+      chartInstance.current.setOption(resolvedOptions)
 
       // Cleanup on unmount
       return () => {
@@ -365,7 +641,7 @@ function ChartRenderer({ content, metadata }) {
 
   return (
     <div className="my-3 flex flex-col items-center">
-      <div ref={chartRef} style={{ width: '100%', maxWidth: '800px', height: '600px' }} />
+      <div ref={chartRef} style={{ width: '100%', maxWidth: '900px', height: '600px' }} />
       {/* {parsedMetadata?.caption && (
         <div className="text-sm text-gray-600 mt-2 text-center italic">
           <LaTeXRenderer>{parsedMetadata.caption}</LaTeXRenderer>
@@ -373,7 +649,7 @@ function ChartRenderer({ content, metadata }) {
       )} */}
       {/* {parsedMetadata?.source && (
         <div className="text-xs text-gray-500 mt-1 text-center">
-          <LaTeXRenderer>{parsedMetadata.source}</LaTeXRenderer>
+          <LaTeXRenderer>{`Nguồn: ${parsedMetadata.source}`}</LaTeXRenderer>
         </div>
       )} */}
     </div>

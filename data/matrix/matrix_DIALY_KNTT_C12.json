@@ -3,7 +3,7 @@
     "subject": "DIALY",
     "curriculum": "KNTT",
     "grade": "C12",
-    "filename": "37849652-e8cb-4f85-86a9-5872718cdd51_Ma trận_DIALY_KNTT_C12.xlsx"
+    "filename": "180894e8-75fb-48b1-96e4-50daf6cf76a8_Ma trận_DIALY_KNTT_C12.xlsx"
   },
   "rich_content_type_definitions": {
     "LT": {
@@ -46,11 +46,21 @@
               "C1"
             ],
             "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
-            "question_template": []
+            "question_template": [],
+            "rich_content_types": {
+              "C1": [
+                {
+                  "type": "BD",
+                  "chart_type": "bar",
+                  "dimensions": "3x4",
+                  "name": "Biểu đồ",
+                  "description": ""
+                }
+              ]
+            }
           }
         ],
-        "TH": [],
-        "VD": [
+        "TH": [
           {
             "num": 1,
             "code": [
@@ -61,14 +71,17 @@
             "rich_content_types": {
               "C2": [
                 {
-                  "code": "BK",
-                  "name": "Bảng khảo, bảng số liệu",
+                  "type": "BD",
+                  "chart_type": "line",
+                  "dimensions": "3x3",
+                  "name": "Biểu đồ",
                   "description": ""
                 }
               ]
             }
           }
-        ]
+        ],
+        "VD": []
       },
       "DS": [],
       "TLN": {
@@ -89,56 +102,51 @@
       "content": "",
       "supplementary_material": "",
       "TN": {
-        "NB": [],
-        "TH": [
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C4"
+            ],
+            "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+            "question_template": [],
+            "rich_content_types": {
+              "C4": [
+                {
+                  "type": "BD",
+                  "chart_type": "area",
+                  "dimensions": "3x3",
+                  "name": "Biểu đồ",
+                  "description": ""
+                }
+              ]
+            }
+          }
+        ],
+        "TH": [],
+        "VD": [
           {
             "num": 1,
             "code": [
               "C3"
             ],
             "learning_outcome": "Phân tích tác động của vị trí địa lí và hình dạng lãnh thổ tới đặc điểm khí hậu nước ta.",
-            "question_template": []
-          }
-        ],
-        "VD": []
-      },
-      "DS": [
-        {
-          "question_code": "C1",
-          "statements": [
-            {
-              "label": "a",
-              "cognitive_level": "NB",
-              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
-              "statement_code": "C1A",
-              "materials": ""
-            },
-            {
-              "label": "b",
-              "cognitive_level": "TH",
-              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
-              "statement_code": "C1B",
-              "materials": ""
-            },
-            {
-              "label": "c",
-              "cognitive_level": "VD",
-              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
-              "statement_code": "C1C",
-              "materials": ""
-            },
-            {
-              "label": "d",
-              "cognitive_level": "VD",
-              "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
-              "statement_code": "C1D",
-              "materials": ""
+            "question_template": [],
+            "rich_content_types": {
+              "C3": [
+                {
+                  "type": "BD",
+                  "chart_type": "pie",
+                  "dimensions": "3x3",
+                  "name": "Biểu đồ",
+                  "description": ""
+                }
+              ]
             }
-          ],
-          "materials": "",
-          "question_template": []
-        }
-      ],
+          }
+        ]
+      },
+      "DS": [],
       "TLN": {
         "NB": [],
         "TH": [],
@@ -158,91 +166,10 @@
       "supplementary_material": "",
       "TN": {
         "NB": [],
-        "TH": [
-          {
-            "num": 1,
-            "code": [
-              "C5"
-            ],
-            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-            "question_template": [],
-            "rich_content_types": {
-              "C5": [
-                {
-                  "code": "BK",
-                  "name": "Bảng khảo, bảng số liệu",
-                  "description": ""
-                }
-              ]
-            }
-          }
-        ],
-        "VD": [
-          {
-            "num": 1,
-            "code": [
-              "C4"
-            ],
-            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-            "question_template": [],
-            "rich_content_types": {
-              "C4": [
-                {
-                  "code": "BD",
-                  "name": "Biểu đồ",
-                  "description": ""
-                }
-              ]
-            }
-          }
-        ]
+        "TH": [],
+        "VD": []
       },
-      "DS": [
-        {
-          "question_code": "C2",
-          "statements": [
-            {
-              "label": "a",
-              "cognitive_level": "TH",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2A",
-              "materials": ""
-            },
-            {
-              "label": "b",
-              "cognitive_level": "TH",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2B",
-              "materials": ""
-            },
-            {
-              "label": "c",
-              "cognitive_level": "VD",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2C",
-              "materials": ""
-            },
-            {
-              "label": "d",
-              "cognitive_level": "VD",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2D",
-              "materials": ""
-            }
-          ],
-          "materials": "",
-          "question_template": [],
-          "rich_content_types": {
-            "C2": [
-              {
-                "code": "BK",
-                "name": "Bảng khảo, bảng số liệu",
-                "description": ""
-              }
-            ]
-          }
-        }
-      ],
+      "DS": [],
       "TLN": {
         "NB": [],
         "TH": [],
@@ -250,36 +177,8 @@
       },
       "TL": {
         "NB": [],
-        "TH": [
-          {
-            "num": 1,
-            "code": [
-              "C2"
-            ],
-            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-            "question_template": [],
-            "sub_items": {
-              "C2": [
-                "a"
-              ]
-            }
-          }
-        ],
-        "VD": [
-          {
-            "num": 1,
-            "code": [
-              "C2"
-            ],
-            "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-            "question_template": [],
-            "sub_items": {
-              "C2": [
-                "b"
-              ]
-            }
-          }
-        ]
+        "TH": [],
+        "VD": []
       }
     },
     {
@@ -295,75 +194,12 @@
       },
       "DS": [],
       "TLN": {
-        "NB": [
-          {
-            "num": 1,
-            "code": [
-              "C1"
-            ],
-            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
-            "question_template": [],
-            "rich_content_types": {
-              "C1": [
-                {
-                  "code": "BK",
-                  "name": "Bảng khảo, bảng số liệu",
-                  "description": ""
-                }
-              ]
-            }
-          }
-        ],
-        "TH": [
-          {
-            "num": 1,
-            "code": [
-              "C3"
-            ],
-            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
-            "question_template": [],
-            "rich_content_types": {
-              "C3": [
-                {
-                  "code": "BK",
-                  "name": "Bảng khảo, bảng số liệu",
-                  "description": ""
-                }
-              ]
-            }
-          }
-        ],
-        "VD": [
-          {
-            "num": 1,
-            "code": [
-              "C2"
-            ],
-            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
-            "question_template": [],
-            "rich_content_types": {
-              "C2": [
-                {
-                  "code": "BK",
-                  "name": "Bảng khảo, bảng số liệu",
-                  "description": ""
-                }
-              ]
-            }
-          }
-        ]
+        "NB": [],
+        "TH": [],
+        "VD": []
       },
       "TL": {
-        "NB": [
-          {
-            "num": 1,
-            "code": [
-              "C1"
-            ],
-            "learning_outcome": "Chuyển dịch theo thành phần kinh tế",
-            "question_template": []
-          }
-        ],
+        "NB": [],
         "TH": [],
         "VD": []
       }

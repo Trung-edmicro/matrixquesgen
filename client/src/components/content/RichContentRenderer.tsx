@@ -11,6 +11,7 @@ import * as echarts from 'echarts';
 import { useEffect, useRef } from 'react';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
+import { resolveChartPlaceholders } from './chartPlaceholderResolver';
 
 interface RichContentRendererProps {
   content: RichContent;
@@ -139,9 +140,17 @@ const ChartBlock: React.FC<{ content: ChartContent; metadata?: any; className?: 
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (chartRef.current) {
+    if (chartRef.current && content.echarts) {
+      console.log('📊 [ChartBlock] Rendering chart...');
+      console.log('📦 Original option:', content.echarts);
+      
       const chart = echarts.init(chartRef.current);
-      chart.setOption(content.echarts);
+      
+      // Resolve placeholders (formatters, patterns) before rendering
+      const resolvedOption = resolveChartPlaceholders(content.echarts);
+      
+      console.log('✅ [ChartBlock] Setting resolved option:', resolvedOption);
+      chart.setOption(resolvedOption);
 
       // Cleanup
       return () => {
