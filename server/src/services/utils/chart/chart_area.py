@@ -177,10 +177,14 @@ def generate_area_chart(data):
             'text': user_options.get('title', ''),
             'subtext': user_options.get('subtitle', ''),
             'left': 'center',
-            'bottom': '8%', # Đặt title ở dưới biểu đồ, trên source
+            'bottom': '8%',
             'textStyle': {
                 'fontSize': 16,
                 'fontWeight': 'bold'
+            },
+            'subtextStyle': {
+                'fontSize': 13,
+                'fontStyle': 'italic'
             }
         },
         'tooltip': {
@@ -291,10 +295,10 @@ def generate_area_chart(data):
         option['graphic'] = [{
             'type': 'text',
             'left': 'center',
-            'bottom': '2%', # Đặt Source thấp nhất
+            'bottom': '2%',
             'style': {
                 'text': user_options['source'],
-                'fontSize': 11,
+                'fontSize': 12,
                 'fontStyle': 'italic'
             }
         }]

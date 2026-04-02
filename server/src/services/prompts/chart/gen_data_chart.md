@@ -37,10 +37,12 @@ Từ dataset và đặc tả ma trận bên dưới, nhặt ra các giá trị p
 
 **CHO PIE CHART (Tròn):**
 
-- Số hàng = bao nhiêu thành phần cộng với hàng tên
-- Số cột = bao nhiêu vùng/mốc so sánh (mỗi vùng = 1 pie chart riêng)
-- Ví dụ "3x4": có 3 cấp độ (bao gồm hàng tên), 4 vùng so sánh
-  → Tạo 4 pie charts, mỗi pie có 2 thành phần dữ liệu
+- Số hàng = bao nhiêu thành phần dữ liệu (có thể cộng hàng tên/tổng)
+- Số cột = bao nhiêu mốc thời gian
+- Luôn tạo **2 pie charts** (đại diện cho 2 mốc thời gian)
+- Số slice/thành phần mỗi pie = **số cột - 1** (trừ 1 cột hàng tên/tổng)
+- Ví dụ "3x4": 2 pie charts, mỗi pie có 3 thành phần (4-1)
+- Ví dụ "4x5": 2 pie charts, mỗi pie có 4 thành phần (5-1, bỏ qua hàng tổng)
 - Tổng mỗi pie = 100%, dữ liệu dạng %
 
 **CHO LINE CHART (Đường):**
@@ -77,11 +79,13 @@ Từ dataset và đặc tả ma trận bên dưới, nhặt ra các giá trị p
   - Trả về JSON với `series` array chứa từng series, mỗi series có `data` array
 
 - **Pie (Tròn)**:
-  - Không phải tạo 1 pie, mà tạo NHIỀU pies
-  - Số pie = số cột từ yêu cầu (mỗi pie = 1 vùng)
-  - Số slice mỗi pie = số hàng - 1 (trừ hàng tên)
+  - Luôn tạo ĐÚNG 2 pie charts (2 đường tròn, đại diện 2 mốc thời gian)
+  - Số slice mỗi pie = **số cột - 1** (thành phần/chiều so sánh)
   - Dữ liệu: % cơ cấu, tổng mỗi pie = 100%
-  - Trả về JSON với `series` array, mỗi slice là 1 entry
+  - Trả về JSON với `series` array có 2 objects, mỗi object = 1 pie, trong đó `data` array chứa các slices
+  - **VÍ DỤ:**
+    - Yêu cầu 3x4: → 2 pies, mỗi pie 3 slices (4 cột - 1 cột tên = 3 thành phần)
+    - Yêu cầu 4x5: → 2 pies, mỗi pie 4 slices (5 cột - 1 cột tên = 4 thành phần, bỏ qua hàng tổng)
 
 - **Line (Đường)**:
   - Số series = số hàng từ yêu cầu
@@ -122,13 +126,13 @@ Nếu tự tính: ghi rõ công thức đã dùng trong phần METADATA.
 
 1. Đếm chính xác số hàng, số cột:
    - **Bar chart**: Đếm số series (không phải số categories)
-   - **Pie chart**: Đếm số pie charts (nếu 3x4 = 4 pie charts)
+   - **Pie chart**: Luôn có 2 pie charts (không phụ thuộc dimensions)
    - **Line chart**: Đếm số lines/series, không phải số points
    - **Area chart**: Đếm số series, không phải số points
 
 2. Kiểm tra dữ liệu phù hợp loại biểu đồ:
    - Bar/Line/Area: Có nhất thiết số lượng series và categories khớp yêu cầu không?
-   - Pie: Tổng các slice = 100% chưa? Số pie khớp yêu cầu chưa?
+   - Pie: Luôn có 2 pie charts? Tổng % mỗi pie = 100% chưa? Số slices mỗi pie = (cột - 1) chưa?
    - Combo: Có mix cột + đường không? Đơn vị khác nhau chưa?
 
 3. Nếu không khớp → Tạo lại dataset phù hợp đúng dimensions
@@ -140,8 +144,12 @@ Nếu tự tính: ghi rõ công thức đã dùng trong phần METADATA.
 - Phải kiểm tra: `len(series) == 3 and len(categories) == 4`
 
 - Yêu cầu: Pie chart 3x4
-- Cần: 4 pie charts, mỗi pie 2 slice (3-1)
-- Phải kiểm tra: `len(pie_datasets) == 4 and each_pie_total == 100%`
+- Cần: 2 pie charts, mỗi pie 3 slices (4-1)
+- Phải kiểm tra: `len(pie_datasets) == 2 and each_pie_total == 100% and each_pie_slices == 3`
+
+- Yêu cầu: Pie chart 4x5
+- Cần: 2 pie charts, mỗi pie 4 slices (5-1, bỏ hàng tổng)
+- Phải kiểm tra: `len(pie_datasets) == 2 and each_pie_total == 100% and each_pie_slices == 4`
 
 ## OUTPUT
 
@@ -164,7 +172,7 @@ Trước khi trả về, A.I phải tự kiểm tra:
    ```
    Loại: [TYPE_CHART]
    • Nếu Bar: series × categories = ma trận đầy đủ? ✓
-   • Nếu Pie: số pie = số cột? Tổng % = 100%? ✓
+   • Nếu Pie: luôn 2 pie charts? Tổng % = 100% mỗi pie? Số slices = (cột - 1)? ✓
    • Nếu Line: ≥4 điểm dữ liệu/series? ✓
    • Nếu Area: tổng % theo cột = 100%? ✓
    • Nếu Combo: mix cột + đường? Đơn vị khác? ✓

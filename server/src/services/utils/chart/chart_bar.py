@@ -160,10 +160,14 @@ def generate_bar_chart(data):
             'text': user_options.get('title', ''),
             'subtext': user_options.get('subtitle', ''),
             'left': 'center',
-            'bottom': '8%', # Đặt title ở dưới biểu đồ, trên source
+            'bottom': '8%',
             'textStyle': {
                 'fontSize': 16,
                 'fontWeight': 'bold'
+            },
+            'subtextStyle': {
+                'fontSize': 13,
+                'fontStyle': 'italic'
             }
         },
         'tooltip': {
@@ -175,8 +179,12 @@ def generate_bar_chart(data):
         'legend': {
             'data': legend_data,
             'show': user_options.get('show_legend', True) and len(series_list) > 1,
-            'bottom': '18%', # Legend nằm cao hơn title
-            'left': 'center'
+            'bottom': '18%',
+            'left': 'center',
+            'textStyle': {
+                'fontSize': 14,
+                'fontWeight': 'bold'
+            }
         },
         'grid': {
             'left': 80,
@@ -269,10 +277,10 @@ def generate_bar_chart(data):
         option['graphic'] = [{
             'type': 'text',
             'left': 'center',
-            'bottom': '2%', # Đặt Source thấp nhất
+            'bottom': '2%',
             'style': {
                 'text': user_options['source'],
-                'fontSize': 11,
+                'fontSize': 12,
                 'fontStyle': 'italic'
             }
         }]

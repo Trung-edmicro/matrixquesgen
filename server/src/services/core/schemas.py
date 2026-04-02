@@ -1571,7 +1571,7 @@ def get_chart_data_generation_schema() -> Dict:
                 "properties": {
                     "title": {
                         "type": "string",
-                        "description": "Tiêu đề biểu đồ - Ngắn gọn, IN HOA. VD: 'CƠ CẤU GDP GIAI ĐOẠN 2010-2024'"
+                        "description": "Tiêu đề biểu đồ - Ngắn gọn. VD: 'Cơ cấu GDP giai đoạn 2010-2024'"
                     },
                     "subtitle": {
                         "type": "string",

@@ -116,13 +116,11 @@ def generate_pie_chart(data):
             'label': {
                 'show': True,
                 'position': 'inside',
-                'formatter': 'FORMATTER_LABEL_PLACEHOLDER_PIE',
-                'fontSize': 14,
+                'formatter': '{d}%',
+                'fontSize': 15,
                 'fontWeight': 'bold',
                 'color': '#000',
-                'backgroundColor': '#fff',
-                'padding': [2, 4],
-                'borderRadius': 3
+                'backgroundColor': '#fff'
             },
             'labelLine': {
                 'show': False,
@@ -154,31 +152,34 @@ def generate_pie_chart(data):
     # Configure titles
     titles = []
     
-    # Main title
-    bottom_pos = '8%' if len(series_list) > 1 else '5%'
+    # Main title - nâng cao lên dưới pie
     titles.append({
         'text': user_options.get('title', ''),
         'subtext': user_options.get('subtitle', ''),
         'left': 'center',
-        'bottom': bottom_pos,
+        'bottom': '18%',  # Đặt phía dưới pie
         'textStyle': {
             'fontSize': 16,
             'fontWeight': 'bold'
+        },
+        'subtextStyle': {
+            'fontSize': 14,
+            'fontStyle': 'italic'
         }
     })
     
-    # Sub titles for each pie if multiple
+    # Sub titles for each pie if multiple - đặt dưới pie
     if len(series_list) > 1:
         for idx, series in enumerate(series_list):
             spacing = 100 / (len(series_list) + 1)
             titles.append({
                 'text': series.get('name', ''),
                 'left': f'{spacing * (idx + 1)}%',
-                'bottom': '15%',  # Đặt ngay dưới pie
+                'bottom': '28%',  # Dưới pie
                 'textAlign': 'center',
                 'textStyle': {
                     'fontSize': 14,
-                    'fontWeight': 'bold'
+                    'fontWeight': 'bold',
                 }
             })
     
@@ -225,22 +226,22 @@ def generate_pie_chart(data):
             unit_graphic['right'] = '30%'
             unit_graphic['top'] = '20%'
         else:
-            # Multiple pies: center top
+            # Multiple pies: giữa 2 pie, ngang với legend
             unit_graphic['left'] = 'center'
-            unit_graphic['top'] = 150
+            unit_graphic['top'] = '15%'  # Cùng mức với legend
             
         graphics.append(unit_graphic)
 
-    # Add source if provided
+    # Add source if provided - dưới main title
     if 'source' in user_options:
         graphics.append({
             'type': 'text',
             'left': 'center',
-            'bottom': 50, # Đặt phía trên title chính
+            'bottom': '10%',
             'style': {
                 'text': user_options['source'],
-                'fontSize': 11,
-                'fontStyle': 'italic'
+                'fontSize': 13,
+                'fontStyle': 'italic',
             }
         })
         

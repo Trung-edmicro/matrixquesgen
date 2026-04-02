@@ -607,8 +607,21 @@ function ChartRenderer({ content, metadata }) {
       // Allow backend metadata to override (for pie charts with square dimensions)
       if (parsedMetadata?.width && parsedMetadata?.height) {
         // Use exact backend dimensions (converted to px if number)
-        calculatedMaxWidth = typeof parsedMetadata.width === 'number' ? `${parsedMetadata.width}px` : parsedMetadata.width
-        calculatedHeight = typeof parsedMetadata.height === 'number' ? `${parsedMetadata.height}px` : parsedMetadata.height
+        const metaWidth = typeof parsedMetadata.width === 'number' ? parsedMetadata.width : parseInt(parsedMetadata.width)
+        const metaHeight = typeof parsedMetadata.height === 'number' ? parsedMetadata.height : parseInt(parsedMetadata.height)
+        
+        // Detect pie chart (square dimensions from backend: 550x550)
+        const isPie = Math.abs(metaWidth - metaHeight) < 50 && Math.abs(metaWidth - 550) < 50
+        
+        if (isPie) {
+          // Pie chart: never responsive, always 550x550
+          calculatedMaxWidth = '550px'
+          calculatedHeight = '550px'
+        } else {
+          // Bar/Line/Area: use backend dimensions
+          calculatedMaxWidth = `${metaWidth}px`
+          calculatedHeight = `${metaHeight}px`
+        }
       } else {
         // Fallback: responsive based on viewport for bar/line charts
         // Aspect ratio: 1.7:1 (width:height) - compact, balanced
@@ -681,7 +694,7 @@ function ChartRenderer({ content, metadata }) {
       chartInstance.current.setOption(resolvedOptions)
 
       // ✨ KEY FIX: Increase canvas DOM width to prevent content cutoff
-      // For pie charts: use minimal buffer to maintain perfect circles
+      // For pie charts: use exact square (550×550)
       // For bar/line charts: use 50px buffer for content breathing room
       try {
         const canvas = chartRef.current?.querySelector('canvas')
@@ -721,7 +734,7 @@ function ChartRenderer({ content, metadata }) {
           
           let domWidth, domHeight
           if (isPieChart) {
-            // Pie chart: keep square to avoid distortion
+            // Pie chart: keep square to avoid distortion (550×550 exact)
             domWidth = cssWidth
             domHeight = cssHeight
           } else {
@@ -734,6 +747,7 @@ function ChartRenderer({ content, metadata }) {
           domWidth = Math.max(50, Math.floor(domWidth))
           domHeight = Math.max(50, Math.floor(domHeight))
           
+          // Set canvas DOM attributes (must be set, not CSS)
           canvas.setAttribute('width', domWidth.toString())
           canvas.setAttribute('height', domHeight.toString())
           
