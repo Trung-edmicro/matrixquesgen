@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 import requests
 from services.solute_exam_service.solute_english_exam_service import API_KEY
 import os
-
+import sys
 
 DRIVE_VOCABULARY_FOLDER_C10 = "https://drive.google.com/drive/folders/18tVQXctKZdpj8ZrFJhA0cU-xpLBj5Du2"
 
@@ -13,14 +13,32 @@ DRIVE_VOCABULARY_FOLDER_C11 = "https://drive.google.com/drive/folders/1FqzI2Y-zI
 
 DRIVE_VOCABULARY_FOLDER_C12 = "https://drive.google.com/drive/folders/16Ke0JMipcJbHMIWEWiV1rQh234Mei0pV"
 
-LOCAL_VOCAB_DIR = ".vocabulary_english"
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
 
-PROMPT_DIR = Path("PROMPT_DIR")
+# ==================== APP_DIR Detection ====================
+def _get_app_dir():
+    """
+    Lấy APP_DIR từ environment variable hoặc tính toán từ file path.
+    Dev: __file__.parent.parent.parent.parent.parent
+    Build exe: từ APP_DIR env var
+    """
+    app_dir = os.environ.get('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    
+    # Dev mode: tính từ file path hiện tại
+    # server/src/services/english_generator_service/drive_helper_services.py
+    # -> parent.parent.parent.parent.parent = matrixquesgen/
+    current_file = Path(os.path.dirname(os.path.abspath(__file__)))
+    return current_file.parent.parent.parent.parent
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = _get_app_dir()
+LOCAL_VOCAB_DIR = APP_DIR / "data" / "vocabulary_english"
+LOCAL_PROMPT_DIR = APP_DIR / "data" / "prompts" / "prompts_english"
 
-LOCAL_VOCAB_PATH = os.path.join(BASE_DIR, "vocabulary_english")
+# Ensure directories exist
+LOCAL_VOCAB_DIR.mkdir(parents=True, exist_ok=True)
+LOCAL_PROMPT_DIR.mkdir(parents=True, exist_ok=True)
 
 drive_prompts_cache = None
 
@@ -28,13 +46,13 @@ drive_prompts_cache = None
 
 def get_local_file_path(topic):
     filename = f"{topic.strip().lower()}.txt"
-    return os.path.join(LOCAL_VOCAB_DIR, filename)
+    return LOCAL_VOCAB_DIR / filename
 
 
 def read_local_file(topic):
     path = get_local_file_path(topic)
 
-    if not os.path.exists(path):
+    if not path.exists():
         return None
 
     with open(path, "r", encoding="utf-8") as f:
@@ -43,7 +61,8 @@ def read_local_file(topic):
 
 def write_local_file(topic, content):
     path = get_local_file_path(topic)
-
+    path.parent.mkdir(parents=True, exist_ok=True)
+    
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
 
@@ -115,10 +134,10 @@ def sync_drive_to_local():
 
     # 2. So sánh + update local
     for filename, drive_content in all_drive_files.items():
-        local_path = os.path.join(LOCAL_VOCAB_PATH, filename)
+        local_path = LOCAL_VOCAB_DIR / filename
 
         # Nếu file chưa tồn tại → tạo mới
-        if not os.path.exists(local_path):
+        if not local_path.exists():
             print(f"🆕 Creating: {filename}")
             with open(local_path, "w", encoding="utf-8") as f:
                 f.write(drive_content)
@@ -148,16 +167,17 @@ def load_vocabulary_local(topic):
 
     topic_clean = topic.strip().lower()
 
-    for filename in os.listdir(LOCAL_VOCAB_PATH):
-        if not filename.endswith(".txt"):
+    if not LOCAL_VOCAB_DIR.exists():
+        return ""
+
+    for file_item in LOCAL_VOCAB_DIR.iterdir():
+        if not file_item.is_file() or not file_item.suffix == ".txt":
             continue
 
-        name = filename.replace(".txt", "").strip().lower()
+        name = file_item.stem.strip().lower()
 
         if name == topic_clean:
-            file_path = os.path.join(LOCAL_VOCAB_PATH, filename)
-
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_item, "r", encoding="utf-8") as f:
                 return f.read()
 
     return ""

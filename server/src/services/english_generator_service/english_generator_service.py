@@ -33,18 +33,20 @@ import sys
 LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
 
 APP_DIR = Path(os.environ['APP_DIR']) if os.environ.get('APP_DIR') else Path(__file__).parent.parent.parent.parent.parent
-PROMPT_DIR = APP_DIR / "data" / "prompts" / "TIENGANH"
+PROMPT_DIR = APP_DIR / "data" / "prompts" / "prompts_english"
+VOCABULARY_DIR = APP_DIR / "data" / "vocabulary_english"
 UPLOAD_DIR = APP_DIR / "data" / "uploads"
 OUTPUT_DIR = APP_DIR / "data" / "outputs"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+PROMPT_DIR.mkdir(parents=True, exist_ok=True)
+VOCABULARY_DIR.mkdir(parents=True, exist_ok=True)
 
 DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
 
 
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
-# PROMPT_DIR = Path("PROMPT_DIR")
 
 def get_runtime_path():
     """
@@ -55,9 +57,6 @@ def get_runtime_path():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
-
-
-PROMPT_DIR = os.path.join(get_runtime_path(), "prompts_english")
 
 _drive_prompts_cache = None
 
@@ -158,10 +157,10 @@ def sync_drive_prompts_to_local():
 
             drive_content = r.content.decode("utf-8", errors="replace")
 
-            local_path = os.path.join(PROMPT_DIR, name)
+            local_path = PROMPT_DIR / name
 
             # Nếu chưa có → tạo
-            if not os.path.exists(local_path):
+            if not local_path.exists():
                 print(f"🆕 Creating prompt: {name}")
                 with open(local_path, "w", encoding="utf-8") as f:
                     f.write(drive_content)
@@ -246,9 +245,9 @@ def fetch_drive_md_files():
 #     return path.read_text(encoding="utf-8")
 
 def load_prompt(filename: str) -> str:
-    path = os.path.join(PROMPT_DIR, filename)
+    path = PROMPT_DIR / filename
 
-    if not os.path.exists(path):
+    if not path.exists():
         raise Exception(f"Không tìm thấy prompt: {filename}")
 
     print(f"📂 Load prompt LOCAL: {filename}")

@@ -78,6 +78,20 @@ added_files = [
     ('update.py', '.'),
 ]
 
+# Add vocabulary and prompts directories for English generator
+# These should be preserved in the build output so users can update them
+if os.path.exists('data/vocabulary_english'):
+    added_files.append(('data/vocabulary_english', 'data/vocabulary_english'))
+    print('  [data] Bundling data/vocabulary_english')
+else:
+    print('  [data] WARNING: data/vocabulary_english not found (will be created at runtime)')
+
+if os.path.exists('data/prompts/prompts_english'):
+    added_files.append(('data/prompts/prompts_english', 'data/prompts/prompts_english'))
+    print('  [data] Bundling data/prompts/prompts_english')
+else:
+    print('  [data] WARNING: data/prompts/prompts_english not found (will be created at runtime)')
+
 # .env: only bundle if it exists (not present in CI – user provides it after install)
 if os.path.exists('.env'):
     added_files.append(('.env', '.'))
