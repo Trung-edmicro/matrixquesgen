@@ -209,106 +209,158 @@ class MatrixParser:
         """
         Parse giá trị trong ô để lấy số câu hỏi, mã câu và rich content types
         
+        Hỗ trợ các format:
+        1. Cũ (với số): "2 (C1,C2)" hoặc "1 (C3-[BK])" hoặc "2 (C1-Bar2x3,C2-Line3x4)"
+        2. Mới (không số): "C5-[BK],C6-[BK]" → auto detect 2 items
+        3. Biểu đồ với ngoặc vuông: "C1-[Bar3x4],C2-[BK]" (format mới)
+        4. DS sub-items: "C1c,C1d" → Câu 1 với 2 ý a,b
+        
         Args:
-            cell_value: Giá trị ô 
-                VD: "2 (C1,2)" hoặc "1 (C10)"
-                VD với rich content (format cũ): "1 (C3-[BK])" hoặc "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
-                VD với chart dimensions (format mới): "1 (C1-Bar2x3)" hoặc "2 (C1-Line3x4,C2-Pie1x5)"
+            cell_value: Giá trị ô
             
         Returns:
             Tuple[int, List[str], Dict[str, List[str]]]: (số câu hỏi, danh sách mã câu, rich_content_types)
-                rich_content_types (format cũ): {"C1": ["BD"], "C2": ["BK", "TT"]}
-                rich_content_types (format mới): {"C1": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
+                rich_content_types: {"C1": ["BD"], "C2": ["BK", "TT"]} hoặc 
+                                   {"C1": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
         """
         if pd.isna(cell_value):
             return 0, [], {}
         
         cell_str = str(cell_value).strip()
         
-        # Pattern mới: số (mã1-[type1,type2], mã2-[type3], ...)
-        # VD: "2 (C4-[BD],C5-[BK])" hoặc "1 (C1-[BK,TT])"
-        pattern_with_types = r'(\d+)\s*\((.*?)\)'
-        match = re.search(pattern_with_types, cell_str)
+        # ═════ PATTERN 1: Format cũ với số ở đầu: "2 (C1,C2)" hoặc "1 (C3-[BK])" ═════
+        pattern_with_parentheses = r'(\d+)\s*\((.*?)\)'
+        match = re.search(pattern_with_parentheses, cell_str)
         
         if match:
             num = int(match.group(1))
             codes_str = match.group(2)
-            
-            codes = []
-            rich_types = {}
-            
-            # Split by comma nhưng phải cẩn thận với [] bên trong
-            # Parse từng phần: "C4-[BD]", "C5-[BK]", "C1-[BK,TT]"
-            parts = []
-            current_part = ""
-            bracket_level = 0
-            
-            for char in codes_str:
-                if char == '[':
-                    bracket_level += 1
-                elif char == ']':
-                    bracket_level -= 1
-                elif char == ',' and bracket_level == 0:
-                    parts.append(current_part.strip())
-                    current_part = ""
-                    continue
-                current_part += char
-            
-            if current_part.strip():
-                parts.append(current_part.strip())
-            
-            for part in parts:
-                # Check NEW FORMAT FIRST: "C1-Bar2x3", "C2-Line3x4", "C3-Pie1x5"
-                match_chart_dimensions = re.match(r'([Cc]?\d+[A-Za-z]*)-([A-Za-z]+)(\d+)x(\d+)', part)
-                
-                if match_chart_dimensions:
-                    # Format mới: C1-Bar2x3 → {"type": "BD", "chart_type": "bar", "dimensions": "2x3"}
-                    code_part = match_chart_dimensions.group(1)
-                    chart_type_raw = match_chart_dimensions.group(2).lower()  # bar, line, pie, area, combo
-                    rows = match_chart_dimensions.group(3)
-                    cols = match_chart_dimensions.group(4)
-                    
-                    # Normalize code
-                    code = self._normalize_question_code(code_part)
-                    codes.append(code)
-                    
-                    # Validate chart_type
-                    valid_chart_types = ['bar', 'line', 'pie', 'area', 'combo']
-                    if chart_type_raw not in valid_chart_types:
-                        print(f"⚠️  Warning: Invalid chart_type '{chart_type_raw}' for {code}, defaulting to 'bar'")
-                        chart_type_raw = 'bar'
-                    
-                    # Store as dict format
-                    rich_types[code] = [{
-                        "type": "BD",  # Biểu đồ
-                        "chart_type": chart_type_raw,
-                        "dimensions": f"{rows}x{cols}"
-                    }]
-                    continue
-                
-                # Check OLD FORMAT: "C4-[BD]" hoặc "C1-[BK,TT]"
-                match_with_type = re.match(r'([Cc]?\d+[A-Za-z]*)-\[([^\]]+)\]', part)
-                
-                if match_with_type:
-                    # Format cũ với bracket
-                    code_part = match_with_type.group(1)
-                    types_str = match_with_type.group(2)
-
-                    # Normalize code — preserves lowercase suffix for TL sub-items
-                    code = self._normalize_question_code(code_part)
-                    codes.append(code)
-
-                    # Parse types: "BD" hoặc "BK,TT"
-                    types = [t.strip().upper() for t in types_str.split(',')]
-                    rich_types[code] = types
-                else:
-                    # Không có rich content type
-                    code = self._normalize_question_code(part)
-                    codes.append(code)
-            
+            codes, rich_types = self._parse_codes_and_types(codes_str)
             return num, codes, rich_types
         
+        # ═════ PATTERN 2: Format mới không có số: "C5-[BK],C6-[BK]" ═════
+        # Nếu toàn bộ cell_str là danh sách mã câu (có dấu phẩy hoặc chỉ 1 mã)
+        # Pattern: C1, C1a, C1-[BK], C1-[Bar3x4] hoặc kết hợp cách nhau bằng dấu phẩy
+        if ',' in cell_str or re.match(r'^[Cc]\d+[a-zA-Z]*(?:-\[.*?\]|-[A-Za-z]+\d+x\d+)?$', cell_str):
+            codes, rich_types = self._parse_codes_and_types(cell_str)
+            num = len(codes)
+            if num > 0:
+                return num, codes, rich_types
+        
         return 0, [], {}
+    
+    def _parse_codes_and_types(self, codes_str: str) -> Tuple[List[str], Dict[str, List[str]]]:
+        """
+        Helper để parse danh sách mã câu và rich content types từ string
+        
+        Args:
+            codes_str: Chuỗi mã câu, VD: "C1,C2" hoặc "C1-[BK],C2-[BD]" hoặc "C1-[Bar3x4],C2-[BK]"
+        
+        Returns:
+            Tuple[List[str], Dict]: (danh sách mã câu, rich_content_types dict)
+        """
+        codes = []
+        rich_types = {}
+        
+        # Split by comma nhưng hãy cẩn thận với [] và () bên trong
+        parts = []
+        current_part = ""
+        bracket_level = 0
+        
+        for char in codes_str:
+            if char == '[':
+                bracket_level += 1
+            elif char == ']':
+                bracket_level -= 1
+            elif char == ',' and bracket_level == 0:
+                parts.append(current_part.strip())
+                current_part = ""
+                continue
+            current_part += char
+        
+        if current_part.strip():
+            parts.append(current_part.strip())
+        
+        for part in parts:
+            # ───── CHÚ Ý: KÝ TỰ ĐÔI HỎI LINH ĐÔNG TRONG PARSING THỨ TỰ ─────
+            # Thứ tự check: 1. Chart với ngoặc vuông [Bar3x4]
+            #               2. Chart không ngoặc vuông Bar3x4
+            #               3. Rich content với ngoặc vuông [BD]
+            #               4. Plain code
+            
+            # 1️⃣ Format biểu đồ MỚI với ngoặc vuông: "C1-[Bar3x4]"
+            match_chart_with_brackets = re.match(r'([Cc]?\d+[A-Za-z]*)-\[([A-Za-z]+)(\d+)x(\d+)\]', part)
+            if match_chart_with_brackets:
+                code_part = match_chart_with_brackets.group(1)
+                chart_type_raw = match_chart_with_brackets.group(2).lower()
+                rows = match_chart_with_brackets.group(3)
+                cols = match_chart_with_brackets.group(4)
+                
+                code = self._normalize_question_code(code_part)
+                codes.append(code)
+                
+                # Validate chart_type
+                valid_chart_types = ['bar', 'line', 'pie', 'area', 'combo']
+                if chart_type_raw not in valid_chart_types:
+                    print(f"⚠️  Warning: Invalid chart_type '{chart_type_raw}' for {code}, defaulting to 'bar'")
+                    chart_type_raw = 'bar'
+                
+                # Store as dict format
+                rich_types[code] = [{
+                    "type": "BD",  # Biểu đồ
+                    "chart_type": chart_type_raw,
+                    "dimensions": f"{rows}x{cols}"
+                }]
+                continue
+            
+            # 2️⃣ Format biểu đồ CŨ không ngoặc vuông: "C1-Bar2x3"
+            match_chart_dimensions = re.match(r'([Cc]?\d+[A-Za-z]*)-([A-Za-z]+)(\d+)x(\d+)(?![\[\]])', part)
+            if match_chart_dimensions:
+                # Format mới: C1-Bar2x3 → {"type": "BD", "chart_type": "bar", "dimensions": "2x3"}
+                code_part = match_chart_dimensions.group(1)
+                chart_type_raw = match_chart_dimensions.group(2).lower()  # bar, line, pie, area, combo
+                rows = match_chart_dimensions.group(3)
+                cols = match_chart_dimensions.group(4)
+                
+                # Normalize code
+                code = self._normalize_question_code(code_part)
+                codes.append(code)
+                
+                # Validate chart_type
+                valid_chart_types = ['bar', 'line', 'pie', 'area', 'combo']
+                if chart_type_raw not in valid_chart_types:
+                    print(f"⚠️  Warning: Invalid chart_type '{chart_type_raw}' for {code}, defaulting to 'bar'")
+                    chart_type_raw = 'bar'
+                
+                # Store as dict format
+                rich_types[code] = [{
+                    "type": "BD",  # Biểu đồ
+                    "chart_type": chart_type_raw,
+                    "dimensions": f"{rows}x{cols}"
+                }]
+                continue
+            
+            # 3️⃣ Format rich content với ngoặc vuông: "C4-[BD]" hoặc "C1-[BK,TT]"
+            match_with_type = re.match(r'([Cc]?\d+[A-Za-z]*)-\[([^\]]+)\]', part)
+            if match_with_type:
+                code_part = match_with_type.group(1)
+                types_str = match_with_type.group(2)
+
+                # Normalize code — preserves lowercase suffix for TL sub-items
+                code = self._normalize_question_code(code_part)
+                codes.append(code)
+
+                # Parse types: "BD" hoặc "BK,TT"
+                types = [t.strip().upper() for t in types_str.split(',')]
+                rich_types[code] = types
+                continue
+            
+            # 4️⃣ Plain code: "C1", "C1a", "C1c" (DS sub-items), etc.
+            code = self._normalize_question_code(part)
+            codes.append(code)
+        
+        return codes, rich_types
+    
     
     def parse_rich_content_types_sheet(self) -> Dict[str, Dict[str, str]]:
         """
@@ -407,26 +459,75 @@ class MatrixParser:
     
     def parse_matrix_filename(self, filename: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Parse tên file ma trận để trích xuất môn, bộ và lớp
+        Parse tên file ma trận để trích xuất môn, bộ và lớp (linh hoạt)
+        
+        Hỗ trợ các format:
+        - Ma trận_DIALY_KNTT_C12.xlsx (format chuẩn)
+        - DIALY_C12.xlsx (format tối giản)
+        - DIALY_C12752444.xlsx (lớp có phần thừa)
+        - Bất kỳ format nào miễn là có mã môn (chữ) và mã lớp (C + số)
         
         Args:
-            filename: Tên file (VD: "Ma trận_LICHSU_KNTT_C12.xlsx" hoặc "Ma trận_TOAN_C12.xlsx")
+            filename: Tên file
             
         Returns:
             Tuple[subject, curriculum, grade]: (môn, bộ, lớp)
+            - subject: Mã môn (LICHSU, TOAN, DIALY, etc.)
+            - curriculum: Bộ sách (KNTT, DCB, etc.) hoặc None
+            - grade: Mã lớp (C12, C11, etc.) - chỉ lấy phần C + số
         """
-        # Pattern: Ma trận_[môn]_[bộ]_[lớp].xlsx hoặc Ma trận_[môn]_[lớp].xlsx
-        # VD: Ma trận_LICHSU_KNTT_C12.xlsx hoặc Ma trận_TOAN_C12.xlsx
-        pattern = r'Ma trận_([A-Z]+)(?:_([A-Z]+))?_([A-Z]\d+)\.xlsx?'
-        match = re.search(pattern, filename, re.IGNORECASE)
+        # Loại bỏ extension (.xlsx, .xls)
+        name_without_ext = re.sub(r'\.(xlsx?|xls)$', '', filename, flags=re.IGNORECASE)
         
-        if match:
-            subject = match.group(1).upper()  # LICHSU, TOAN
-            curriculum = match.group(2).upper() if match.group(2) else None  # KNTT (có thể None)
-            grade = match.group(3).upper()  # C12
-            return subject, curriculum, grade
+        # ═════ BƯỚC 1: Tìm mã lớp (C + 1-2 số) ═════
+        # Pattern: C12, C11, C10, C9 (chỉ C + 1-2 số)
+        # Sử dụng word boundary hoặc split logic để tránh match vào garbage
+        grade = None
         
-        return None, None, None
+        # Thử tìm C + 1-2 số theo sau bởi separator (_-.) hoặc end
+        grade_match = re.search(r'(C\d{1,2})(?=[_\-\.]|$)', name_without_ext, re.IGNORECASE)
+        if grade_match:
+            grade = grade_match.group(1).upper()
+        
+        # Backup: Nếu không tìm được, thử extract từ phần sau dấu underscore cuối
+        # VD: "DIALY_C12752444" -> lấy "C12752444", extract "C12"
+        if not grade:
+            parts = name_without_ext.split('_')
+            if len(parts) > 0:
+                last_part = parts[-1]
+                # Tìm C + 1-2 số ở đầu của last_part
+                grade_match = re.match(r'(C\d{1,2})', last_part, re.IGNORECASE)
+                if grade_match:
+                    grade = grade_match.group(1).upper()
+        
+        # ═════ BƯỚC 2: Tìm mã môn (chữ cái liên tiếp trước mã lớp) ═════
+        subject = None
+        if grade:
+            # Tìm chữ cái ngay trước mã lớp
+            pos_before_grade = name_without_ext.upper().find(grade)
+            if pos_before_grade > 0:
+                text_before_grade = name_without_ext[:pos_before_grade]
+                
+                # Tìm chuỗi chữ cái cuối cùng trước mã lớp (ngăn cách bởi _ hoặc .)
+                subject_match = re.search(r'([A-Z]+)\s*(?:_|\.)?$', text_before_grade, re.IGNORECASE)
+                if subject_match:
+                    subject = subject_match.group(1).upper()
+        
+        # Fallback: Nếu không tìm được, tìm từ đầu
+        if not subject:
+            subject_match = re.search(r'(?:Ma trận_)?([A-Z]+)', name_without_ext, re.IGNORECASE)
+            if subject_match:
+                subject = subject_match.group(1).upper()
+        
+        # ═════ BƯỚC 3: Tìm bộ sách (KNTT, DCB, CTST, etc.) ═════
+        curriculum = "KNTT"  # Mặc định là KNTT
+        known_curriculums = ['KNTT', 'DCB', 'CTST', 'VN', 'QD']
+        for curr in known_curriculums:
+            if curr in name_without_ext.upper():
+                curriculum = curr
+                break
+        
+        return subject if subject else None, curriculum, grade if grade else None
     
     def parse_lesson_number(self, lesson_text: str) -> Optional[int]:
         """

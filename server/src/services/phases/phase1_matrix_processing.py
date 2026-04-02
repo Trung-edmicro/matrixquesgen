@@ -37,26 +37,35 @@ class MatrixProcessingService:
 
     def __init__(self):
         self.matrix_parser = MatrixParser()
-        # Support both formats: Ma trận_SUBJECT_CURRICULUM_GRADE.xlsx and sessionId_Ma trận_SUBJECT_CURRICULUM_GRADE.xlsx
-        self.matrix_pattern = re.compile(
-            r'(?:[a-f0-9-]+_)?Ma trận_([A-Z]+)_([A-Z]+)_([A-Z0-9]+)\.xlsx', 
-            re.IGNORECASE
-        )
 
     def parse_matrix_filename(self, filename: str) -> Optional[MatrixMetadata]:
-        """Parse matrix filename to extract subject, curriculum, grade"""
-        match = self.matrix_pattern.match(filename)
-        if not match:
+        """
+        Parse matrix filename to extract subject, curriculum, grade (flexible)
+        
+        Sử dụng MatrixParser.parse_matrix_filename() để linh hoạt parse
+        Hỗ trợ các format:
+        - Ma trận_DIALY_KNTT_C12.xlsx
+        - DIALY_C12.xlsx
+        - DIALY_C12123124.xyz.xlsx
+        - Bất kỳ format nào miễn có mã môn + mã lớp
+        """
+        try:
+            # Sử dụng logic linh hoạt từ MatrixParser
+            subject, curriculum, grade = self.matrix_parser.parse_matrix_filename(filename)
+            
+            # Cần phải có ít nhất subject + grade
+            if not subject or not grade:
+                return None
+            
+            return MatrixMetadata(
+                subject=subject,
+                curriculum=curriculum or "UNKNOWN",  # Default nếu không tìm được
+                grade=grade,
+                filename=filename,
+                file_path=Path(filename)
+            )
+        except Exception:
             return None
-
-        subject, curriculum, grade = match.groups()
-        return MatrixMetadata(
-            subject=subject.upper(),
-            curriculum=curriculum.upper(),
-            grade=grade.upper(),
-            filename=filename,
-            file_path=Path(filename)
-        )
 
     def load_matrix_file(self, file_path: Path) -> pd.DataFrame:
         """Load matrix Excel file into DataFrame"""
