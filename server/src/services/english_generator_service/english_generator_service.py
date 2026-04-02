@@ -26,18 +26,14 @@ from .constants import (CLOZE_EXPLANATION_TEMPLATE,
      CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,SENTENCE_COMPLETION_JSON_SCHEMA,SYNONYM_ANTONYM_JSON_SCHEMA,ERROR_IDENTIFICATION_JSON_SCHEMA,SENTENCE_TRANSFORMATION_JSON_SCHEMA,WORD_REORDERING_JSON_SCHEMA,PRONUNCIATION_STRESS_JSON_SCHEMA,DIALOGUE_COMPLETION_JSON_SCHEMA,LOGICAL_THINKING_JSON_SCHEMA,
        READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
 logger = logging.getLogger(__name__)
-from .drive_helper_services import load_vocabulary_from_drive
+from .drive_helper_services import load_vocabulary_from_drive, load_vocabulary_local, sync_drive_to_local
 from services.solute_exam_service.solute_english_exam_service import API_KEY
-
-# ============================
-# CONFIG
-# ============================
+import sys
 
 LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
 
 APP_DIR = Path(os.environ['APP_DIR']) if os.environ.get('APP_DIR') else Path(__file__).parent.parent.parent.parent.parent
 PROMPT_DIR = APP_DIR / "data" / "prompts" / "TIENGANH"
-print(f">>>>>> debug APP_DIR: {APP_DIR}")
 UPLOAD_DIR = APP_DIR / "data" / "uploads"
 OUTPUT_DIR = APP_DIR / "data" / "outputs"
 
@@ -48,7 +44,20 @@ DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY
 
 
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
-PROMPT_DIR = Path("PROMPT_DIR")
+# PROMPT_DIR = Path("PROMPT_DIR")
+
+def get_runtime_path():
+    """
+    Trả về thư mục chứa file chạy:
+    - Dev: thư mục chứa file .py
+    - Build exe: thư mục chứa file .exe
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+PROMPT_DIR = os.path.join(get_runtime_path(), "prompts_english")
 
 _drive_prompts_cache = None
 
@@ -113,6 +122,67 @@ _drive_prompts_cache = None
 #     return path.read_text(encoding="utf-8")
 
 
+def sync_drive_prompts_to_local():
+    """
+    Sync toàn bộ file .md từ Drive về local
+    """
+
+    print("🔄 Syncing prompts from Google Drive...")
+
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "q": f"'{folder_id}' in parents and name contains '.md' and trashed=false",
+            "key": API_KEY,
+            "fields": "files(id, name)"
+        }
+
+        res = requests.get(url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        for file in files:
+            name = file["name"]
+            file_id = file["id"]
+
+            download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key={API_KEY}"
+
+            r = requests.get(download_url)
+
+            if r.status_code != 200:
+                continue
+
+            drive_content = r.content.decode("utf-8", errors="replace")
+
+            local_path = os.path.join(PROMPT_DIR, name)
+
+            # Nếu chưa có → tạo
+            if not os.path.exists(local_path):
+                print(f"🆕 Creating prompt: {name}")
+                with open(local_path, "w", encoding="utf-8") as f:
+                    f.write(drive_content)
+                continue
+
+            # So sánh → update nếu khác
+            with open(local_path, "r", encoding="utf-8") as f:
+                local_content = f.read()
+
+            if local_content.strip() != drive_content.strip():
+                print(f"♻️ Updating prompt: {name}")
+                with open(local_path, "w", encoding="utf-8") as f:
+                    f.write(drive_content)
+            else:
+                print(f"✅ No change: {name}")
+
+        print("✅ Prompt sync completed.")
+
+    except Exception as e:
+        print(f"❌ Error syncing prompts: {e}")
+
 def extract_folder_id(url):
     return re.search(r"folders/([a-zA-Z0-9_-]+)", url).group(1)
 
@@ -156,24 +226,35 @@ def fetch_drive_md_files():
         return {}
 
 
+# def load_prompt(filename: str) -> str:
+#     print("🔎 Fetching prompts from Drive...")
+
+#     drive_prompts = fetch_drive_md_files()
+
+#     # Ưu tiên Drive
+#     if filename in drive_prompts:
+#         print(f"✅ Load từ Drive: {filename}")
+#         return drive_prompts[filename]
+
+#     # fallback local
+#     path = PROMPT_DIR / filename
+
+#     if not path.exists():
+#         raise Exception(f"Không tìm thấy prompt: {filename}")
+
+#     print(f"📂 Load từ LOCAL: {filename}")
+#     return path.read_text(encoding="utf-8")
+
 def load_prompt(filename: str) -> str:
-    print("🔎 Fetching prompts from Drive...")
+    path = os.path.join(PROMPT_DIR, filename)
 
-    drive_prompts = fetch_drive_md_files()
-
-    # Ưu tiên Drive
-    if filename in drive_prompts:
-        print(f"✅ Load từ Drive: {filename}")
-        return drive_prompts[filename]
-
-    # fallback local
-    path = PROMPT_DIR / filename
-
-    if not path.exists():
+    if not os.path.exists(path):
         raise Exception(f"Không tìm thấy prompt: {filename}")
 
-    print(f"📂 Load từ LOCAL: {filename}")
-    return path.read_text(encoding="utf-8")
+    print(f"📂 Load prompt LOCAL: {filename}")
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
 
 
 def detect_type_columns(df):
@@ -446,6 +527,10 @@ async def run_in_batches(tasks, batch_size=1): # Chạy tuần tự từng cái 
 
 async def generate_exam_docx(blocks, output_path):
 
+    sync_drive_to_local()
+
+    sync_drive_prompts_to_local()
+
     credentials, project_id = get_credentials()
 
     client_25 = AsyncVertexClient(
@@ -471,7 +556,8 @@ async def generate_exam_docx(blocks, output_path):
         vocabulary_example = block["vocabulary_example"]
         if pd.isna(vocabulary) or str(vocabulary).strip() == "":
             # vocabulary = load_vocabulary_from_drive(topic) or ""
-            vocabulary = load_vocabulary_from_drive(vocabulary_example) or ""
+            # vocabulary = load_vocabulary_from_drive(vocabulary_example) or ""
+            vocabulary = load_vocabulary_local(vocabulary_example) or ""
 
         vocabulary = str(vocabulary)
         q_type    = block["type"]
