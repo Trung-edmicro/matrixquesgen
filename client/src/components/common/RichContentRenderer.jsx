@@ -738,8 +738,11 @@ function ChartRenderer({ content, metadata }) {
             domWidth = cssWidth
             domHeight = cssHeight
           } else {
-            // Bar/Line/Area chart: 50px horizontal buffer for content
-            domWidth = cssWidth + 50
+            // ✨ FIX: Scale buffer dynamically based on width
+            // Formula: max(50px, 5% of width) to handle very long charts
+            // This ensures labels and legend have enough space regardless of chart width
+            const dynamicBuffer = Math.max(50, Math.round(cssWidth * 0.05))
+            domWidth = cssWidth + dynamicBuffer
             domHeight = cssHeight
           }
           
@@ -778,7 +781,7 @@ function ChartRenderer({ content, metadata }) {
     } catch (e) {
       console.error('Failed to render chart:', e, content)
     }
-  }, [content])
+  }, [content, dimensions])
 
   return (
     <div 

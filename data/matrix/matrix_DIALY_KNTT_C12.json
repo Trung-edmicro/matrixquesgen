@@ -3,7 +3,7 @@
     "subject": "DIALY",
     "curriculum": "KNTT",
     "grade": "C12",
-    "filename": "a96329fa-0f21-4236-8f4e-91f65485793e_DIALY_C12752444 - Copy.xlsx"
+    "filename": "81e0f03a-434f-4d84-8075-3dfb0253bea9_DIALY_C12752444.xlsx"
   },
   "rich_content_type_definitions": {
     "LT": {
@@ -35,47 +35,47 @@
       "content": "",
       "supplementary_material": "",
       "TN": {
-        "NB": [],
-        "TH": [],
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C1"
+            ],
+            "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
+            "question_template": [],
+            "rich_content_types": {
+              "C1": [
+                {
+                  "type": "BD",
+                  "chart_type": "bar",
+                  "dimensions": "3x4"
+                }
+              ]
+            }
+          }
+        ],
+        "TH": [
+          {
+            "num": 1,
+            "code": [
+              "C2"
+            ],
+            "learning_outcome": "Ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đến tự nhiên Việt Nam.",
+            "question_template": [],
+            "rich_content_types": {
+              "C2": [
+                {
+                  "type": "BD",
+                  "chart_type": "line",
+                  "dimensions": "3x3"
+                }
+              ]
+            }
+          }
+        ],
         "VD": []
       },
-      "DS": [
-        {
-          "question_code": "C1",
-          "statements": [
-            {
-              "label": "a",
-              "cognitive_level": "NB",
-              "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
-              "statement_code": "C1A",
-              "materials": ""
-            },
-            {
-              "label": "b",
-              "cognitive_level": "TH",
-              "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
-              "statement_code": "C1B",
-              "materials": ""
-            },
-            {
-              "label": "c",
-              "cognitive_level": "VD",
-              "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
-              "statement_code": "C1C",
-              "materials": ""
-            },
-            {
-              "label": "d",
-              "cognitive_level": "VD",
-              "learning_outcome": "Hiểu được VỊ TRÍ ĐỊA LÍ, PHẠM VI LÃNH THỔ Việt Nam",
-              "statement_code": "C1D",
-              "materials": ""
-            }
-          ],
-          "materials": "",
-          "question_template": []
-        }
-      ],
+      "DS": [],
       "TLN": {
         "NB": [],
         "TH": [],
@@ -94,9 +94,45 @@
       "content": "",
       "supplementary_material": "",
       "TN": {
-        "NB": [],
+        "NB": [
+          {
+            "num": 1,
+            "code": [
+              "C4"
+            ],
+            "learning_outcome": "Hiểu về ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống ở nơi em sống.",
+            "question_template": [],
+            "rich_content_types": {
+              "C4": [
+                {
+                  "type": "BD",
+                  "chart_type": "area",
+                  "dimensions": "3x3"
+                }
+              ]
+            }
+          }
+        ],
         "TH": [],
-        "VD": []
+        "VD": [
+          {
+            "num": 1,
+            "code": [
+              "C3"
+            ],
+            "learning_outcome": "Phân tích tác động của vị trí địa lí và hình dạng lãnh thổ tới đặc điểm khí hậu nước ta.",
+            "question_template": [],
+            "rich_content_types": {
+              "C3": [
+                {
+                  "type": "BD",
+                  "chart_type": "pie",
+                  "dimensions": "2x3"
+                }
+              ]
+            }
+          }
+        ]
       },
       "DS": [],
       "TLN": {
@@ -121,43 +157,7 @@
         "TH": [],
         "VD": []
       },
-      "DS": [
-        {
-          "question_code": "C2",
-          "statements": [
-            {
-              "label": "a",
-              "cognitive_level": "NB",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2A",
-              "materials": ""
-            },
-            {
-              "label": "b",
-              "cognitive_level": "NB",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2B",
-              "materials": ""
-            },
-            {
-              "label": "c",
-              "cognitive_level": "VD",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2C",
-              "materials": ""
-            },
-            {
-              "label": "d",
-              "cognitive_level": "VD",
-              "learning_outcome": "Tại sao vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường được quan tâm đặc biệt ở nước ta hiện nay?",
-              "statement_code": "C2D",
-              "materials": ""
-            }
-          ],
-          "materials": "",
-          "question_template": []
-        }
-      ],
+      "DS": [],
       "TLN": {
         "NB": [],
         "TH": [],
