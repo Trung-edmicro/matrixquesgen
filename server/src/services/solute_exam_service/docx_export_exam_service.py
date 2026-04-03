@@ -158,7 +158,7 @@ def _render_html_text(paragraph, html_content):
             if 'u' in parents: run.underline = True
             if 'i' in parents: run.italic = True
 
-def _render_solution_block(doc, q):
+def _render_solution_block(doc, q, res_type=None):
     p_ans = doc.add_paragraph()
     p_ans.add_run("Lời giải").bold = True
     
@@ -174,6 +174,52 @@ def _render_solution_block(doc, q):
         
         # 2. Render bằng HTML engine
         _render_html_text(p_exp, explanation)
+
+    # if q.get("quote"):
+    #     p_quote = doc.add_paragraph()
+    #     p_quote.add_run("Trích bài: ").bold = True
+        
+    #     quote_html = str(q["quote"])
+    #     _render_html_text(p_quote, quote_html) 
+
+    if q.get("quote"):
+        p_quote = doc.add_paragraph()
+
+        label = "Thông tin: " if res_type == "RC" else "Trích bài: "
+        p_quote.add_run(label).bold = True
+        
+        _render_html_text(p_quote, str(q["quote"]))
+
+                
+    if q.get("translation"):
+        p_trans = doc.add_paragraph()
+        p_trans.add_run("Tạm dịch: ").bold = True
+        p_trans.add_run(str(q['translation']))
+
+
+def _render_solution__reading_comprehensive_block(doc, q):
+    p_ans = doc.add_paragraph()
+    p_ans.add_run("Lời giải").bold = True
+    
+    doc.add_paragraph(f"Chọn {q.get('answer', '')}")
+    
+    if q.get("explanation"):
+        p_exp = doc.add_paragraph()
+        
+        explanation = str(q["explanation"])
+        
+        # 1. Convert markdown **bold** → HTML <b>
+        explanation = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", explanation)
+        
+        # 2. Render bằng HTML engine
+        _render_html_text(p_exp, explanation)
+
+    if q.get("quote"):
+        p_quote = doc.add_paragraph()
+        p_quote.add_run("Thông tin: ").bold = True
+        
+        quote_html = str(q["quote"])
+        _render_html_text(p_quote, quote_html) 
                 
     if q.get("translation"):
         p_trans = doc.add_paragraph()
@@ -329,6 +375,7 @@ def _render_passage_based_group(doc, group):
     """Điền từ, Đọc hiểu, Điền cụm từ - Sử dụng HTML render cho PASSAGE"""
     first_res = group[0]
     parsed_main = first_res.get("parsed", {})
+    res_type = group[0].get("type")
     
     # 1. Render Passage Title (Dùng HTML render)
     if parsed_main.get("passage_title"):
@@ -378,7 +425,7 @@ def _render_passage_based_group(doc, group):
             
             # doc.add_paragraph(f"A. {q.get('option_a')}\tB. {q.get('option_b')}\tC. {q.get('option_c')}\tD. {q.get('option_d')}")
             _render_options(doc, q)
-            _render_solution_block(doc, q)
+            _render_solution_block(doc, q, res_type)
 
 def _render_simple_question_group(doc, group):
     for res in group:
