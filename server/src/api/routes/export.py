@@ -3,6 +3,9 @@ Route xuất file DOCX
 """
 import json
 import os
+import base64
+import tempfile
+import time
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
@@ -107,11 +110,21 @@ async def export_english_standard(payload: dict):
     )
 
 @router.post("/{session_id}", response_model=ExportResponse)
-async def export_docx(session_id: str):
+async def export_docx(session_id: str, body: dict = None):
     """
     Export câu hỏi ra file DOCX
     
     - **session_id**: ID của session cần export
+    - **body (optional)**: JSON body containing:
+        - chart_images: Dict[str, str] mapping "question_code-chart_index" to Base64 images
+    
+    Request body example:
+    {
+        "chart_images": {
+            "C1-0": "iVBORw0KGgo...",
+            "C1-1": "iVBORw0KGgo..."
+        }
+    }
     """
     session_file = _get_sessions_dir() / f"{session_id}.json"
     
@@ -159,6 +172,11 @@ async def export_docx(session_id: str):
             q.pop('source_origin', None)
             q.pop('source_type', None)
     
+    # ✨ NEW: Extract chart images from request body
+    chart_images = {}
+    if body and isinstance(body, dict):
+        chart_images = body.get('chart_images', {})
+    
     # Tạo tên file
     matrix_filename = Path(metadata.get('matrix_file', 'questions')).stem
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -170,7 +188,8 @@ async def export_docx(session_id: str):
         generator = DocxGenerator(verbose=True)
         generator.generate_questions_document(
             json_data=questions_data,
-            output_path=str(output_path)
+            output_path=str(output_path),
+            chart_images=chart_images  # ✨ NEW: Pass chart images
         )
     except Exception as e:
         raise HTTPException(
@@ -213,3 +232,70 @@ async def download_docx(session_id: str):
         filename=latest_export.name,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+
+
+# ✨ NEW ENDPOINT: Save chart image from client canvas
+@router.post("/save-chart-image")
+async def save_chart_image(request_data: dict):
+    """
+    Receive Base64 PNG from client canvas, save to temp file
+    
+    Request body:
+    {
+        "image_base64": "iVBORw0KGgo...",  // Base64 PNG data (without data:image/png;base64, prefix)
+        "chart_title": "My Chart",
+        "metadata": {"question_id": "Q1", ...},
+        "timestamp": "2023-04-03T10:30:00Z"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "image_path": "/tmp/matrixquesgen_charts/chart_Q1_1680505800.png",
+        "size_kb": 45.2,
+        "timestamp": "2023-04-03T10:30:00Z"
+    }
+    """
+    try:
+        image_base64 = request_data.get('image_base64', '')
+        chart_title = request_data.get('chart_title', 'unknown')
+        metadata = request_data.get('metadata', {})
+        
+        if not image_base64:
+            raise ValueError("image_base64 is required")
+        
+        # Decode Base64 to bytes
+        try:
+            image_bytes = base64.b64decode(image_base64)
+        except Exception as e:
+            raise ValueError(f"Invalid Base64 data: {e}")
+        
+        # Create temp directory for charts
+        temp_dir = Path(tempfile.gettempdir()) / 'matrixquesgen_charts'
+        temp_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Generate unique filename
+        timestamp = int(time.time())
+        question_id = metadata.get('question_id', 'unknown')
+        image_filename = f'chart_{question_id}_{timestamp}.png'
+        image_path = temp_dir / image_filename
+        
+        # Save image
+        with open(image_path, 'wb') as f:
+            f.write(image_bytes)
+        
+        size_kb = len(image_bytes) / 1024
+        
+        return {
+            'success': True,
+            'image_path': str(image_path),
+            'image_filename': image_filename,
+            'size_kb': round(size_kb, 2),
+            'chart_title': chart_title,
+            'timestamp': request_data.get('timestamp', datetime.now().isoformat())
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save chart image: {str(e)}")

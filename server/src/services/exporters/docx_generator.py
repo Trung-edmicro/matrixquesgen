@@ -331,7 +331,11 @@ class DocxGenerator:
                 elif item_type == 'chart':
                     # Add line break before chart
                     para.add_run('\n')
-                    self._add_inline_chart(item.get('content', {}))
+                    # ✨ NEW: Look up Base64 image for this chart
+                    chart_key = f"{self.current_question_code}-{self.current_chart_index}"
+                    image_base64 = self.chart_images.get(chart_key)
+                    self._add_inline_chart(item.get('content', {}), image_base64=image_base64)
+                    self.current_chart_index += 1
                     
                 elif item_type == 'image':
                     # Add line break before image
@@ -387,7 +391,11 @@ class DocxGenerator:
                     if item_type == 'table':
                         self._add_inline_table(item.get('content', {}), item.get('metadata', {}))
                     elif item_type == 'chart':
-                        self._add_inline_chart(item.get('content', {}))
+                        # ✨ NEW: Look up Base64 image for this chart
+                        chart_key = f"{self.current_question_code}-{self.current_chart_index}"
+                        image_base64 = self.chart_images.get(chart_key)
+                        self._add_inline_chart(item.get('content', {}), image_base64=image_base64)
+                        self.current_chart_index += 1
                     elif item_type == 'image':
                         caption = item.get('metadata', {}).get('caption', '')
                         para_img = self.document.add_paragraph()
@@ -457,8 +465,14 @@ class DocxGenerator:
             run.italic = True
             run.font.size = Pt(10)
     
-    def _add_inline_chart(self, chart_data: Dict):
-        """Thêm chart vào document - render thành PNG nếu có playwright"""
+    def _add_inline_chart(self, chart_data: Dict, image_base64: Optional[str] = None):
+        """
+        Thêm chart vào document - từ Base64 hoặc render via Playwright
+        
+        Args:
+            chart_data: Dict chứa chartType, echarts config, etc.
+            image_base64: Optional Base64 PNG từ client canvas (preferred)
+        """
         if not chart_data:
             if self.verbose:
                 print("⚠️  Chart data is empty")
@@ -467,21 +481,70 @@ class DocxGenerator:
         chart_type = chart_data.get('chartType', 'bar')
         echarts = chart_data.get('echarts', {})
         
+        # Tập title từ echarts config
+        title_data = echarts.get('title', {})
+        if isinstance(title_data, list):
+            title = title_data[0].get('text', 'Biểu đồ') if title_data else 'Biểu đồ'
+        elif isinstance(title_data, dict):
+            title = title_data.get('text', 'Biểu đồ')
+        else:
+            title = 'Biểu đồ'
+        
+        # ✨ NEW: Nếu có Base64 image từ client, dùng luôn (mau + chính xác)
+        if image_base64:
+            try:
+                if self.verbose:
+                    print(f"📊 Processing chart from Base64 canvas: {title}")
+                
+                # Strip data URL prefix nếu có
+                if ',' in image_base64:
+                    image_base64 = image_base64.split(',')[1]
+                
+                # Decode Base64 → bytes
+                image_bytes = base64.b64decode(image_base64)
+                
+                # Save tạm
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                    temp_image_path = f.name
+                    f.write(image_bytes)
+                
+                # Chèn vào DOCX với kích thước thích hợp
+                para = self.document.add_paragraph()
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = para.add_run()
+                
+                # ✨ Adaptive width based on chart type
+                if chart_type.lower() == 'pie':
+                    # Pie: square aspect ratio (1:1)
+                    run.add_picture(temp_image_path, width=Inches(4.0))
+                else:
+                    # Bar/Line/Area: landscape aspect ratio (1.7:1)
+                    run.add_picture(temp_image_path, width=Inches(5.5))
+                
+                # Cleanup
+                try:
+                    os.remove(temp_image_path)
+                except:
+                    pass
+                
+                if self.verbose:
+                    print(f"✅ Đã chèn chart từ Base64: {title} ({len(image_bytes)/1024:.1f}KB)")
+                return
+            
+            except Exception as e:
+                if self.verbose:
+                    print(f"⚠️  Failed to use Base64 image: {e}")
+                # Fall through to playwright rendering
+        
+        # ✨ OLD: Fallback - render via Playwright (nếu không có Base64 hoặc error)
         if self.verbose:
             print(f"📊 Processing chart: type={chart_type}, has_echarts={bool(echarts)}")
             print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
         
-        # Lấy thông tin cơ bản từ echarts
-        # Title có thể là dict (bar/line/area) hoặc list (pie with multiple pies)
-        title_data = echarts.get('title', {})
-        if isinstance(title_data, list):
-            # Nếu là list (multiple pie charts), lấy title đầu tiên
-            title = title_data[0].get('text', 'Biểu đồ') if title_data else 'Biểu đồ'
-        elif isinstance(title_data, dict):
-            # Nếu là dict (bar/line/area)
-            title = title_data.get('text', 'Biểu đồ')
-        else:
-            title = 'Biểu đồ'
+        # ✨ OLD: Fallback - Playwright rendering
+        if self.verbose:
+            print(f"📊 Fallback: Processing chart via Playwright: type={chart_type}, has_echarts={bool(echarts)}")
+            print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
         
         # Render chart thành ảnh nếu có playwright
         if PLAYWRIGHT_AVAILABLE:
@@ -1000,18 +1063,25 @@ class DocxGenerator:
     
     def generate_questions_document(self, 
                                    json_data: Union[Dict, str],
-                                   output_path: str):
+                                   output_path: str,
+                                   chart_images: Dict[str, str] = None):
         """
         Tạo document câu hỏi từ dữ liệu JSON
         
         Args:
             json_data (Union[Dict, str]): Dữ liệu JSON hoặc đường dẫn file JSON
             output_path (str): Đường dẫn file DOCX output
+            chart_images (Dict[str, str]): Optional dict mapping "question_code-chart_index" to Base64 images
         """
         # Đọc JSON nếu là đường dẫn
         if isinstance(json_data, str):
             with open(json_data, 'r', encoding='utf-8') as f:
                 json_data = json.load(f)
+        
+        # ✨ NEW: Store chart images for use during rendering
+        self.chart_images = chart_images or {}
+        self.current_question_code = None  # Track current question for chart lookup
+        self.current_chart_index = 0  # Track chart index within question
         
         # Tạo document mới
         self.create_new_document()
@@ -1048,6 +1118,8 @@ class DocxGenerator:
             self.add_heading('PHẦN I. Thí sinh trả lời từ câu 1 đến câu 24. Mỗi câu hỏi thí sinh chỉ chọn một phương án.', level=2)
             
             for idx, q in enumerate(tn_questions_sorted, 1):
+                self.current_question_code = q.get('question_code', f'TN{idx}')
+                self.current_chart_index = 0  # Reset chart index for new question
                 self._add_tn_question(q, idx)
             
             self.add_paragraph("")
@@ -1063,6 +1135,8 @@ class DocxGenerator:
             self.add_heading('PHẦN II. Thí sinh trả lời từ câu 1 đến 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.', level=2)
             
             for idx, q in enumerate(ds_questions_sorted, 1):
+                self.current_question_code = q.get('question_code', f'DS{idx}')
+                self.current_chart_index = 0  # Reset chart index for new question
                 self._add_ds_question(q, idx, subject)
             
             self.add_paragraph("")
@@ -1078,6 +1152,8 @@ class DocxGenerator:
             self.add_heading('PHẦN III. Câu trả lời ngắn. Thí sinh viết đáp án vào chỗ trống.', level=2)
             
             for idx, q in enumerate(tln_questions_sorted, 1):
+                self.current_question_code = q.get('question_code', f'TLN{idx}')
+                self.current_chart_index = 0  # Reset chart index for new question
                 self._add_tln_question(q, idx)
             
             self.add_paragraph("")
