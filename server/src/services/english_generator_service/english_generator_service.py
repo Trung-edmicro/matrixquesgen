@@ -2234,42 +2234,67 @@ def _apply_default_style(doc):
     font.size = Pt(13)
 
 
+# def _add_instruction(doc, res):
+#     instruction = doc.add_paragraph()
+#     if res['type'] == "CLOZE":
+#         text = (
+#             f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D "
+#             "on your answer sheet to indicate the option that best fits each of the numbered blanks."
+#         )
+#     elif res['type'] == "ARRANGE":
+#         text = (
+#             "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement "
+#             "of utterances or sentences to make a meaningful exchange or text."
+#         )
+#     elif res['type'] == "RC":
+#         text = (
+#             f"Read the following passage and mark the letter A, B, C or D "
+#             "on your answer sheet to indicate the correct answer to each of the following questions."
+#         )
+#     elif res['type'] == "GAP":  # GAP
+#         text = (
+#             f"Read the following passage and mark the letter A, B, C or D "
+#             "on your answer sheet to indicate the option that best fits each of the numbered blank."
+#         )
+#     elif res['type'] == "DIALOUGE_COMPLETION":
+#         text = (
+#             f"Dialogue completion: Choose A, B, C or D to complete each dialogue."
+#         )
+#     elif res['type'] == "SENTENCE_COMPLETION":
+#         text = (
+#             f"Sentence completion: Choose A, B, C or D to complete each sentence."
+#         )
+#     elif res['type'] == "LOGICAL_THINKING":
+#         text = (f"Logical thinking and problem-solving: Choose A, B, C or D to answer each question.")
+#     elif res['type'] == "EERROR_IDENTIFICATION":
+#         text = (f"Mark the letter A, B, C, or D on your answer sheet to indicate the underlined part that needs correction in the following question.")
+#     elif res['type'] == "WORD_REORDERING":
+#         text = (f"Reorder the words given to make a correct sentence.")
+#     run = instruction.add_run(text)
+#     run.italic = True
+
+
+INSTRUCTION_MAP = {
+    "CLOZE": lambda res: f"Read the following {res.get('text_type_en').lower()}...",
+    "ARRANGE": lambda res: "Mark the letter A, B, C or D...",
+    "RC": lambda res: "Read the following passage...",
+    "GAP": lambda res: "Read the following passage...",
+    "DIALOUGE_COMPLETION": lambda res: "Dialogue completion...",
+    "SENTENCE_COMPLETION": lambda res: "Sentence completion...",
+    "LOGICAL_THINKING": lambda res: "Logical thinking...",
+    "ERROR_IDENTIFICATION": lambda res: "Mark the letter A, B, C, or D...",
+    "WORD_REORDERING": lambda res: "Reorder the words...",
+}
+
 def _add_instruction(doc, res):
     instruction = doc.add_paragraph()
-    if res['type'] == "CLOZE":
-        text = (
-            f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D "
-            "on your answer sheet to indicate the option that best fits each of the numbered blanks."
-        )
-    elif res['type'] == "ARRANGE":
-        text = (
-            "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement "
-            "of utterances or sentences to make a meaningful exchange or text."
-        )
-    elif res['type'] == "RC":
-        text = (
-            f"Read the following passage and mark the letter A, B, C or D "
-            "on your answer sheet to indicate the correct answer to each of the following questions."
-        )
-    elif res['type'] == "GAP":  # GAP
-        text = (
-            f"Read the following passage and mark the letter A, B, C or D "
-            "on your answer sheet to indicate the option that best fits each of the numbered blank."
-        )
-    elif res['type'] == "DIALOUGE_COMPLETION":
-        text = (
-            f"Dialogue completion: Choose A, B, C or D to complete each dialogue."
-        )
-    elif res['type'] == "SENTENCE_COMPLETION":
-        text = (
-            f"Sentence completion: Choose A, B, C or D to complete each sentence."
-        )
-    elif res['type'] == "LOGICAL_THINKING":
-        text = (f"Logical thinking and problem-solving: Choose A, B, C or D to answer each question.")
-    elif res['type'] == "EERROR_IDENTIFICATION":
-        text = (f"Mark the letter A, B, C, or D on your answer sheet to indicate the underlined part that needs correction in the following question.")
-    elif res['type'] == "WORD_REORDERING":
-        text = (f"Reorder the words given to make a correct sentence.")
+
+    func = INSTRUCTION_MAP.get(res['type'])
+    if not func:
+        raise ValueError(f"Unsupported type: {res['type']}")
+
+    text = func(res)
+
     run = instruction.add_run(text)
     run.italic = True
 
