@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { listSessions, deleteSession, exportToDocx, downloadDocx, getSessionDetail } from '../services/api'
+import { captureAllChartImages } from '../services/chartExportService'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
 
 export default function ManageExamsPage() {
@@ -39,7 +40,11 @@ export default function ManageExamsPage() {
 
   const handleExport = async (sessionId) => {
     try {
-      const exportResult = await exportToDocx(sessionId)
+      // ✨ NEW: Try to capture chart images from the preview (if rendered)
+      const chartImages = await captureAllChartImages()
+      console.log(`📸 Export: captured ${Object.keys(chartImages).length} charts`)
+      
+      const exportResult = await exportToDocx(sessionId, chartImages)
       if (exportResult && exportResult.file_path) {
         const downloadUrl = downloadDocx(sessionId)
         window.open(downloadUrl, '_blank')

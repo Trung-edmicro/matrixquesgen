@@ -193,8 +193,10 @@ export const updateQuestion = async (sessionId, questionType, questionCode, data
 }
 
 // Export to DOCX
-export const exportToDocx = async (sessionId) => {
-  const response = await api.post(`/api/export/${sessionId}`)
+export const exportToDocx = async (sessionId, chartImages = {}) => {
+  const response = await api.post(`/api/export/${sessionId}`, {
+    chart_images: chartImages
+  })
   return response.data
 }
 

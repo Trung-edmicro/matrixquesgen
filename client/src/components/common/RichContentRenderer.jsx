@@ -9,8 +9,9 @@ import * as echarts from 'echarts'
  * @param {boolean} contentEditable - Có cho phép chỉnh sửa không
  * @param {Function} onBlur - Callback khi blur (nếu contentEditable)
  * @param {string} className - Additional CSS classes
+ * @param {string} questionCode - Question code for chart indexing (e.g., "C1", "C2")
  */
-export default function RichContentRenderer({ content, contentEditable = false, onBlur, className = '' }) {
+export default function RichContentRenderer({ content, contentEditable = false, onBlur, className = '', questionCode = '' }) {
   // Handle legacy string format
   if (typeof content === 'string') {
     return (
@@ -106,6 +107,8 @@ export default function RichContentRenderer({ content, contentEditable = false, 
       return <div className="text-red-500">Invalid chart content format</div>
     }
 
+    let chartIndex = 0  // ✨ NEW: Track chart index for export identification
+    
     return (
       <div className={`space-y-3 ${className}`}>
         {contentData.map((item, index) => {
@@ -118,7 +121,16 @@ export default function RichContentRenderer({ content, contentEditable = false, 
           }
 
           if (typeof item === 'object' && item.type === 'chart') {
-            return <ChartRenderer key={index} content={item.content} metadata={item.metadata} />
+            // ✨ NEW: Pass questionCode and chart index to ChartRenderer
+            const currChartIndex = chartIndex
+            chartIndex++  // Increment for next chart
+            return <ChartRenderer 
+              key={index} 
+              content={item.content} 
+              metadata={item.metadata} 
+              questionCode={questionCode}
+              chartIndex={currChartIndex}
+            />
           }
 
           return null
@@ -133,6 +145,8 @@ export default function RichContentRenderer({ content, contentEditable = false, 
       return <div className="text-red-500">Invalid mixed content format</div>
     }
 
+    let chartIndex = 0  // ✨ NEW: Track chart index for export identification
+    
     return (
       <div className={`space-y-3 ${className}`}>
         {contentData.map((item, index) => {
@@ -157,7 +171,16 @@ export default function RichContentRenderer({ content, contentEditable = false, 
 
             // Chart content (ECharts)
             if (item.type === 'chart') {
-              return <ChartRenderer key={index} content={item.content} metadata={item.metadata} />
+              // ✨ NEW: Pass questionCode and chart index to ChartRenderer
+              const currChartIndex = chartIndex
+              chartIndex++  // Increment for next chart
+              return <ChartRenderer 
+                key={index} 
+                content={item.content} 
+                metadata={item.metadata} 
+                questionCode={questionCode}
+                chartIndex={currChartIndex}
+              />
             }
           }
 
@@ -574,7 +597,7 @@ function resolveChartOptionPlaceholders(options) {
 /**
  * Component để render ECharts chart
  */
-function ChartRenderer({ content, metadata }) {
+function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 }) {
   const chartRef = useRef(null)
   const chartInstance = useRef(null)
   const containerRef = useRef(null)
@@ -797,6 +820,10 @@ function ChartRenderer({ content, metadata }) {
     >
       <div
         ref={chartRef}
+        // ✨ NEW: Set data attributes for export identification
+        data-chart-ref={questionCode ? `${questionCode}-${chartIndex}` : `chart-${chartIndex}`}
+        data-question-code={questionCode || `Q${chartIndex}`}
+        data-chart-index={String(chartIndex)}
         style={{
           position: 'relative',
           width: dimensions.maxWidth,
@@ -810,4 +837,107 @@ function ChartRenderer({ content, metadata }) {
       />
     </div>
   )
+}
+
+/**
+ * ✨ Export chart canvas to Base64 PNG
+ * Dùng để embed trực tiếp vào DOCX mà không cần re-render
+ * @param {HTMLElement} chartRefElement - div chứa canvas
+ * @returns {string|null} Base64 data URL hoặc null nếu error
+ */
+export function exportChartCanvasToBase64(chartRefElement) {
+  try {
+    if (!chartRefElement) {
+      console.warn('❌ Chart ref element not found')
+      return null
+    }
+
+    const canvas = chartRefElement.querySelector('canvas')
+    if (!canvas) {
+      console.warn('❌ Canvas element not found in chart ref')
+      return null
+    }
+
+    // ✨ Convert canvas to PNG (quality 100%)
+    const dataUrl = canvas.toDataURL('image/png', 1.0)
+    return dataUrl
+  } catch (e) {
+    console.error('❌ Failed to export chart canvas:', e)
+    return null
+  }
+}
+
+/**
+ * ✨ Send chart image to server for DOCX export
+ * @param {string} base64Image - Base64 PNG from canvas.toDataURL()
+ * @param {string} chartTitle - Chart title for logging
+ * @param {Object} questionMetadata - Metadata about the question (optional)
+ * @returns {Promise<{success: boolean, imagePath?: string, error?: string}>}
+ */
+export async function sendChartImageToServer(base64Image, chartTitle = 'chart', questionMetadata = {}) {
+  try {
+    if (!base64Image) {
+      console.warn('⚠️  No Base64 image provided')
+      return { success: false, error: 'Empty image data' }
+    }
+
+    // Strip data URL prefix if present
+    let imageData = base64Image
+    if (imageData.startsWith('data:image')) {
+      imageData = imageData.split(',')[1]
+    }
+
+    console.log(`📤 Uploading chart "${chartTitle}" (${Math.round(imageData.length / 1024)}KB)...`)
+
+    const response = await fetch('/api/export/save-chart-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_base64: imageData,
+        chart_title: chartTitle,
+        metadata: questionMetadata,
+        timestamp: new Date().toISOString()
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      console.error(`❌ Server error (${response.status}):`, error)
+      return { success: false, error: `Server error: ${response.status}` }
+    }
+
+    const data = await response.json()
+    if (data.success) {
+      console.log(`✅ Chart uploaded: ${data.image_path}`)
+      return { success: true, imagePath: data.image_path }
+    } else {
+      return { success: false, error: data.error || 'Unknown error' }
+    }
+  } catch (e) {
+    console.error('❌ Failed to send chart to server:', e)
+    return { success: false, error: e.message }
+  }
+}
+
+/**
+ * ✨ Direct download of chart as PNG (browser-only)
+ * @param {HTMLElement} chartRefElement - div chứa canvas
+ * @param {string} fileName - Download file name
+ */
+export function downloadChartAsImage(chartRefElement, fileName = 'chart.png') {
+  try {
+    const base64 = exportChartCanvasToBase64(chartRefElement)
+    if (!base64) {
+      console.error('❌ Failed to export chart')
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = base64
+    link.download = fileName
+    link.click()
+    console.log(`✅ Chart downloaded as ${fileName}`)
+  } catch (e) {
+    console.error('❌ Failed to download chart:', e)
+  }
 }

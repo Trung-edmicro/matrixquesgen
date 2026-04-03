@@ -668,6 +668,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     contentEditable={!!sessionId}
                     onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
+                    questionCode={q.question_code}
                   />
                 </div>
                 <div className="space-y-1 pl-4">
@@ -987,6 +988,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     contentEditable={!!sessionId}
                     onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    questionCode={q.question_code}
                   />
                 </div>
               </div>
@@ -1096,15 +1098,20 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     contentEditable={!!sessionId}
                     onBlur={(e) => handleBlur('TL', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    questionCode={q.question_code}
                   />
                   {/* Sub-questions (a, b, ...) */}
                   {Array.isArray(q.explanation?.sub_questions) && q.explanation.sub_questions.length > 0 && (
                     <div className="mt-3 space-y-2 pl-2">
-                      {q.explanation.sub_questions.map((sub) => (
+                      {q.explanation.sub_questions.map((sub, subIndex) => (
                         <div key={sub.label} className="flex gap-2">
                           <span className="font-medium shrink-0">{sub.label})</span>
                           <div className="flex-1">
-                            <RichContentRenderer content={sub.question_stem} />
+                            <RichContentRenderer 
+                              content={sub.question_stem} 
+                              questionCode={q.question_code + sub.label}
+                              chartIndex={subIndex}
+                            />
                           </div>
                         </div>
                       ))}

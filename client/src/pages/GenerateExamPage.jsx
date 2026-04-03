@@ -11,6 +11,7 @@ import {
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
 } from '../services/api'
+import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 
 // Key để lưu state vào localStorage
@@ -201,8 +202,14 @@ export default function GenerateExamPage() {
     try {
       setIsExporting(true)
       setError(null)
-      // Export to DOCX
-      const exportResult = await exportToDocx(sessionId)
+      
+      // ✨ NEW: Capture all chart images from the preview
+      console.log('📸 Capturing chart images...')
+      const chartImages = await captureAllChartImages()
+      console.log(`✅ Captured ${Object.keys(chartImages).length} charts`)
+      
+      // Export to DOCX with chart images
+      const exportResult = await exportToDocx(sessionId, chartImages)
 
       if (exportResult && exportResult.file_path) {
         // Download the file
