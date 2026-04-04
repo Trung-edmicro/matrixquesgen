@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from 'react'
+import { useMemo, useEffect, useRef, useState, useCallback } from 'react'
 import LaTeXRenderer from './LaTeXRenderer'
 import * as echarts from 'echarts'
 
@@ -595,14 +595,21 @@ function resolveChartOptionPlaceholders(options) {
 }
 
 /**
- * Component để render ECharts chart
+ * ✨ REWRITTEN: ChartRenderer v2.0
+ * Completely redesigned to avoid dimension sync issues
+ * 
+ * Key changes:
+ * - Direct canvas DOM sizing from bounding rect (no CSS state intermediary)
+ * - Single ResizeObserver that handles ALL dimension updates
+ * - Clear separation: container CSS → chart init → canvas DOM attributes
+ * - Eliminates timing issues and dimension mismatches
  */
 function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 }) {
-  const chartRef = useRef(null)
-  const chartInstance = useRef(null)
-  const containerRef = useRef(null)
+  const chartRef = useRef(null)        // Div where echarts renders
+  const chartInstance = useRef(null)   // echarts instance
+  const resizeObserverRef = useRef(null)
 
-  // Parse metadata if it's a string - MUST BE FIRST
+  // Parse metadata once
   const parsedMetadata = useMemo(() => {
     if (typeof metadata === 'string') {
       try {
@@ -615,227 +622,280 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
     return metadata
   }, [metadata])
 
-  // Responsive sizing hook - use metadata from backend if provided
-  const [dimensions, setDimensions] = useState({ width: '100%', maxWidth: '850px', height: '500px' })
+  // ✨ Get container CSS dimensions from metadata or viewport
+  const getContainerSize = useCallback(() => {
+    const sw = window.innerWidth
 
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (!containerRef.current) return
+    if (parsedMetadata?.width && parsedMetadata?.height) {
+      const w = typeof parsedMetadata.width === 'number' 
+        ? parsedMetadata.width 
+        : parseInt(parsedMetadata.width)
+      const h = typeof parsedMetadata.height === 'number' 
+        ? parsedMetadata.height 
+        : parseInt(parsedMetadata.height)
 
-      const screenWidth = window.innerWidth
-      let calculatedMaxWidth = '850px'
-      let calculatedHeight = '500px'
-
-      // Responsive sizing based on viewport
-      // Allow backend metadata to override (for pie charts with square dimensions)
-      if (parsedMetadata?.width && parsedMetadata?.height) {
-        // Use exact backend dimensions (converted to px if number)
-        const metaWidth = typeof parsedMetadata.width === 'number' ? parsedMetadata.width : parseInt(parsedMetadata.width)
-        const metaHeight = typeof parsedMetadata.height === 'number' ? parsedMetadata.height : parseInt(parsedMetadata.height)
-        
-        // Detect pie chart (square dimensions from backend: 550x550)
-        const isPie = Math.abs(metaWidth - metaHeight) < 50 && Math.abs(metaWidth - 550) < 50
-        
-        if (isPie) {
-          // Pie chart: never responsive, always 550x550
-          calculatedMaxWidth = '550px'
-          calculatedHeight = '550px'
-        } else {
-          // Bar/Line/Area: use backend dimensions
-          calculatedMaxWidth = `${metaWidth}px`
-          calculatedHeight = `${metaHeight}px`
-        }
-      } else {
-        // Fallback: responsive based on viewport for bar/line charts
-        // Aspect ratio: 1.7:1 (width:height) - compact, balanced
-        if (screenWidth < 640) {
-          // Mobile: full width, proportional height
-          calculatedMaxWidth = '100%'
-          calculatedHeight = '300px'
-        } else if (screenWidth < 1024) {
-          // Tablet: proportional scaling
-          calculatedMaxWidth = '95%'
-          calculatedHeight = '450px'
-        } else if (screenWidth < 1280) {
-          // Small desktop
-          calculatedMaxWidth = '820px'
-          calculatedHeight = '480px'
-        } else {
-          // Large desktop: full 850x500
-          calculatedMaxWidth = '850px'
-          calculatedHeight = '500px'
-        }
-      }
-
-      setDimensions({
-        width: '100%',
-        maxWidth: calculatedMaxWidth,
-        height: calculatedHeight,
-      })
+      // Always use backend dimensions as-is
+      return { width: w, height: h, source: 'metadata' }
     }
 
-    updateDimensions()
-    const resizeListener = () => updateDimensions()
-    window.addEventListener('resize', resizeListener)
-    return () => window.removeEventListener('resize', resizeListener)
+    // Responsive fallback based on viewport
+    if (sw < 640) return { width: '100%', height: 300, source: 'mobile' }
+    if (sw < 1024) return { width: '95%', height: 450, source: 'tablet' }
+    if (sw < 1280) return { width: 820, height: 480, source: 'small-desktop' }
+    return { width: 850, height: 500, source: 'desktop' }
   }, [parsedMetadata])
 
+  // ✨ Calculate canvas DOM dimensions from actual container size
+  const calculateCanvasDimensions = useCallback(() => {
+    if (!chartRef.current) return null
+
+    try {
+      const rect = chartRef.current.getBoundingClientRect()
+      let containerWidth = Math.round(rect.width)
+      let containerHeight = Math.round(rect.height)
+
+      // Fallback: use offsetWidth if bounding rect is invalid
+      if (containerWidth <= 0 && chartRef.current.offsetWidth) {
+        containerWidth = chartRef.current.offsetWidth
+      }
+      if (containerHeight <= 0 && chartRef.current.offsetHeight) {
+        containerHeight = chartRef.current.offsetHeight
+      }
+
+      // Safety check
+      if (containerWidth <= 0 || containerHeight <= 0) {
+        console.warn(`⚠️  Cannot determine container dimensions: ${containerWidth}x${containerHeight}`)
+        return null
+      }
+
+      // ✨ Detect chart type by aspect ratio
+      const aspectRatio = containerWidth / containerHeight
+      const isPieChart = Math.abs(aspectRatio - 1) < 0.2  // Square-ish: ~1:1
+
+      let canvasWidth, canvasHeight
+
+      if (isPieChart) {
+        // Pie chart: keep square, use min dimension
+        const size = Math.min(containerWidth, containerHeight)
+        canvasWidth = Math.round(size)
+        canvasHeight = Math.round(size)
+      } else {
+        // Bar/Line/Area: add 5% buffer for labels/legend breathing room
+        const bufferPercent = 0.05
+        const buffer = Math.max(50, Math.round(containerWidth * bufferPercent))
+        canvasWidth = Math.round(containerWidth + buffer)
+        canvasHeight = Math.round(containerHeight)
+      }
+
+      // Ensure minimum valid dimensions
+      canvasWidth = Math.max(50, canvasWidth)
+      canvasHeight = Math.max(50, canvasHeight)
+
+      return { canvasWidth, canvasHeight, containerWidth, containerHeight, isPieChart }
+    } catch (e) {
+      console.error('Error calculating canvas dimensions:', e)
+      return null
+    }
+  }, [])
+
+  // ✨ Apply canvas DOM attributes and trigger resize
+  const applyCanvasDimensions = useCallback(() => {
+    if (!chartRef.current || !chartInstance.current) return
+
+    const dims = calculateCanvasDimensions()
+    if (!dims) return
+
+    try {
+      const canvas = chartRef.current.querySelector('canvas')
+      if (!canvas) return
+
+      const currentWidth = parseInt(canvas.getAttribute('width') || '0')
+      const currentHeight = parseInt(canvas.getAttribute('height') || '0')
+
+      // Only update if changed by >2px (reduce thrashing)
+      if (
+        Math.abs(currentWidth - dims.canvasWidth) > 2 ||
+        Math.abs(currentHeight - dims.canvasHeight) > 2
+      ) {
+        canvas.setAttribute('width', dims.canvasWidth.toString())
+        canvas.setAttribute('height', dims.canvasHeight.toString())
+        
+        // Let echarts re-render on new canvas size
+        chartInstance.current.resize()
+
+        console.log(
+          `📊 [${questionCode || 'Q?'}] Canvas: ${currentWidth}×${currentHeight} ` +
+          `→ ${dims.canvasWidth}×${dims.canvasHeight} ` +
+          `(container: ${dims.containerWidth}×${dims.containerHeight}, ${dims.isPieChart ? 'pie' : 'bar'})`
+        )
+      }
+    } catch (e) {
+      console.error('Error applying canvas dimensions:', e)
+    }
+  }, [calculateCanvasDimensions, questionCode])
+
+  // ✨ Main rendering effect - init chart + setup observers
   useEffect(() => {
     if (!chartRef.current) return
 
     try {
-      // Parse chart data
+      // 1️⃣ Parse and resolve chart options
       let chartData
-      if (typeof content === 'string') {
-        chartData = JSON.parse(content)
-      } else {
-        chartData = content
-      }
-
-      // Extract ECharts options from nested structure
-      // Expected format: {chartType: "bar", echarts: {...}} or just {...}
-      let options
-      if (chartData.echarts) {
-        options = chartData.echarts
-      } else if (chartData.chartType) {
-        // Legacy format - ignore
-        console.warn('Chart data has chartType but no echarts config')
+      try {
+        chartData = typeof content === 'string' ? JSON.parse(content) : content
+      } catch (parseErr) {
+        console.error('Failed to parse chart data:', parseErr)
         return
-      } else {
-        // Direct ECharts options
-        options = chartData
+      }
+      
+      let options = chartData?.echarts || chartData
+
+      if (!options || typeof options !== 'object') {
+        console.warn('No chart options found in content')
+        return
       }
 
-      // ✨ RESOLVE PLACEHOLDERS: Convert string placeholders to actual functions
-      const resolvedOptions = resolveChartOptionPlaceholders(options)
+      // Resolve placeholders
+      let resolvedOptions
+      try {
+        resolvedOptions = resolveChartOptionPlaceholders(options)
+      } catch (resolveErr) {
+        console.error('Failed to resolve chart placeholders:', resolveErr)
+        return
+      }
 
-      // Initialize or update chart
+      // 2️⃣ Initialize echarts instance
       if (!chartInstance.current) {
-        chartInstance.current = echarts.init(chartRef.current)
+        chartInstance.current = echarts.init(chartRef.current, null, { 
+          useDirtyRect: true  // Performance optimization
+        })
       }
 
       chartInstance.current.setOption(resolvedOptions)
+      console.log(`📊 [${questionCode || 'Q?'}] Chart initialized`)
 
-      // ✨ KEY FIX: Increase canvas DOM width to prevent content cutoff
-      // For pie charts: use exact square (550×550)
-      // For bar/line charts: use 50px buffer for content breathing room
-      try {
-        const canvas = chartRef.current?.querySelector('canvas')
-        if (canvas) {
-          // Get dimensions - parse CSS width/height to numbers
-          let cssWidth = 850  // Default
-          let cssHeight = 500  // Default
-          
-          // Try to get from offset first
-          const offsetWidth = chartRef.current?.offsetWidth
-          const offsetHeight = chartRef.current?.offsetHeight
-          
-          if (offsetWidth && offsetWidth > 0) {
-            cssWidth = offsetWidth
-          } else if (dimensions.maxWidth) {
-            // Fallback: parse from dimensions string
-            const widthStr = String(dimensions.maxWidth)
-            const parsed = parseInt(widthStr)
-            if (!isNaN(parsed) && parsed > 0) {
-              cssWidth = parsed
-            }
-          }
-          
-          if (offsetHeight && offsetHeight > 0) {
-            cssHeight = offsetHeight
-          } else if (dimensions.height) {
-            // Fallback: parse from dimensions string
-            const heightStr = String(dimensions.height)
-            const parsed = parseInt(heightStr)
-            if (!isNaN(parsed) && parsed > 0) {
-              cssHeight = parsed
-            }
-          }
-          
-          // Detect if pie chart (square aspect ratio - width ≈ height)
-          const isPieChart = Math.abs(cssWidth - cssHeight) < 50
-          
-          let domWidth, domHeight
-          if (isPieChart) {
-            // Pie chart: keep square to avoid distortion (550×550 exact)
-            domWidth = cssWidth
-            domHeight = cssHeight
-          } else {
-            // ✨ FIX: Scale buffer dynamically based on width
-            // Formula: max(50px, 5% of width) to handle very long charts
-            // This ensures labels and legend have enough space regardless of chart width
-            const dynamicBuffer = Math.max(50, Math.round(cssWidth * 0.05))
-            domWidth = cssWidth + dynamicBuffer
-            domHeight = cssHeight
-          }
-          
-          // Ensure values are positive integers
-          domWidth = Math.max(50, Math.floor(domWidth))
-          domHeight = Math.max(50, Math.floor(domHeight))
-          
-          // Set canvas DOM attributes (must be set, not CSS)
-          canvas.setAttribute('width', domWidth.toString())
-          canvas.setAttribute('height', domHeight.toString())
-          
-          // Force re-render after attribute change
-          chartInstance.current.resize()
-        }
-      } catch (e) {
-        console.error('Error adjusting canvas dimensions:', e)
-        // Silently fail - chart will still render with default echarts sizing
-      }
+      // 3️⃣ Setup DUAL dimension tracking (ResizeObserver + RAF monitoring)
+      
+      // Track previous dimensions to detect changes
+      let lastObservedWidth = 0
+      let lastObservedHeight = 0
+      let rAFId = null
 
-      // Handle resize
-      const handleResize = () => {
-        if (chartInstance.current) {
-          chartInstance.current.resize()
+      // Core function: applies canvas dimensions
+      const syncCanvasDimensions = () => {
+        const dims = calculateCanvasDimensions()
+        if (!dims) return
+
+        try {
+          const canvas = chartRef.current?.querySelector('canvas')
+          if (!canvas) return
+
+          const currentWidth = parseInt(canvas.getAttribute('width') || '0')
+          const currentHeight = parseInt(canvas.getAttribute('height') || '0')
+
+          // Only update if dimensions changed significantly (>2px threshold)
+          if (
+            Math.abs(currentWidth - dims.canvasWidth) > 2 ||
+            Math.abs(currentHeight - dims.canvasHeight) > 2
+          ) {
+            canvas.setAttribute('width', dims.canvasWidth.toString())
+            canvas.setAttribute('height', dims.canvasHeight.toString())
+            chartInstance.current.resize()
+
+            console.log(
+              `📊 [${questionCode || 'Q?'}] Canvas sync: ${currentWidth}×${currentHeight} ` +
+              `→ ${dims.canvasWidth}×${dims.canvasHeight}`
+            )
+          }
+        } catch (e) {
+          console.error('Error syncing canvas dimensions:', e)
         }
       }
-      window.addEventListener('resize', handleResize)
 
-      // Cleanup on unmount
+      // Monitor: Use RAF to detect container size changes every frame
+      // This catches CSS layout changes that ResizeObserver might miss
+      const monitorDimensions = () => {
+        if (!chartRef.current) {
+          if (rAFId) cancelAnimationFrame(rAFId)
+          return
+        }
+
+        const rect = chartRef.current.getBoundingClientRect()
+        const currWidth = Math.round(rect.width)
+        const currHeight = Math.round(rect.height)
+
+        // Detect CSS-driven size changes
+        if (Math.abs(currWidth - lastObservedWidth) > 2 || 
+            Math.abs(currHeight - lastObservedHeight) > 2) {
+          lastObservedWidth = currWidth
+          lastObservedHeight = currHeight
+          syncCanvasDimensions()
+        }
+
+        // Continue monitoring
+        rAFId = requestAnimationFrame(monitorDimensions)
+      }
+
+      // Start RAF monitoring
+      monitorDimensions()
+
+      // ALSO use ResizeObserver as backup
+      if (!resizeObserverRef.current) {
+        resizeObserverRef.current = new ResizeObserver(() => {
+          syncCanvasDimensions()
+        })
+      }
+
+      resizeObserverRef.current.observe(chartRef.current)
+
+      // 4️⃣ Handle window resize
+      const handleWindowResize = () => {
+        // Window resize triggers container to recalculate responsive dimensions
+        // Force sync immediately
+        syncCanvasDimensions()
+      }
+      window.addEventListener('resize', handleWindowResize, { passive: true })
+
+      // 5️⃣ Initial dimension sync
+      syncCanvasDimensions()
+
+      // Cleanup
       return () => {
-        window.removeEventListener('resize', handleResize)
+        window.removeEventListener('resize', handleWindowResize)
+        if (rAFId) cancelAnimationFrame(rAFId)
+        if (resizeObserverRef.current) {
+          resizeObserverRef.current.disconnect()
+          resizeObserverRef.current = null
+        }
         if (chartInstance.current) {
           chartInstance.current.dispose()
           chartInstance.current = null
         }
       }
     } catch (e) {
-      console.error('Failed to render chart:', e, content)
+      console.error('Failed to initialize chart:', e)
     }
-  }, [content, dimensions])
+  }, [content, calculateCanvasDimensions, questionCode])
+
+  const { width: containerWidth, height: containerHeight } = getContainerSize()
 
   return (
-    <div 
-      ref={containerRef}
+    <div
+      ref={chartRef}
+      data-chart-ref={questionCode ? `${questionCode}-${chartIndex}` : `chart-${chartIndex}`}
+      data-question-code={questionCode || `Q${chartIndex}`}
+      data-chart-index={String(chartIndex)}
       style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-        margin: 0,
-        padding: 0
+        width: typeof containerWidth === 'number' ? `${containerWidth}px` : containerWidth,
+        height: typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight,
+        margin: '0 auto',
+        padding: 0,
+        border: 'none',
+        display: 'block',
+        overflow: 'visible',
+        boxSizing: 'border-box'
       }}
-    >
-      <div
-        ref={chartRef}
-        // ✨ NEW: Set data attributes for export identification
-        data-chart-ref={questionCode ? `${questionCode}-${chartIndex}` : `chart-${chartIndex}`}
-        data-question-code={questionCode || `Q${chartIndex}`}
-        data-chart-index={String(chartIndex)}
-        style={{
-          position: 'relative',
-          width: dimensions.maxWidth,
-          height: dimensions.height,
-          padding: '0px',
-          margin: '0px',
-          borderWidth: '0px',
-          cursor: 'default',
-          flexShrink: 0
-        }}
-      />
-    </div>
+    />
   )
 }
 
