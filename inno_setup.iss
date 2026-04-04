@@ -1,6 +1,6 @@
 ﻿[Setup]
 AppName=MatrixQuesGen
-AppVersion=1.3.4
+AppVersion=1.3.5
 AppPublisher=Your Organization
 AppPublisherURL=https://github.com/Trung-edmicro/matrixquesgen
 AppSupportURL=https://github.com/Trung-edmicro/matrixquesgen/issues
@@ -8,7 +8,7 @@ AppUpdatesURL=https://github.com/Trung-edmicro/matrixquesgen/releases
 DefaultDirName={autopf}\MatrixQuesGen
 DefaultGroupName=MatrixQuesGen
 OutputDir=installer
-OutputBaseFilename=MatrixQuesGen_Setup_1.3.4
+OutputBaseFilename=MatrixQuesGen_Setup_1.3.5
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
@@ -62,6 +62,7 @@ Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesG
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\logs"
+
 
 
 
