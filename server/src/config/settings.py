@@ -37,7 +37,39 @@ class Config:
     DOCX_FONT_NAME = "Times New Roman"
     DOCX_FONT_SIZE = 12
     
-    # DS Source Display Configuration
+    # ═════ DANH SÁCH MÃ MÔN HỌC CHÍNH THỨC ═════
+    # Mã môn học bắt buộc phải có trong tên file ma trận
+    VALID_SUBJECTS = [
+        "DIALY",
+        "GDKTPL",
+        "HOAHOC",
+        "LICHSU",
+        "SINH",
+        "VATLY",
+        "TIENGANH",
+    ]
+    
+    # ═════ DANH SÁCH MÃ LỚP CHÍNH THỨC ═════
+    # Mã lớp bắt buộc phải có trong tên file ma trận (C + 1-2 số)
+    VALID_GRADES = [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8",
+        "C9",
+        "C10",
+        "C11",
+        "C12",
+    ]
+    
+    # ═════ CURRICULUM MẶC ĐỊNH ═════
+    DEFAULT_CURRICULUM = "KNTT"  # Bộ sách mặc định: Kết nối Tri thức
+    
+    # ═════ DS Source Display Configuration ═════
     # Danh sách các môn học HIỂN THỊ source trong câu hỏi DS
     SUBJECTS_WITH_SOURCE_DISPLAY = [
         "LICHSU",  # Lịch sử cần hiển thị nguồn tư liệu

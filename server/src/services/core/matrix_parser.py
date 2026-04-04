@@ -459,75 +459,106 @@ class MatrixParser:
     
     def parse_matrix_filename(self, filename: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Parse tên file ma trận để trích xuất môn, bộ và lớp (linh hoạt)
+        Parse tên file ma trận để trích xuất môn và lớp (bắt buộc)
         
-        Hỗ trợ các format:
-        - Ma trận_DIALY_KNTT_C12.xlsx (format chuẩn)
-        - DIALY_C12.xlsx (format tối giản)
-        - DIALY_C12752444.xlsx (lớp có phần thừa)
-        - Bất kỳ format nào miễn là có mã môn (chữ) và mã lớp (C + số)
+        Format được support:
+        - Ma trận_DIALY_KNTT_C12.xlsx → (DIALY, KNTT, C12)
+        - Ma trận_DIALY_KNTT_C12752444 - Copy.xlsx → (DIALY, KNTT, C12)
+        - DIALY_C12.xlsx → (DIALY, KNTT, C12)
         
         Args:
             filename: Tên file
             
         Returns:
             Tuple[subject, curriculum, grade]: (môn, bộ, lớp)
-            - subject: Mã môn (LICHSU, TOAN, DIALY, etc.)
-            - curriculum: Bộ sách (KNTT, DCB, etc.) hoặc None
-            - grade: Mã lớp (C12, C11, etc.) - chỉ lấy phần C + số
+            - subject: Mã môn (LICHSU, TOAN, DIALY, etc.) **BẮT BUỘC**
+            - curriculum: Bộ sách (mặc định KNTT)
+            - grade: Mã lớp (C12, C11, etc.) **BẮT BUỘC**
+            
+        Raises:
+            ValueError: Nếu không tìm được subject hoặc grade chuẩn
         """
-        # Loại bỏ extension (.xlsx, .xls)
-        name_without_ext = re.sub(r'\.(xlsx?|xls)$', '', filename, flags=re.IGNORECASE)
+        from config.settings import Config
         
-        # ═════ BƯỚC 1: Tìm mã lớp (C + 1-2 số) ═════
-        # Pattern: C12, C11, C10, C9 (chỉ C + 1-2 số)
-        # Sử dụng word boundary hoặc split logic để tránh match vào garbage
+        # Loại bỏ extension + phần " - Copy" hoặc tương tự
+        name_clean = re.sub(r'\s*-\s*Copy.*', '', filename, flags=re.IGNORECASE)
+        name_without_ext = re.sub(r'\.(xlsx?|xls)$', '', name_clean, flags=re.IGNORECASE)
+        
+        # ═════ BƯỚC 1: Loại bỏ "Ma trận_" prefix nếu có ═════
+        name_clean = re.sub(r'^Ma\s*trận\s*[_-]?', '', name_without_ext, flags=re.IGNORECASE).strip()
+        
+        # Split by underscore hoặc dash để lấy các phần
+        parts = re.split(r'[_\-]+', name_clean)
+        parts = [p.strip() for p in parts if p.strip()]  # Remove empty parts
+        
+        # ═════ BƯỚC 2: Tìm mã lớp (C + 1-2 số) ═════
         grade = None
+        grade_idx = -1
         
-        # Thử tìm C + 1-2 số theo sau bởi separator (_-.) hoặc end
-        grade_match = re.search(r'(C\d{1,2})(?=[_\-\.]|$)', name_without_ext, re.IGNORECASE)
-        if grade_match:
-            grade = grade_match.group(1).upper()
+        for i, part in enumerate(parts):
+            # Tìm phần chứa C + 1-2 số ở đầu
+            grade_match = re.match(r'^(C\d{1,2})', part, re.IGNORECASE)
+            if grade_match:
+                grade_candidate = grade_match.group(1).upper()
+                # Validate: phải có trong VALID_GRADES
+                if grade_candidate in Config.VALID_GRADES:
+                    grade = grade_candidate
+                    grade_idx = i
+                    break
         
-        # Backup: Nếu không tìm được, thử extract từ phần sau dấu underscore cuối
-        # VD: "DIALY_C12752444" -> lấy "C12752444", extract "C12"
-        if not grade:
-            parts = name_without_ext.split('_')
-            if len(parts) > 0:
-                last_part = parts[-1]
-                # Tìm C + 1-2 số ở đầu của last_part
-                grade_match = re.match(r'(C\d{1,2})', last_part, re.IGNORECASE)
-                if grade_match:
-                    grade = grade_match.group(1).upper()
-        
-        # ═════ BƯỚC 2: Tìm mã môn (chữ cái liên tiếp trước mã lớp) ═════
+        # ═════ BƯỚC 3: Extract SUBJECT và CURRICULUM ═════
         subject = None
-        if grade:
-            # Tìm chữ cái ngay trước mã lớp
-            pos_before_grade = name_without_ext.upper().find(grade)
-            if pos_before_grade > 0:
-                text_before_grade = name_without_ext[:pos_before_grade]
+        curriculum = Config.DEFAULT_CURRICULUM  # Mặc định KNTT
+        
+        if grade_idx >= 0:
+            # Lấy các phần trước mã lớp
+            before_grade = parts[:grade_idx]
+            
+            if len(before_grade) >= 2:
+                # Có ít nhất 2 phần: [SUBJECT, CURRICULUM] hoặc [CURRICULUM, SUBJECT]
+                last_part = before_grade[-1].upper()
+                second_last = before_grade[-2].upper() if len(before_grade) > 1 else None
                 
-                # Tìm chuỗi chữ cái cuối cùng trước mã lớp (ngăn cách bởi _ hoặc .)
-                subject_match = re.search(r'([A-Z]+)\s*(?:_|\.)?$', text_before_grade, re.IGNORECASE)
-                if subject_match:
-                    subject = subject_match.group(1).upper()
+                # Kiểm tra phần cuối có phải subject không
+                if last_part in Config.VALID_SUBJECTS:
+                    subject = last_part
+                    # Tìm curriculum từ các phần còn lại (nếu có)
+                    for part in before_grade[:-1]:
+                        part_upper = part.upper()
+                        if part_upper not in Config.VALID_SUBJECTS:
+                            # Có thể là curriculum (KNTT, DCB, CTST, etc.)
+                            curriculum = part_upper
+                            break
+                elif second_last in Config.VALID_SUBJECTS:
+                    # Phần cuối thứ hai là subject, cuối cùng là curriculum
+                    subject = second_last
+                    curriculum = last_part
+            elif len(before_grade) == 1:
+                # Chỉ có 1 phần: phải là subject
+                subject = before_grade[0].upper()
+                if subject not in Config.VALID_SUBJECTS:
+                    subject = None
         
-        # Fallback: Nếu không tìm được, tìm từ đầu
+        # ═════ VALIDATION: subject và grade bắt buộc ═════
         if not subject:
-            subject_match = re.search(r'(?:Ma trận_)?([A-Z]+)', name_without_ext, re.IGNORECASE)
-            if subject_match:
-                subject = subject_match.group(1).upper()
+            # Báo lỗi chi tiết
+            valid_subjects_str = ", ".join(Config.VALID_SUBJECTS)
+            raise ValueError(
+                f"❌ LỖI PARSE FILENAME: Không tìm được mã môn hợp lệ\n"
+                f"   Tên file: {filename}\n"
+                f"   Danh sách mã môn hợp lệ: {valid_subjects_str}"
+            )
         
-        # ═════ BƯỚC 3: Tìm bộ sách (KNTT, DCB, CTST, etc.) ═════
-        curriculum = "KNTT"  # Mặc định là KNTT
-        known_curriculums = ['KNTT', 'DCB', 'CTST', 'VN', 'QD']
-        for curr in known_curriculums:
-            if curr in name_without_ext.upper():
-                curriculum = curr
-                break
+        if not grade:
+            # Báo lỗi chi tiết
+            valid_grades_str = ", ".join(Config.VALID_GRADES)
+            raise ValueError(
+                f"❌ LỖI PARSE FILENAME: Không tìm được mã lớp hợp lệ\n"
+                f"   Tên file: {filename}\n"
+                f"   Danh sách mã lớp hợp lệ: {valid_grades_str}"
+            )
         
-        return subject if subject else None, curriculum, grade if grade else None
+        return subject, curriculum, grade
     
     def parse_lesson_number(self, lesson_text: str) -> Optional[int]:
         """
