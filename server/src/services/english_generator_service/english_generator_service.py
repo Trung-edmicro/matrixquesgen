@@ -2275,15 +2275,15 @@ def _apply_default_style(doc):
 
 
 INSTRUCTION_MAP = {
-    "CLOZE": lambda res: f"Read the following {res.get('text_type_en').lower()}...",
-    "ARRANGE": lambda res: "Mark the letter A, B, C or D...",
-    "RC": lambda res: "Read the following passage...",
-    "GAP": lambda res: "Read the following passage...",
-    "DIALOUGE_COMPLETION": lambda res: "Dialogue completion...",
-    "SENTENCE_COMPLETION": lambda res: "Sentence completion...",
-    "LOGICAL_THINKING": lambda res: "Logical thinking...",
-    "ERROR_IDENTIFICATION": lambda res: "Mark the letter A, B, C, or D...",
-    "WORD_REORDERING": lambda res: "Reorder the words...",
+    "CLOZE": lambda res: f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.",
+    "ARRANGE": lambda res: "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement of utterances or sentences to make a meaningful exchange or text.",
+    "RC": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions. ",
+    "GAP": lambda res: "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement",
+    "DIALOUGE_COMPLETION": lambda res: "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
+    "SENTENCE_COMPLETION": lambda res: "Sentence completion: Choose A, B, C or D to complete each sentence.",
+    "LOGICAL_THINKING": lambda res: "Logical thinking and problem-solving: Choose A, B, C or D to answer each question.",
+    "ERROR_IDENTIFICATION": lambda res: "Mark the letter A, B, C, or D on your answer sheet to indicate the underlined part that needs correction in the following question.",
+    "WORD_REORDERING": lambda res: "Reorder the words given to make a correct sentence.",
 }
 
 def _add_instruction(doc, res):
