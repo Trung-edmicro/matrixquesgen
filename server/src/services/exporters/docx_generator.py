@@ -467,11 +467,14 @@ class DocxGenerator:
     
     def _add_inline_chart(self, chart_data: Dict, image_base64: Optional[str] = None):
         """
-        Thêm chart vào document - từ Base64 hoặc render via Playwright
+        ✨ SIMPLIFIED: Thêm chart vào document từ Base64 image ONLY
+        
+        Playwright rendering loại bỏ hoàn toàn.
+        Chart image PHẢI được cung cấp bởi frontend (từ canvas.toDataURL()).
         
         Args:
             chart_data: Dict chứa chartType, echarts config, etc.
-            image_base64: Optional Base64 PNG từ client canvas (preferred)
+            image_base64: Base64 PNG từ client canvas (REQUIRED từ frontend)
         """
         if not chart_data:
             if self.verbose:
@@ -481,7 +484,7 @@ class DocxGenerator:
         chart_type = chart_data.get('chartType', 'bar')
         echarts = chart_data.get('echarts', {})
         
-        # Tập title từ echarts config
+        # Extract title from echarts config
         title_data = echarts.get('title', {})
         if isinstance(title_data, list):
             title = title_data[0].get('text', 'Biểu đồ') if title_data else 'Biểu đồ'
@@ -490,120 +493,56 @@ class DocxGenerator:
         else:
             title = 'Biểu đồ'
         
-        # ✨ NEW: Nếu có Base64 image từ client, dùng luôn (mau + chính xác)
-        if image_base64:
-            try:
-                if self.verbose:
-                    print(f"📊 Processing chart from Base64 canvas: {title}")
-                
-                # Strip data URL prefix nếu có
-                if ',' in image_base64:
-                    image_base64 = image_base64.split(',')[1]
-                
-                # Decode Base64 → bytes
-                image_bytes = base64.b64decode(image_base64)
-                
-                # Save tạm
-                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
-                    temp_image_path = f.name
-                    f.write(image_bytes)
-                
-                # Chèn vào DOCX với kích thước thích hợp
-                para = self.document.add_paragraph()
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run = para.add_run()
-                
-                # ✨ Adaptive width based on chart type
-                if chart_type.lower() == 'pie':
-                    # Pie: square aspect ratio (1:1)
-                    run.add_picture(temp_image_path, width=Inches(4.0))
-                else:
-                    # Bar/Line/Area: landscape aspect ratio (1.7:1)
-                    run.add_picture(temp_image_path, width=Inches(5.5))
-                
-                # Cleanup
-                try:
-                    os.remove(temp_image_path)
-                except:
-                    pass
-                
-                if self.verbose:
-                    print(f"✅ Đã chèn chart từ Base64: {title} ({len(image_bytes)/1024:.1f}KB)")
-                return
-            
-            except Exception as e:
-                if self.verbose:
-                    print(f"⚠️  Failed to use Base64 image: {e}")
-                # Fall through to playwright rendering
-        
-        # ✨ OLD: Fallback - render via Playwright (nếu không có Base64 hoặc error)
-        if self.verbose:
-            print(f"📊 Processing chart: type={chart_type}, has_echarts={bool(echarts)}")
-            print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
-        
-        # ✨ OLD: Fallback - Playwright rendering
-        if self.verbose:
-            print(f"📊 Fallback: Processing chart via Playwright: type={chart_type}, has_echarts={bool(echarts)}")
-            print(f"  PLAYWRIGHT_AVAILABLE: {PLAYWRIGHT_AVAILABLE}")
-        
-        # Render chart thành ảnh nếu có playwright
-        if PLAYWRIGHT_AVAILABLE:
-            try:
-                if self.verbose:
-                    print(f"  Attempting to render chart to image...")
-                image_path = self._render_chart_to_image(echarts)
-                if image_path:
-                    # Thêm ảnh vào document
-                    para = self.document.add_paragraph()
-                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    run = para.add_run()
-                    run.add_picture(image_path, width=Inches(5.5))
-                    
-                    # Xóa file tạm
-                    try:
-                        os.remove(image_path)
-                    except:
-                        pass
-                    
-                    if self.verbose:
-                        print(f"✓ Đã chèn chart vào DOCX: {title}")
-                    return
-                else:
-                    if self.verbose:
-                        print(f"⚠️  _render_chart_to_image returned None")
-            except Exception as e:
-                if self.verbose:
-                    print(f"⚠️  Không thể render chart thành ảnh: {e}")
-                    import traceback
-                    traceback.print_exc()
-                # Fall through to placeholder
-        else:
+        # ✨ ONLY USE Base64 from client - NO PLAYWRIGHT FALLBACK
+        if not image_base64:
+            # Chart image not provided by frontend
             if self.verbose:
-                print(f"⚠️  PLAYWRIGHT_AVAILABLE is False, using placeholder")
+                print(f"⚠️  [SKIP] No chart image from client for: {title}")
+            return  # Skip chart if no image provided
         
-        # Fallback: Placeholder text nếu không có playwright hoặc lỗi
-        para = self.document.add_paragraph()
-        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = para.add_run(title)
-        run.bold = True
-        run.font.size = Pt(12)
+        try:
+            if self.verbose:
+                print(f"📊 [{chart_type.upper()}] Processing chart from Base64: {title}")
+            
+            # Strip data URL prefix if present
+            if ',' in image_base64:
+                image_base64 = image_base64.split(',')[1]
+            
+            # Decode Base64 → bytes
+            image_bytes = base64.b64decode(image_base64)
+            
+            # Save temporarily
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                temp_image_path = f.name
+                f.write(image_bytes)
+            
+            # Insert image into DOCX with appropriate size
+            para = self.document.add_paragraph()
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = para.add_run()
+            
+            # Adaptive width based on chart type
+            if chart_type.lower() == 'pie':
+                # Pie: square aspect ratio (1:1)
+                run.add_picture(temp_image_path, width=Inches(4.0))
+            else:
+                # Bar/Line/Area: landscape aspect ratio (1.7:1)
+                run.add_picture(temp_image_path, width=Inches(5.5))
+            
+            # Cleanup temp file
+            try:
+                os.remove(temp_image_path)
+            except:
+                pass
+            
+            if self.verbose:
+                print(f"✅ Chart embedded: {title} ({len(image_bytes)/1024:.1f}KB)")
         
-        para = self.document.add_paragraph()
-        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = para.add_run(f"[{chart_type.upper()} CHART - Cần cài playwright để xuất ảnh]")
-        run.italic = True
-        run.font.color.rgb = RGBColor(128, 128, 128)
-        
-        # Thêm graphic source nếu có
-        graphic = echarts.get('graphic', [])
-        if graphic and len(graphic) > 0:
-            source_text = graphic[0].get('style', {}).get('text', '')
-            if source_text:
-                para = self.document.add_paragraph()
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run = para.add_run(source_text)
-                run.italic = True
-                run.font.size = Pt(10)
+        except Exception as e:
+            if self.verbose:
+                print(f"❌ Failed to embed chart image: {e}")
+                import traceback
+                traceback.print_exc()
     
     def _resolve_chart_placeholders_to_js(self, echarts_config: Dict) -> str:
         """

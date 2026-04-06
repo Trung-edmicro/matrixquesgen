@@ -8,7 +8,12 @@
  */
 
 /**
- * Export all chart canvases in the document as Base64 PNG images
+ * Export all chart images in the document as Base64 PNG
+ * 
+ * ✨ NEW FLOW: Extracts Base64 image directly from <img> tag (not canvas)
+ * - ChartRenderer now renders chart as <img src="data:image/png;base64,...">
+ * - Canvas is temporary (created in hidden div, then removed)
+ * - This function extracts the Base64 from the img src attribute
  * 
  * @returns {Promise<Object>} Dictionary mapping "question_code-chart_index" to Base64 strings
  * 
@@ -23,7 +28,7 @@ export async function captureAllChartImages() {
   const chartImages = {};
   
   try {
-    // Find all chart containers (data-chart-ref or echarts instances)
+    // Find all chart containers marked with data-chart-ref
     const chartContainers = document.querySelectorAll('[data-chart-ref]');
     
     if (chartContainers.length === 0) {
@@ -35,35 +40,59 @@ export async function captureAllChartImages() {
     let totalSize = 0;
     chartContainers.forEach((container, index) => {
       try {
-        const canvas = container.querySelector('canvas');
-        if (!canvas) {
-          console.warn(`⚠️  No canvas found in chart container ${index}`);
+        // ✨ NEW: Try to get image from <img> tag first (image-based rendering)
+        let base64 = null;
+        const imgTag = container.querySelector('img');
+        
+        if (imgTag && imgTag.src && imgTag.src.startsWith('data:image/png')) {
+          // Extract Base64 from img src attribute
+          const dataUrl = imgTag.src;
+          
+          // Split on comma to get the Base64 part
+          if (dataUrl.includes(',')) {
+            base64 = dataUrl.split(',')[1];
+          } else {
+            console.warn(`⚠️  Invalid data URL format in chart ${index}`);
+            return;
+          }
+          
+          console.log(`✅ [Chart ${index}] Extracted from <img> tag`);
+        } else {
+          // Fallback: Try canvas (for compatibility with old rendering method)
+          const canvas = container.querySelector('canvas');
+          if (canvas) {
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
+            base64 = dataUrl.split(',')[1];
+            console.log(`⚠️  [Chart ${index}] Extracted from canvas (old method)`);
+          }
+        }
+        
+        if (!base64) {
+          console.warn(`⚠️  No image data found in chart container ${index} (missing img or canvas)`);
           return;
         }
         
-        // Get chart metadata if available
-        const chartRef = container.getAttribute('data-chart-ref');
+        // Get chart metadata from container attributes
         const questionCode = container.getAttribute('data-question-code') || `Q${index}`;
         const chartIndex = parseInt(container.getAttribute('data-chart-index') || index);
-        
-        // Export canvas to Base64
-        const base64 = canvas.toDataURL('image/png', 1.0);
-        const sizeKB = base64.length / 1024;
         
         // Create key for this chart
         const key = `${questionCode}-${chartIndex}`;
         chartImages[key] = base64;
-        totalSize += sizeKB;
+        totalSize += base64.length / 1024;
+        
+        console.log(`  📊 [${key}] Captured (${Math.round(base64.length / 1024)}KB)`);
         
       } catch (error) {
         console.error(`  ✗ Error processing chart ${index}:`, error);
       }
     });
     
+    console.log(`✅ [Export] Captured ${Object.keys(chartImages).length} charts (${Math.round(totalSize)}KB total)`);
     return chartImages;
     
   } catch (error) {
-    console.error('Error capturing chart images:', error);
+    console.error('❌ Error capturing chart images:', error);
     return chartImages;
   }
 }

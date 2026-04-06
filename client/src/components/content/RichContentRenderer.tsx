@@ -9,7 +9,6 @@ import {
 } from '../../types/richContent';
 import * as echarts from 'echarts';
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
-import 'katex/dist/katex.min.css';
 import katex from 'katex';
 import { resolveChartPlaceholders } from './chartPlaceholderResolver';
 
@@ -131,17 +130,165 @@ const TableBlock: React.FC<{ content: TableContent; metadata?: any; className?: 
   );
 };
 
-// Chart Block (ECharts) - REWRITTEN v2.0
+// Chart Block (ECharts) - Image-based rendering v3.0
 const ChartBlock: React.FC<{ content: ChartContent; metadata?: any; className?: string }> = ({
   content,
   metadata,
   className,
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstanceRef = useRef<any>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const chartInstance = useRef<any>(null);
+  const [chartImageUrl, setChartImageUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Parse metadata once
+  // Memoize content parsing to prevent unnecessary re-renders
+  const memoizedContent = useMemo(() => {
+    if (typeof content === 'string') {
+      try {
+        return JSON.parse(content);
+      } catch {
+        return content;
+      }
+    }
+    return content;
+  }, [content]);
+
+  // Main effect: Initialize echarts, render, convert to image, display
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 20; // Max 2 seconds of retries (20 × 100ms)
+
+    const initAndRenderChart = async () => {
+      try {
+        setIsLoading(true);
+
+        // 1️⃣ Parse chart options
+        let options = memoizedContent?.echarts || memoizedContent;
+        if (!options || typeof options !== 'object') {
+          console.warn('❌ No chart options found in content');
+          setIsLoading(false);
+          return;
+        }
+
+        // 2️⃣ Resolve chart placeholders
+        let resolvedOptions;
+        try {
+          resolvedOptions = resolveChartPlaceholders(options);
+        } catch (resolveErr) {
+          console.error('❌ Failed to resolve placeholders:', resolveErr);
+          setIsLoading(false);
+          return;
+        }
+
+        // 3️⃣ Wait for container to be sized
+        if (!chartRef.current) {
+          console.warn('❌ Chart ref not available');
+          setIsLoading(false);
+          return;
+        }
+        void chartRef.current.offsetHeight; // Force reflow
+        const rect = chartRef.current.getBoundingClientRect();
+
+        if (rect.width <= 0 || rect.height <= 0) {
+          if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.log(`⏳ Container sizing... (${retryCount}/${MAX_RETRIES})`);
+            timeoutId = setTimeout(initAndRenderChart, 100);
+            return;
+          } else {
+            console.warn('❌ Container never sized after retries');
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        const containerWidth = Math.round(rect.width);
+        const containerHeight = Math.round(rect.height);
+
+        // 4️⃣ Initialize echarts
+        if (!chartInstance.current) {
+          chartInstance.current = echarts.init(chartRef.current!, null, { useDirtyRect: true });
+        }
+
+        chartInstance.current.setOption(resolvedOptions);
+
+        // CRITICAL: Ensure echarts resizes to match container
+        chartInstance.current.resize();
+
+        // Wait for echarts to render initial frame
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // After initial render, get actual canvas and check if we need to resize
+        const canvasAfterInit = chartRef.current?.querySelector('canvas');
+        if (canvasAfterInit) {
+          const canvasWidth = parseInt(canvasAfterInit.getAttribute('width') || '0');
+          const canvasHeight = parseInt(canvasAfterInit.getAttribute('height') || '0');
+
+          console.log(
+            `📊 Initial canvas: ${canvasWidth}×${canvasHeight}px (container: ${containerWidth}×${containerHeight}px)`
+          );
+
+          // The issue: echarts already set canvas attributes with DPR
+          // We need to ensure the CSS style matches for proper display
+          (canvasAfterInit as HTMLCanvasElement).style.width = containerWidth + 'px';
+          (canvasAfterInit as HTMLCanvasElement).style.height = containerHeight + 'px';
+        }
+
+        console.log(
+          `📊 Chart initialized (${containerWidth}×${containerHeight}px, dpr=${window.devicePixelRatio})`
+        );
+
+        // 5️⃣ Wait for echarts to finish rendering before converting to image
+        // For complex charts (bar, line), need more time to render all elements
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // 6️⃣ Convert canvas to image with proper sizing
+        const canvas2 = chartRef.current?.querySelector('canvas');
+        if (!canvas2) {
+          console.warn('⚠️  Canvas not found after render');
+          setIsLoading(false);
+          return;
+        }
+
+        const canvasDataUrl = canvas2.toDataURL('image/png', 1.0);
+        const canvasRect = canvas2.getBoundingClientRect();
+
+        console.log(
+          `🎨 Canvas attributes: width=${canvas2.getAttribute('width')}, height=${canvas2.getAttribute('height')}, ` +
+          `CSS: ${(canvas2 as HTMLCanvasElement).style.width} × ${(canvas2 as HTMLCanvasElement).style.height}, ` +
+          `DOMRect: ${canvasRect.width}×${canvasRect.height}, ` +
+          `Image size: ${(canvasDataUrl.length / 1024).toFixed(1)}KB`
+        );
+
+        // 7️⃣ Display the image
+        setChartImageUrl(canvasDataUrl);
+        console.log(
+          `✅ Chart converted to image (${Math.round(canvasDataUrl.length / 1024)}KB)`
+        );
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('❌ Error initializing chart:', error);
+        setIsLoading(false);
+      }
+    };
+
+    // Wait for layout to settle, then initialize
+    timeoutId = setTimeout(initAndRenderChart, 50);
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
+    };
+  }, [memoizedContent]);
+
+  // Parse metadata
   const parsedMetadata = useMemo(() => {
     if (typeof metadata === 'string') {
       try {
@@ -153,241 +300,81 @@ const ChartBlock: React.FC<{ content: ChartContent; metadata?: any; className?: 
     return metadata;
   }, [metadata]);
 
-  // Get container CSS dimensions
+  // Get container size
   const getContainerSize = useCallback(() => {
-    const sw = window.innerWidth;
-
     if (parsedMetadata?.width && parsedMetadata?.height) {
-      const w = typeof parsedMetadata.width === 'number'
-        ? parsedMetadata.width
-        : parseInt(parsedMetadata.width);
-      const h = typeof parsedMetadata.height === 'number'
-        ? parsedMetadata.height
-        : parseInt(parsedMetadata.height);
+      const w =
+        typeof parsedMetadata.width === 'number'
+          ? parsedMetadata.width
+          : parseInt(parsedMetadata.width);
+      const h =
+        typeof parsedMetadata.height === 'number'
+          ? parsedMetadata.height
+          : parseInt(parsedMetadata.height);
       return { width: w, height: h };
     }
 
-    // Responsive fallback
-    if (sw < 640) return { width: '100%', height: 300 };
-    if (sw < 1024) return { width: '95%', height: 450 };
-    if (sw < 1280) return { width: 820, height: 480 };
-    return { width: 850, height: 500 };
+    // Default chart size: 800x500 for all charts
+    return { width: 800, height: 500 };
   }, [parsedMetadata]);
-
-  // Calculate canvas DOM dimensions from actual container size
-  const calculateCanvasDimensions = useCallback(() => {
-    if (!chartRef.current) return null;
-
-    try {
-      const rect = chartRef.current.getBoundingClientRect();
-      let containerWidth = Math.round(rect.width);
-      let containerHeight = Math.round(rect.height);
-
-      if (containerWidth <= 0 && chartRef.current.offsetWidth) {
-        containerWidth = chartRef.current.offsetWidth;
-      }
-      if (containerHeight <= 0 && chartRef.current.offsetHeight) {
-        containerHeight = chartRef.current.offsetHeight;
-      }
-
-      if (containerWidth <= 0 || containerHeight <= 0) {
-        console.warn(`⚠️  Invalid container: ${containerWidth}x${containerHeight}`);
-        return null;
-      }
-
-      const aspectRatio = containerWidth / containerHeight;
-      const isPieChart = Math.abs(aspectRatio - 1) < 0.2;
-
-      let canvasWidth, canvasHeight;
-
-      if (isPieChart) {
-        const size = Math.min(containerWidth, containerHeight);
-        canvasWidth = Math.round(size);
-        canvasHeight = Math.round(size);
-      } else {
-        const bufferPercent = 0.05;
-        const buffer = Math.max(50, Math.round(containerWidth * bufferPercent));
-        canvasWidth = Math.round(containerWidth + buffer);
-        canvasHeight = Math.round(containerHeight);
-      }
-
-      canvasWidth = Math.max(50, canvasWidth);
-      canvasHeight = Math.max(50, canvasHeight);
-
-      return { canvasWidth, canvasHeight, containerWidth, containerHeight, isPieChart };
-    } catch (e) {
-      console.error('Error calculating canvas dimensions:', e);
-      return null;
-    }
-  }, []);
-
-  // Apply canvas DOM attributes
-  const applyCanvasDimensions = useCallback(() => {
-    if (!chartRef.current || !chartInstanceRef.current) return;
-
-    const dims = calculateCanvasDimensions();
-    if (!dims) return;
-
-    try {
-      const canvas = chartRef.current.querySelector('canvas');
-      if (!canvas) return;
-
-      const currentWidth = parseInt(canvas.getAttribute('width') || '0');
-      const currentHeight = parseInt(canvas.getAttribute('height') || '0');
-
-      if (
-        Math.abs(currentWidth - dims.canvasWidth) > 2 ||
-        Math.abs(currentHeight - dims.canvasHeight) > 2
-      ) {
-        canvas.setAttribute('width', dims.canvasWidth.toString());
-        canvas.setAttribute('height', dims.canvasHeight.toString());
-        chartInstanceRef.current.resize();
-
-        console.log(
-          `📊 Canvas: ${currentWidth}×${currentHeight} → ` +
-          `${dims.canvasWidth}×${dims.canvasHeight} (${dims.isPieChart ? 'pie' : 'bar'})`
-        );
-      }
-    } catch (e) {
-      console.error('Error applying canvas dimensions:', e);
-    }
-  }, [calculateCanvasDimensions]);
-
-  // Main Effect: init chart + setup observers
-  useEffect(() => {
-    if (!chartRef.current || !content.echarts) return;
-
-    try {
-      // 1. Resolve chart options
-      let resolvedOption;
-      try {
-        resolvedOption = resolveChartPlaceholders(content.echarts);
-      } catch (resolveErr) {
-        console.error('Failed to resolve chart placeholders:', resolveErr);
-        return;
-      }
-
-      // 2. Initialize echarts
-      if (!chartInstanceRef.current) {
-        chartInstanceRef.current = echarts.init(chartRef.current, null, {
-          useDirtyRect: true
-        });
-      }
-
-      chartInstanceRef.current.setOption(resolvedOption);
-      console.log('📊 Chart initialized');
-
-      // 3. Setup DUAL dimension tracking (RAF + ResizeObserver)
-      let lastObservedWidth = 0;
-      let lastObservedHeight = 0;
-      let rAFId: number | null = null;
-
-      // Core function: applies canvas dimensions
-      const syncCanvasDimensions = () => {
-        const dims = calculateCanvasDimensions();
-        if (!dims) return;
-
-        try {
-          const canvas = chartRef.current?.querySelector('canvas');
-          if (!canvas) return;
-
-          const currentWidth = parseInt(canvas.getAttribute('width') || '0');
-          const currentHeight = parseInt(canvas.getAttribute('height') || '0');
-
-          if (
-            Math.abs(currentWidth - dims.canvasWidth) > 2 ||
-            Math.abs(currentHeight - dims.canvasHeight) > 2
-          ) {
-            canvas.setAttribute('width', dims.canvasWidth.toString());
-            canvas.setAttribute('height', dims.canvasHeight.toString());
-            chartInstanceRef.current?.resize();
-
-            console.log(
-              `📊 Canvas sync: ${currentWidth}×${currentHeight} ` +
-              `→ ${dims.canvasWidth}×${dims.canvasHeight}`
-            );
-          }
-        } catch (e) {
-          console.error('Error syncing canvas dimensions:', e);
-        }
-      };
-
-      // Monitor: Use RAF for continuous dimension tracking
-      const monitorDimensions = () => {
-        if (!chartRef.current) {
-          if (rAFId) cancelAnimationFrame(rAFId);
-          return;
-        }
-
-        const rect = chartRef.current.getBoundingClientRect();
-        const currWidth = Math.round(rect.width);
-        const currHeight = Math.round(rect.height);
-
-        if (Math.abs(currWidth - lastObservedWidth) > 2 || 
-            Math.abs(currHeight - lastObservedHeight) > 2) {
-          lastObservedWidth = currWidth;
-          lastObservedHeight = currHeight;
-          syncCanvasDimensions();
-        }
-
-        rAFId = requestAnimationFrame(monitorDimensions);
-      };
-
-      monitorDimensions();
-
-      // Also use ResizeObserver as backup
-      if (!resizeObserverRef.current) {
-        resizeObserverRef.current = new ResizeObserver(() => {
-          syncCanvasDimensions();
-        });
-      }
-
-      resizeObserverRef.current.observe(chartRef.current);
-
-      // 4. Handle window resize
-      const handleWindowResize = () => {
-        syncCanvasDimensions();
-      };
-      window.addEventListener('resize', handleWindowResize, { passive: true });
-
-      // 5. Initial sync
-      syncCanvasDimensions();
-
-      return () => {
-        window.removeEventListener('resize', handleWindowResize);
-        if (rAFId) cancelAnimationFrame(rAFId);
-        if (resizeObserverRef.current) {
-          resizeObserverRef.current.disconnect();
-          resizeObserverRef.current = null;
-        }
-        if (chartInstanceRef.current) {
-          chartInstanceRef.current.dispose();
-          chartInstanceRef.current = null;
-        }
-      };
-    } catch (error) {
-      console.error('Failed to initialize chart:', error);
-    }
-  }, [content.echarts, calculateCanvasDimensions]);
 
   const { width: containerWidth, height: containerHeight } = getContainerSize();
 
   return (
-    <div
-      ref={chartRef}
-      style={{
-        width: typeof containerWidth === 'number' ? `${containerWidth}px` : containerWidth,
-        height: typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight,
-        margin: '0 auto',
-        padding: 0,
-        border: 'none',
-        display: 'block',
-        overflow: 'visible',
-        boxSizing: 'border-box'
-      }}
-    />
+    <>
+      {/* Hidden echarts container - positioned off-screen but with real dimensions */}
+      <div
+        ref={chartRef}
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: '-9999px',
+          width: '800px',
+          height: '500px',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          overflow: 'visible',
+          zIndex: -9999
+        }}
+      />
+
+      {/* Visible image display */}
+      <div
+        style={{
+          width: typeof containerWidth === 'number' ? `${containerWidth}px` : containerWidth,
+          height: 'auto',
+          margin: '0 auto',
+          padding: 0,
+          border: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          justifyContent: 'flex-start',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          backgroundColor: isLoading ? '#f5f5f5' : 'transparent',
+          position: 'relative'
+        }}
+      >
+        {isLoading ? (
+          <div style={{ color: '#999', fontSize: '14px' }}>📊 Rendering chart...</div>
+        ) : chartImageUrl ? (
+          <img
+            src={chartImageUrl}
+            style={{
+              width: '100%',
+              height: 'auto',
+              objectFit: 'contain',
+              display: 'block',
+            }}
+            alt="Chart"
+          />
+        ) : (
+          <div style={{ color: '#999', fontSize: '14px' }}>Chart failed to load</div>
+        )}
+      </div>
+    </>
   );
-}
 };
 
 // LaTeX Block (KaTeX)

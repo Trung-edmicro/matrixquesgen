@@ -604,11 +604,103 @@ function resolveChartOptionPlaceholders(options) {
  * - Clear separation: container CSS → chart init → canvas DOM attributes
  * - Eliminates timing issues and dimension mismatches
  */
-function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 }) {
-  const chartRef = useRef(null)        // Div where echarts renders
-  const chartInstance = useRef(null)   // echarts instance
-  const resizeObserverRef = useRef(null)
+/**
+ * ✨ Crop canvas to remove white padding caused by grid margins
+ * 
+ * ECharts grid often has padding (left: 80px, etc.) which causes wasted space in exports.
+ * This function detects and crops away white/transparent areas while preserving chart content.
+ * 
+ * @param {HTMLCanvasElement} canvas - Original canvas with padding
+ * @returns {HTMLCanvasElement} Cropped canvas with minimal white space
+ */
+function cropCanvasContent(canvas) {
+  try {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return canvas
+    
+    const width = canvas.width
+    const height = canvas.height
+    const imageData = ctx.getImageData(0, 0, width, height)
+    const data = imageData.data
+    
+    // Find bounding box of non-white/non-transparent pixels
+    let minX = width, maxX = 0
+    let minY = height, maxY = 0
+    let foundContent = false
+    
+    // Scan for non-white pixels (tolerance for anti-aliasing: whiteness < 240)
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const a = data[i + 3]
+      
+      // Skip white pixels or fully transparent
+      if (a === 0 || (r > 240 && g > 240 && b > 240)) {
+        continue
+      }
+      
+      foundContent = true
+      const pixelIndex = i / 4
+      const y = Math.floor(pixelIndex / width)
+      const x = pixelIndex % width
+      
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    }
+    
+    // If no content found, return original
+    if (!foundContent) {
+      console.warn('⚠️  No chart content detected, returning original canvas')
+      return canvas
+    }
+    
+    // Add padding to edges for safety
+    // Left/top: 5px to remove minimal white space
+    // Right/bottom: 15px to preserve chart labels and legend
+    const paddingLeft = 5
+    const paddingRight = 15  // ✨ More padding on right to preserve labels
+    const paddingTop = 5
+    const paddingBottom = 15  // ✨ More padding on bottom to preserve legend
+    
+    const cropX = Math.max(0, minX - paddingLeft)
+    const cropY = Math.max(0, minY - paddingTop)
+    const cropW = Math.min(width - cropX, maxX - minX + paddingLeft + paddingRight)
+    const cropH = Math.min(height - cropY, maxY - minY + paddingTop + paddingBottom)
+    
+    console.log(`  Crop bounds: x=${cropX}, y=${cropY}, w=${cropW}, h=${cropH} (original: ${width}×${height})`)
+    
+    // Create new cropped canvas
+    const croppedCanvas = document.createElement('canvas')
+    croppedCanvas.width = cropW
+    croppedCanvas.height = cropH
+    
+    const croppedCtx = croppedCanvas.getContext('2d')
+    croppedCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH)
+    
+    return croppedCanvas
+  } catch (error) {
+    console.warn('⚠️  Canvas crop failed, returning original:', error)
+    return canvas
+  }
+}
 
+/**
+ * ✨ NEW APPROACH: Image-Based Chart Rendering
+ * Converts echarts canvas to image → displays image (no viewport dimension issues)
+ * 
+ * Why this works:
+ * - Echarts renders once to canvas (works at any viewport)
+ * - Convert canvas to PNG image data URL
+ * - Display image in <img> tag (naturally responsive)
+ * - No dimension sync issues, no viewport dependency
+ */
+function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 }) {
+  const [chartImageUrl, setChartImageUrl] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  
   // Parse metadata once
   const parsedMetadata = useMemo(() => {
     if (typeof metadata === 'string') {
@@ -622,84 +714,198 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
     return metadata
   }, [metadata])
 
-  // ✨ Get container CSS dimensions from metadata or viewport
-  const getContainerSize = useCallback(() => {
-    const sw = window.innerWidth
-
-    if (parsedMetadata?.width && parsedMetadata?.height) {
-      const w = typeof parsedMetadata.width === 'number' 
-        ? parsedMetadata.width 
-        : parseInt(parsedMetadata.width)
-      const h = typeof parsedMetadata.height === 'number' 
-        ? parsedMetadata.height 
-        : parseInt(parsedMetadata.height)
-
-      // Always use backend dimensions as-is
-      return { width: w, height: h, source: 'metadata' }
+  // Memoize content to prevent unnecessary re-renders
+  const memoizedContent = useMemo(() => {
+    if (typeof content === 'string') {
+      try {
+        return JSON.parse(content)
+      } catch {
+        return content
+      }
     }
+    return content
+  }, [content])
 
-    // Responsive fallback based on viewport
-    if (sw < 640) return { width: '100%', height: 300, source: 'mobile' }
-    if (sw < 1024) return { width: '95%', height: 450, source: 'tablet' }
-    if (sw < 1280) return { width: 820, height: 480, source: 'small-desktop' }
-    return { width: 850, height: 500, source: 'desktop' }
+  // Get chart dimensions from metadata or use defaults
+  const getChartSize = useCallback(() => {
+    if (parsedMetadata?.width && parsedMetadata?.height) {
+      const w = typeof parsedMetadata.width === 'number' ? parsedMetadata.width : parseInt(parsedMetadata.width)
+      const h = typeof parsedMetadata.height === 'number' ? parsedMetadata.height : parseInt(parsedMetadata.height)
+      return { width: w, height: h }
+    }
+    // Default chart size: 800x500 for all charts
+    return { width: 800, height: 500 }
   }, [parsedMetadata])
 
-  // ✨ Calculate canvas DOM dimensions from actual container size
-  const calculateCanvasDimensions = useCallback(() => {
-    if (!chartRef.current) return null
+  // Main effect: Create temporary container, render, convert to image, cleanup
+  useEffect(() => {
+    let timeoutId = null
+    let chartInstance = null
+    const tempDiv = document.createElement('div')
 
-    try {
-      const rect = chartRef.current.getBoundingClientRect()
-      let containerWidth = Math.round(rect.width)
-      let containerHeight = Math.round(rect.height)
+    const renderChart = async () => {
+      try {
+        setIsLoading(true)
 
-      // Fallback: use offsetWidth if bounding rect is invalid
-      if (containerWidth <= 0 && chartRef.current.offsetWidth) {
-        containerWidth = chartRef.current.offsetWidth
+        // 1️⃣ Parse chart options
+        let options = memoizedContent?.echarts || memoizedContent
+        if (!options || typeof options !== 'object') {
+          console.warn('❌ No chart options found in content')
+          setIsLoading(false)
+          return
+        }
+
+        // 2️⃣ Resolve chart placeholders
+        let resolvedOptions
+        try {
+          resolvedOptions = resolveChartOptionPlaceholders(options)
+        } catch (resolveErr) {
+          console.error('❌ Failed to resolve placeholders:', resolveErr)
+          setIsLoading(false)
+          return
+        }
+
+        // 3️⃣ Create temporary off-screen container and append to DOM
+        const { width, height } = getChartSize()
+        tempDiv.style.cssText = `
+          position: fixed;
+          left: -9999px;
+          top: -9999px;
+          width: ${width}px;
+          height: ${height}px;
+          visibility: hidden;
+          pointer-events: none;
+          overflow: hidden;
+          z-index: -9999;
+          margin: 0;
+          padding: 0;
+          border: none;
+          box-sizing: border-box;
+        `
+        document.body.appendChild(tempDiv)
+        
+        // Force browser to layout the div
+        await new Promise(resolve => setTimeout(resolve, 20))
+
+        // 4️⃣ Initialize echarts in temporary div
+        chartInstance = echarts.init(tempDiv, null, { 
+          useDirtyRect: true,
+          width: width,    // ✨ Explicitly set canvas width
+          height: height   // ✨ Explicitly set canvas height
+        })
+        
+        // Set options FIRST
+        chartInstance.setOption(resolvedOptions, true) // true = replace all options
+        
+        // CRITICAL: Resize echarts to match container dimensions exactly
+        chartInstance.resize({ width: width, height: height })
+        
+        // Wait for initial render
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        console.log(
+          `📊 [${questionCode || 'Q?'}] Chart initialized (${width}×${height}px, dpr=${window.devicePixelRatio})`
+        )
+
+        // 5️⃣ Wait for echarts to COMPLETE rendering
+        // Complex charts (bar with many items, line with many points) need more time
+        // 1500ms is safer than 1000ms for consistency, especially on first render
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // 6️⃣ Verify canvas exists and get dimensions before conversion
+        const canvas = tempDiv.querySelector('canvas')
+        if (!canvas) {
+          console.warn('⚠️  Canvas not found after render')
+          setIsLoading(false)
+          return
+        }
+        
+        const canvasWidth = parseInt(canvas.getAttribute('width') || '0')
+        const canvasHeight = parseInt(canvas.getAttribute('height') || '0')
+        console.log(`🎨 Canvas: ${canvasWidth}×${canvasHeight}px (CSS: ${canvas.style.width} × ${canvas.style.height})`)
+        
+        // 7️⃣ ✨ NEW: Crop canvas to remove white margins from grid padding
+        const croppedCanvas = cropCanvasContent(canvas)
+        console.log(`✂️  Cropped canvas: ${croppedCanvas.width}×${croppedCanvas.height}px`)
+        
+        // 8️⃣ Convert canvas to PNG image
+        const imageDataUrl = croppedCanvas.toDataURL('image/png', 1.0)
+        console.log(
+          `✅ [${questionCode || 'Q?'}] Chart converted to image (${Math.round(imageDataUrl.length / 1024)}KB)`
+        )
+
+        // 8️⃣ Display image
+        setChartImageUrl(imageDataUrl)
+        setIsLoading(false)
+      } catch (error) {
+        console.error('❌ Error rendering chart:', error)
+        setIsLoading(false)
       }
-      if (containerHeight <= 0 && chartRef.current.offsetHeight) {
-        containerHeight = chartRef.current.offsetHeight
-      }
-
-      // Safety check
-      if (containerWidth <= 0 || containerHeight <= 0) {
-        console.warn(`⚠️  Cannot determine container dimensions: ${containerWidth}x${containerHeight}`)
-        return null
-      }
-
-      // ✨ Detect chart type by aspect ratio
-      const aspectRatio = containerWidth / containerHeight
-      const isPieChart = Math.abs(aspectRatio - 1) < 0.2  // Square-ish: ~1:1
-
-      let canvasWidth, canvasHeight
-
-      if (isPieChart) {
-        // Pie chart: keep square, use min dimension
-        const size = Math.min(containerWidth, containerHeight)
-        canvasWidth = Math.round(size)
-        canvasHeight = Math.round(size)
-      } else {
-        // Bar/Line/Area: add 5% buffer for labels/legend breathing room
-        const bufferPercent = 0.05
-        const buffer = Math.max(50, Math.round(containerWidth * bufferPercent))
-        canvasWidth = Math.round(containerWidth + buffer)
-        canvasHeight = Math.round(containerHeight)
-      }
-
-      // Ensure minimum valid dimensions
-      canvasWidth = Math.max(50, canvasWidth)
-      canvasHeight = Math.max(50, canvasHeight)
-
-      return { canvasWidth, canvasHeight, containerWidth, containerHeight, isPieChart }
-    } catch (e) {
-      console.error('Error calculating canvas dimensions:', e)
-      return null
     }
-  }, [])
 
-  // ✨ Apply canvas DOM attributes and trigger resize
-  const applyCanvasDimensions = useCallback(() => {
+    // Wait for layout to settle, then render
+    timeoutId = setTimeout(renderChart, 50)
+
+    // Cleanup: Remove temporary div and dispose echarts instance
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (chartInstance) {
+        chartInstance.dispose()
+      }
+      if (tempDiv.parentNode) {
+        document.body.removeChild(tempDiv)
+      }
+    }
+  }, [memoizedContent, questionCode, getChartSize])
+
+  const { width: chartWidth, height: chartHeight } = getChartSize()
+
+  // ✨ Create unique key for export identification
+  const chartKey = `${questionCode || 'Q0'}-${chartIndex}`
+
+  return (
+    <div
+      data-chart-ref={chartKey}
+      data-question-code={questionCode || `Q${chartIndex}`}
+      data-chart-index={String(chartIndex)}
+      style={{
+        width: typeof chartWidth === 'number' ? `${chartWidth}px` : chartWidth,
+        height: typeof chartHeight === 'number' ? `${chartHeight}px` : chartHeight,
+        margin: '0 auto',
+        backgroundColor: '#ffffff',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        position: 'relative',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+    >
+      {isLoading && (
+        <div style={{ textAlign: 'center', color: '#999', fontSize: '14px' }}>
+          📊 Rendering chart...
+        </div>
+      )}
+
+      {chartImageUrl && !isLoading && (
+        <img
+          src={chartImageUrl}
+          alt={`Chart ${questionCode ? '[' + questionCode + ']' : ''}`}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block'
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * ✨ Export chart canvas to Base64 PNG
     if (!chartRef.current || !chartInstance.current) return
 
     const dims = calculateCanvasDimensions()
@@ -738,6 +944,10 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
   useEffect(() => {
     if (!chartRef.current) return
 
+    let rAFId = null
+    let resizeHandler = null
+    let initRAFId = null
+
     try {
       // 1️⃣ Parse and resolve chart options
       let chartData
@@ -764,22 +974,9 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
         return
       }
 
-      // 2️⃣ Initialize echarts instance
-      if (!chartInstance.current) {
-        chartInstance.current = echarts.init(chartRef.current, null, { 
-          useDirtyRect: true  // Performance optimization
-        })
-      }
-
-      chartInstance.current.setOption(resolvedOptions)
-      console.log(`📊 [${questionCode || 'Q?'}] Chart initialized`)
-
-      // 3️⃣ Setup DUAL dimension tracking (ResizeObserver + RAF monitoring)
-      
       // Track previous dimensions to detect changes
       let lastObservedWidth = 0
       let lastObservedHeight = 0
-      let rAFId = null
 
       // Core function: applies canvas dimensions
       const syncCanvasDimensions = () => {
@@ -836,33 +1033,72 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
         rAFId = requestAnimationFrame(monitorDimensions)
       }
 
-      // Start RAF monitoring
-      monitorDimensions()
+      // 2️⃣ Wait for container to be laid out before initializing chart
+      // This fixes the tablet reload bug where getBoundingClientRect() returns 0
+      const initChart = () => {
+        if (!chartRef.current) return
 
-      // ALSO use ResizeObserver as backup
-      if (!resizeObserverRef.current) {
-        resizeObserverRef.current = new ResizeObserver(() => {
+        // Force reflow to ensure CSS dimensions are applied
+        void chartRef.current.offsetHeight
+
+        const rect = chartRef.current.getBoundingClientRect()
+        if (rect.width <= 0 || rect.height <= 0) {
+          // Container not ready yet, retry on next frame
+          console.warn('⏳ Container not ready, retrying...')
+          initRAFId = requestAnimationFrame(initChart)
+          return
+        }
+
+        // Initialize echarts instance
+        if (!chartInstance.current) {
+          chartInstance.current = echarts.init(chartRef.current, null, { 
+            useDirtyRect: true  // Performance optimization
+          })
+        }
+
+        chartInstance.current.setOption(resolvedOptions)
+        console.log(`📊 [${questionCode || 'Q?'}] Chart initialized with container size:`, rect.width, 'x', rect.height)
+
+        // 3️⃣ Setup DUAL dimension tracking (ResizeObserver + RAF monitoring)
+        
+        // Start RAF monitoring
+        monitorDimensions()
+
+        // ALSO use ResizeObserver as backup
+        if (!resizeObserverRef.current) {
+          resizeObserverRef.current = new ResizeObserver(() => {
+            syncCanvasDimensions()
+          })
+        }
+
+        resizeObserverRef.current.observe(chartRef.current)
+
+        // 4️⃣ Handle window resize
+        resizeHandler = () => {
+          // Window resize triggers container to recalculate responsive dimensions
+          // Force sync immediately
           syncCanvasDimensions()
+        }
+        window.addEventListener('resize', resizeHandler, { passive: true })
+
+        // 5️⃣ Initial dimension sync after a short delay to ensure layout is complete
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            syncCanvasDimensions()
+          })
         })
       }
 
-      resizeObserverRef.current.observe(chartRef.current)
-
-      // 4️⃣ Handle window resize
-      const handleWindowResize = () => {
-        // Window resize triggers container to recalculate responsive dimensions
-        // Force sync immediately
-        syncCanvasDimensions()
-      }
-      window.addEventListener('resize', handleWindowResize, { passive: true })
-
-      // 5️⃣ Initial dimension sync
-      syncCanvasDimensions()
+      // Start initialization on next frame to allow CSS to apply
+      initRAFId = requestAnimationFrame(initChart)
 
       // Cleanup
       return () => {
-        window.removeEventListener('resize', handleWindowResize)
+        if (resizeHandler) {
+          window.removeEventListener('resize', resizeHandler)
+        }
         if (rAFId) cancelAnimationFrame(rAFId)
+        if (initRAFId) cancelAnimationFrame(initRAFId)
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect()
           resizeObserverRef.current = null
