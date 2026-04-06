@@ -97,11 +97,23 @@ def generate_pie_chart(data):
             # Đẩy pie lên trên để cân bằng với title/legend ở dưới
             center = user_options.get('center', ['50%', '40%'])  # Từ 50% xuống 40%
         else:
-            # Multiple pies - arrange horizontally
-            spacing = 100 / (len(series_list) + 1)
-            # Đẩy pie lên trên để cân bằng với title/legend ở dưới
-            center = [f'{spacing * (idx + 1)}%', '40%']  # Từ 50% xuống 40%
-            radius = user_options.get('radius', '45%')
+            # Multiple pies - arrange horizontally with proper spacing
+            # Với 2 pies, để legend ở right 3%, pie không được vượt quá 92%
+            # Formula: center + radius <= 92%
+            # Nếu radius 35%, center tối đa = 57%
+            # Spacing: [28%, 56%] cho 2 pies
+            if len(series_list) == 2:
+                # Tối ưu cho 2 pies - giảm size và tăng khoảng cách
+                # Pie 1: 26% ± 36% = [-10%, 62%], Pie 2: 64% ± 36% = [28%, 100%]
+                # Legend at 97%, so Pie 2 right edge at 100% is tight but OK
+                centers = [['26%', '40%'], ['64%', '40%']]
+                center = centers[idx]
+                radius = user_options.get('radius', '38%')  # Giảm từ 40% xuống 36%
+            else:
+                # General case cho 3+ pies
+                spacing = 100 / (len(series_list) + 1)
+                center = [f'{spacing * (idx + 1)}%', '40%']
+                radius = user_options.get('radius', '30%')
         
         show_percentage = user_options.get('show_percentage', True)
         
@@ -168,13 +180,21 @@ def generate_pie_chart(data):
         }
     })
     
-    # Sub titles for each pie if multiple - đặt dưới pie
+    # Sub titles for each pie if multiple - đặt dưới pie, căn giữa theo center của pie
     if len(series_list) > 1:
         for idx, series in enumerate(series_list):
-            spacing = 100 / (len(series_list) + 1)
+            if len(series_list) == 2:
+                # Với 2 pies, sử dụng centers cố định khớp với pie centers
+                title_centers = ['26%', '64%']
+                title_left = title_centers[idx]
+            else:
+                # General case cho 3+ pies
+                spacing = 100 / (len(series_list) + 1)
+                title_left = f'{spacing * (idx + 1)}%'
+            
             titles.append({
                 'text': series.get('name', ''),
-                'left': f'{spacing * (idx + 1)}%',
+                'left': title_left,
                 'bottom': '28%',  # Dưới pie
                 'textAlign': 'center',
                 'textStyle': {
@@ -197,7 +217,7 @@ def generate_pie_chart(data):
             'data': legend_data,
             'show': user_options.get('show_legend', True),
             'top': 'center', # Hiển thị ở giữa theo chiều dọc
-            'right': '1%' if len(series_list) > 1 else '5%', # Căn lề phải tuỳ số lượng pie
+            'right': '3%' if len(series_list) > 1 else '5%', # Tăng margin để tránh đè pie
             'orient': 'vertical' # Xếp dọc
         },
         'series': echarts_series
@@ -206,12 +226,16 @@ def generate_pie_chart(data):
     # Graphics for unit and source
     graphics = []
     
-    # Determine unit
+    # Determine unit - LUÔN hiển thị unit cho pie chart (mặc định là %)
     unit = user_options.get('unit')
     if not unit and series_list:
-        unit = series_list[0].get('unit', '%')
+        # Kiểm tra series có unit không, nếu không thì default '%'
+        unit = series_list[0].get('unit')
+    if not unit:
+        unit = '%'  # Default unit cho pie chart
         
-    if unit:
+    # LUÔN hiển thị unit cho pie chart
+    if True:  # Always show unit for pie charts
         unit_graphic = {
             'type': 'text',
             'style': {
@@ -226,9 +250,9 @@ def generate_pie_chart(data):
             unit_graphic['right'] = '30%'
             unit_graphic['top'] = '20%'
         else:
-            # Multiple pies: giữa 2 pie, ngang với legend
+            # Multiple pies: ở giữa canvas theo cả 2 chiều (giữa 2 pies)
             unit_graphic['left'] = 'center'
-            unit_graphic['top'] = '15%'  # Cùng mức với legend
+            unit_graphic['top'] = '15%'
             
         graphics.append(unit_graphic)
 

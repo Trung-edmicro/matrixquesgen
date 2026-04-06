@@ -357,7 +357,7 @@ const ChartBlock: React.FC<{ content: ChartContent; metadata?: any; className?: 
         }}
       >
         {isLoading ? (
-          <div style={{ color: '#999', fontSize: '14px' }}>📊 Rendering chart...</div>
+          <div style={{ color: '#999', fontSize: '14px' }}>Đang tải biểu đồ...</div>
         ) : chartImageUrl ? (
           <img
             src={chartImageUrl}

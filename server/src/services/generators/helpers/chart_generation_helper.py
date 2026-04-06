@@ -749,16 +749,16 @@ def optimize_grid_for_width(echarts: Dict, container_width: int = 1100) -> Dict:
     # Reference: width=800 -> left=70, right=70 (660px chart area via scale)
     
     if container_width >= 1100:
-        # Optimal: 1100px container → 50px padding mỗi side
+        # Optimal: 1100px container → 50px padding trái, 120px phải (chứa x-axis label)
         grid["left"] = 50
-        grid["right"] = 50
+        grid["right"] = 120  # Tăng để tránh cắt label "Địa phương" ở cuối trục X
     elif container_width >= 900:
         # Medium: Scale linearly between 900-1100
-        # At 900: scale factor = 1.0 (use ~63 to have 774px chart area)
-        # At 1100: scale factor = 0 (use 50)
+        # At 900: left ~63, right ~80 (chứa đủ label)
+        # At 1100: left 50, right 120
         scale = (container_width - 900) / 200  # 0 to 1
         grid["left"] = int(63 - (13 * scale))  # 63 → 50
-        grid["right"] = int(63 - (13 * scale))
+        grid["right"] = int(80 + (40 * scale)) # 80 → 120
     else:
         # Small: Aggressive reduce to minimum viable padding
         adjusted_left = max(45, int(current_left * (container_width / 900)))
@@ -843,8 +843,8 @@ def apply_layout(echarts: Dict) -> Dict:
         blocks_height_percent = (total_bottom_height / canvas_height) * 100
         
         # Pie chart nên độc chiếm khoảng 60-70% canvas (để có chỗ cho title trên + blocks dưới)
-        # center[1] = 20-30% sẽ đẩy chart lên với padding phía trên
-        pie_vertical_percent = 25  # Cố định ở 25% để đẩy chart lên consistently
+        # center[1] = 35-45% sẽ cân bằng giữa padding trên và blocks dưới
+        pie_vertical_percent = 38  # Điều chỉnh từ 25% lên 38% để cân bằng layout
         
         # Cập nhật center cho tất cả pie series
         for s in echarts.get("series", []):
@@ -860,9 +860,10 @@ def apply_layout(echarts: Dict) -> Dict:
         grid = echarts.setdefault("grid", {})
         grid["bottom"] = current_bottom + padding_from_grid
     
-    # Set vị trí cụ thể cho từng block (dùng cho cả pie và non-pie charts)
+    # Set vị trí cụ thể cho từng block (CHỈ CHO NON-PIE CHARTS)
+    # Pie charts có positioning riêng trong chart_pie.py
     # 1. Title (đặt dưới biểu đồ)
-    if "title" in positions and "title" in echarts:
+    if "title" in positions and "title" in echarts and not is_pie_chart:
         title = echarts["title"]
         if isinstance(title, list):
             # Multiple titles - update từng cái
@@ -874,13 +875,14 @@ def apply_layout(echarts: Dict) -> Dict:
             title["bottom"] = positions["title"]
             title.pop("top", None)  # Xóa top nếu có
     
-    # 2. Legend (đặt dưới biểu đồ)
+    # 2. Legend (đặt dưới biểu đồ - CHỈ CHO NON-PIE CHARTS)
     if "legend" in positions and "legend" in echarts:
-        echarts["legend"]["bottom"] = positions["legend"]
-        echarts["legend"].pop("top", None)  # Xóa top nếu có
+        if not is_pie_chart:  # Pie chart legend có position riêng (top: center, right: ...)
+            echarts["legend"]["bottom"] = positions["legend"]
+            echarts["legend"].pop("top", None)  # Xóa top nếu có
     
-    # 3. Graphic (source - đặt dưới biểu đồ)
-    if "source" in positions and "graphic" in echarts:
+    # 3. Graphic (source - đặt dưới biểu đồ, CHỈ CHO NON-PIE CHARTS)
+    if "source" in positions and "graphic" in echarts and not is_pie_chart:
         for g in echarts.get("graphic", []):
             if g.get("layoutKey") == "source":
                 g["bottom"] = positions["source"]

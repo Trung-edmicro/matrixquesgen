@@ -605,74 +605,66 @@ function resolveChartOptionPlaceholders(options) {
  * - Eliminates timing issues and dimension mismatches
  */
 /**
- * ✨ Crop canvas to remove white padding caused by grid margins
+ * ✨ Crop canvas to remove white padding on LEFT only
  * 
- * ECharts grid often has padding (left: 80px, etc.) which causes wasted space in exports.
- * This function detects and crops away white/transparent areas while preserving chart content.
+ * Tìm content boundary từ trái, crop bỏ padding, GIỮ nguyên phần quyền + dưới
  * 
- * @param {HTMLCanvasElement} canvas - Original canvas with padding
- * @returns {HTMLCanvasElement} Cropped canvas with minimal white space
+ * @param {HTMLCanvasElement} canvas - Original canvas
+ * @param {number} targetWidth - Display width (for reference only)
+ * @param {number} targetHeight - Display height (for reference only)
+ * @returns {HTMLCanvasElement} Cropped canvas with left padding removed
  */
-function cropCanvasContent(canvas) {
+function cropCanvasContent(canvas, targetWidth = 900, targetHeight = 550) {
   try {
     const ctx = canvas.getContext('2d')
     if (!ctx) return canvas
     
     const width = canvas.width
     const height = canvas.height
+    
     const imageData = ctx.getImageData(0, 0, width, height)
     const data = imageData.data
     
-    // Find bounding box of non-white/non-transparent pixels
-    let minX = width, maxX = 0
-    let minY = height, maxY = 0
+    // Find LEFT boundary - first non-white column
+    let minX = width
     let foundContent = false
     
-    // Scan for non-white pixels (tolerance for anti-aliasing: whiteness < 240)
+    // Scan every pixel to find leftmost content
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i]
       const g = data[i + 1]
       const b = data[i + 2]
       const a = data[i + 3]
       
-      // Skip white pixels or fully transparent
+      // Skip white/transparent pixels
       if (a === 0 || (r > 240 && g > 240 && b > 240)) {
         continue
       }
       
       foundContent = true
       const pixelIndex = i / 4
-      const y = Math.floor(pixelIndex / width)
       const x = pixelIndex % width
-      
       minX = Math.min(minX, x)
-      maxX = Math.max(maxX, x)
-      minY = Math.min(minY, y)
-      maxY = Math.max(maxY, y)
     }
     
     // If no content found, return original
     if (!foundContent) {
-      console.warn('⚠️  No chart content detected, returning original canvas')
+      console.log(`  No chart content detected`)
       return canvas
     }
     
-    // Add padding to edges for safety
-    // Left/top: 5px to remove minimal white space
-    // Right/bottom: 15px to preserve chart labels and legend
-    const paddingLeft = 5
-    const paddingRight = 15  // ✨ More padding on right to preserve labels
-    const paddingTop = 5
-    const paddingBottom = 15  // ✨ More padding on bottom to preserve legend
+    // Crop từ leftmost content đến hết canvas (không limit bởi target width)
+    const paddingLeft = Math.max(0, minX - 5)  // Remove left padding + small margin
+    const cropX = paddingLeft
+    const cropY = 0
     
-    const cropX = Math.max(0, minX - paddingLeft)
-    const cropY = Math.max(0, minY - paddingTop)
-    const cropW = Math.min(width - cropX, maxX - minX + paddingLeft + paddingRight)
-    const cropH = Math.min(height - cropY, maxY - minY + paddingTop + paddingBottom)
+    // Take everything from crop point to RIGHT edge (full width)
+    const cropW = width - cropX
+    const cropH = height  // Take full height
     
-    console.log(`  Crop bounds: x=${cropX}, y=${cropY}, w=${cropW}, h=${cropH} (original: ${width}×${height})`)
+    console.log(`  Detected content at x=${minX}, cropping from ${cropX} (${cropW}×${cropH} px)`)
     
-    // Create new cropped canvas
+    // Create cropped canvas
     const croppedCanvas = document.createElement('canvas')
     croppedCanvas.width = cropW
     croppedCanvas.height = cropH
@@ -733,8 +725,9 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
       const h = typeof parsedMetadata.height === 'number' ? parsedMetadata.height : parseInt(parsedMetadata.height)
       return { width: w, height: h }
     }
-    // Default chart size: 800x500 for all charts
-    return { width: 800, height: 500 }
+    // ✨ Display size: 900×550px (smaller display)
+    // But internal canvas will be 1000×600px to avoid truncation
+    return { width: 900, height: 550 }
   }, [parsedMetadata])
 
   // Main effect: Create temporary container, render, convert to image, cleanup
@@ -767,6 +760,7 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
 
         // 3️⃣ Create temporary off-screen container and append to DOM
         const { width, height } = getChartSize()
+        // ✨ Set container size (display size)
         tempDiv.style.cssText = `
           position: fixed;
           left: -9999px;
@@ -775,7 +769,7 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
           height: ${height}px;
           visibility: hidden;
           pointer-events: none;
-          overflow: hidden;
+          overflow: visible;
           z-index: -9999;
           margin: 0;
           padding: 0;
@@ -788,24 +782,21 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
         await new Promise(resolve => setTimeout(resolve, 20))
 
         // 4️⃣ Initialize echarts in temporary div
+        
         chartInstance = echarts.init(tempDiv, null, { 
           useDirtyRect: true,
-          width: width,    // ✨ Explicitly set canvas width
-          height: height   // ✨ Explicitly set canvas height
+          width: width, 
+          height: height
         })
         
         // Set options FIRST
         chartInstance.setOption(resolvedOptions, true) // true = replace all options
         
-        // CRITICAL: Resize echarts to match container dimensions exactly
+        // CRITICAL: Resize echarts canvas to match the larger size
         chartInstance.resize({ width: width, height: height })
         
         // Wait for initial render
         await new Promise(resolve => setTimeout(resolve, 100))
-
-        console.log(
-          `📊 [${questionCode || 'Q?'}] Chart initialized (${width}×${height}px, dpr=${window.devicePixelRatio})`
-        )
 
         // 5️⃣ Wait for echarts to COMPLETE rendering
         // Complex charts (bar with many items, line with many points) need more time
@@ -820,12 +811,12 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
           return
         }
         
-        const canvasWidth = parseInt(canvas.getAttribute('width') || '0')
-        const canvasHeight = parseInt(canvas.getAttribute('height') || '0')
-        console.log(`🎨 Canvas: ${canvasWidth}×${canvasHeight}px (CSS: ${canvas.style.width} × ${canvas.style.height})`)
+        const actualCanvasWidth = parseInt(canvas.getAttribute('width') || '0')
+        const actualCanvasHeight = parseInt(canvas.getAttribute('height') || '0')
+        console.log(`🎨 Canvas: ${actualCanvasWidth}×${actualCanvasHeight}px (CSS: ${canvas.style.width} × ${canvas.style.height})`)
         
-        // 7️⃣ ✨ NEW: Crop canvas to remove white margins from grid padding
-        const croppedCanvas = cropCanvasContent(canvas)
+        // 7️⃣ ✨ NEW: Crop canvas to remove white margins + trim to target size
+        const croppedCanvas = cropCanvasContent(canvas, width, height)
         console.log(`✂️  Cropped canvas: ${croppedCanvas.width}×${croppedCanvas.height}px`)
         
         // 8️⃣ Convert canvas to PNG image
@@ -834,7 +825,7 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
           `✅ [${questionCode || 'Q?'}] Chart converted to image (${Math.round(imageDataUrl.length / 1024)}KB)`
         )
 
-        // 8️⃣ Display image
+        // 9️⃣ Display image
         setChartImageUrl(imageDataUrl)
         setIsLoading(false)
       } catch (error) {
@@ -884,7 +875,7 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
     >
       {isLoading && (
         <div style={{ textAlign: 'center', color: '#999', fontSize: '14px' }}>
-          📊 Rendering chart...
+          Đang tải biểu đồ...
         </div>
       )}
 
@@ -906,239 +897,8 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
 
 /**
  * ✨ Export chart canvas to Base64 PNG
-    if (!chartRef.current || !chartInstance.current) return
-
-    const dims = calculateCanvasDimensions()
-    if (!dims) return
-
-    try {
-      const canvas = chartRef.current.querySelector('canvas')
-      if (!canvas) return
-
-      const currentWidth = parseInt(canvas.getAttribute('width') || '0')
-      const currentHeight = parseInt(canvas.getAttribute('height') || '0')
-
-      // Only update if changed by >2px (reduce thrashing)
-      if (
-        Math.abs(currentWidth - dims.canvasWidth) > 2 ||
-        Math.abs(currentHeight - dims.canvasHeight) > 2
-      ) {
-        canvas.setAttribute('width', dims.canvasWidth.toString())
-        canvas.setAttribute('height', dims.canvasHeight.toString())
-        
-        // Let echarts re-render on new canvas size
-        chartInstance.current.resize()
-
-        console.log(
-          `📊 [${questionCode || 'Q?'}] Canvas: ${currentWidth}×${currentHeight} ` +
-          `→ ${dims.canvasWidth}×${dims.canvasHeight} ` +
-          `(container: ${dims.containerWidth}×${dims.containerHeight}, ${dims.isPieChart ? 'pie' : 'bar'})`
-        )
-      }
-    } catch (e) {
-      console.error('Error applying canvas dimensions:', e)
-    }
-  }, [calculateCanvasDimensions, questionCode])
-
-  // ✨ Main rendering effect - init chart + setup observers
-  useEffect(() => {
-    if (!chartRef.current) return
-
-    let rAFId = null
-    let resizeHandler = null
-    let initRAFId = null
-
-    try {
-      // 1️⃣ Parse and resolve chart options
-      let chartData
-      try {
-        chartData = typeof content === 'string' ? JSON.parse(content) : content
-      } catch (parseErr) {
-        console.error('Failed to parse chart data:', parseErr)
-        return
-      }
-      
-      let options = chartData?.echarts || chartData
-
-      if (!options || typeof options !== 'object') {
-        console.warn('No chart options found in content')
-        return
-      }
-
-      // Resolve placeholders
-      let resolvedOptions
-      try {
-        resolvedOptions = resolveChartOptionPlaceholders(options)
-      } catch (resolveErr) {
-        console.error('Failed to resolve chart placeholders:', resolveErr)
-        return
-      }
-
-      // Track previous dimensions to detect changes
-      let lastObservedWidth = 0
-      let lastObservedHeight = 0
-
-      // Core function: applies canvas dimensions
-      const syncCanvasDimensions = () => {
-        const dims = calculateCanvasDimensions()
-        if (!dims) return
-
-        try {
-          const canvas = chartRef.current?.querySelector('canvas')
-          if (!canvas) return
-
-          const currentWidth = parseInt(canvas.getAttribute('width') || '0')
-          const currentHeight = parseInt(canvas.getAttribute('height') || '0')
-
-          // Only update if dimensions changed significantly (>2px threshold)
-          if (
-            Math.abs(currentWidth - dims.canvasWidth) > 2 ||
-            Math.abs(currentHeight - dims.canvasHeight) > 2
-          ) {
-            canvas.setAttribute('width', dims.canvasWidth.toString())
-            canvas.setAttribute('height', dims.canvasHeight.toString())
-            chartInstance.current.resize()
-
-            console.log(
-              `📊 [${questionCode || 'Q?'}] Canvas sync: ${currentWidth}×${currentHeight} ` +
-              `→ ${dims.canvasWidth}×${dims.canvasHeight}`
-            )
-          }
-        } catch (e) {
-          console.error('Error syncing canvas dimensions:', e)
-        }
-      }
-
-      // Monitor: Use RAF to detect container size changes every frame
-      // This catches CSS layout changes that ResizeObserver might miss
-      const monitorDimensions = () => {
-        if (!chartRef.current) {
-          if (rAFId) cancelAnimationFrame(rAFId)
-          return
-        }
-
-        const rect = chartRef.current.getBoundingClientRect()
-        const currWidth = Math.round(rect.width)
-        const currHeight = Math.round(rect.height)
-
-        // Detect CSS-driven size changes
-        if (Math.abs(currWidth - lastObservedWidth) > 2 || 
-            Math.abs(currHeight - lastObservedHeight) > 2) {
-          lastObservedWidth = currWidth
-          lastObservedHeight = currHeight
-          syncCanvasDimensions()
-        }
-
-        // Continue monitoring
-        rAFId = requestAnimationFrame(monitorDimensions)
-      }
-
-      // 2️⃣ Wait for container to be laid out before initializing chart
-      // This fixes the tablet reload bug where getBoundingClientRect() returns 0
-      const initChart = () => {
-        if (!chartRef.current) return
-
-        // Force reflow to ensure CSS dimensions are applied
-        void chartRef.current.offsetHeight
-
-        const rect = chartRef.current.getBoundingClientRect()
-        if (rect.width <= 0 || rect.height <= 0) {
-          // Container not ready yet, retry on next frame
-          console.warn('⏳ Container not ready, retrying...')
-          initRAFId = requestAnimationFrame(initChart)
-          return
-        }
-
-        // Initialize echarts instance
-        if (!chartInstance.current) {
-          chartInstance.current = echarts.init(chartRef.current, null, { 
-            useDirtyRect: true  // Performance optimization
-          })
-        }
-
-        chartInstance.current.setOption(resolvedOptions)
-        console.log(`📊 [${questionCode || 'Q?'}] Chart initialized with container size:`, rect.width, 'x', rect.height)
-
-        // 3️⃣ Setup DUAL dimension tracking (ResizeObserver + RAF monitoring)
-        
-        // Start RAF monitoring
-        monitorDimensions()
-
-        // ALSO use ResizeObserver as backup
-        if (!resizeObserverRef.current) {
-          resizeObserverRef.current = new ResizeObserver(() => {
-            syncCanvasDimensions()
-          })
-        }
-
-        resizeObserverRef.current.observe(chartRef.current)
-
-        // 4️⃣ Handle window resize
-        resizeHandler = () => {
-          // Window resize triggers container to recalculate responsive dimensions
-          // Force sync immediately
-          syncCanvasDimensions()
-        }
-        window.addEventListener('resize', resizeHandler, { passive: true })
-
-        // 5️⃣ Initial dimension sync after a short delay to ensure layout is complete
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            syncCanvasDimensions()
-          })
-        })
-      }
-
-      // Start initialization on next frame to allow CSS to apply
-      initRAFId = requestAnimationFrame(initChart)
-
-      // Cleanup
-      return () => {
-        if (resizeHandler) {
-          window.removeEventListener('resize', resizeHandler)
-        }
-        if (rAFId) cancelAnimationFrame(rAFId)
-        if (initRAFId) cancelAnimationFrame(initRAFId)
-        if (resizeObserverRef.current) {
-          resizeObserverRef.current.disconnect()
-          resizeObserverRef.current = null
-        }
-        if (chartInstance.current) {
-          chartInstance.current.dispose()
-          chartInstance.current = null
-        }
-      }
-    } catch (e) {
-      console.error('Failed to initialize chart:', e)
-    }
-  }, [content, calculateCanvasDimensions, questionCode])
-
-  const { width: containerWidth, height: containerHeight } = getContainerSize()
-
-  return (
-    <div
-      ref={chartRef}
-      data-chart-ref={questionCode ? `${questionCode}-${chartIndex}` : `chart-${chartIndex}`}
-      data-question-code={questionCode || `Q${chartIndex}`}
-      data-chart-index={String(chartIndex)}
-      style={{
-        width: typeof containerWidth === 'number' ? `${containerWidth}px` : containerWidth,
-        height: typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight,
-        margin: '0 auto',
-        padding: 0,
-        border: 'none',
-        display: 'block',
-        overflow: 'visible',
-        boxSizing: 'border-box'
-      }}
-    />
-  )
-}
-
-/**
- * ✨ Export chart canvas to Base64 PNG
  * Dùng để embed trực tiếp vào DOCX mà không cần re-render
- * @param {HTMLElement} chartRefElement - div chứa canvas
+ * @param {HTMLElement} chartRefElement - div chứa img
  * @returns {string|null} Base64 data URL hoặc null nếu error
  */
 export function exportChartCanvasToBase64(chartRefElement) {
@@ -1148,17 +908,16 @@ export function exportChartCanvasToBase64(chartRefElement) {
       return null
     }
 
-    const canvas = chartRefElement.querySelector('canvas')
-    if (!canvas) {
-      console.warn('❌ Canvas element not found in chart ref')
+    const img = chartRefElement.querySelector('img')
+    if (!img) {
+      console.warn('❌ Image element not found in chart ref')
       return null
     }
 
-    // ✨ Convert canvas to PNG (quality 100%)
-    const dataUrl = canvas.toDataURL('image/png', 1.0)
-    return dataUrl
+    // ✨ Get Base64 from img src (already data URL)
+    return img.src
   } catch (e) {
-    console.error('❌ Failed to export chart canvas:', e)
+    console.error('❌ Failed to export chart:', e)
     return null
   }
 }
@@ -1217,7 +976,7 @@ export async function sendChartImageToServer(base64Image, chartTitle = 'chart', 
 
 /**
  * ✨ Direct download of chart as PNG (browser-only)
- * @param {HTMLElement} chartRefElement - div chứa canvas
+ * @param {HTMLElement} chartRefElement - div chứa img
  * @param {string} fileName - Download file name
  */
 export function downloadChartAsImage(chartRefElement, fileName = 'chart.png') {

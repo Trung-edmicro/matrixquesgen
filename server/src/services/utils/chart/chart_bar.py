@@ -188,7 +188,7 @@ def generate_bar_chart(data):
         },
         'grid': {
             'left': 80,
-            'right': 80, # Tăng margin để tránh text bị cắt
+            'right': 120, # Tăng margin để chứa label trục X ở cuối
             'top': 40, # Giảm top margin vì title đã chuyển xuống dưới
             'bottom': 160, # Tăng bottom margin để chứa legend, title, source
             'containLabel': True
