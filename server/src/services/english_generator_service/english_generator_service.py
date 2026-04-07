@@ -2278,7 +2278,7 @@ INSTRUCTION_MAP = {
     "CLOZE": lambda res: f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.",
     "ARRANGE": lambda res: "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement of utterances or sentences to make a meaningful exchange or text.",
     "RC": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions. ",
-    "GAP": lambda res: "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement",
+    "GAP": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blank.",
     "DIALOUGE_COMPLETION": lambda res: "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
     "SENTENCE_COMPLETION": lambda res: "Sentence completion: Choose A, B, C or D to complete each sentence.",
     "LOGICAL_THINKING": lambda res: "Logical thinking and problem-solving: Choose A, B, C or D to answer each question.",
@@ -2297,6 +2297,7 @@ def _add_instruction(doc, res):
 
     run = instruction.add_run(text)
     run.italic = True
+    run.bold = True
 
 
 def _render_passage(doc, passage):
