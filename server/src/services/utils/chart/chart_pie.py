@@ -67,6 +67,16 @@ def generate_pie_chart(data):
     # Get pattern styles
     pattern_styles = get_pattern_styles()
     
+    # Build legend data and calculate legend width BEFORE loop
+    legend_data = [item['name'] for item in series_list[0].get('data', [])]
+    
+    # Calculate dynamic grid right based on legend content length
+    max_legend_length = max(len(name) for name in legend_data) if legend_data else 0
+    calculated_grid_right = int(max(max_legend_length * 7 + 80, 150))
+    
+    # Calculate pie center adjustment based on legend width
+    legend_width_estimate = calculated_grid_right / 800  # Normalize to 0-1 range
+    
     # Build series
     echarts_series = []
     
@@ -159,20 +169,6 @@ def generate_pie_chart(data):
         }
         
         echarts_series.append(series_config)
-    
-    # Build legend data from first series
-    legend_data = [item['name'] for item in series_list[0].get('data', [])]
-    
-    # Calculate dynamic grid right based on legend content length
-    # Estimate: mỗi ký tự ~ 7-8px ở fontSize 11, cộng icon + padding
-    max_legend_length = max(len(name) for name in legend_data) if legend_data else 0
-    # Formula: max_length * 7 (pixels per char) + 80 (icon + padding)
-    calculated_grid_right = int(max(max_legend_length * 7 + 80, 150))
-    
-    # Calculate pie center adjustment based on legend width
-    # Nếu legend dài, đẩy pie sang trái để không bị đè
-    # Quy tắc: Mỗi 100px legend cần tìm khoảng 5-6% width viewport
-    legend_width_estimate = calculated_grid_right / 800  # Normalize to 0-1 range (assuming 800px width)
     
     # Configure titles
     titles = []
