@@ -444,9 +444,27 @@ function resolveChartOptionPlaceholders(options) {
   const resolved = JSON.parse(JSON.stringify(options))
 
   // Get yAxis max value for FORMATTER_PLACEHOLDER
-  const yAxisMax = resolved.yAxis?.max || 100
-  const yAxisInterval = resolved.yAxis?.interval || 10
-  const axisMaxDisplay = yAxisMax - (yAxisInterval * 0.5)
+  // Handle both single axis and array of axes (combo charts)
+  let yAxisMax = 100
+  let yAxisInterval = 10
+  let axisMaxDisplay = yAxisMax - (yAxisInterval * 0.5)
+  let leftAxisMax = 100
+  let rightAxisMax = 100
+  
+  if (Array.isArray(resolved.yAxis)) {
+    // Combo chart: multiple axes
+    if (resolved.yAxis[0]) {
+      leftAxisMax = resolved.yAxis[0].max || 100
+    }
+    if (resolved.yAxis[1]) {
+      rightAxisMax = resolved.yAxis[1].max || 100
+    }
+  } else {
+    // Single axis chart
+    yAxisMax = resolved.yAxis?.max || 100
+    yAxisInterval = resolved.yAxis?.interval || 10
+    axisMaxDisplay = yAxisMax - (yAxisInterval * 0.5)
+  }
 
   // Helper: apply function recursively
   const applyFunctionReplacements = (obj) => {
@@ -467,6 +485,37 @@ function resolveChartOptionPlaceholders(options) {
               }
               // Return rich text: value + tick mark render as a small black line
               return '{value|' + value + '}{tick|}'
+            }
+          } else if (value === 'FORMATTER_Y_LEFT_PLACEHOLDER') {
+            // ✨ Combo chart: Left Y-axis formatter (Bar) with rich text for fake tick marks
+            // Returns: {value|NUMBER}{tick|} - draws the value + a fake tick mark
+            obj[key] = function (val) {
+              if (val > leftAxisMax - 1) {
+                return '' // Hide top tick (arrow tip)
+              }
+              // Format number với dấu phân cách hàng nghìn
+              const formatted = new Intl.NumberFormat('vi-VN').format(val)
+              return '{value|' + formatted + '}{tick|}'
+            }
+          } else if (value === 'FORMATTER_Y_RIGHT_PLACEHOLDER') {
+            // ✨ Combo chart: Right Y-axis formatter (Line) with rich text for fake tick marks
+            // Hides 0 and top tick
+            obj[key] = function (val) {
+              if (val === 0 || val > rightAxisMax - 1) {
+                return '' // Hide 0 and top tick (arrow tip)
+              }
+              // Format number với dấu phân cách hàng nghìn
+              const formatted = new Intl.NumberFormat('vi-VN').format(val)
+              return '{tick|}{value|' + formatted + '}'
+            }
+          } else if (value === 'FORMATTER_LABEL_PLACEHOLDER_COMBO') {
+            // ✨ Combo chart: Data label formatter - format number với dấu phân cách
+            obj[key] = function (params) {
+              let val = params.value
+              if (typeof val === 'number') {
+                return new Intl.NumberFormat('vi-VN').format(val)
+              }
+              return val?.toString() || ''
             }
           } else if (value === 'FORMATTER_LABEL_PLACEHOLDER_BAR') {
             // Label formatter cho bar chart - format number with comma
@@ -590,7 +639,6 @@ function resolveChartOptionPlaceholders(options) {
     }
   }
 
-  console.log('✅ [ChartResolver] Resolved chart option ready for echarts')
   return resolved
 }
 
@@ -661,8 +709,6 @@ function cropCanvasContent(canvas, targetWidth = 900, targetHeight = 550) {
     // Take everything from crop point to RIGHT edge (full width)
     const cropW = width - cropX
     const cropH = height  // Take full height
-    
-    console.log(`  Detected content at x=${minX}, cropping from ${cropX} (${cropW}×${cropH} px)`)
     
     // Create cropped canvas
     const croppedCanvas = document.createElement('canvas')
@@ -813,17 +859,43 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
         
         const actualCanvasWidth = parseInt(canvas.getAttribute('width') || '0')
         const actualCanvasHeight = parseInt(canvas.getAttribute('height') || '0')
-        console.log(`🎨 Canvas: ${actualCanvasWidth}×${actualCanvasHeight}px (CSS: ${canvas.style.width} × ${canvas.style.height})`)
+        
+        // ✨ NEW: Draw connector line for combo charts (nối mũi tên với trục hoành)
+        if (resolvedOptions._draw_connector_line?.enabled) {
+          const ctx = canvas.getContext('2d')
+          const connectorConfig = resolvedOptions._draw_connector_line
+
+          console.log("connectorConfig", connectorConfig);
+          
+          
+          // Lấy toạ độ từ backend (đã tính sẵn)
+          const yAxisLine = connectorConfig.axis_line_y || (actualCanvasHeight - 180)
+          const ySymbolOffset = connectorConfig.symbol_offset_y || 40
+          const tickLength = connectorConfig.tick_length || 5
+          const gridRight = (resolvedOptions.grid?.right) || 120
+          
+          // Vị trí x: ở cạnh phải (nơi mũi tên được vẽ)
+          const xPos = actualCanvasWidth - gridRight - 1
+          
+          // Vị trí tick mark: axisLine + symbolOffset y
+          const yTickPos = yAxisLine + ySymbolOffset
+          
+          // Vẽ tick mark nằm ngang từ bên trái tới mũi tên
+          ctx.strokeStyle = '#000'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(xPos - tickLength, yTickPos)
+          ctx.lineTo(xPos, yTickPos)
+          ctx.stroke()
+          
+          console.log(`✏️  [ComboChart] Drew tick mark at y=${yTickPos} (axis_line=${yAxisLine} + offset=${ySymbolOffset})`)
+        }
         
         // 7️⃣ ✨ NEW: Crop canvas to remove white margins + trim to target size
         const croppedCanvas = cropCanvasContent(canvas, width, height)
-        console.log(`✂️  Cropped canvas: ${croppedCanvas.width}×${croppedCanvas.height}px`)
         
         // 8️⃣ Convert canvas to PNG image
         const imageDataUrl = croppedCanvas.toDataURL('image/png', 1.0)
-        console.log(
-          `✅ [${questionCode || 'Q?'}] Chart converted to image (${Math.round(imageDataUrl.length / 1024)}KB)`
-        )
 
         // 9️⃣ Display image
         setChartImageUrl(imageDataUrl)

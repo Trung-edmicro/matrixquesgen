@@ -61,12 +61,27 @@ Từ dataset và đặc tả ma trận bên dưới, nhặt ra các giá trị p
 
 **CHO COMBO CHART (Kết hợp cột+đường):**
 
-- Số hàng = bao nhiêu chỉ tiêu kết hợp (bao gồm cả cột và đường)
-- Số cột = bao nhiêu categories
-- Ví dụ "3x4": 3 chỉ tiêu (mix cột và đường), 4 categories
+- **Cột đơn + Đường** (Single Bar + Line):
+  - Cấu trúc dimensions: [3 hàng, 4 cột] hoặc [3 hàng, 5 cột]
+  - Số series: 2 bar + 1 line = 3 series tổng
+  - Số categories (mốc thời gian):
+    - 3x4: 3 mốc thời gian (4 cột = 1 cột tên + 3 thời gian)
+    - 3x5: 4 mốc thời gian (5 cột = 1 cột tên + 4 thời gian)
+  - Dữ liệu: 2 bar series cùng đơn vị (VD: nghìn tấn), 1 line series đơn vị khác (VD: tỉ đồng)
+  - Trả về JSON với `series` array có 3 objects: 2 bar + 1 line (yAxisIndex=1 cho line)
 
-  1.2. Chọn data từ dataset CHÍNH XÁC theo số hàng, số cột đã xác định
-  1.3. Nếu [cấu trúc bảng data cần tạo] để trống [] => tự chọn số hàng số cột phù hợp (tối thiểu 2 bánh pie hoặc 2 series)
+- **Cột nhóm + Đường** (Grouped Bar + Line):
+  - Cấu trúc dimensions: [4 hàng, 4 cột] hoặc [4 hàng, 5 cột]
+  - Số series: 3 bar stacked/grouped + 1 line = 4 series tổng
+  - Số categories (mốc thời gian):
+    - 4x4: 3 mốc thời gian (4 cột = 1 cột tên + 3 thời gian)
+    - 4x5: 4 mốc thời gian (5 cột = 1 cột tên + 4 thời gian)
+  - Dữ liệu: 3 bar series cùng đơn vị (VD: triệu tấn), 1 line series đơn vị khác (VD: %)
+  - Bar series có stack="total" nếu chồng, hoặc không stack nếu cạnh nhau
+  - Trả về JSON với `series` array có 4 objects: 3 bar + 1 line (yAxisIndex=1 cho line)
+
+    1.2. Chọn data từ dataset CHÍNH XÁC theo số hàng, số cột đã xác định
+    1.3. Nếu [cấu trúc bảng data cần tạo] để trống [] => tự chọn số hàng số cột phù hợp (tối thiểu 2 bánh pie hoặc 2 series)
 
 ### Bước 2 – Nhặt loại data phù hợp từ dataset
 
@@ -129,11 +144,12 @@ Nếu tự tính: ghi rõ công thức đã dùng trong phần METADATA.
    - **Pie chart**: Luôn có 2 pie charts (không phụ thuộc dimensions)
    - **Line chart**: Đếm số lines/series, không phải số points
    - **Area chart**: Đếm số series, không phải số points
+   - **Combo chart**: Đếm tổng số series (bar + line), không phải số categories
 
 2. Kiểm tra dữ liệu phù hợp loại biểu đồ:
    - Bar/Line/Area: Có nhất thiết số lượng series và categories khớp yêu cầu không?
    - Pie: Luôn có 2 pie charts? Tổng % mỗi pie = 100% chưa? Số slices mỗi pie = (cột - 1) chưa?
-   - Combo: Có mix cột + đường không? Đơn vị khác nhau chưa?
+   - Combo: Tổng series (bar + line) = số hàng? Categories khớp (cột - 1)? Có 2 đơn vị khác nhau không?
 
 3. Nếu không khớp → Tạo lại dataset phù hợp đúng dimensions
 
@@ -150,6 +166,14 @@ Nếu tự tính: ghi rõ công thức đã dùng trong phần METADATA.
 - Yêu cầu: Pie chart 4x5
 - Cần: 2 pie charts, mỗi pie 4 slices (5-1, bỏ hàng tổng)
 - Phải kiểm tra: `len(pie_datasets) == 2 and each_pie_total == 100% and each_pie_slices == 4`
+
+- Yêu cầu: Combo chart 3x4 (Cột đơn + Đường)
+- Cần: 2 bar series + 1 line series = 3 series tổng, 3 categories (4-1)
+- Phải kiểm tra: `len(series) == 3 and len(categories) == 3 and series[0:2] type='bar' and series[2] type='line' and series[2].yAxisIndex=1`
+
+- Yêu cầu: Combo chart 4x5 (Cột nhóm + Đường)
+- Cần: 3 bar series + 1 line series = 4 series tổng, 4 categories (5-1)
+- Phải kiểm tra: `len(series) == 4 and len(categories) == 4 and series[0:3] type='bar' stack='total' and series[3] type='line' and series[3].yAxisIndex=1`
 
 ## OUTPUT
 
@@ -175,7 +199,12 @@ Trước khi trả về, A.I phải tự kiểm tra:
    • Nếu Pie: luôn 2 pie charts? Tổng % = 100% mỗi pie? Số slices = (cột - 1)? ✓
    • Nếu Line: ≥4 điểm dữ liệu/series? ✓
    • Nếu Area: tổng % theo cột = 100%? ✓
-   • Nếu Combo: mix cột + đường? Đơn vị khác? ✓
+   • Nếu Combo:
+     - Cột đơn (3x4 hoặc 3x5): 2 bar series + 1 line series? ✓
+     - Cột nhóm (4x4 hoặc 4x5): 3 bar series + 1 line series? ✓
+     - Bar series có đơn vị X, line series yAxisIndex=1 với đơn vị Y khác? ✓
+     - Line series có connectNulls=true? ✓
+     - Số categories = (cột - 1)? ✓
    ```
 
 3. **Data Quality**:

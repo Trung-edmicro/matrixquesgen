@@ -33,6 +33,7 @@ from services.utils.chart.chart_bar import generate_bar_chart
 from services.utils.chart.chart_line import generate_line_chart
 from services.utils.chart.chart_pie import generate_pie_chart
 from services.utils.chart.chart_area import generate_area_chart
+from services.utils.chart.chart_combo import generate_combo_chart
 
 
 def get_chart_data_schema() -> Dict:
@@ -59,8 +60,8 @@ def get_chart_data_schema() -> Dict:
                         },
                         "chartType": {
                             "type": "string",
-                            "enum": ["bar", "line"],
-                            "description": "Loại biểu đồ, khuyến khinh chỉ dùng 'bar' hoặc 'line'"
+                            "enum": ["bar", "line", "area", "pie", "combo"],
+                            "description": "Loại biểu đồ: 'bar' (cột), 'line' (đường), 'area' (vùng), 'pie' (tròn), 'combo' (kết hợp bar+line)"
                         },
                         "echarts": {
                             "type": "object",
@@ -1059,20 +1060,36 @@ def merge_chart_into_question(
                 if 'metadata' not in item:
                     # Detect chart type để set appropriate dimensions
                     # Pie chart: square (550x550) để không bóp méo tròn
+                    # Combo chart: wide landscape (900x600) cho 2 trục tung
                     # Bar/Line/Area: landscape (850x500)
                     is_pie = False
+                    is_combo = False
                     if 'series' in chart_data.get('echarts', {}):
                         series = chart_data['echarts']['series']
                         if isinstance(series, list):
+                            has_line = False
+                            has_bar = False
                             for s in series:
-                                if isinstance(s, dict) and s.get('type') == 'pie':
-                                    is_pie = True
-                                    break
+                                if isinstance(s, dict):
+                                    if s.get('type') == 'pie':
+                                        is_pie = True
+                                        break
+                                    elif s.get('type') == 'line':
+                                        has_line = True
+                                    elif s.get('type') == 'bar':
+                                        has_bar = True
+                            # Combo chart: mix bar + line
+                            if has_bar and has_line:
+                                is_combo = True
                     
                     if is_pie:
                         # Pie chart: use square dimensions to prevent distortion
                         chart_height = 550
                         chart_width = 550
+                    elif is_combo:
+                        # Combo chart: wider for 2 Y-axes labels space
+                        chart_height = 600
+                        chart_width = 900
                     else:
                         # Bar/Line/Area: wide landscape for legend space
                         chart_height = 500
@@ -1097,6 +1114,34 @@ def merge_chart_into_question(
             echarts = optimize_font_sizes_for_chart_area(echarts, 1100)
             # Apply layout resolution
             echarts = apply_layout(echarts)
+            
+            # Detect chart type để set appropriate dimensions
+            is_pie = False
+            is_combo = False
+            if 'series' in echarts:
+                series = echarts['series']
+                if isinstance(series, list):
+                    has_line = False
+                    has_bar = False
+                    for s in series:
+                        if isinstance(s, dict):
+                            if s.get('type') == 'pie':
+                                is_pie = True
+                                break
+                            elif s.get('type') == 'line':
+                                has_line = True
+                            elif s.get('type') == 'bar':
+                                has_bar = True
+                    if has_bar and has_line:
+                        is_combo = True
+            
+            if is_pie:
+                chart_width, chart_height = 550, 550
+            elif is_combo:
+                chart_width, chart_height = 900, 600
+            else:
+                chart_width, chart_height = 1100, 850
+            
             chart_item = {
                 'type': 'chart',
                 'chart_id': chart_id,
@@ -1106,8 +1151,8 @@ def merge_chart_into_question(
                 },
                 'metadata': {
                     'caption': chart_data.get('title'),
-                    'width': 1100,  # Tăng từ 900 để không bị cắt nội dung
-                    'height': 850
+                    'width': chart_width,
+                    'height': chart_height
                 }
             }
             content.insert(insert_pos, chart_item)
@@ -1530,7 +1575,7 @@ def process_chart_data_to_option(chart_data: Dict) -> Dict:
         'line': generate_line_chart,
         'pie': generate_pie_chart,
         'area': generate_area_chart,
-        # 'combo': generate_combo_chart,  # TODO: Implement if needed
+        'combo': generate_combo_chart,
     }
     
     generator_func = chart_generators.get(chart_type)

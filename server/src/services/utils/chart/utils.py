@@ -7,6 +7,7 @@ Các hàm dùng chung cho tất cả các loại biểu đồ
 def find_min_max(data_list):
     """
     Tìm giá trị min và max từ danh sách dữ liệu
+    Lọc bỏ các giá trị không phải số (string '-', None, etc.)
     
     Args:
         data_list: List các số hoặc list of lists
@@ -29,7 +30,13 @@ def find_min_max(data_list):
     if not flat_data:
         return 0, 0
     
-    return min(flat_data), max(flat_data)
+    # Filter out non-numeric values (strings, None, etc.)
+    numeric_data = [x for x in flat_data if isinstance(x, (int, float)) and x != '-']
+    
+    if not numeric_data:
+        return 0, 0
+    
+    return min(numeric_data), max(numeric_data)
 
 
 def calculate_percentage(value, total):

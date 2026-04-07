@@ -1594,8 +1594,7 @@ def get_chart_data_generation_schema() -> Dict:
                     "bar_style": {
                         "type": "string",
                         "enum": ["grouped", "stacked"],
-                        "default": "grouped",
-                        "description": "Kiểu cột (chỉ cho bar/combo): 'grouped' (cột ghép nhóm) hoặc 'stacked' (cột xếp chồng)"
+                        "description": "⚠️ QUAN TRỌNG - Kiểu cột **tùy theo chart_type**:\n\n**Cho BAR chart**:\n- 'grouped': Cột ghép nhóm (các cột từ series khác nhau xếp song song)\n- 'stacked': Cột xếp chồng (các cột từ series khác nhau xếp chồng lên nhau)\n- MẶC ĐỊNH: 'grouped' (nếu không ghi)\n\n**Cho COMBO chart (BẮT BUỘC)**:\n- 'stacked': **LUÔN dùng giá trị này cho combo**\n- Lý do: Combo chart = Bar series (trái) + Line series (phải)\n- Nếu dùng 'grouped' sẽ làm biểu đồ xấu xí, khó đọc\n- **KHÔNG ĐƯỢC dùng 'grouped' cho combo!**\n\n**Ví dụ**:\n- Bar chart với 2 series: bar_style='grouped' hoặc 'stacked' (tùy chọn)\n- Combo chart: bar_style='stacked' (BẮT BUỘC)"
                     },
                     "smooth": {
                         "type": "boolean",
@@ -1609,7 +1608,7 @@ def get_chart_data_generation_schema() -> Dict:
                     },
                     "source": {
                         "type": "string",
-                        "description": "Nguồn dữ liệu. VD: 'Nguồn: Tổng cục Thống kê', 'Nguồn: Niên giám Thống kê 2023'"
+                        "description": "**QUAN TRỌNG - BẮT BUỘC**. Nguồn dữ liệu. VD: 'Nguồn: Niên giám Thống kê năm 2024'"
                     },
                     "x_label_rotate": {
                         "type": "number",

@@ -93,7 +93,7 @@ def generate_pie_chart(data):
         
         # Determine radius and center for multiple pies
         if len(series_list) == 1:
-            radius = user_options.get('radius', '60%')
+            radius = user_options.get('radius', '62%')
             # Đẩy pie lên trên để cân bằng với title/legend ở dưới
             center = user_options.get('center', ['50%', '40%'])  # Từ 50% xuống 40%
         else:
@@ -108,7 +108,7 @@ def generate_pie_chart(data):
                 # Legend at 97%, so Pie 2 right edge at 100% is tight but OK
                 centers = [['26%', '40%'], ['64%', '40%']]
                 center = centers[idx]
-                radius = user_options.get('radius', '38%')  # Giảm từ 40% xuống 36%
+                radius = user_options.get('radius', '40%')  # Giảm từ 40% xuống 36%
             else:
                 # General case cho 3+ pies
                 spacing = 100 / (len(series_list) + 1)
@@ -250,8 +250,9 @@ def generate_pie_chart(data):
             unit_graphic['right'] = '30%'
             unit_graphic['top'] = '20%'
         else:
-            # Multiple pies: ở giữa canvas theo cả 2 chiều (giữa 2 pies)
-            unit_graphic['left'] = 'center'
+            # Multiple pies: ở giữa canvas theo chiều ngang (giữa 2 pies)
+            # Dịch sang trái 1 chút để căn giữa 2 pies
+            unit_graphic['left'] = '42%'
             unit_graphic['top'] = '15%'
             
         graphics.append(unit_graphic)
