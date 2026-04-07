@@ -95,7 +95,9 @@ def generate_pie_chart(data):
         if len(series_list) == 1:
             radius = user_options.get('radius', '62%')
             # Đẩy pie lên trên để cân bằng với title/legend ở dưới
-            center = user_options.get('center', ['50%', '40%'])  # Từ 50% xuống 40%
+            # Nếu legend dài, đẩy pie sang trái (giảm center từ 50% xuống)
+            base_center_x = 50 - (legend_width_estimate * 15)  # Max shift: 15% khi legend rất dài
+            center = user_options.get('center', [f'{base_center_x}%', '40%'])
         else:
             # Multiple pies - arrange horizontally with proper spacing
             # Với 2 pies, để legend ở right 3%, pie không được vượt quá 92%
@@ -104,10 +106,10 @@ def generate_pie_chart(data):
             # Spacing: [28%, 56%] cho 2 pies
             if len(series_list) == 2:
                 # Tối ưu cho 2 pies - giảm size và tăng khoảng cách
-                # Pie 1: 26% ± 36% = [-10%, 62%], Pie 2: 64% ± 36% = [28%, 100%]
-                # Legend at 97%, so Pie 2 right edge at 100% is tight but OK
-                centers = [['26%', '40%'], ['64%', '40%']]
-                center = centers[idx]
+                # Nếu legend dài, đẩy cả 2 pies sang trái
+                shift = legend_width_estimate * 10  # Max shift: 10% when legend is very long
+                centers = [[26 - shift, 40], [64 - shift, 40]]
+                center = [f'{centers[idx][0]}%', f'{centers[idx][1]}%']
                 radius = user_options.get('radius', '40%')  # Giảm từ 40% xuống 36%
             else:
                 # General case cho 3+ pies
@@ -160,6 +162,17 @@ def generate_pie_chart(data):
     
     # Build legend data from first series
     legend_data = [item['name'] for item in series_list[0].get('data', [])]
+    
+    # Calculate dynamic grid right based on legend content length
+    # Estimate: mỗi ký tự ~ 7-8px ở fontSize 11, cộng icon + padding
+    max_legend_length = max(len(name) for name in legend_data) if legend_data else 0
+    # Formula: max_length * 7 (pixels per char) + 80 (icon + padding)
+    calculated_grid_right = int(max(max_legend_length * 7 + 80, 150))
+    
+    # Calculate pie center adjustment based on legend width
+    # Nếu legend dài, đẩy pie sang trái để không bị đè
+    # Quy tắc: Mỗi 100px legend cần tìm khoảng 5-6% width viewport
+    legend_width_estimate = calculated_grid_right / 800  # Normalize to 0-1 range (assuming 800px width)
     
     # Configure titles
     titles = []
@@ -217,8 +230,18 @@ def generate_pie_chart(data):
             'data': legend_data,
             'show': user_options.get('show_legend', True),
             'top': 'center', # Hiển thị ở giữa theo chiều dọc
-            'right': '3%' if len(series_list) > 1 else '5%', # Tăng margin để tránh đè pie
-            'orient': 'vertical' # Xếp dọc
+            'right': '0.5%', # Minimal right margin, use grid for spacing
+            'orient': 'vertical',
+            'icon': "rect",
+            'textStyle': {
+                'fontSize': 11
+            }
+        },
+        'grid': {
+            'left': 80,
+            'right': calculated_grid_right,  # Dynamic based on legend content
+            'top': 0,
+            'bottom': 0,
         },
         'series': echarts_series
     }

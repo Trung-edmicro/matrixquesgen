@@ -199,9 +199,9 @@ def generate_area_chart(data):
         'legend': {
             'data': legend_data,
             'show': user_options.get('show_legend', True),
-            'bottom': '18%', # Legend nằm cao nhất ở nhóm bottom
+            'bottom': '18%',
             'left': 'center',
-            'icon': 'rect', # Buộc hiển thị hình chữ nhật để pattern hiển thị đẹp
+            'icon': 'rect',
             'itemWidth': 28,
             'itemHeight': 14,
             'itemGap': 20

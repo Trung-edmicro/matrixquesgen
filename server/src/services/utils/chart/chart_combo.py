@@ -254,6 +254,7 @@ def generate_combo_chart(data):
             'show': user_options.get('show_legend', True),
             'bottom': '20%',
             'left': 'center',
+            'icon': "rect",
             'itemWidth': 28,
             'itemHeight': 14,
             'itemGap': 20,

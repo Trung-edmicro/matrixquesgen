@@ -154,9 +154,11 @@ def generate_line_chart(data):
             'show': user_options.get('show_legend', True) and len(series_list) > 1,
             'bottom': '18%',
             'left': 'center',
+            'icon': "rect",
             'textStyle': {
                 'fontSize': 14,
                 'fontWeight': 'bold'
+
             }
         },
         'grid': {

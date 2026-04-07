@@ -257,7 +257,11 @@ class QuestionGenerator:
         if self.verbose:
             print(f"   ✅ Convert thành ECharts option thành công")
         
-        return echarts_option
+        # ✅ Return cả chart data (raw) và echarts (processed)
+        return {
+            'data': chart_data.get('data', {}),  # Raw data: series, categories
+            'echarts': echarts_option
+        }
     
     def generate_questions_for_spec(self, spec: QuestionSpec, 
                                    prompt_template_path: str = None,
@@ -363,12 +367,17 @@ class QuestionGenerator:
                                 raise
                     
                     if echarts_option:
+                        # echarts_option giờ là dict: {'data': {...}, 'echarts': {...}}
+                        chart_raw_data = echarts_option.get('data', {})
+                        echarts_config = echarts_option.get('echarts', {})
+                        
                         # Store chart với question_code làm ID
                         charts_map[question_code] = {
                             'chart_id': question_code,
                             'title': f"Chart cho {question_code}",
                             'chartType': chart_type,
-                            'echarts': echarts_option
+                            'data': chart_raw_data,  # ✅ Lưu raw data
+                            'echarts': echarts_config
                         }
                 
                 # Build chart instruction cho prompt

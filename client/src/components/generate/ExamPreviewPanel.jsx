@@ -20,7 +20,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
 
   const tabs = [
     { id: 'questions', label: 'Đề' },
-    { id: 'answers', label: 'Đáp án' }
+    { id: 'answers', label: 'Đáp án' },
+    { id: 'chart_data', label: 'Dữ liệu' }
   ]
 
   // Get questions from examData structure
@@ -423,6 +424,9 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
             )}
             {activeTab === 'answers' && (
               <AnswersList questions={questions} />
+            )}
+            {activeTab === 'chart_data' && (
+              <ChartDataTab examData={editedData || examData} />
             )}
           </>
         ) : (
@@ -1274,6 +1278,279 @@ function AnswersList({ questions }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ChartDataTab({ examData }) {
+  /**
+   * Hiển thị dữ liệu biểu đồ từ tất cả câu hỏi ở dạng bảng
+   * Dữ liệu có cấu trúc: {
+   *   chart_type: 'pie|bar|line|area|combo',
+   *   data: { series: [...], categories: [...] },
+   *   options: { title, show_legend, ... }
+   * }
+   */
+  const [expandedChart, setExpandedChart] = useState(null)
+
+  // Hàm lấy tất cả dữ liệu biểu đồ từ các câu hỏi
+  const getAllChartData = () => {
+    const chartDataList = []
+    const questions = examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
+
+    const processQuestion = (q, type, idx) => {
+      // Kiểm tra question_stem có chứa biểu đồ không
+      if (q.question_stem) {
+        const stem = q.question_stem
+        // Trường hợp 1: question_stem là object {type: 'chart', content: [...]}
+        if (stem.type === 'chart' && Array.isArray(stem.content)) {
+          // Tìm trong mảng content những phần tử có type: 'chart'
+          stem.content.forEach((item) => {
+            if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
+              const chartContent = item.content
+              if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
+                chartDataList.push({
+                  question_code: q.question_code,
+                  question_type: type,
+                  chart_type: chartContent.chartType,
+                  echarts: chartContent.echarts,
+                  chart_raw_data: chartContent.chart_raw_data,
+                  metadata: item.metadata || {}
+                })
+              }
+            }
+          })
+        }
+      }
+
+      // Trường hợp 2: Kiểm tra choices có chứa biểu đồ không (nếu có content)
+      if (q.content && typeof q.content === 'object') {
+        // Nếu content của câu hỏi là chart
+        if (q.content.type === 'chart' && q.content.content) {
+          const chartContent = q.content.content
+          if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
+            chartDataList.push({
+              question_code: q.question_code,
+              question_type: type,
+              chart_type: chartContent.chartType,
+              echarts: chartContent.echarts,
+              chart_raw_data: chartContent.chart_raw_data,
+              metadata: q.content.metadata || {}
+            })
+          }
+        }
+      }
+    }
+
+    // Quét tất cả câu hỏi
+    ;['TN', 'DS', 'TLN', 'TL'].forEach(type => {
+      (questions[type] || []).forEach((q, idx) => {
+        processQuestion(q, type, idx)
+      })
+    })
+
+    return chartDataList
+  }
+
+  const chartDataList = getAllChartData()
+
+  if (chartDataList.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">Không có dữ liệu biểu đồ để hiển thị</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {chartDataList.map((chart, idx) => (
+        <div key={`${chart.question_code}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Header */}
+          <div
+            className="bg-gray-50 px-4 py-3 cursor-pointer hover:bg-gray-100 flex items-center justify-between"
+            onClick={() => setExpandedChart(expandedChart === idx ? null : idx)}
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-gray-900">{chart.question_code}</span>
+              <span className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-700 rounded">
+                {chart.chart_type.toUpperCase()}
+              </span>
+              {chart.metadata.source && (
+                <span className="text-sm text-gray-600 italic">Nguồn: {chart.metadata.source}</span>
+              )}
+            </div>
+            <svg
+              className={`w-5 h-5 text-gray-600 transition-transform ${expandedChart === idx ? 'transform rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </div>
+
+          {/* Content */}
+          {expandedChart === idx && (
+            <div className="px-4 py-4 border-t border-gray-200 bg-white">
+              {chart.chart_raw_data ? (
+                <>
+                  {chart.chart_type === 'pie' ? (
+                    <PieChartDataTable rawData={chart.chart_raw_data} />
+                  ) : chart.chart_type === 'combo' ? (
+                    <ComboChartDataTable rawData={chart.chart_raw_data} />
+                  ) : (
+                    <StandardChartDataTable rawData={chart.chart_raw_data} chart_type={chart.chart_type} />
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">Không có dữ liệu raw để hiển thị</p>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Component hiển thị dữ liệu Pie Chart
+function PieChartDataTable({ rawData }) {
+  const series = rawData?.series || []
+
+  return (
+    <div className="space-y-4">
+      {series.map((s, seriesIdx) => (
+        <div key={seriesIdx}>
+          <h4 className="font-medium text-gray-900 mb-2">{s.name || `Series ${seriesIdx + 1}`}</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-100 border border-gray-300">
+                  <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">Danh mục</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300">
+                    Giá trị {s.unit ? `(${s.unit})` : ''}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(s.data || []).map((item, itemIdx) => (
+                  <tr key={itemIdx} className="border border-gray-300">
+                    <td className="px-3 py-2 text-gray-700 border border-gray-300">{item.name || '-'}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 border border-gray-300">{item.value || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Component hiển thị dữ liệu Combo Chart
+function ComboChartDataTable({ rawData }) {
+  const categories = rawData?.categories || []
+  const series = rawData?.series || []
+
+  // Tạo bảng với các cột: Danh mục + từng series
+  const tableRows = categories.map((cat, idx) => {
+    const row = { category: cat }
+    series.forEach((s) => {
+      row[s.name] = s.data?.[idx] ?? '-'
+    })
+    return row
+  })
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-gray-100 border border-gray-300">
+            <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
+              Danh mục
+            </th>
+            {series.map((s) => (
+              <th
+                key={s.name}
+                className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
+              >
+                <div>{s.name}</div>
+                <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableRows.map((row, rowIdx) => (
+            <tr key={rowIdx} className="border border-gray-300">
+              <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">{row.category}</td>
+              {series.map((s) => (
+                <td
+                  key={`${rowIdx}-${s.name}`}
+                  className={`px-3 py-2 text-right text-gray-700 border border-gray-300 ${s.type === 'line' ? 'bg-blue-50' : ''}`}
+                >
+                  {row[s.name]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Component hiển thị dữ liệu Standard Chart (Bar, Line, Area)
+function StandardChartDataTable({ rawData, chart_type }) {
+  const categories = rawData?.categories || []
+  const series = rawData?.series || []
+
+  // Tạo bảng với các cột: Danh mục + từng series
+  const tableRows = categories.map((cat, idx) => {
+    const row = { category: cat }
+    series.forEach((s) => {
+      row[s.name] = s.data?.[idx] ?? '-'
+    })
+    return row
+  })
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-gray-100 border border-gray-300">
+            <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
+              Danh mục
+            </th>
+            {series.map((s) => (
+              <th
+                key={s.name}
+                className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
+              >
+                <div>{s.name}</div>
+                <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableRows.map((row, rowIdx) => (
+            <tr key={rowIdx} className="border border-gray-300">
+              <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">{row.category}</td>
+              {series.map((s) => (
+                <td
+                  key={`${rowIdx}-${s.name}`}
+                  className="px-3 py-2 text-right text-gray-700 border border-gray-300"
+                >
+                  {row[s.name]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
