@@ -291,7 +291,6 @@ export const regenerateBulkQuestions = async (sessionId, questions) => {
   return response.data
 }
 
-export default api
 export const editQuestion = async (sessionId, questionType, questionCode, comment) => {
   const response = await api.post('/api/regenerate/edit', {
     session_id: sessionId,
@@ -301,3 +300,16 @@ export const editQuestion = async (sessionId, questionType, questionCode, commen
   })
   return response.data
 }
+
+// Update chart_raw_data, regenerate echarts, và save file JSON
+export const updateChartData = async (sessionId, questionType, questionCode, chartRawData) => {
+  const response = await api.put('/api/chart/update', {
+    session_id: sessionId,
+    question_type: questionType,
+    question_code: questionCode,
+    chart_raw_data: chartRawData
+  })
+  return response.data
+}
+
+export default api

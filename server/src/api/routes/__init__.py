@@ -9,6 +9,7 @@ from . import export
 from . import google_drive
 from . import regenerate
 from . import images
+from . import chart_regenerate
 
 __all__ = [
     'generate',
@@ -16,5 +17,6 @@ __all__ = [
     'export',
     'google_drive',
     'regenerate',
-    'images'
+    'images',
+    'chart_regenerate'
 ]

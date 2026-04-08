@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { updateQuestion, regenerateQuestion, regenerateBulkQuestions, editQuestion } from '../../services/api'
+import { updateQuestion, regenerateQuestion, regenerateBulkQuestions, editQuestion, updateChartData } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
 import RichContentRenderer from '../common/RichContentRenderer'
 
@@ -13,6 +13,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   const [editingQuestions, setEditingQuestions] = useState(new Set())
   const [regenerateQueue, setRegenerateQueue] = useState([])
   const [activeRegenerations, setActiveRegenerations] = useState(0)
+  const [mergedExamData, setMergedExamData] = useState(examData) // Local merged data for immediate UI updates
   const MAX_CONCURRENT_REGENERATIONS = 3 // Giới hạn 3 requests song song
   const saveTimerRef = useRef(null) // Timer cho auto-save sau regenerate
   const needsAutoSaveRef = useRef(false) // Flag để track khi cần auto-save
@@ -25,7 +26,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
   ]
 
   // Get questions from examData structure
-  const questions = editedData?.questions || examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
+  const questions = editedData?.questions || mergedExamData?.questions || examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
   const metadata = examData?.metadata || {}
 
   // Kiểm tra môn học có cần hiển thị source không
@@ -44,6 +45,11 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
       setRegeneratingQuestions(new Set())
       setEditingQuestions(new Set())
     }
+  }, [examData])
+
+  // Sync mergedExamData with examData props
+  useEffect(() => {
+    setMergedExamData(examData)
   }, [examData])
 
   // Auto-save sau khi regenerate xong (debounced)
@@ -406,7 +412,8 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
               </div>
             )}
 
-            {activeTab === 'questions' && (
+            {/* ✨ Always render QuestionsList (hidden when not visible) to allow chart capture from any tab */}
+            <div className={activeTab !== 'questions' ? 'hidden' : ''}>
               <QuestionsList
                 questions={questions}
                 onFieldChange={handleFieldChange}
@@ -421,12 +428,18 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
                 onRegenerateBulk={handleRegenerateBulk}
                 onEditQuestion={handleEditQuestion}
               />
-            )}
+            </div>
             {activeTab === 'answers' && (
               <AnswersList questions={questions} />
             )}
             {activeTab === 'chart_data' && (
-              <ChartDataTab examData={editedData || examData} onDataChange={onDataChange} sessionId={sessionId} />
+              <ChartDataTab 
+                examData={editedData || examData} 
+                onDataChange={onDataChange} 
+                sessionId={sessionId}
+                mergedExamData={mergedExamData}
+                setMergedExamData={setMergedExamData}
+              />
             )}
           </>
         ) : (
@@ -1282,7 +1295,7 @@ function AnswersList({ questions }) {
   )
 }
 
-function ChartDataTab({ examData, sessionId }) {
+function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMergedExamData }) {
   /**
    * Hiển thị dữ liệu biểu đồ từ tất cả câu hỏi ở dạng bảng
    * Dữ liệu có cấu trúc: {
@@ -1296,11 +1309,30 @@ function ChartDataTab({ examData, sessionId }) {
   const [editValues, setEditValues] = useState({})
   const [chartType, setChartType] = useState({}) // Track chart type changes
   const [editMetadata, setEditMetadata] = useState({}) // Track metadata changes (source, title, xAxis, yAxis)
+  const [chartCache, setChartCache] = useState({}) // Cache để lưu updated chart data
+  const [cacheTimestamp, setCacheTimestamp] = useState({}) // Track when cache was updated
+
+  // Không clear cache ngay khi examData thay đổi - chỉ clear nó khi có edit mới
+  // Cách này đảm bảo UI hiển thị data mới ngay lập tức sau khi save
+  useEffect(() => {
+    // Chỉ clear cache nếu đó là một full reload (khi cacheTimestamp rất cũ)
+    const now = Date.now()
+    Object.entries(cacheTimestamp).forEach(([key, timestamp]) => {
+      // Clear cache entries sau 5 giây nếu không có edit mới
+      if (now - timestamp > 5000) {
+        setChartCache(prev => {
+          const updated = { ...prev }
+          delete updated[key]
+          return updated
+        })
+      }
+    })
+  }, [cacheTimestamp])
 
   // Hàm lấy tất cả dữ liệu biểu đồ từ các câu hỏi
   const getAllChartData = () => {
     const chartDataList = []
-    const questions = examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
+    const questions = mergedExamData?.questions || examData?.questions || { TN: [], DS: [], TLN: [], TL: [] }
 
     const processQuestion = (q, type, idx) => {
       // Kiểm tra question_stem có chứa biểu đồ không
@@ -1313,14 +1345,18 @@ function ChartDataTab({ examData, sessionId }) {
             if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
               const chartContent = item.content
               if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
-                chartDataList.push({
+                const cacheKey = `${type}_${q.question_code}`
+                // Ưu tiên lấy data từ cache nếu có (data mới nhất đã update)
+                const cachedChart = chartCache[cacheKey]
+                const chartData = cachedChart || {
                   question_code: q.question_code,
                   question_type: type,
                   chart_type: chartContent.chartType,
                   echarts: chartContent.echarts,
                   chart_raw_data: chartContent.chart_raw_data,
                   metadata: item.metadata || {}
-                })
+                }
+                chartDataList.push(chartData)
               }
             }
           })
@@ -1333,14 +1369,18 @@ function ChartDataTab({ examData, sessionId }) {
         if (q.content.type === 'chart' && q.content.content) {
           const chartContent = q.content.content
           if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
-            chartDataList.push({
+            const cacheKey = `${type}_${q.question_code}`
+            // Ưu tiên lấy data từ cache nếu có (data mới nhất đã update)
+            const cachedChart = chartCache[cacheKey]
+            const chartData = cachedChart || {
               question_code: q.question_code,
               question_type: type,
               chart_type: chartContent.chartType,
               echarts: chartContent.echarts,
               chart_raw_data: chartContent.chart_raw_data,
               metadata: q.content.metadata || {}
-            })
+            }
+            chartDataList.push(chartData)
           }
         }
       }
@@ -1414,44 +1454,48 @@ function ChartDataTab({ examData, sessionId }) {
   const handleSaveChart = async (chart, idx) => {
     // Save dữ liệu đã chỉnh sửa
     try {
-      // Tạo bản copy của examData để modify
-      const newExamData = JSON.parse(JSON.stringify(examData))
-      
-      // Tìm và update dữ liệu chart trong question
-      const question = newExamData.questions[chart.question_type].find(q => q.question_code === chart.question_code)
-      if (!question) {
-        throw new Error('Không tìm thấy câu hỏi')
-      }
-
       // Lấy chart type mới (nếu có)
       const newChartType = chartType[idx] || chart.chart_type
       const currentMetadata = editMetadata[idx] || {}
-
-      // Update chart_raw_data trong question_stem hoặc content
-      if (question.question_stem && question.question_stem.type === 'chart' && Array.isArray(question.question_stem.content)) {
+      
+      // Chuẩn bị chart_raw_data mới để gửi server
+      const oldOptions = (chart.chart_raw_data?.options) || {}
+      const updatedRawData = {
+        chart_type: newChartType,
+        data: editValues,  // {series, categories}
+        options: {
+          ...oldOptions,
+          title: currentMetadata.title || oldOptions.title,
+          source: currentMetadata.source || oldOptions.source,
+          x_axis_unit: currentMetadata.xAxisName || oldOptions.x_axis_unit,
+          y_axis_left_unit: currentMetadata.yAxisName || oldOptions.y_axis_left_unit
+        }
+      }
+      
+      // Gọi API server để update chart (server sẽ regenerate echarts + save file)
+      const result = await updateChartData(
+        sessionId,
+        chart.question_type,
+        chart.question_code,
+        updatedRawData
+      )
+      
+      console.log('Chart update result:', result)
+      
+      // Cập nhật mergedExamData ngay lập tức để UI re-render với data mới
+      const updatedExamData = JSON.parse(JSON.stringify(mergedExamData || examData))
+      const question = updatedExamData?.questions?.[chart.question_type]?.find(q => q.question_code === chart.question_code)
+      
+      if (question && question.question_stem && Array.isArray(question.question_stem.content)) {
         question.question_stem.content = question.question_stem.content.map(item => {
           if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
-            // Lấy options cũ từ chart_raw_data
-            const oldOptions = (chart.chart_raw_data?.options) || {}
-            
-            // Merge metadata vào options nested trong chart_raw_data
-            const updatedRawData = {
-              chart_type: newChartType,
-              data: editValues,  // editValues chỉ chứa {series, categories}
-              options: {
-                ...oldOptions,
-                title: currentMetadata.title || oldOptions.title,
-                source: currentMetadata.source || oldOptions.source,
-                xAxisName: currentMetadata.xAxisName || oldOptions.xAxisName,
-                yAxisName: currentMetadata.yAxisName || oldOptions.yAxisName
-              }
-            }
             return {
               ...item,
               content: {
                 ...item.content,
-                chartType: newChartType,
-                chart_raw_data: updatedRawData
+                chartType: result.chartType,
+                echarts: result.echarts,
+                chart_raw_data: result.chart_raw_data
               }
             }
           }
@@ -1459,10 +1503,30 @@ function ChartDataTab({ examData, sessionId }) {
         })
       }
       
-      // Gọi callback để lưu lên parent
-      if (onDataChange) {
-        onDataChange(newExamData, false)
+      // Update local merged state để UI render ngay
+      setMergedExamData(updatedExamData)
+      
+      // Gọi callback để update parent (localStorage)
+      if (typeof onDataChange === 'function') {
+        onDataChange(updatedExamData, false)
       }
+      
+      // Update local cache để ensure consistent display
+      const cacheKey = `${chart.question_type}_${chart.question_code}`
+      const updatedChart = {
+        ...chart,
+        chart_type: result.chartType,
+        echarts: result.echarts,
+        chart_raw_data: result.chart_raw_data
+      }
+      setChartCache({
+        ...chartCache,
+        [cacheKey]: updatedChart
+      })
+      setCacheTimestamp({
+        ...cacheTimestamp,
+        [cacheKey]: Date.now()
+      })
       
       setEditingChart(null)
       // Reset chartType về giá trị ban đầu sau khi lưu
@@ -1473,8 +1537,14 @@ function ChartDataTab({ examData, sessionId }) {
       const newMetadata = { ...editMetadata }
       delete newMetadata[idx]
       setEditMetadata(newMetadata)
+      
+      // Đợi localStorage update hoàn tất
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      alert('Đã cập nhật dữ liệu biểu đồ thành công')
     } catch (err) {
-      alert('Lỗi khi lưu dữ liệu: ' + err.message)
+      console.error('Error in handleSaveChart:', err)
+      alert('Lỗi khi lưu dữ liệu: ' + (err.message || 'Lỗi không xác định'))
     }
   }
 
@@ -1505,9 +1575,6 @@ function ChartDataTab({ examData, sessionId }) {
               <span className={`px-2 py-1 text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)} rounded`}>
                 {chart.chart_type.toUpperCase()}
               </span>
-              {chart.metadata.source && (
-                <span className="text-sm text-gray-600 italic">Nguồn: {chart.metadata.source}</span>
-              )}
             </div>
 
             {/* Edit/Save Buttons */}
@@ -1621,7 +1688,7 @@ function ChartDataTab({ examData, sessionId }) {
                   {/* XAxis Name - chỉ hiển thị nếu chart type không phải Pie */}
                   {(chartType[idx] || chart.chart_type) !== 'pie' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">Tên trục X:</label>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Giá trị trục X:</label>
                     <input
                       type="text"
                       value={editMetadata[idx]?.xAxisName ?? ''}
@@ -1640,7 +1707,7 @@ function ChartDataTab({ examData, sessionId }) {
                   {/* YAxis Name - chỉ hiển thị nếu chart type không phải Pie */}
                   {(chartType[idx] || chart.chart_type) !== 'pie' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">Tên trục Y:</label>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Giá trị trục Y:</label>
                     <input
                       type="text"
                       value={editMetadata[idx]?.yAxisName ?? ''}
@@ -1669,7 +1736,7 @@ function ChartDataTab({ examData, sessionId }) {
                   )}
                 </>
               ) : (
-                <p className="text-sm text-gray-500">Không có dữ liệu raw để hiển thị</p>
+                <p className="text-sm text-gray-500">Không có dữ liệu...</p>
               )}
             </div>
           )}

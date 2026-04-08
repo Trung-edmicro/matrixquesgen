@@ -71,6 +71,11 @@ export default function ManageExamsPage() {
     setViewingExam(null)
   }
 
+  const handleChartDataChange = (newData) => {
+    // Cập nhật viewingExam khi chart được thay đổi
+    setViewingExam(newData)
+  }
+
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
     return date.toLocaleString('vi-VN')
@@ -183,7 +188,8 @@ export default function ManageExamsPage() {
               <ExamPreviewPanel 
                 examData={viewingExam}
                 isGenerating={false}
-                sessionId={null}
+                sessionId={selectedSession}
+                onDataChange={handleChartDataChange}
               />
             </div>
           </div>

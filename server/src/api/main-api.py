@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Use absolute imports
-from api.routes import generate, questions, export, google_drive, regenerate, images, update as update_route
+from api.routes import generate, questions, export, google_drive, regenerate, images, update as update_route, chart_regenerate
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
 from api.routes.export import routerEnglish
@@ -50,6 +50,7 @@ app.include_router(questions.router)
 app.include_router(export.router)
 app.include_router(google_drive.router)
 app.include_router(regenerate.router)
+app.include_router(chart_regenerate.router)
 app.include_router(routerEnglish)
 # Include new feature routers
 app.include_router(images.router)        # Image generation API

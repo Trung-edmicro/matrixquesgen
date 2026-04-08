@@ -1000,6 +1000,233 @@ class DocxGenerator:
             print(f"✗ Lỗi khi lưu file: {str(e)}")
             raise
     
+    def _add_chart_data_section(self, json_data: Dict):
+        """
+        Thêm phần dữ liệu biểu đồ vào cuối document
+        Iterate qua tất cả các câu hỏi để tìm chart_raw_data
+        Sắp xếp theo thứ tự question_code: C1, C2, C3, ...
+        """
+        questions_data = json_data.get('questions', {})
+        all_charts = []
+        
+        # Quét tất cả các loại câu hỏi
+        for question_type in ['TN', 'DS', 'TLN', 'TL']:
+            questions = questions_data.get(question_type, [])
+            
+            for question in questions:
+                question_code = question.get('question_code', 'N/A')
+                chart_data = self._extract_chart_data_from_question(question)
+                
+                if chart_data:
+                    all_charts.append({
+                        'question_code': question_code,
+                        'chart_data': chart_data
+                    })
+        
+        # ✨ Sort theo question_code (C1, C2, C3, ...)
+        try:
+            all_charts.sort(key=lambda x: int(x['question_code'][1:]))
+        except (ValueError, IndexError):
+            pass  # Giữ thứ tự ban đầu nếu không thể sort
+        
+        # Nếu có biểu đồ, thêm vào document
+        if all_charts:
+            self.add_page_break()
+            self.add_heading('DỮ LIỆU BIỂU ĐỒ', level=1, alignment='center')
+            self.add_paragraph('')
+            
+            for idx, chart_info in enumerate(all_charts, 1):
+                question_code = chart_info['question_code']
+                chart_raw_data = chart_info['chart_data']
+                
+                try:
+                    self._add_chart_data_table(question_code, chart_raw_data, idx)
+                except Exception as e:
+                    if self.verbose:
+                        print(f"❌ Lỗi thêm dữ liệu biểu đồ {question_code}: {e}")
+    
+    def _extract_chart_data_from_question(self, question: Dict) -> Optional[Dict]:
+        """
+        Trích xuất chart_raw_data từ một câu hỏi
+        Kiểm tra trong question_stem và content
+        """
+        # Kiểm tra question_stem
+        question_stem = question.get('question_stem', {})
+        if isinstance(question_stem, dict) and question_stem.get('type') == 'chart':
+            content_list = question_stem.get('content', [])
+            
+            for item in content_list:
+                if isinstance(item, dict) and item.get('type') == 'chart':
+                    chart_content = item.get('content', {})
+                    if chart_content and chart_content.get('chart_raw_data'):
+                        return chart_content['chart_raw_data']
+        
+        # Kiểm tra content của câu hỏi (nếu có)
+        content = question.get('content', {})
+        if isinstance(content, dict) and content.get('type') == 'chart':
+            chart_content = content.get('content', {})
+            if chart_content and chart_content.get('chart_raw_data'):
+                return chart_content['chart_raw_data']
+        
+        # Kiểm tra choices
+        choices = question.get('choices', [])
+        for choice in choices:
+            if isinstance(choice, dict) and choice.get('content'):
+                choice_content = choice.get('content', {})
+                if isinstance(choice_content, dict) and choice_content.get('type') == 'chart':
+                    chart_content = choice_content.get('content', {})
+                    if chart_content and chart_content.get('chart_raw_data'):
+                        return chart_content['chart_raw_data']
+        
+        return None
+    
+    def _add_chart_data_table(self, question_code: str, chart_raw_data: Dict, chart_index: int):
+        """
+        Thêm bảng dữ liệu cho một biểu đồ
+        Xử lý đặc biệt cho Pie charts (không có categories)
+        """
+        try:
+            # Lấy thông tin biểu đồ
+            chart_type = chart_raw_data.get('chart_type', 'bar')
+            data = chart_raw_data.get('data', {})
+            options = chart_raw_data.get('options', {})
+            
+            series = data.get('series', [])
+            categories = data.get('categories', [])
+            
+            title = options.get('title', f'Biểu đồ {question_code}')
+            source = options.get('source', '')
+            
+            # Heading cho biểu đồ
+            self.add_heading(f"{question_code}: {title}", level=3)
+            
+            # ✨ Xử lý đặc biệt cho Pie charts
+            if chart_type == 'pie':
+                return self._add_pie_chart_data_table(series, source)
+            
+            # Xử lý cho Bar/Line/Area/Combo charts
+            x_axis_name = options.get('x_axis_unit', 'Danh mục')  # ✨ Lấy từ options
+            
+            # Nếu không có series hoặc categories, skip
+            if not series or not categories:
+                self.add_paragraph("(Không có dữ liệu)")
+                return
+            
+            # Tạo headers: X-axis name + tên các series
+            headers = [x_axis_name]  # ✨ Dùng x_axis_name thay vì "Danh mục"
+            for s in series:
+                series_name = s.get('name', 'Series')
+                unit = s.get('unit', '')
+                header_text = f"{series_name} ({unit})" if unit else series_name
+                headers.append(header_text)
+            
+            # Tạo bảng
+            table = self.document.add_table(rows=len(categories) + 1, cols=len(headers))
+            table.style = 'Table Grid'
+            
+            # Thêm header row
+            header_cells = table.rows[0].cells
+            for col_idx, header in enumerate(headers):
+                header_cells[col_idx].text = header
+                # Format header (bold)
+                for paragraph in header_cells[col_idx].paragraphs:
+                    for run in paragraph.runs:
+                        run.bold = True
+            
+            # Thêm dữ liệu rows
+            for row_idx, category in enumerate(categories, start=1):
+                row = table.rows[row_idx]
+                row.cells[0].text = str(category)
+                
+                # Thêm dữ liệu từ các series
+                for col_idx, s in enumerate(series, start=1):
+                    series_data = s.get('data', [])
+                    if row_idx - 1 < len(series_data):
+                        cell_value = series_data[row_idx - 1]
+                        row.cells[col_idx].text = str(cell_value)
+            
+            # Thêm source nếu có
+            if source:
+                self.add_paragraph(f"Nguồn: {source}", italic=True)
+            
+            self.add_paragraph('')  # Khoảng cách
+            
+        except Exception as e:
+            if self.verbose:
+                print(f"❌ Error adding chart table {question_code}: {e}")
+            self.add_paragraph(f"Lỗi hiển thị dữ liệu biểu đồ {question_code}")
+    
+    def _add_pie_chart_data_table(self, series: List[Dict], source: str):
+        """
+        Xử lý đặc biệt cho Pie charts
+        Pie chart có cấu trúc: series[i] = {name, data: [...], unit}
+        data là danh sách các giá trị của từng pie
+        """
+        try:
+            if not series:
+                self.add_paragraph("(Không có dữ liệu)")
+                return
+            
+            # Pie charts có thể có nhiều pies (2 pies common)
+            # Mỗi pie là một series với name + data
+            for series_idx, s in enumerate(series):
+                series_name = s.get('name', f'Pie {series_idx + 1}')
+                data = s.get('data', [])
+                unit = s.get('unit', '%')
+                
+                # Nếu data rỗng, skip
+                if not data:
+                    continue
+                
+                # Tạo heading phụ cho pie này
+                if len(series) > 1:
+                    self.add_heading(f"  {series_name}", level=4)
+                
+                # Tạo bảng cho pie này
+                # Headers: Danh mục | Giá trị (%)
+                headers = ['Danh mục', f'Giá trị ({unit})']
+                
+                table = self.document.add_table(rows=len(data) + 1, cols=2)
+                table.style = 'Table Grid'
+                
+                # Header row
+                header_cells = table.rows[0].cells
+                header_cells[0].text = headers[0]
+                header_cells[1].text = headers[1]
+                for cell in header_cells:
+                    for paragraph in cell.paragraphs:
+                        for run in paragraph.runs:
+                            run.bold = True
+                
+                # Data rows
+                for row_idx, item in enumerate(data, start=1):
+                    row = table.rows[row_idx]
+                    
+                    # Pie data có thể là số hoặc object {name, value}
+                    if isinstance(item, dict):
+                        item_name = item.get('name', f'Item {row_idx}')
+                        item_value = item.get('value', 0)
+                    else:
+                        # Nếu chỉ là số, tự tạo tên
+                        item_name = f'Item {row_idx}'
+                        item_value = item
+                    
+                    row.cells[0].text = str(item_name)
+                    row.cells[1].text = str(item_value)
+                
+                self.add_paragraph('')  # Khoảng cách
+            
+            # Thêm source nếu có
+            if source:
+                self.add_paragraph(f"Nguồn: {source}", italic=True)
+            
+            self.add_paragraph('')  # Khoảng cách
+            
+        except Exception as e:
+            if self.verbose:
+                print(f"❌ Error in pie chart table: {e}")
+            self.add_paragraph("Lỗi hiển thị dữ liệu Pie chart")
+    
     def generate_questions_document(self, 
                                    json_data: Union[Dict, str],
                                    output_path: str,
@@ -1144,6 +1371,9 @@ class DocxGenerator:
             
             for idx, q in enumerate(tl_questions_sorted, 1):
                 self._add_tl_answer(q, idx)
+        
+        # Thêm dữ liệu biểu đồ nếu có
+        self._add_chart_data_section(json_data)
         
         # Lưu file
         self.save(output_path)
