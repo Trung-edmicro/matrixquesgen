@@ -176,7 +176,7 @@ def generate_pie_chart(data):
     # Main title - nâng cao lên dưới pie
     titles.append({
         'text': user_options.get('title', ''),
-        'subtext': user_options.get('subtitle', ''),
+        # 'subtext': user_options.get('subtitle', ''),
         'left': 'center',
         'bottom': '18%',  # Đặt phía dưới pie
         'textStyle': {

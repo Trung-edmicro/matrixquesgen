@@ -175,7 +175,7 @@ def generate_area_chart(data):
         },
         'title': {
             'text': user_options.get('title', ''),
-            'subtext': user_options.get('subtitle', ''),
+            # 'subtext': user_options.get('subtitle', ''),
             'left': 'center',
             'bottom': '8%',
             'textStyle': {

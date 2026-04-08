@@ -258,8 +258,14 @@ class QuestionGenerator:
             print(f"   ✅ Convert thành ECharts option thành công")
         
         # ✅ Return cả chart data (raw) và echarts (processed)
+        # Giữ cấu trúc chuẩn: {chart_type, data, options}
         return {
-            'data': chart_data.get('data', {}),  # Raw data: series, categories
+            'chartType': chart_type,
+            'chartData': {  # chart_raw_data sẽ lưu toàn bộ structure này
+                'chart_type': chart_type,
+                'data': chart_data.get('data', {}),  # {series, categories}
+                'options': chart_data.get('options', {})  # {title, source, x_axis_unit, y_axis_left_unit, ...}
+            },
             'echarts': echarts_option
         }
     
@@ -367,16 +373,18 @@ class QuestionGenerator:
                                 raise
                     
                     if echarts_option:
-                        # echarts_option giờ là dict: {'data': {...}, 'echarts': {...}}
-                        chart_raw_data = echarts_option.get('data', {})
+                        # echarts_option là dict: {'chartType': ..., 'chartData': {...}, 'echarts': {...}}
+                        chart_raw_data = echarts_option.get('chartData', {})
                         echarts_config = echarts_option.get('echarts', {})
+                        chart_type_value = echarts_option.get('chartType', chart_type)
                         
                         # Store chart với question_code làm ID
+                        # ✅ Cấu trúc này khớp với cái mà merge_chart_into_question() mong đợi
                         charts_map[question_code] = {
                             'chart_id': question_code,
                             'title': f"Chart cho {question_code}",
-                            'chartType': chart_type,
-                            'data': chart_raw_data,  # ✅ Lưu raw data
+                            'chartType': chart_type_value,
+                            'chartData': chart_raw_data,  # ✅ Key chính xác: chartData
                             'echarts': echarts_config
                         }
                 

@@ -131,7 +131,7 @@ def generate_line_chart(data):
         },
         'title': {
             'text': user_options.get('title', ''),
-            'subtext': user_options.get('subtitle', ''),
+            # 'subtext': user_options.get('subtitle', ''),
             'left': 'center',
             'bottom': '8%',
             'textStyle': {
@@ -154,11 +154,9 @@ def generate_line_chart(data):
             'show': user_options.get('show_legend', True) and len(series_list) > 1,
             'bottom': '18%',
             'left': 'center',
-            'icon': "rect",
             'textStyle': {
                 'fontSize': 14,
                 'fontWeight': 'bold'
-
             }
         },
         'grid': {

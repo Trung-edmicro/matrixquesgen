@@ -865,30 +865,43 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
           const ctx = canvas.getContext('2d')
           const connectorConfig = resolvedOptions._draw_connector_line
 
-          console.log("connectorConfig", connectorConfig);
-          
-          
-          // Lấy toạ độ từ backend (đã tính sẵn)
-          const yAxisLine = connectorConfig.axis_line_y || (actualCanvasHeight - 180)
-          const ySymbolOffset = connectorConfig.symbol_offset_y || 40
-          const tickLength = connectorConfig.tick_length || 5
-          const gridRight = (resolvedOptions.grid?.right) || 120
-          
-          // Vị trí x: ở cạnh phải (nơi mũi tên được vẽ)
-          const xPos = actualCanvasWidth - gridRight - 1
-          
-          // Vị trí tick mark: axisLine + symbolOffset y
-          const yTickPos = yAxisLine + ySymbolOffset
-          
-          // Vẽ tick mark nằm ngang từ bên trái tới mũi tên
-          ctx.strokeStyle = '#000'
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.moveTo(xPos - tickLength, yTickPos)
-          ctx.lineTo(xPos, yTickPos)
-          ctx.stroke()
-          
-          console.log(`✏️  [ComboChart] Drew tick mark at y=${yTickPos} (axis_line=${yAxisLine} + offset=${ySymbolOffset})`)
+          try {
+            // Lấy thông số từ config
+            const ySymbolOffset = connectorConfig.symbol_offset_y || 40
+            const tickLength = 40
+            const gridRight = (resolvedOptions.grid?.right) || 220
+            
+            // ✨ Use ECharts convertToPixel để lấy vị trí chính xác của trục hoành
+            const yAxisOption = resolvedOptions.yAxis[0] // Left Y-axis
+            const yAxisMin = yAxisOption.min || 0
+            
+            // convertToPixel([categoryIndex, yValue]) → [pixelX, pixelY]
+            // Dùng category index 0 (cột đầu tiên) để lấy vị trí
+            const pixelPos = chartInstance.convertToPixel(
+              { gridIndex: 0 }, 
+              [0, yAxisMin]  // Category 0, Y-value = yAxisMin (đáy của grid)
+            )
+            
+            const yAxisLine = pixelPos[1] // Y-pixel position của trục hoành
+            
+            // Vị trí x: ở cạnh phải (nơi mũi tên được vẽ)
+            const xPos = actualCanvasWidth - gridRight
+            
+            // Vị trí y của mũi tên (trục hoành + symbolOffset)
+            const yArrowTip = yAxisLine + ySymbolOffset
+            
+            // Vẽ đường kẻ ngang từ bên trái tới mũi tên
+            ctx.strokeStyle = '#000'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(xPos - tickLength, yArrowTip)
+            ctx.lineTo(xPos, yArrowTip)
+            ctx.stroke()
+            
+            console.log(`✏️ [ComboChart] Drew horizontal connector at y=${yArrowTip} (axis_line=${yAxisLine} + offset=${ySymbolOffset})`)
+          } catch (err) {
+            console.warn('⚠️ Failed to draw connector line:', err)
+          }
         }
         
         // 7️⃣ ✨ NEW: Crop canvas to remove white margins + trim to target size

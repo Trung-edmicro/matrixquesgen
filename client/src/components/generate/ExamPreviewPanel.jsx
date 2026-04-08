@@ -426,7 +426,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
               <AnswersList questions={questions} />
             )}
             {activeTab === 'chart_data' && (
-              <ChartDataTab examData={editedData || examData} />
+              <ChartDataTab examData={editedData || examData} onDataChange={onDataChange} sessionId={sessionId} />
             )}
           </>
         ) : (
@@ -1282,7 +1282,7 @@ function AnswersList({ questions }) {
   )
 }
 
-function ChartDataTab({ examData }) {
+function ChartDataTab({ examData, sessionId }) {
   /**
    * Hiển thị dữ liệu biểu đồ từ tất cả câu hỏi ở dạng bảng
    * Dữ liệu có cấu trúc: {
@@ -1292,6 +1292,10 @@ function ChartDataTab({ examData }) {
    * }
    */
   const [expandedChart, setExpandedChart] = useState(null)
+  const [editingChart, setEditingChart] = useState(null)
+  const [editValues, setEditValues] = useState({})
+  const [chartType, setChartType] = useState({}) // Track chart type changes
+  const [editMetadata, setEditMetadata] = useState({}) // Track metadata changes (source, title, xAxis, yAxis)
 
   // Hàm lấy tất cả dữ liệu biểu đồ từ các câu hỏi
   const getAllChartData = () => {
@@ -1349,10 +1353,27 @@ function ChartDataTab({ examData }) {
       })
     })
 
-    return chartDataList
+    // Sort by question_code (C1, C2, C3...)
+    return chartDataList.sort((a, b) => {
+      const numA = parseInt(a.question_code.replace(/\D/g, '')) || 999
+      const numB = parseInt(b.question_code.replace(/\D/g, '')) || 999
+      return numA - numB
+    })
   }
 
   const chartDataList = getAllChartData()
+
+  // Helper function để xác định màu badge dựa theo loại biểu đồ
+  const getChartTypeBadgeColor = (chartType) => {
+    const colors = {
+      pie: 'bg-purple-100 text-purple-700',
+      bar: 'bg-blue-100 text-blue-700',
+      line: 'bg-green-100 text-green-700',
+      area: 'bg-yellow-100 text-yellow-700',
+      combo: 'bg-orange-100 text-orange-700'
+    }
+    return colors[chartType] || 'bg-primary-100 text-primary-700'
+  }
 
   if (chartDataList.length === 0) {
     return (
@@ -1362,45 +1383,289 @@ function ChartDataTab({ examData }) {
     )
   }
 
+  const handleEditClick = (idx) => {
+    setEditingChart(editingChart === idx ? null : idx)
+    if (editingChart !== idx) {
+      // Initialize edit values khi bắt đầu edit
+      const chart = chartDataList[idx]
+      const rawData = chart.chart_raw_data || {}
+      const data = rawData.data || {}  // Phần dữ liệu có thể chỉnh sửa
+      const options = rawData.options || {}  // Phần metadata
+      
+      // Chỉ set editValues từ data (phần thay đổi được)
+      setEditValues(data)
+      
+      setChartType({
+        ...chartType,
+        [idx]: chart.chart_type
+      })
+      // Initialize metadata từ options
+      const newMetadata = { ...editMetadata }
+      newMetadata[idx] = {
+        source: options.source || '',
+        title: options.title || '',
+        xAxisName: options.x_axis_unit || '',
+        yAxisName: chart.chart_type === 'pie' ? '' : (data.series?.[0]?.unit || '')  // Pie chart không có trục Y
+      }
+      setEditMetadata(newMetadata)
+    }
+  }
+
+  const handleSaveChart = async (chart, idx) => {
+    // Save dữ liệu đã chỉnh sửa
+    try {
+      // Tạo bản copy của examData để modify
+      const newExamData = JSON.parse(JSON.stringify(examData))
+      
+      // Tìm và update dữ liệu chart trong question
+      const question = newExamData.questions[chart.question_type].find(q => q.question_code === chart.question_code)
+      if (!question) {
+        throw new Error('Không tìm thấy câu hỏi')
+      }
+
+      // Lấy chart type mới (nếu có)
+      const newChartType = chartType[idx] || chart.chart_type
+      const currentMetadata = editMetadata[idx] || {}
+
+      // Update chart_raw_data trong question_stem hoặc content
+      if (question.question_stem && question.question_stem.type === 'chart' && Array.isArray(question.question_stem.content)) {
+        question.question_stem.content = question.question_stem.content.map(item => {
+          if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
+            // Lấy options cũ từ chart_raw_data
+            const oldOptions = (chart.chart_raw_data?.options) || {}
+            
+            // Merge metadata vào options nested trong chart_raw_data
+            const updatedRawData = {
+              chart_type: newChartType,
+              data: editValues,  // editValues chỉ chứa {series, categories}
+              options: {
+                ...oldOptions,
+                title: currentMetadata.title || oldOptions.title,
+                source: currentMetadata.source || oldOptions.source,
+                xAxisName: currentMetadata.xAxisName || oldOptions.xAxisName,
+                yAxisName: currentMetadata.yAxisName || oldOptions.yAxisName
+              }
+            }
+            return {
+              ...item,
+              content: {
+                ...item.content,
+                chartType: newChartType,
+                chart_raw_data: updatedRawData
+              }
+            }
+          }
+          return item
+        })
+      }
+      
+      // Gọi callback để lưu lên parent
+      if (onDataChange) {
+        onDataChange(newExamData, false)
+      }
+      
+      setEditingChart(null)
+      // Reset chartType về giá trị ban đầu sau khi lưu
+      const newChartType_ = { ...chartType }
+      delete newChartType_[idx]
+      setChartType(newChartType_)
+      // Reset metadata
+      const newMetadata = { ...editMetadata }
+      delete newMetadata[idx]
+      setEditMetadata(newMetadata)
+    } catch (err) {
+      alert('Lỗi khi lưu dữ liệu: ' + err.message)
+    }
+  }
+
+  const handleCancelEdit = (idx) => {
+    setEditingChart(null)
+    setEditValues({})
+    // Reset chartType về giá trị ban đầu khi hủy
+    const newChartType_ = { ...chartType }
+    delete newChartType_[idx]
+    setChartType(newChartType_)
+    // Reset metadata
+    const newMetadata = { ...editMetadata }
+    delete newMetadata[idx]
+    setEditMetadata(newMetadata)
+  }
+
   return (
     <div className="space-y-6">
       {chartDataList.map((chart, idx) => (
         <div key={`${chart.question_code}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden">
           {/* Header */}
-          <div
-            className="bg-gray-50 px-4 py-3 cursor-pointer hover:bg-gray-100 flex items-center justify-between"
-            onClick={() => setExpandedChart(expandedChart === idx ? null : idx)}
-          >
-            <div className="flex items-center gap-3">
+          <div className="bg-gray-50 px-4 py-3 hover:bg-gray-100 flex items-center justify-between">
+            <div
+              className="flex items-center gap-3 flex-1 cursor-pointer"
+              onClick={() => setExpandedChart(expandedChart === idx ? null : idx)}
+            >
               <span className="font-medium text-gray-900">{chart.question_code}</span>
-              <span className="px-2 py-1 text-xs font-medium bg-primary-100 text-primary-700 rounded">
+              <span className={`px-2 py-1 text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)} rounded`}>
                 {chart.chart_type.toUpperCase()}
               </span>
               {chart.metadata.source && (
                 <span className="text-sm text-gray-600 italic">Nguồn: {chart.metadata.source}</span>
               )}
             </div>
-            <svg
-              className={`w-5 h-5 text-gray-600 transition-transform ${expandedChart === idx ? 'transform rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
+
+            {/* Edit/Save Buttons */}
+            <div className="flex items-center gap-2">
+              {editingChart === idx && (
+                <>
+                  <button
+                    onClick={() => handleSaveChart(chart, idx)}
+                    className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => handleCancelEdit(idx)}
+                    className="px-3 py-1 text-xs font-medium bg-gray-400 text-white rounded hover:bg-gray-500"
+                  >
+                    Hủy
+                  </button>
+                </>
+              )}
+              {editingChart !== idx && (
+                <button
+                  onClick={() => handleEditClick(idx)}
+                  className="px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Sửa
+                </button>
+              )}
+
+              {/* Expand/Collapse Arrow */}
+              <svg
+                className={`w-5 h-5 text-gray-600 transition-transform cursor-pointer ${expandedChart === idx ? 'transform rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                onClick={() => setExpandedChart(expandedChart === idx ? null : idx)}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </div>
           </div>
 
           {/* Content */}
           {expandedChart === idx && (
             <div className="px-4 py-4 border-t border-gray-200 bg-white">
+              {/* Edit Toolbar */}
+              {editingChart === idx && (
+                <div className="mb-4 pb-4 border-b border-gray-300 space-y-3">
+                  {/* Chart Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">Loại biểu đồ:</label>
+                    <select
+                      value={chartType[idx] || chart.chart_type}
+                      onChange={(e) => {
+                        const newType = e.target.value
+                        setChartType({ ...chartType, [idx]: newType })
+                        // Auto-update yAxisName khi thay đổi chart type
+                        const rawData = chartDataList[idx]?.chart_raw_data || {}
+                        const data = rawData.data || {}
+                        const newMetadata = { ...editMetadata }
+                        newMetadata[idx] = {
+                          ...newMetadata[idx],
+                          yAxisName: newType === 'pie' ? '' : (data.series?.[0]?.unit || '')
+                        }
+                        setEditMetadata(newMetadata)
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm w-full"
+                    >
+                      <option value="pie">Pie</option>
+                      <option value="bar">Bar</option>
+                      <option value="line">Line</option>
+                      <option value="area">Area</option>
+                      <option value="combo">Combo</option>
+                    </select>
+                  </div>
+
+                  {/* Source */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Nguồn:</label>
+                    <input
+                      type="text"
+                      value={editMetadata[idx]?.source ?? ''}
+                      onChange={(e) => {
+                        const newMetadata = { ...editMetadata }
+                        if (!newMetadata[idx]) newMetadata[idx] = { source: '', title: '', xAxisName: '', yAxisName: '' }
+                        newMetadata[idx].source = e.target.value
+                        setEditMetadata(newMetadata)
+                      }}
+                      placeholder="VD: Sách giáo khoa lớp 10"
+                      className="px-3 py-2 border border-gray-300 rounded text-sm w-full"
+                    />
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Tiêu đề:</label>
+                    <input
+                      type="text"
+                      value={editMetadata[idx]?.title ?? ''}
+                      onChange={(e) => {
+                        const newMetadata = { ...editMetadata }
+                        if (!newMetadata[idx]) newMetadata[idx] = { source: '', title: '', xAxisName: '', yAxisName: '' }
+                        newMetadata[idx].title = e.target.value
+                        setEditMetadata(newMetadata)
+                      }}
+                      placeholder="VD: Doanh số bán hàng năm 2023"
+                      className="px-3 py-2 border border-gray-300 rounded text-sm w-full"
+                    />
+                  </div>
+
+                  {/* XAxis Name - chỉ hiển thị nếu chart type không phải Pie */}
+                  {(chartType[idx] || chart.chart_type) !== 'pie' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Tên trục X:</label>
+                    <input
+                      type="text"
+                      value={editMetadata[idx]?.xAxisName ?? ''}
+                      onChange={(e) => {
+                        const newMetadata = { ...editMetadata }
+                        if (!newMetadata[idx]) newMetadata[idx] = { source: '', title: '', xAxisName: '', yAxisName: '' }
+                        newMetadata[idx].xAxisName = e.target.value
+                        setEditMetadata(newMetadata)
+                      }}
+                      placeholder="VD: Tháng"
+                      className="px-3 py-2 border border-gray-300 rounded text-sm w-full"
+                    />
+                  </div>
+                  )}
+
+                  {/* YAxis Name - chỉ hiển thị nếu chart type không phải Pie */}
+                  {(chartType[idx] || chart.chart_type) !== 'pie' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">Tên trục Y:</label>
+                    <input
+                      type="text"
+                      value={editMetadata[idx]?.yAxisName ?? ''}
+                      onChange={(e) => {
+                        const newMetadata = { ...editMetadata }
+                        if (!newMetadata[idx]) newMetadata[idx] = { source: '', title: '', xAxisName: '', yAxisName: '' }
+                        newMetadata[idx].yAxisName = e.target.value
+                        setEditMetadata(newMetadata)
+                      }}
+                      placeholder="VD: Triệu đồng"
+                      className="px-3 py-2 border border-gray-300 rounded text-sm w-full"
+                    />
+                  </div>
+                  )}
+                </div>
+              )}
+
               {chart.chart_raw_data ? (
                 <>
-                  {chart.chart_type === 'pie' ? (
-                    <PieChartDataTable rawData={chart.chart_raw_data} />
-                  ) : chart.chart_type === 'combo' ? (
-                    <ComboChartDataTable rawData={chart.chart_raw_data} />
+                  {(chartType[idx] || chart.chart_type) === 'pie' ? (
+                    <PieChartDataTable rawData={editingChart === idx ? editValues : chart.chart_raw_data.data} isEditing={editingChart === idx} onEdit={setEditValues} />
+                  ) : (chartType[idx] || chart.chart_type) === 'combo' ? (
+                    <ComboChartDataTable rawData={editingChart === idx ? editValues : chart.chart_raw_data.data} echarts={chart.echarts} isEditing={editingChart === idx} onEdit={setEditValues} />
                   ) : (
-                    <StandardChartDataTable rawData={chart.chart_raw_data} chart_type={chart.chart_type} />
+                    <StandardChartDataTable rawData={editingChart === idx ? editValues : chart.chart_raw_data.data} chart_type={chartType[idx] || chart.chart_type} echarts={chart.echarts} isEditing={editingChart === idx} onEdit={setEditValues} />
                   )}
                 </>
               ) : (
@@ -1415,15 +1680,85 @@ function ChartDataTab({ examData }) {
 }
 
 // Component hiển thị dữ liệu Pie Chart
-function PieChartDataTable({ rawData }) {
+function PieChartDataTable({ rawData, isEditing, onEdit }) {
   const series = rawData?.series || []
 
+  const handleValueChange = (seriesIdx, itemIdx, newValue) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data[itemIdx].value = parseFloat(newValue) || 0
+    onEdit(newData)
+  }
+
+  const handleAddRow = (seriesIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data.push({
+      name: `Danh mục mới ${newData.series[seriesIdx].data.length + 1}`,
+      value: 0
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveRow = (seriesIdx, itemIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data.splice(itemIdx, 1)
+    onEdit(newData)
+  }
+
+  const handleAddSeries = () => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.push({
+      name: `Series mới ${newData.series.length + 1}`,
+      data: [{ name: 'Danh mục 1', value: 0 }],
+      unit: '%'
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveSeries = (seriesIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.splice(seriesIdx, 1)
+    onEdit(newData)
+  }
+
+  const handleCategoryNameChange = (seriesIdx, itemIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data[itemIdx].name = newName
+    onEdit(newData)
+  }
+
+  const handleSeriesNameChange = (seriesIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].name = newName
+    onEdit(newData)
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {series.map((s, seriesIdx) => (
-        <div key={seriesIdx}>
-          <h4 className="font-medium text-gray-900 mb-2">{s.name || `Series ${seriesIdx + 1}`}</h4>
-          <div className="overflow-x-auto">
+        <div key={seriesIdx} className="border border-gray-300 rounded p-3">
+          <div className="flex items-center justify-between mb-3">
+            {isEditing ? (
+              <input
+                type="text"
+                value={s.name}
+                onChange={(e) => handleSeriesNameChange(seriesIdx, e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded font-medium flex-1 mr-2"
+                placeholder="Series name"
+              />
+            ) : (
+              <h4 className="font-medium text-gray-900 flex-1">{s.name || `Series ${seriesIdx + 1}`}</h4>
+            )}
+            {isEditing && (
+              <button
+                onClick={() => handleRemoveSeries(seriesIdx)}
+                className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Xóa thành phần
+              </button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto mb-3">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-100 border border-gray-300">
@@ -1431,32 +1766,147 @@ function PieChartDataTable({ rawData }) {
                   <th className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300">
                     Giá trị {s.unit ? `(${s.unit})` : ''}
                   </th>
+                  {isEditing && <th className="px-3 py-2 text-center font-medium text-gray-900 border border-gray-300">Hành động</th>}
                 </tr>
               </thead>
               <tbody>
                 {(s.data || []).map((item, itemIdx) => (
                   <tr key={itemIdx} className="border border-gray-300">
-                    <td className="px-3 py-2 text-gray-700 border border-gray-300">{item.name || '-'}</td>
-                    <td className="px-3 py-2 text-right text-gray-700 border border-gray-300">{item.value || 0}</td>
+                    <td className="px-3 py-2 text-gray-700 border border-gray-300">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={item.name || ''}
+                          onChange={(e) => handleCategoryNameChange(seriesIdx, itemIdx, e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-left"
+                          placeholder="Danh mục"
+                        />
+                      ) : (
+                        item.name || '-'
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-gray-700 border border-gray-300">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={item.value || 0}
+                          onChange={(e) => handleValueChange(seriesIdx, itemIdx, e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-right"
+                          step="0.1"
+                        />
+                      ) : (
+                        item.value || 0
+                      )}
+                    </td>
+                    {isEditing && (
+                      <td className="px-3 py-2 text-center border border-gray-300">
+                        <button
+                          onClick={() => handleRemoveRow(seriesIdx, itemIdx)}
+                          className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+                        >
+                          Xóa
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {isEditing && (
+            <button
+              onClick={() => handleAddRow(seriesIdx)}
+              className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              + Thêm dòng
+            </button>
+          )}
         </div>
       ))}
+
+      {isEditing && (
+        <button
+          onClick={handleAddSeries}
+          className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          + Thêm thành phần
+        </button>
+      )}
     </div>
   )
 }
 
 // Component hiển thị dữ liệu Combo Chart
-function ComboChartDataTable({ rawData }) {
+function ComboChartDataTable({ rawData, echarts, isEditing, onEdit }) {
   const categories = rawData?.categories || []
   const series = rawData?.series || []
+  
+  // Get xAxis name từ echarts config
+  const xAxisName = echarts?.xAxis?.name || 'Danh mục'
+
+  const handleValueChange = (seriesIdx, rowIdx, newValue) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data[rowIdx] = parseFloat(newValue) || 0
+    onEdit(newData)
+  }
+
+  const handleAddCategory = () => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories.push(`Danh mục mới ${newData.categories.length + 1}`)
+    newData.series.forEach(s => {
+      s.data.push(0)
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveCategory = (catIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories.splice(catIdx, 1)
+    newData.series.forEach(s => {
+      s.data.splice(catIdx, 1)
+    })
+    onEdit(newData)
+  }
+
+  const handleCategoryNameChange = (catIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories[catIdx] = newName
+    onEdit(newData)
+  }
+
+  const handleAddSeries = () => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.push({
+      name: `Series mới ${newData.series.length + 1}`,
+      data: new Array(newData.categories.length).fill(0),
+      unit: '',
+      type: 'bar'
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveSeries = (seriesIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.splice(seriesIdx, 1)
+    onEdit(newData)
+  }
+
+  const handleSeriesNameChange = (seriesIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].name = newName
+    onEdit(newData)
+  }
+
+  const handleSeriesTypeChange = (seriesIdx, newType) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].type = newType
+    onEdit(newData)
+  }
 
   // Tạo bảng với các cột: Danh mục + từng series
   const tableRows = categories.map((cat, idx) => {
-    const row = { category: cat }
+    const row = { category: cat, _idx: idx }
     series.forEach((s) => {
       row[s.name] = s.data?.[idx] ?? '-'
     })
@@ -1464,52 +1914,190 @@ function ComboChartDataTable({ rawData }) {
   })
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-gray-100 border border-gray-300">
-            <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
-              Danh mục
-            </th>
-            {series.map((s) => (
-              <th
-                key={s.name}
-                className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
-              >
-                <div>{s.name}</div>
-                <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {tableRows.map((row, rowIdx) => (
-            <tr key={rowIdx} className="border border-gray-300">
-              <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">{row.category}</td>
-              {series.map((s) => (
-                <td
-                  key={`${rowIdx}-${s.name}`}
-                  className={`px-3 py-2 text-right text-gray-700 border border-gray-300 ${s.type === 'line' ? 'bg-blue-50' : ''}`}
+    <div className="space-y-4">
+      {/* Series Configuration */}
+      {isEditing && (
+        <div className="bg-gray-50 border border-gray-300 rounded p-3 mb-4">
+          <h4 className="font-medium text-gray-900 mb-3">Cấu hình cột</h4>
+          <div className="space-y-2">
+            {series.map((s, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-white border border-gray-300 p-2 rounded">
+                <input
+                  type="text"
+                  value={s.name}
+                  onChange={(e) => handleSeriesNameChange(idx, e.target.value)}
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                  placeholder="Series name"
+                />
+                <select
+                  value={s.type || 'bar'}
+                  onChange={(e) => handleSeriesTypeChange(idx, e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm"
                 >
-                  {row[s.name]}
-                </td>
+                  <option value="bar">Bar</option>
+                  <option value="line">Line</option>
+                </select>
+                <button
+                  onClick={() => handleRemoveSeries(idx)}
+                  className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Xóa
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={handleAddSeries}
+            className="mt-2 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            + Thêm cột
+          </button>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-100 border border-gray-300">
+              <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
+                {xAxisName}
+              </th>
+              {series.map((s) => (
+                <th
+                  key={s.name}
+                  className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
+                >
+                  <div>{s.name}</div>
+                  <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
+                </th>
               ))}
+              {isEditing && <th className="px-3 py-2 text-center font-medium text-gray-900 border border-gray-300">Hành động</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tableRows.map((row, rowIdx) => (
+              <tr key={rowIdx} className="border border-gray-300">
+                <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={row.category}
+                      onChange={(e) => handleCategoryNameChange(rowIdx, e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-left text-sm"
+                    />
+                  ) : (
+                    row.category
+                  )}
+                </td>
+                {series.map((s, seriesIdx) => (
+                  <td
+                    key={`${rowIdx}-${s.name}`}
+                    className={`px-3 py-2 text-right text-gray-700 border border-gray-300 ${s.type === 'line' ? 'bg-blue-50' : ''}`}
+                  >
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={row[s.name] || 0}
+                        onChange={(e) => handleValueChange(seriesIdx, rowIdx, e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                        step="0.1"
+                      />
+                    ) : (
+                      row[s.name]
+                    )}
+                  </td>
+                ))}
+                {isEditing && (
+                  <td className="px-3 py-2 text-center border border-gray-300">
+                    <button
+                      onClick={() => handleRemoveCategory(rowIdx)}
+                      className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isEditing && (
+        <button
+          onClick={handleAddCategory}
+          className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          + Thêm cột
+        </button>
+      )}
     </div>
   )
 }
 
 // Component hiển thị dữ liệu Standard Chart (Bar, Line, Area)
-function StandardChartDataTable({ rawData, chart_type }) {
+function StandardChartDataTable({ rawData, chart_type, echarts, isEditing, onEdit }) {
   const categories = rawData?.categories || []
   const series = rawData?.series || []
 
+  // Get xAxis name từ echarts config
+  const xAxisName = echarts?.xAxis?.name || 'Danh mục'
+
+  const handleValueChange = (seriesIdx, rowIdx, newValue) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].data[rowIdx] = parseFloat(newValue) || 0
+    onEdit(newData)
+  }
+
+  const handleAddCategory = () => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories.push(`Danh mục mới ${newData.categories.length + 1}`)
+    newData.series.forEach(s => {
+      s.data.push(0)
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveCategory = (catIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories.splice(catIdx, 1)
+    newData.series.forEach(s => {
+      s.data.splice(catIdx, 1)
+    })
+    onEdit(newData)
+  }
+
+  const handleCategoryNameChange = (catIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.categories[catIdx] = newName
+    onEdit(newData)
+  }
+
+  const handleAddSeries = () => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.push({
+      name: `Series mới ${newData.series.length + 1}`,
+      data: new Array(newData.categories.length).fill(0),
+      unit: ''
+    })
+    onEdit(newData)
+  }
+
+  const handleRemoveSeries = (seriesIdx) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series.splice(seriesIdx, 1)
+    onEdit(newData)
+  }
+
+  const handleSeriesNameChange = (seriesIdx, newName) => {
+    const newData = JSON.parse(JSON.stringify(rawData))
+    newData.series[seriesIdx].name = newName
+    onEdit(newData)
+  }
+
   // Tạo bảng với các cột: Danh mục + từng series
   const tableRows = categories.map((cat, idx) => {
-    const row = { category: cat }
+    const row = { category: cat, _idx: idx }
     series.forEach((s) => {
       row[s.name] = s.data?.[idx] ?? '-'
     })
@@ -1517,40 +2105,115 @@ function StandardChartDataTable({ rawData, chart_type }) {
   })
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-gray-100 border border-gray-300">
-            <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
-              Danh mục
-            </th>
-            {series.map((s) => (
-              <th
-                key={s.name}
-                className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
-              >
-                <div>{s.name}</div>
-                <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {tableRows.map((row, rowIdx) => (
-            <tr key={rowIdx} className="border border-gray-300">
-              <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">{row.category}</td>
-              {series.map((s) => (
-                <td
-                  key={`${rowIdx}-${s.name}`}
-                  className="px-3 py-2 text-right text-gray-700 border border-gray-300"
+    <div className="space-y-4">
+      {/* Series Configuration */}
+      {isEditing && (
+        <div className="bg-gray-50 border border-gray-300 rounded p-3 mb-4">
+          <h4 className="font-medium text-gray-900 mb-3">Cấu hình cột</h4>
+          <div className="space-y-2">
+            {series.map((s, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-white border border-gray-300 p-2 rounded">
+                <input
+                  type="text"
+                  value={s.name}
+                  onChange={(e) => handleSeriesNameChange(idx, e.target.value)}
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                  placeholder="Series name"
+                />
+                <button
+                  onClick={() => handleRemoveSeries(idx)}
+                  className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
                 >
-                  {row[s.name]}
-                </td>
+                  Xóa
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={handleAddSeries}
+            className="mt-2 px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            + Thêm cột
+          </button>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-100 border border-gray-300">
+              <th className="px-3 py-2 text-left font-medium text-gray-900 border border-gray-300">
+                {xAxisName}
+              </th>
+              {series.map((s) => (
+                <th
+                  key={s.name}
+                  className="px-3 py-2 text-right font-medium text-gray-900 border border-gray-300"
+                >
+                  <div>{s.name}</div>
+                  <div className="text-xs font-normal text-gray-600">({s.unit || '-'})</div>
+                </th>
               ))}
+              {isEditing && <th className="px-3 py-2 text-center font-medium text-gray-900 border border-gray-300">Hành động</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tableRows.map((row, rowIdx) => (
+              <tr key={rowIdx} className="border border-gray-300">
+                <td className="px-3 py-2 text-gray-700 border border-gray-300 font-medium">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={row.category}
+                      onChange={(e) => handleCategoryNameChange(rowIdx, e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-left text-sm"
+                    />
+                  ) : (
+                    row.category
+                  )}
+                </td>
+                {series.map((s, seriesIdx) => (
+                  <td
+                    key={`${rowIdx}-${s.name}`}
+                    className="px-3 py-2 text-right text-gray-700 border border-gray-300"
+                  >
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={row[s.name] || 0}
+                        onChange={(e) => handleValueChange(seriesIdx, rowIdx, e.target.value)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                        step="0.1"
+                      />
+                    ) : (
+                      row[s.name]
+                    )}
+                  </td>
+                ))}
+                {isEditing && (
+                  <td className="px-3 py-2 text-center border border-gray-300">
+                    <button
+                      onClick={() => handleRemoveCategory(rowIdx)}
+                      className="px-2 py-1 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {isEditing && (
+        <button
+          onClick={handleAddCategory}
+          className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          + Thêm hàng
+        </button>
+      )}
     </div>
   )
 }

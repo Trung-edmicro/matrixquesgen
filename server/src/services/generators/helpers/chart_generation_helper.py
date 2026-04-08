@@ -1055,7 +1055,7 @@ def merge_chart_into_question(
                 item['content'] = {
                     'chartType': chart_data.get('chartType'),
                     'echarts': echarts,
-                    'chart_raw_data': chart_data.get('data', {})  # Lưu raw data: {series, categories}
+                    'chart_raw_data': chart_data.get('chartData', {})  # Lưu toàn bộ raw data: {chart_type, data, options}
                 }
                 # Thêm metadata nếu chưa có
                 if 'metadata' not in item:
