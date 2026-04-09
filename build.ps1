@@ -67,24 +67,6 @@ if ($LASTEXITCODE -ne 0) {
     & $pythonExe -m pip install pyinstaller
 }
 
-# Check if Playwright browsers are installed (needed for chart rendering in DOCX)
-Write-Host "  Kiem tra Playwright Chromium cho chart rendering..." -ForegroundColor Cyan
-$pwBrowsersPath = Join-Path $env:LOCALAPPDATA "ms-playwright"
-if (-not (Test-Path $pwBrowsersPath)) {
-    Write-Host "  Playwright Chromium chua duoc cai dat. Dang cai dat..." -ForegroundColor Yellow
-    & $pythonExe -m playwright install chromium
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "! Canh bao: Khong the cai dat Playwright Chromium." -ForegroundColor Yellow
-        Write-Host "  Chart rendering trong DOCX se bi vo hieu hoa trong ban build nay." -ForegroundColor Yellow
-    }
-    else {
-        Write-Host "  OK Playwright Chromium da duoc cai dat." -ForegroundColor Green
-    }
-}
-else {
-    Write-Host "  OK Playwright Chromium da co san tai: $pwBrowsersPath" -ForegroundColor Green
-}
-
 Write-Host "OK Dependencies OK!" -ForegroundColor Green
 Write-Host ""
 
@@ -197,12 +179,6 @@ if (Test-Path ".env") {
     Write-Host "  Da copy .env" -ForegroundColor Cyan
 }
 
-# Copy install_playwright.bat so end-users can enable chart rendering
-if (Test-Path "install_playwright.bat") {
-    Copy-Item "install_playwright.bat" "$distDir\install_playwright.bat" -Force
-    Write-Host "  Da copy install_playwright.bat" -ForegroundColor Cyan
-}
-
 # Create README for distribution
 $readmeContent = @"
 MatrixQuesGen - He thong sinh cau hoi tu dong
@@ -237,11 +213,6 @@ Tinh nang moi (v1.1.0):
 + Batch operations (update/delete/duplicate nhieu cau)
 + Validation cau hoi tu dong
 + Thong ke & analytics chi tiet
-
-Xuat bieu do (BD) vao DOCX:
-- Chay install_playwright.bat mot lan de cai dat Chromium
-- Sau khi cai dat, chuc nang xuat anh bieu do se hoat dong
-- Khong can internet sau khi da cai dat
 
 Luu y:
 - Prompts se tu dong kiem tra va cap nhat tu Google Drive
