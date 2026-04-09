@@ -148,7 +148,7 @@ def main():
         
         # Import routes
         try:
-            from api.routes import generate, questions, export, regenerate, google_drive, images, solute
+            from api.routes import generate, questions, export, regenerate, google_drive, images, solute, chart_regenerate
             from api.routes import update as update_route
             print("✓ Đã import routes thành công")
         except Exception as e:
@@ -209,6 +209,8 @@ def main():
             print("✓ Đã mount export router")
             app.include_router(regenerate.router)
             print("✓ Đã mount regenerate router")
+            app.include_router(chart_regenerate.router)
+            print("✓ Đã mount chart_regenerate router")
             app.include_router(google_drive.router)
             print("✓ Đã mount google_drive router")
             app.include_router(images.router)

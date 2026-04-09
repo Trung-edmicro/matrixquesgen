@@ -8,19 +8,19 @@ import {
   exportToSolutedEnglishExamDocx,exportToSolutedEnglishStandardDocx
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
+import { useNotification } from '../hooks/useNotification'
 
 // Storage
 const STORAGE_KEY = 'matrixquesgen_solute_page_state'
 const STORAGE_EXPIRY_HOURS = 5
 
 export default function SoluteExamPage() {
+  const notify = useNotification()
   const [examPdf, setExamPdf] = useState(null)
   const [generatedExam, setGeneratedExam] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
-  const [error, setError] = useState(null)
-  const [successMessage, setSuccessMessage] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
 
   const [generationProgress, setGenerationProgress] = useState({
@@ -98,8 +98,7 @@ export default function SoluteExamPage() {
 
     setSessionId(null);
 
-    setError(null);
-
+    
     setIsDirty(false);
   }
 
@@ -109,7 +108,7 @@ export default function SoluteExamPage() {
   const handleSolve = async () => {
 
     if (!examPdf?.files) {
-      setError('Vui lòng chọn file PDF đề bài')
+      notify.error('Vui lòng chọn file PDF đề bài')
       return
     }
 
@@ -119,7 +118,7 @@ export default function SoluteExamPage() {
     setGeneratedExam(null)
     setSessionId(null)
     setIsGenerating(true)
-    setError(null)
+    notify.error(null)
 
     try {
 
@@ -171,7 +170,7 @@ export default function SoluteExamPage() {
             setIsGenerating(false)
             setIsDirty(false)
           } else if (progress.status === 'failed') {
-            setError(progress.error || 'Lỗi khi giải đề')
+            notify.error(progress.error || 'Lỗi khi giải đề')
             setIsGenerating(false)
           } else {
             delay = Math.min(delay * 1.2, maxDelay)
@@ -179,7 +178,7 @@ export default function SoluteExamPage() {
           }
 
         } catch (err) {
-          setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+          notify.error('Lỗi khi kiểm tra tiến độ: ' + err.message)
           setIsGenerating(false)
         }
       }
@@ -187,7 +186,7 @@ export default function SoluteExamPage() {
       setTimeout(pollProgress, delay)
 
     } catch (err) {
-      setError('Lỗi khi bắt đầu giải đề: ' + err.message)
+      notify.error('Lỗi khi bắt đầu giải đề: ' + err.message)
       setIsGenerating(false)
     }
   }
@@ -212,7 +211,7 @@ export default function SoluteExamPage() {
   const handleExport = async () => {
       const storedExam = localStorage.getItem("solutedEnglishExam");   
        if (!storedExam) {
-         setError("Không có dữ liệu đề tiếng Anh để xuất file");
+         notify.error('Không có dữ liệu đề tiếng Anh để xuất file')
          return
        }
    
@@ -220,7 +219,7 @@ export default function SoluteExamPage() {
    
        try {
          setIsExporting(true)
-         setError(null)
+         notify.error(null)
    
          const res1 = await exportToSolutedEnglishExamDocx(generatedExam, {
            responseType: "blob"
@@ -234,10 +233,10 @@ export default function SoluteExamPage() {
    
          downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
    
-         setSuccessMessage("Đã xuất 2 file DOCX thành công")
+         notify.success("Đã xuất 2 file DOCX thành công")
    
        } catch (err) {
-         setError("Lỗi khi xuất file: " + err.message)
+         notify.error("Lỗi khi xuất file: " + err.message)
        } finally {
          setIsExporting(false)
        }
@@ -254,19 +253,7 @@ export default function SoluteExamPage() {
   return (
     <div className="h-full p-2 flex flex-col overflow-hidden">
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
-          <span className="text-sm text-red-800">{error}</span>
-        </div>
-      )}
-
-      {/* Success */}
-      {successMessage && (
-        <div className="bg-green-50 border-b border-green-200 px-4 py-3">
-          <span className="text-sm text-green-800">✓ {successMessage}</span>
-        </div>
-      )}
+      {/* Inline error/success messages removed - using toast notifications instead */}
 
       {/* Top bar (INPUT + BUTTON cùng hàng) */}
       <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-200 bg-white">

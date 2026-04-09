@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { updateQuestion, regenerateQuestion, regenerateBulkQuestions, editQuestion, updateChartData } from '../../services/api'
 import LaTeXRenderer from '../common/LaTeXRenderer'
 import RichContentRenderer from '../common/RichContentRenderer'
+import { useNotification } from '../../hooks/useNotification'
 
 export default function ExamPreviewPanel({ examData, isGenerating, sessionId, onDataChange }) {
+  const notification = useNotification()
   const [activeTab, setActiveTab] = useState('questions')
   const [editedData, setEditedData] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
@@ -134,7 +136,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
         onDataChange(editedData)
       }
     } catch (err) {
-      alert('Lỗi khi lưu: ' + err.message)
+      notification.error('Lỗi khi lưu: ' + err.message)
     } finally {
       setIsSaving(false)
     }
@@ -220,7 +222,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
         // Auto-save sẽ được trigger bởi useEffect sau khi regeneration hoàn thành
       } catch (err) {
         console.error(`Error regenerating ${key}:`, err)
-        alert('Lỗi khi sinh lại câu hỏi: ' + err.message)
+        notification.error(`Lỗi khi sinh lại câu hỏi: ${err.message}`)
       } finally {
         setActiveRegenerations(prev => prev - 1)
         setRegeneratingQuestions(prev => {
@@ -286,12 +288,12 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
         onDataChange(updatedData, false)
       }
 
-      toast.success(result.message || 'Đã sửa lại câu ' + code)
+      notification.success(result.message || 'Đã sửa lại câu ' + code)
       // Close dialog after success
       if (onEditDialogClose) onEditDialogClose(type, code)
     } catch (err) {
       console.error('Error editing question:', err)
-      toast.error(err.response?.data?.detail || 'Lỗi khi sửa lại câu hỏi')
+      notification.error(err.response?.data?.detail || 'Lỗi khi sửa lại câu hỏi')
       // Close dialog even on error
       if (onEditDialogClose) onEditDialogClose(type, code)
     } finally {
@@ -344,10 +346,10 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
 
       // Show result
       if (result.errors && result.errors.length > 0) {
-        alert(`Sinh lại hoàn tất với ${result.succeeded} thành công và ${result.failed} lỗi`)
+        notification.warning(`Sinh lại hoàn tất với ${result.succeeded} thành công và ${result.failed} lỗi`, 'Cảnh báo')
       }
     } catch (err) {
-      alert('Lỗi khi sinh lại câu hỏi: ' + err.message)
+      notification.error(`Lỗi khi sinh lại câu hỏi: ${err.message}`)
     } finally {
       setRegeneratingQuestions(new Set())
     }
@@ -439,6 +441,7 @@ export default function ExamPreviewPanel({ examData, isGenerating, sessionId, on
                 sessionId={sessionId}
                 mergedExamData={mergedExamData}
                 setMergedExamData={setMergedExamData}
+                notification={notification}
               />
             )}
           </>
@@ -1295,7 +1298,7 @@ function AnswersList({ questions }) {
   )
 }
 
-function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMergedExamData }) {
+function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMergedExamData, notification }) {
   /**
    * Hiển thị dữ liệu biểu đồ từ tất cả câu hỏi ở dạng bảng
    * Dữ liệu có cấu trúc: {
@@ -1480,8 +1483,6 @@ function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMe
         updatedRawData
       )
       
-      console.log('Chart update result:', result)
-      
       // Cập nhật mergedExamData ngay lập tức để UI re-render với data mới
       const updatedExamData = JSON.parse(JSON.stringify(mergedExamData || examData))
       const question = updatedExamData?.questions?.[chart.question_type]?.find(q => q.question_code === chart.question_code)
@@ -1541,10 +1542,9 @@ function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMe
       // Đợi localStorage update hoàn tất
       await new Promise(resolve => setTimeout(resolve, 300))
       
-      alert('Đã cập nhật dữ liệu biểu đồ thành công')
+      notification.success('Đã cập nhật dữ liệu biểu đồ thành công', 'Thành công')
     } catch (err) {
-      console.error('Error in handleSaveChart:', err)
-      alert('Lỗi khi lưu dữ liệu: ' + (err.message || 'Lỗi không xác định'))
+      notification.error(`Lỗi khi lưu dữ liệu: ${err.message || 'Lỗi không xác định'}`, 'Lỗi')
     }
   }
 
@@ -1579,23 +1579,28 @@ function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMe
 
             {/* Edit/Save Buttons */}
             <div className="flex items-center gap-2">
-              {editingChart === idx && (
+              {editingChart === idx ? (
                 <>
                   <button
-                    onClick={() => handleSaveChart(chart, idx)}
+                    onClick={() => {
+                      handleSaveChart(chart, idx).catch(err => {
+                        console.error('Error saving chart:', err)
+                      })
+                    }}
                     className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700"
                   >
                     Lưu
                   </button>
                   <button
-                    onClick={() => handleCancelEdit(idx)}
+                    onClick={() => {
+                      handleCancelEdit(idx)
+                    }}
                     className="px-3 py-1 text-xs font-medium bg-gray-400 text-white rounded hover:bg-gray-500"
                   >
                     Hủy
                   </button>
                 </>
-              )}
-              {editingChart !== idx && (
+              ) : (
                 <button
                   onClick={() => handleEditClick(idx)}
                   className="px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700"

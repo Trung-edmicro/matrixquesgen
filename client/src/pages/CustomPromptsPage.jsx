@@ -1,37 +1,36 @@
 import { useState } from 'react'
 import PromptUploader from '../components/generate/PromptUploader'
 import VariableInputForm from '../components/generate/VariableInputForm'
+import { useNotification } from '../hooks/useNotification'
 
 export default function CustomPromptsPage() {
+  const notification = useNotification()
   const [sessionData, setSessionData] = useState(null)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
+  const [errorMsg, setErrorMsg] = useState(null)
+  const [successMsg, setSuccessMsg] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState(null)
 
   const handleUploadSuccess = (data) => {
     setSessionData(data)
-    setSuccess(`Upload thành công! Phát hiện ${data.variables.length} biến trong ${data.prompt_count} prompts`)
-    setError(null)
+    notification.success(`Upload thành công! Phát hiện ${data.variables.length} biến trong ${data.prompt_count} prompts`)
+    setErrorMsg(null)
     setResult(null)
-    
-    // Auto clear success message after 3s
-    setTimeout(() => setSuccess(null), 3000)
   }
 
   const handleUploadError = (errorMsg) => {
-    setError(errorMsg)
-    setSuccess(null)
+    notification.error(errorMsg)
+    setSuccessMsg(null)
   }
 
   const handleGenerate = async (variableValues) => {
     if (!sessionData) {
-      setError('Không có session data')
+      notification.error('Không có session data')
       return
     }
 
     setGenerating(true)
-    setError(null)
+    setErrorMsg(null)
 
     try {
       const response = await fetch('http://localhost:8000/api/prompts/generate', {
@@ -47,20 +46,17 @@ export default function CustomPromptsPage() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Generation failed')
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Generation failed')
       }
 
       const data = await response.json()
       setResult(data)
-      setSuccess('Generation thành công!')
-      
-      // Auto clear success message
-      setTimeout(() => setSuccess(null), 3000)
+      notification.success('Generation thành công!')
 
-    } catch (error) {
-      console.error('Generation error:', error)
-      setError(error.message)
+    } catch (err) {
+      console.error('Generation error:', err)
+      notification.error(err.message)
     } finally {
       setGenerating(false)
     }
@@ -69,8 +65,8 @@ export default function CustomPromptsPage() {
   const handleReset = () => {
     setSessionData(null)
     setResult(null)
-    setError(null)
-    setSuccess(null)
+    setErrorMsg(null)
+    setSuccessMsg(null)
   }
 
   return (
@@ -94,41 +90,7 @@ export default function CustomPromptsPage() {
         )}
       </div>
 
-      {/* Alert messages */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-red-800">Lỗi</h3>
-              <p className="text-sm text-red-700 mt-1">{error}</p>
-            </div>
-            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-green-700 flex-1">{success}</p>
-            <button onClick={() => setSuccess(null)} className="text-green-600 hover:text-green-800">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Alert messages - removed, now using toast notifications */}
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
