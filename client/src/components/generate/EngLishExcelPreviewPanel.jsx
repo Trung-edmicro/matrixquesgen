@@ -136,7 +136,7 @@ export default function EnglishExcelPreviewPanel({ file }) {
       {/* Raw Table */}
       <div>
         <h2 className="font-semibold mb-2">Excel Raw</h2>
-        <div className="overflow-auto border rounded">
+        <div className="overflow-auto max-h-80 border rounded">
           <table className="min-w-full text-xs">
             <thead className="bg-gray-100">
               <tr>
