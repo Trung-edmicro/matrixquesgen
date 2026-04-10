@@ -1,7 +1,9 @@
 import logging
+import math
 from pathlib import Path
 import re
 logger = logging.getLogger(__name__)
+import pandas as pd
 import requests
 from services.solute_exam_service.solute_english_exam_service import API_KEY
 import os
@@ -157,21 +159,32 @@ def sync_drive_to_local():
     print("✅ Sync completed.")
 
 
+
 def load_vocabulary_local(topic):
     """
     Load vocabulary từ file local (KHÔNG gọi API nữa)
     """
 
-    if not topic:
+    # 🚨 Handle None + NaN + non-string
+    if topic is None:
         return ""
 
+    if isinstance(topic, float) and math.isnan(topic):
+        return ""
+
+    # Convert sang string để tránh lỗi
+    topic = str(topic)
+
     topic_clean = topic.strip().lower()
+
+    if not topic_clean:
+        return ""
 
     if not LOCAL_VOCAB_DIR.exists():
         return ""
 
     for file_item in LOCAL_VOCAB_DIR.iterdir():
-        if not file_item.is_file() or not file_item.suffix == ".txt":
+        if not file_item.is_file() or file_item.suffix != ".txt":
             continue
 
         name = file_item.stem.strip().lower()
@@ -308,22 +321,64 @@ def fetch_drive_txt_files(folder_id):
         logger.error(f"❌ Error fetching txt files: {e}")
         return {}
 
+# def load_vocabulary_from_drive(topic):
+#     """
+#     Tìm file txt theo topic trong 3 folder Drive (không dùng cache)
+#     """
+
+#     if topic is None:
+#         print("⚠️ Topic is None")
+#         return ""
+
+#     if not isinstance(topic, str):
+#         topic = str(topic)
+
+#     topic_clean = topic.strip().lower()
+
+#     if not topic_clean:
+#         print("⚠️ Topic is empty")
+#         return ""
+
+#     print("🔎 Fetching vocabulary from Drive API...")
+
+#     folders = [
+#         DRIVE_VOCABULARY_FOLDER_C10,
+#         DRIVE_VOCABULARY_FOLDER_C11,
+#         DRIVE_VOCABULARY_FOLDER_C12
+#     ]
+
+#     for folder_url in folders:
+#         folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", folder_url).group(1)
+
+#         files = fetch_drive_txt_files(folder_id)
+
+#         for filename, content in files.items():
+#             name = filename.replace(".txt", "").strip().lower()
+
+#             if name == topic_clean:
+#                 print(f"✅ Found: {filename}")
+#                 return content
+
+#     return ""
+
+
 def load_vocabulary_from_drive(topic):
     """
     Tìm file txt theo topic trong 3 folder Drive (không dùng cache)
     """
 
-    if topic is None:
-        print("⚠️ Topic is None")
+    # 🚨 Handle None + NaN
+    if topic is None or pd.isna(topic):
+        print("⚠️ Topic is empty (None/NaN)")
         return ""
 
-    if not isinstance(topic, str):
-        topic = str(topic)
+    # Convert về string
+    topic = str(topic)
 
     topic_clean = topic.strip().lower()
 
     if not topic_clean:
-        print("⚠️ Topic is empty")
+        print("⚠️ Topic is empty string")
         return ""
 
     print("🔎 Fetching vocabulary from Drive API...")
