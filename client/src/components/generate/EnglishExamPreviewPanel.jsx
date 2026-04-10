@@ -43,16 +43,17 @@ export default function EnglishExamPreviewPanel({ examData }) {
           )
         })} */}
 
-        {blocks.map((block, index) => {
+        {/* {blocks.map((block, index) => {
           const data = block.parsed
+          console.log(">>>>>>> debug {13123131", block.type)
 
           switch (block.type) {
 
             case "ARRANGE":
               return <ArrangeBlock key={index} data={data} />
 
-            case "GAP":
-              return <ClozeBlock key={index} data={data} />
+            // case "GAP":
+            //   return <ClozeBlock key={index} data={data} />
 
             case "SENTENCE_COMPLETION":
               return <SentenceCompletionBlock key={index} data={data} />
@@ -77,8 +78,113 @@ export default function EnglishExamPreviewPanel({ examData }) {
 
             case "WORD_REORDERING":
               return <WordReorderingBlock key={index} data={data} />
-            default:
-              return <ClozeBlock key={index} data={data} />
+           case "GAP":
+          case "RC":
+          case "CLOZE":
+            return <ClozeBlock key={index} data={data} type={block.type} />
+          }
+        })} */}
+
+        {blocks.map((block, index) => {
+          const data = block.parsed
+
+          const prevType = blocks[index - 1]?.type
+          const isFirstOfGroup = prevType !== block.type
+
+          switch (block.type) {
+
+            case "ARRANGE":
+              return (
+                <ArrangeBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "SENTENCE_COMPLETION":
+              return (
+                <SentenceCompletionBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "SYNONYM_ANTONYM":
+              return (
+                <SynonymBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "ERROR_IDENTIFICATION":
+              return (
+                <ErrorIdentificationBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "SENTENCE_TRANSFORMATION":
+              return (
+                <SentenceTransformationBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "PRONUNCIATION_STRESS":
+              return (
+                <PronunciationBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "DIALOUGE_COMPLETION":
+              return (
+                <DialogueBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "LOGICAL_THINKING":
+              return (
+                <LogicalThinkingBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "WORD_REORDERING":
+              return (
+                <WordReorderingBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
+
+            case "GAP":
+            case "RC":
+            case "CLOZE":
+              return (
+                <ClozeBlock
+                  key={index}
+                  data={data}
+                  type={block.type}
+                  showInstruction={isFirstOfGroup}
+                />
+              )
           }
         })}
 
@@ -88,14 +194,39 @@ export default function EnglishExamPreviewPanel({ examData }) {
 }
 
 
-function ClozeBlock({ data }) {
+function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
 
   const title = data?.passage_title
   const passage = data?.passage || ""
   const questions = data?.questions || []
 
+  const getInstruction = () => {
+
+    // ✅ CHỈ CLOZE dùng text_type_en
+    if (type === "CLOZE") {
+      const textType = (data?.text_type_en || "").toLowerCase()
+
+      return `Read the following ${textType} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.`
+    }
+
+    // ✅ RC: cố định
+    if (type === "RC") {
+      return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions."
+    }
+
+    // ✅ GAP: cố định
+    return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blank."
+  }
+
   return (
     <div className="mb-12">
+
+      {/* INSTRUCTION */}
+      {showInstruction && (
+  <p className="font-bold mb-6">
+    {getInstruction()}
+  </p>
+)}
 
       {/* TITLE */}
       {title && (
@@ -106,18 +237,13 @@ function ClozeBlock({ data }) {
 
       {/* PASSAGE */}
       <div className="mb-8 text-justify space-y-2">
-
         {passage
           .split("\n")
           .filter(line => line.trim())
           .map((line, i) => (
-            <p key={i}>
-              {line}
-            </p>
+            <p key={i}>{line}</p>
           ))}
-
       </div>
-
 
       {/* QUESTIONS */}
       {questions.map((q) => {
@@ -135,23 +261,15 @@ function ClozeBlock({ data }) {
         return (
           <div key={q.number} className="mb-7">
 
-            {/* QUESTION NUMBER */}
             <p className="font-semibold">
               Question {q.number}:
             </p>
 
-            {/* OPTIONS */}
             <div className="pl-6 mt-1">
-
               {isLong ? (
                 <>
-                  <p>
-                    {options[0]} &nbsp;&nbsp; {options[1]}
-                  </p>
-
-                  <p>
-                    {options[2]} &nbsp;&nbsp; {options[3]}
-                  </p>
+                  <p>{options[0]} &nbsp;&nbsp; {options[1]}</p>
+                  <p>{options[2]} &nbsp;&nbsp; {options[3]}</p>
                 </>
               ) : (
                 <p>
@@ -161,19 +279,12 @@ function ClozeBlock({ data }) {
                   {options[3]}
                 </p>
               )}
-
             </div>
 
             {/* EXPLANATION */}
             <div className="mt-3 pl-6 text-gray-800">
-
-              <p className="font-semibold">
-                Lời giải
-              </p>
-
-              <p className="font-semibold">
-                Chọn {q.answer}
-              </p>
+              <p className="font-semibold">Lời giải</p>
+              <p className="font-semibold">Chọn {q.answer}</p>
 
               {q.explanation && (
                 <p className="mt-1 whitespace-pre-line">
@@ -182,20 +293,19 @@ function ClozeBlock({ data }) {
               )}
 
               {q.quote && (
-                      <p
-                        className="mt-1"
-                        dangerouslySetInnerHTML={{
-                          __html: `<b>Trích bài:</b> ${q.quote}`
-                        }}
-                      />
-          )}
+                <p
+                  className="mt-1"
+                  dangerouslySetInnerHTML={{
+                    __html: `<b>Trích bài:</b> ${q.quote}`
+                  }}
+                />
+              )}
 
               {q.translation && (
                 <p className="mt-1">
                   <b>Tạm dịch:</b> {q.translation}
                 </p>
               )}
-
             </div>
 
           </div>
@@ -208,11 +318,19 @@ function ClozeBlock({ data }) {
 
 
 
-function ArrangeBlock({ data }) {
+function ArrangeBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
+
+    const instruction =
+    "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement of utterances or sentences to make a meaningful exchange or text."
 
   return (
     <div className="mb-12">
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          {instruction}
+        </p>
+      )}
 
       {/* QUESTION */}
       <p className="font-semibold">
@@ -264,10 +382,17 @@ function ArrangeBlock({ data }) {
   )
 }
 
-function SentenceCompletionBlock({ data }) {
+function SentenceCompletionBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          Sentence completion: Choose A, B, C or D to complete each sentence.
+        </p>
+      )}
+
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
           <p className="font-semibold">
@@ -304,12 +429,81 @@ function SentenceCompletionBlock({ data }) {
 }
 
 
-function SynonymBlock({ data }) {
+// function SynonymBlock({ data }) {
+//   if (!data || typeof data !== 'object') return null
+//   const type = data.questions?.[0]?.type
+
+//   const title =
+//     type === "antonym"
+//       ? "Antonyms: Choose A, B, C or D that has the OPPOSITE meaning to the underlined word/phrase in each question."
+//       : "Synonyms: Choose A, B, C or D that has the CLOSEST meaning to the underlined word/phrase in each question."
+
+//   return (
+//     <div className="mb-10">
+
+//       <p className="font-bold mb-6">
+//         {title}
+//       </p>
+
+//       {data.questions.map(q => (
+//         <div key={q.number} className="mb-6">
+
+//            <p className="font-bold mb-6">
+//               {title}
+//             </p>
+
+//           <p className="font-semibold">
+//             Question {q.number}:
+//           </p>
+
+//           <p dangerouslySetInnerHTML={{ __html: q.question }} />
+
+//           <div className="pl-6 mt-2 space-y-1">
+//             <p>A. {q.option_a}</p>
+//             <p>B. {q.option_b}</p>
+//             <p>C. {q.option_c}</p>
+//             <p>D. {q.option_d}</p>
+//           </div>
+
+//           <div className="mt-3 pl-6">
+//             <p className="font-semibold">Lời giải</p>
+//             <p className="font-semibold">Chọn {q.answer}</p>
+
+//             <p className="mt-1 whitespace-pre-line">
+//               {q.explanation}
+//             </p>
+//           </div>
+//         </div>
+//       ))}
+//     </div>
+//   )
+// }
+
+function SynonymBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
+  const type = data.questions?.[0]?.type
+
+  const title =
+    type === "antonym"
+      ? "Antonyms: Choose A, B, C or D that has the OPPOSITE meaning to the underlined word/phrase in each question."
+      : "Synonyms: Choose A, B, C or D that has the CLOSEST meaning to the underlined word/phrase in each question."
+
   return (
     <div className="mb-10">
+
+      {/* ✅ TITLE CHỈ 1 LẦN */}
+      {/* <p className="font-bold mb-6">
+        {title}
+      </p> */}
+            {showInstruction && (
+        <p className="font-bold mb-6">
+          {title}
+        </p>
+      )}
+
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
+
           <p className="font-semibold">
             Question {q.number}:
           </p>
@@ -333,15 +527,27 @@ function SynonymBlock({ data }) {
           </div>
         </div>
       ))}
+
     </div>
   )
 }
 
 
-function ErrorIdentificationBlock({ data }) {
+function ErrorIdentificationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
+
+         {/* <p className="font-bold italic mb-6">
+           Mark the letter A, B, C, or D to indicate the underlined part that needs correction in the following questions.
+      </p> */}
+
+      {showInstruction && (
+      <p className="font-bold italic mb-6">
+        Mark the letter A, B, C, or D to indicate the underlined part that needs correction in the following questions.
+      </p>
+    )}
+
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
           <p className="font-semibold">
@@ -374,10 +580,23 @@ function ErrorIdentificationBlock({ data }) {
 }
 
 
-function SentenceTransformationBlock({ data }) {
+function SentenceTransformationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
+
+  const type = data.questions?.[0]?.type
+
+  const title =
+    type === "combination"
+      ? "Sentence combination: Choose A, B, C or D that has the CLOSEST meaning to the given pair of sentences in each question."
+      : "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question."
+
   return (
     <div className="mb-10">
+     {showInstruction && (
+        <p className="font-bold mb-6">
+          {title}
+        </p>
+      )}
 
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
@@ -418,10 +637,19 @@ function SentenceTransformationBlock({ data }) {
 }
 
 
-function PronunciationBlock({ data }) {
+function PronunciationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
+      {/* <p className="font-bold italic mb-6">
+        Mark the letter A, B, C or D to indicate the word whose underlined part differs from the other three in pronunciation.
+      </p> */}
+
+      {showInstruction && (
+      <p className="font-bold italic mb-6">
+        Mark the letter A, B, C or D to indicate the word whose underlined part differs from the other three in pronunciation.
+      </p>
+    )}
 
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
@@ -456,7 +684,7 @@ function PronunciationBlock({ data }) {
 }
 
 
-function DialogueBlock({ data }) {
+function DialogueBlock({ data, showInstruction = true }) {
 
   const renderText = (val) => {
     if (val === null || val === undefined) return "";
@@ -476,9 +704,19 @@ function DialogueBlock({ data }) {
 
   return (
     <div className="mb-10">
+
+      {/* <p className="font-bold mb-6">
+        Dialogue completion: Choose A, B, C or D to complete each dialogue.
+      </p> */}
+
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          Dialogue completion: Choose A, B, C or D to complete each dialogue.
+        </p>
+      )}
       {data.questions.map((q, index) => (
         <div key={q?.number ?? index} className="mb-6">
-
+       
           <p className="font-semibold">
             Question {renderText(q?.number)}:
           </p>
@@ -517,10 +755,20 @@ function DialogueBlock({ data }) {
 }
 
 
-function WordReorderingBlock({ data }) {
+function WordReorderingBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null 
   return (
     <div className="mb-10">
+
+      {/* <p className="font-bold italic mb-6">
+        Reorder the words given to make correct sentences.
+      </p> */}
+
+      {showInstruction && (
+      <p className="font-bold italic mb-6">
+        Reorder the words given to make correct sentences.
+      </p>
+    )}
 
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
@@ -576,7 +824,7 @@ function WordReorderingBlock({ data }) {
 }
 
 
-function LogicalThinkingBlock({ data }) {
+function LogicalThinkingBlock({ data, showInstruction = true }) {
 
   const questions = data?.questions || []
 
@@ -586,9 +834,15 @@ function LogicalThinkingBlock({ data }) {
     <div className="mb-12">
 
       {/* TITLE (chỉ 1 lần) */}
-      <p className="font-bold mb-6">
+      {/* <p className="font-bold mb-6">
         Logical thinking and problem solving: Choose A, B, C or D to answer each question.
-      </p>
+      </p> */}
+
+      {showInstruction && (
+          <p className="font-bold mb-6">
+            Logical thinking and problem solving: Choose A, B, C or D to answer each question.
+          </p>
+        )}
 
       {questions.map(q => (
         <div key={q.number} className="mb-8">

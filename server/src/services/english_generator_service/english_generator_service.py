@@ -33,7 +33,8 @@ import sys
 LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
 
 APP_DIR = Path(os.environ['APP_DIR']) if os.environ.get('APP_DIR') else Path(__file__).parent.parent.parent.parent.parent
-PROMPT_DIR = APP_DIR / "data" / "prompts" / "prompts_english"
+PROMPT_DIR = APP_DIR / "data" / "prompts" / "prompts_english" / "prompts_english_thpt"
+PROMPT_DIR_ENGLISH_THCS =  APP_DIR / "data" / "prompts" / "prompts_english" / "prompts_english_thcs"
 VOCABULARY_DIR = APP_DIR / "data" / "vocabulary_english"
 UPLOAD_DIR = APP_DIR / "data" / "uploads"
 OUTPUT_DIR = APP_DIR / "data" / "outputs"
@@ -57,69 +58,6 @@ def get_runtime_path():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
-
-_drive_prompts_cache = None
-
-
-# def fetch_drive_md_files():
-#     try:
-#         folder_id = re.search(r"folders/([a-zA-Z0-9_-]+)", DRIVE_FOLDER).group(1)
-
-#         url = f"https://drive.google.com/drive/folders/{folder_id}"
-#         html = requests.get(url).text
-
-#         file_ids = list(set(re.findall(r'"([a-zA-Z0-9_-]{25,})"', html)))
-
-#         prompts = {}
-
-#         for fid in file_ids:
-#             download_url = f"https://drive.google.com/uc?export=download&id={fid}"
-#             r = requests.get(download_url)
-
-#             if r.status_code != 200:
-#                 continue
-
-#             disposition = r.headers.get("content-disposition", "")
-
-#             if ".md" not in disposition:
-#                 continue
-
-#             name_match = re.findall(r'filename="(.+)"', disposition)
-
-#             if not name_match:
-#                 continue
-
-#             name = name_match[0]
-#             prompts[name] = r.text
-
-#         return prompts
-
-#     except Exception:
-#         return {}
-
-
-# def load_prompt(filename: str) -> str:
-#     global _drive_prompts_cache
-
-#     # Load drive 1 lần
-#     if _drive_prompts_cache is None:
-#         print("🔎 Fetching prompts from Drive...")
-#         _drive_prompts_cache = fetch_drive_md_files()
-
-#     # Nếu có trên drive
-#     if filename in _drive_prompts_cache:
-#         print(f"✅ Load từ Drive: {filename}")
-#         return _drive_prompts_cache[filename]
-
-#     # fallback local
-#     path = PROMPT_DIR / filename
-
-#     if not path.exists():
-#         raise Exception(f"Không tìm thấy prompt: {filename}")
-
-#     print(f"📂 Load từ LOCAL: {filename}")
-#     return path.read_text(encoding="utf-8")
-
 
 def sync_drive_prompts_to_local():
     """
@@ -1932,9 +1870,8 @@ def render_dialogue_completion_group(doc, results, start_index):
 
         # ===== Title (bold, 1 lần) =====
         if not title_added:
-            instruction = parsed.get("instruction", "")
             p = doc.add_paragraph()
-            run = p.add_run(instruction)
+            run = p.add_run("Dialogue completion: Choose A, B, C or D to complete each dialogue.")
             run.bold = True
             title_added = True
 
@@ -2234,50 +2171,10 @@ def _apply_default_style(doc):
     font.size = Pt(13)
 
 
-# def _add_instruction(doc, res):
-#     instruction = doc.add_paragraph()
-#     if res['type'] == "CLOZE":
-#         text = (
-#             f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D "
-#             "on your answer sheet to indicate the option that best fits each of the numbered blanks."
-#         )
-#     elif res['type'] == "ARRANGE":
-#         text = (
-#             "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement "
-#             "of utterances or sentences to make a meaningful exchange or text."
-#         )
-#     elif res['type'] == "RC":
-#         text = (
-#             f"Read the following passage and mark the letter A, B, C or D "
-#             "on your answer sheet to indicate the correct answer to each of the following questions."
-#         )
-#     elif res['type'] == "GAP":  # GAP
-#         text = (
-#             f"Read the following passage and mark the letter A, B, C or D "
-#             "on your answer sheet to indicate the option that best fits each of the numbered blank."
-#         )
-#     elif res['type'] == "DIALOUGE_COMPLETION":
-#         text = (
-#             f"Dialogue completion: Choose A, B, C or D to complete each dialogue."
-#         )
-#     elif res['type'] == "SENTENCE_COMPLETION":
-#         text = (
-#             f"Sentence completion: Choose A, B, C or D to complete each sentence."
-#         )
-#     elif res['type'] == "LOGICAL_THINKING":
-#         text = (f"Logical thinking and problem-solving: Choose A, B, C or D to answer each question.")
-#     elif res['type'] == "EERROR_IDENTIFICATION":
-#         text = (f"Mark the letter A, B, C, or D on your answer sheet to indicate the underlined part that needs correction in the following question.")
-#     elif res['type'] == "WORD_REORDERING":
-#         text = (f"Reorder the words given to make a correct sentence.")
-#     run = instruction.add_run(text)
-#     run.italic = True
-
-
 INSTRUCTION_MAP = {
     "CLOZE": lambda res: f"Read the following {res.get('text_type_en').lower()} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.",
     "ARRANGE": lambda res: "Mark the letter A, B, C or D on your answer sheet to indicate the best arrangement of utterances or sentences to make a meaningful exchange or text.",
-    "RC": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions. ",
+    "RC": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions.",
     "GAP": lambda res: "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blank.",
     "DIALOUGE_COMPLETION": lambda res: "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
     "SENTENCE_COMPLETION": lambda res: "Sentence completion: Choose A, B, C or D to complete each sentence.",
