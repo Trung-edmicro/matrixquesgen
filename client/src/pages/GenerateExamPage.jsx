@@ -13,6 +13,7 @@ import {
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
+import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
@@ -452,6 +453,8 @@ export default function GenerateExamPage() {
               Mở thư mục chứa file Excel
             </button>
           </div>
+        ): matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") && !generatedExam ? (
+          <EnglishExcelPreviewPanel file={matrixData.file} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") && generatedExam ? (
           <EnglishExamPreviewPanel examData={generatedExam} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
