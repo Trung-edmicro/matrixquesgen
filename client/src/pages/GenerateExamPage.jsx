@@ -10,10 +10,12 @@ import {
   downloadDocx,
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
+  generateQuestionsEnglishTHCS,
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
+import EnglishExamTHCSPreviewPanel from '../components/generate/EnglishExamTHCSPreviewPanel'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
@@ -193,11 +195,17 @@ export default function GenerateExamPage() {
     //   return
     // }
 
-    const isEnglishMatrix = matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_");
+    const isEnglishMatrix = matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_");
+
+    const isEnglishMatrixTHCS = matrixData?.file?.name.startsWith("MATRIX_ENGLISH_THCS_");
+
+    if(isEnglishMatrixTHCS) {
+      return;
+    }
 
     if (isEnglishMatrix) {
       await handleExportEnglishDocx()
-      return
+      return;
     }
 
     try {
@@ -239,48 +247,73 @@ export default function GenerateExamPage() {
       setError('Vui lòng chọn file ma trận')
       return;
     }
+    const isEnglishMatrixTHCS = matrixData.file.name.startsWith("MATRIX_ENGLISH_THCS_");
 
-    const isEnglishMatrix = matrixData.file.name.startsWith("MATRIX_ENGLISH_");
+    const isEnglishMatrix = matrixData.file.name.startsWith("MATRIX_ENGLISH_THPT_");
+
     const isHSKMatrix = matrixData.file.name.startsWith("MATRIX_HSK_");
 
     // Clear data cũ trước khi sinh đề mới
     setGeneratedExam(null)
+
     setSessionId(null)
+
     setIsDirty(false)
 
     setIsGenerating(true)
+
     setError(null)
 
     try {
       // ================================
       // 🟢 FLOW MATRIX_ENGLISH_ OR MATRIX_HSK_
       // ================================
+          
+      if(isEnglishMatrixTHCS) {
+          console.log("English matrix THCS detected  → wait for full response")
+         
+          const resultEnglishTHCS = await generateQuestionsEnglishTHCS(matrixData.file);
+
+          if(resultEnglishTHCS) {
+              setGeneratedExam(resultEnglishTHCS);
+
+              localStorage.setItem("generatedEnglishTHCSExam", JSON.stringify(result));
+
+              console.log("Saved English exam THCS result to localStorage");
+          }else {
+            
+          }
+        setIsGenerating(false);
+
+        return;
+      }
+
       if (isEnglishMatrix || isHSKMatrix) {
         console.log("English/HSK matrix detected → wait for full response")
 
         const result = await generateQuestions(
-          matrixData.file,
-          generationConfig,
-          templateDocx?.file,
-          pdfFiles?.files
+          matrixData.file
         )
 
-
         if (result) {
-          console.log(">>>>>>> d123 123 debug", result);
           if (isHSKMatrix) {
+
             setSuccessMessage("Đã sinh đề HSK thành công! File đã được lưu ở thư mục exports.");
+
             setGeneratedExam(result);
           } else {
-            setGeneratedExam(result)
-            localStorage.setItem("generatedEnglishExam", JSON.stringify(result))
-            console.log("Saved English exam to localStorage")
+            setGeneratedExam(result);
+
+            localStorage.setItem("generatedEnglishExam", JSON.stringify(result));
+
+            console.log("Saved English exam to localStorage");
           }
         } else {
-          setError(result?.error || "Không nhận được phản hồi từ server")
+          setError(result?.error || "Không nhận được phản hồi từ server");
         }
-        setIsGenerating(false)
-        return
+        setIsGenerating(false);
+
+        return;
       }
 
       setGenerationProgress({
@@ -290,10 +323,7 @@ export default function GenerateExamPage() {
       })
 
       const result = await generateQuestions(
-        matrixData.file,
-        generationConfig,
-        templateDocx?.file,
-        pdfFiles?.files
+        matrixData.file
       )
 
       const newSessionId = result.session_id
@@ -453,11 +483,13 @@ export default function GenerateExamPage() {
               Mở thư mục chứa file Excel
             </button>
           </div>
-        ): matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") && !generatedExam ? (
+        ): matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") && !generatedExam ? (
           <EnglishExcelPreviewPanel file={matrixData.file} />
-        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") && generatedExam ? (
+        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") && generatedExam ? (
           <EnglishExamPreviewPanel examData={generatedExam} />
-        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_") ? (
+        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THCS_") && generatedExam ? (
+          <EnglishExamTHCSPreviewPanel examData={generatedExam} />
+        ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") ? (
           <div className="h-full flex items-center justify-center text-gray-500">
             Đang sinh đề tiếng Anh...
           </div>

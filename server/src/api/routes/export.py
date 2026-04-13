@@ -60,7 +60,6 @@ def _get_exports_dir() -> Path:
     return exports_dir
 
 
-
 @routerEnglish.post("/export-english-solution")
 async def export_english_solution(payload: dict):
 
@@ -77,6 +76,36 @@ async def export_standard_english_solution(payload: dict):
     return FileResponse(
         # path=str(file_path),
         filename="English_Standard_Solution.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+
+
+@routerEnglish.post("/export-english-exam-thcs")
+async def export_docx_english_exam_thcs(payload: dict):
+
+    output_dir = _get_exports_dir()
+    file_path = output_dir / "English_Exam_THCS.docx"
+
+    # export_docx_from_data(payload, str(file_path))
+
+    return FileResponse(
+        path=str(file_path),
+        filename="English_Exam_THCS.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+@routerEnglish.post("/export-english-exam-thcs")
+async def export_standard_docx_english_exam_thcs(payload: dict):
+
+    output_dir = _get_exports_dir()
+    file_path = output_dir / "English_Standard_Exam_THCS.docx"
+
+    # export_docx_from_data(payload, str(file_path))
+
+    return FileResponse(
+        path=str(file_path),
+        filename="English_Standard_Exam_THCS.docx",
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 

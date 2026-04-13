@@ -194,7 +194,7 @@ export default function EnglishExamPreviewPanel({ examData }) {
 }
 
 
-function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
+export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
 
   const title = data?.passage_title
   const passage = data?.passage || ""
@@ -318,7 +318,7 @@ function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
 
 
 
-function ArrangeBlock({ data, showInstruction = true }) {
+export function ArrangeBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
 
     const instruction =
@@ -382,7 +382,7 @@ function ArrangeBlock({ data, showInstruction = true }) {
   )
 }
 
-function SentenceCompletionBlock({ data, showInstruction = true }) {
+export function SentenceCompletionBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
@@ -479,7 +479,7 @@ function SentenceCompletionBlock({ data, showInstruction = true }) {
 //   )
 // }
 
-function SynonymBlock({ data, showInstruction = true }) {
+export function SynonymBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   const type = data.questions?.[0]?.type
 
@@ -533,7 +533,7 @@ function SynonymBlock({ data, showInstruction = true }) {
 }
 
 
-function ErrorIdentificationBlock({ data, showInstruction = true }) {
+export function ErrorIdentificationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
@@ -580,7 +580,7 @@ function ErrorIdentificationBlock({ data, showInstruction = true }) {
 }
 
 
-function SentenceTransformationBlock({ data, showInstruction = true }) {
+export function SentenceTransformationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
 
   const type = data.questions?.[0]?.type
@@ -637,7 +637,7 @@ function SentenceTransformationBlock({ data, showInstruction = true }) {
 }
 
 
-function PronunciationBlock({ data, showInstruction = true }) {
+export function PronunciationBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
   return (
     <div className="mb-10">
@@ -684,7 +684,7 @@ function PronunciationBlock({ data, showInstruction = true }) {
 }
 
 
-function DialogueBlock({ data, showInstruction = true }) {
+export function DialogueBlock({ data, showInstruction = true }) {
 
   const renderText = (val) => {
     if (val === null || val === undefined) return "";
@@ -755,7 +755,7 @@ function DialogueBlock({ data, showInstruction = true }) {
 }
 
 
-function WordReorderingBlock({ data, showInstruction = true }) {
+export function WordReorderingBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null 
   return (
     <div className="mb-10">
@@ -824,7 +824,7 @@ function WordReorderingBlock({ data, showInstruction = true }) {
 }
 
 
-function LogicalThinkingBlock({ data, showInstruction = true }) {
+export function LogicalThinkingBlock({ data, showInstruction = true }) {
 
   const questions = data?.questions || []
 
