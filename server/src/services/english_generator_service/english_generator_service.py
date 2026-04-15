@@ -44,10 +44,10 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PROMPT_DIR.mkdir(parents=True, exist_ok=True)
 VOCABULARY_DIR.mkdir(parents=True, exist_ok=True)
 
-DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+DRIVE_ENGLISH_PROMPT_FOLDER = "https://drive.google.com/drive/folders/1iv6lB2wM97ocmbtpyBvS7Ze4xQIvBILe"
 
 
-DRIVE_FOLDER = "https://drive.google.com/drive/folders/1JSFC8FBTY6lA0rlrC7-LAIHU_FjbOK3g"
+DRIVE_FOLDER = "https://drive.google.com/drive/folders/1iv6lB2wM97ocmbtpyBvS7Ze4xQIvBILe"
 
 def get_runtime_path():
     """

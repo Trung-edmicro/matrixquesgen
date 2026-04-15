@@ -78,7 +78,7 @@ Quy tắc bắt buộc:
 - Đánh số "number" bắt đầu từ {START_NUM}
 - answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 SENTENCE_COMPLETION_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
@@ -110,7 +110,7 @@ Quy tắc bắt buộc:
   + Vocabulary: liệt kê 4 phương án và giải nghĩa, có “→ phù hợp ngữ cảnh”
   + Word Formation: phân tích từ loại + liệt kê 4 dạng từ, có “→ chọn”
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 
 SYNONYM_ANTONYM_JSON_SCHEMA = """
@@ -151,7 +151,7 @@ Quy tắc bắt buộc:
 - Với antonym: nên có ít nhất 1 distractor là từ đồng nghĩa với từ gốc
 - translation là câu đã hiểu đầy đủ nghĩa theo ngữ cảnh
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 
 ERROR_IDENTIFICATION_JSON_SCHEMA = """
@@ -189,7 +189,7 @@ Quy tắc bắt buộc:
 - correction phải đúng format: "<sai> → <đúng>"
 - translation là câu đã sửa hoàn chỉnh
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 
 SENTENCE_TRANSFORMATION_JSON_SCHEMA = """
@@ -240,7 +240,7 @@ Quy tắc bắt buộc:
 - correct_translation là nghĩa của phương án đúng
 
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 WORD_REORDERING_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
@@ -276,7 +276,7 @@ Quy tắc bắt buộc:
   + KHÔNG nhắc A/B/C/D
 - translation là câu đúng hoàn chỉnh
 - KHÔNG thêm bất kỳ text nào ngoài JSON
-"""
+""".strip()
 
 
 PRONUNCIATION_STRESS_JSON_SCHEMA = """
@@ -517,3 +517,95 @@ Quy tắc bắt buộc:
 - Cấm viết chữ Lời giải và chọn đáp án nào đúng
 - Không cần viết thông tin, tạm dịch vì cấu trúc json trả về đã yêu cầu
 """.strip()
+
+ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "original_sentence": "<câu gốc tiếng Anh>",
+
+      "given_word": "<từ/cụm từ gợi ý (có thể rỗng nếu đề không cho)>",
+
+      "rewrite_prompt": "<phần đầu câu viết lại (có thể rỗng nếu đề không cho)>",
+
+      "answer": "<câu viết lại hoàn chỉnh hoặc phần còn lại tùy format đề>",
+
+      "knowledge": "<tên cấu trúc/ngữ pháp chính>",
+
+      "explanation": {{
+        "rule": "<mô tả cấu trúc/ngữ pháp>",
+        "application": "<giải thích cách áp dụng vào câu cụ thể>"
+      }},
+
+      "translation": "<dịch nghĩa câu viết lại sang tiếng Việt>"
+    }}
+  ]
+}}
+""".strip()
+
+
+ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{
+  "questions": [
+    {
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "given_words": "<chuỗi từ/cụm từ đã xáo trộn, ngăn cách bằng ' / '>",
+
+      "answer": "<câu hoàn chỉnh đúng>",
+
+      "knowledge": "<tên cấu trúc/ngữ pháp hoặc dạng câu>",
+
+      "explanation": {
+        "reasoning": "<giải thích logic sắp xếp (chủ ngữ, động từ, trạng ngữ, mệnh đề, liên từ...)>",
+        "note": "<ghi chú thêm nếu có (ví dụ: because nối mệnh đề nguyên nhân/kết quả)>"
+      },
+
+      "translation": "<dịch nghĩa câu hoàn chỉnh sang tiếng Việt>"
+    }
+  ]
+}
+"""
+
+
+WORD_FORM_SENTENCE_COMPLETION_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{
+  "questions": [
+    {
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "sentence": "<câu có 1 hoặc nhiều chỗ trống ______>",
+
+      "given_words": [
+        "<TỪ GỐC 1 - IN HOA>",
+        "<TỪ GỐC 2 - IN HOA nếu có>",
+        "<TỪ GỐC 3 - nếu có>"
+      ],
+
+      "answers": [
+        "<đáp án cho blank 1>",
+        "<đáp án cho blank 2>",
+        "<đáp án cho blank 3>"
+      ],
+
+      "knowledge": "<tên kiến thức chính: word form / verb tense / V-ing / collocation...>",
+
+      "explanation": {
+        "blank_1": "<giải thích vì sao dùng dạng này (loại từ, thì, cấu trúc...)>",
+        "blank_2": "<giải thích blank 2 nếu có>",
+        "blank_3": "<giải thích blank 3 nếu có>"
+      },
+
+      "translation": "<dịch câu hoàn chỉnh sang tiếng Việt>"
+    }
+  ]
+}
+"""
