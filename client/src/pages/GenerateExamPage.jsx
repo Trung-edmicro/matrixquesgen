@@ -10,24 +10,14 @@ import {
   downloadDocx,
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
-<<<<<<< HEAD
-  getEnrichedMatrix,
-  saveTemplateSelections,
-  continueToPhase4,
-=======
   generateQuestionsEnglishTHCS,
   exportToEnglishExamDocxTHCS,
   exportToEnglishStandardDocxTHCS,
->>>>>>> gitlab/dev
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
-<<<<<<< HEAD
-import QuestionTemplateSelector from '../components/math/QuestionTemplateSelector'
-=======
 import EnglishExamTHCSPreviewPanel from '../components/generate/EnglishExamTHCSPreviewPanel'
->>>>>>> gitlab/dev
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
