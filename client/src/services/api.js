@@ -1,5 +1,4 @@
 import axios from 'axios'
-import FormData from 'form-data'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -24,7 +23,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   // Thêm PDF files nếu có
   if (pdfFiles && pdfFiles.length > 0) {
     for (const pdf of pdfFiles) {
-      formData.append('pdf_files', pdf)
+      // formData.append('pdf_files', pdf)
     }
   }
   
@@ -34,14 +33,15 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
 
 
-  const response = await api.post('/api/generate', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })
+  const response = await api.post('/api/generate', formData,{
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
     console.log(">>>>>> debug response", response.data);
   return response.data
   }catch(error) {
+    console.log(error);
     console.log(">>>>>> error", error);
     throw error;
   }
@@ -277,6 +277,26 @@ export const exportToEnglishExamDocx = async (generatedExam, config) => {
 export const exportToEnglishStandardDocx = async (generatedExam, config) => {
   const response = await api.post(
     `/api/export-english-standard`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToEnglishExamDocxTHCS = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-exam-thcs`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+
+
+export const exportToEnglishStandardDocxTHCS = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-standard-exam-thcs`,
     generatedExam,
     config
   )

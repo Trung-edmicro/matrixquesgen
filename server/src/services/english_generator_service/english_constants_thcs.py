@@ -26,56 +26,73 @@ PROMPTS_ENGLISH_THCS_MAPPING = {
 COMPLETE_THE_SENTENCE_USING_THE_GIVEN_WORD_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
 
-{
+{{
   "questions": [
-    {
+    {{
       "number": <số thứ tự câu hỏi, integer>,
       "given_words": "<chuỗi từ/cụm từ cho trước, ngăn cách bằng dấu ' / '>",
       "sentence_stem": "<phần đầu câu nếu có, nếu không thì để chuỗi rỗng ''>",
+      "options": {{
+        "option_A": "Đáp án A",
+        "option_B": "Đáp án B",
+        "option_C": "Đáp án C",
+        "option_D": "Đáp án C"
+      }},
+      "correct_option":  "<A/B/C/D>",
       "answer": "<câu hoàn chỉnh đúng, viết hoa đầu câu và có dấu câu>",
       "knowledge": "<tên cấu trúc/ngữ pháp chính>",
       "explanation": "<giải thích từng bước cách dựng câu từ các từ đã cho, bao gồm chia động từ, thêm từ chức năng>",
       "full_sentence": "<câu hoàn chỉnh đúng (lặp lại để nhấn mạnh)>",
       "translation": "<dịch nghĩa câu hoàn chỉnh sang tiếng Việt>"
-    }
+    }}
   ]
-}
-"""
+}}
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()
 
 SENTENCE_BUILDING_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
 
-{
+{{
   "questions": [
-    {
+    {{
       "number": <số thứ tự câu hỏi, integer>,
 
       "given_words": "<chuỗi từ/cụm từ cho trước, ngăn cách bằng dấu ' / '>",
 
-      "options": {
+      "options": {{
         "A": "<câu hoàn chỉnh A>",
         "B": "<câu hoàn chỉnh B>",
         "C": "<câu hoàn chỉnh C>",
         "D": "<câu hoàn chỉnh D>"
-      },
+      }},
 
       "answer": "<A/B/C/D>",
 
       "knowledge": "<tên nội dung kiến thức chính>",
 
-      "explanation": {
+      "explanation": {{
         "steps": [
           "<giải thích bước 1: quy tắc quan trọng nhất>",
           "<giải thích bước 2 nếu cần>",
           "<giải thích bước 3 nếu cần>"
         ],
         "correct_sentence": "<câu đúng hoàn chỉnh>"
-      },
+      }},
 
       "translation": "<dịch câu đúng sang tiếng Việt>"
-    }
+    }}
   ]
-}
+}}
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
+- KHÔNG thêm bất kỳ text nào ngoài JSON
 """.strip()
 
 OPENING_AND_ORDERING_SENTENCE_JSON_SCHEMA = """
@@ -137,11 +154,12 @@ Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text
   ]
 }}
 
-Quy tắc bắt buộc:
+### Quy tắc bắt buộc:
 - questions là mảng có đúng {N_Q} phần tử
 - Đánh số "number" bắt đầu từ {START_NUM}
 - answer chỉ là 1 ký tự in hoa: A, B, C hoặc D
 - KHÔNG thêm bất kỳ text nào ngoài JSON
+- Các ô trống để ngẫu nhiên không được để liên tiếp 2 ô trống cạnh nhau.
 """.strip()
 
 ORDERING_AND_CLOSING_SENTENCE_JSON_SCHEMA = """
@@ -542,10 +560,10 @@ Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text
 
       "explanation": "<giải thích cấu trúc và cách áp dụng vào câu này>",
 
-      "translation": {
+      "translation": {{
         "original": "<dịch câu gốc sang tiếng Việt>",
         "rewritten": "<dịch câu viết lại hoàn chỉnh sang tiếng Việt>"
-      }
+      }}
     }}
   ]
 }}

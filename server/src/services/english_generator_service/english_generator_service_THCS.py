@@ -21,6 +21,7 @@ from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import logging
 from collections import defaultdict, Counter
+import traceback
 from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
                         ARRANGE_JSON_SCHEMA,
      CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,SENTENCE_COMPLETION_JSON_SCHEMA,SYNONYM_ANTONYM_JSON_SCHEMA,ERROR_IDENTIFICATION_JSON_SCHEMA,SENTENCE_TRANSFORMATION_JSON_SCHEMA,WORD_REORDERING_JSON_SCHEMA,PRONUNCIATION_STRESS_JSON_SCHEMA,DIALOGUE_COMPLETION_JSON_SCHEMA,LOGICAL_THINKING_JSON_SCHEMA,
@@ -175,71 +176,114 @@ def load_prompt(filename: str) -> str:
 
 
 
+# def detect_type_columns(df):
+#     col_map = {}
+
+#     for i, col in enumerate(df.columns):
+#         col_lower = str(col).lower()
+
+#         if "điền từ" in col_lower:
+#             col_map["Điền từ"] = i
+
+#         elif "sắp xếp từ" in col_lower:
+#             col_map["Sắp xếp từ"] = i
+
+#         elif "sắp xếp/tìm câu mở đoạn" in col_lower:
+#             col_map["Sắp xếp/tìm câu mở đoạn"] = i
+
+#         elif "sắp xếp/tìm câu kết đoạn" in col_lower:
+#             col_map["Sắp xếp/tìm câu kết đoạn"] = i
+
+#         elif "sắp xếp" in col_lower:
+#             col_map["Sắp xếp"] = i
+
+#         elif "đọc hiểu" in col_lower:
+#             col_map["Đọc hiểu"] = i
+
+#         elif "điền cụm" in col_lower:
+#             col_map["Điền cụm từ/điền câu"] = i
+
+#         elif "hoàn thành câu - từ cho trước" in col_lower:
+#             col_map["Hoàn thành câu - từ cho trước"] = i
+
+#         elif "hoàn thành câu" in col_lower:
+#             col_map["Hoàn thành câu"] = i
+
+#         elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
+#             col_map["Đồng nghĩa/Trái nghĩa"] = i
+
+#         elif "tìm lỗi sai" in col_lower:
+#             col_map["Tìm lỗi sai"] = i
+
+#         elif "kết hợp" in col_lower or "viết lại" in col_lower:
+#             col_map["Kết hợp/viết lại câu"] = i
+
+#         elif "phát âm" in col_lower or "trọng âm" in col_lower:
+#             col_map["Phát âm/Trọng âm"] = i
+
+#         elif "giao tiếp" in col_lower:
+#             col_map["Câu giao tiếp"] = i
+
+#         elif "tình huống" in col_lower or "tư duy" in col_lower:
+#             col_map["Tư duy/Tình huống"] = i
+
+#         elif "tự luận/kết hợp câu" in col_lower:
+#             col_map["Tự luận/Kết hợp câu"] = i
+
+#         elif "tự luận/viết lại câu" in col_lower:
+#             col_map["Tự luận/Viết lại câu"] = i
+
+#         elif "tự luận/dạng đúng của từ" in col_lower:
+#             col_map["Tự luận/Dạng đúng của từ"] = i
+
+#         elif "tự luận/sắp xếp từ" in col_lower:
+#             col_map["Tự luận/sắp xếp từ"] = i
+
+#         elif "tự luận/hoàn thành câu dùng từ cho trước" in col_lower:
+#             col_map["Tự luận/Hoàn thành câu dùng từ cho trước"] = i
+
+#     return col_map
+
 def detect_type_columns(df):
     col_map = {}
+
+    # Danh sách pattern theo thứ tự ưu tiên (quan trọng nhất ở trên)
+    patterns = [
+        ("Tự luận/Hoàn thành câu dùng từ cho trước", ["tự luận/hoàn thành câu dùng từ cho trước"]),
+        ("Hoàn thành câu - từ cho trước", ["hoàn thành câu - từ cho trước"]),
+        ("Tự luận/sắp xếp từ", ["tự luận/sắp xếp từ"]),
+        ("Tự luận/Dạng đúng của từ", ["tự luận/dạng đúng của từ"]),
+        ("Tự luận/Viết lại câu", ["tự luận/viết lại câu"]),
+        ("Tự luận/Kết hợp câu", ["tự luận/kết hợp câu"]),
+
+        ("Sắp xếp/tìm câu mở đoạn", ["sắp xếp/tìm câu mở đoạn"]),
+        ("Sắp xếp/tìm câu kết đoạn", ["sắp xếp/tìm câu kết đoạn"]),
+        ("Sắp xếp từ", ["sắp xếp từ"]),
+
+        ("Điền cụm từ/điền câu", ["điền cụm"]),
+        ("Đồng nghĩa/Trái nghĩa", ["đồng nghĩa", "trái nghĩa"]),
+        ("Kết hợp/viết lại câu", ["kết hợp", "viết lại"]),
+        ("Phát âm/Trọng âm", ["phát âm", "trọng âm"]),
+        ("Tư duy/Tình huống", ["tư duy", "tình huống"]),
+
+        # GENERIC đặt cuối
+        ("Điền từ", ["điền từ"]),
+        ("Sắp xếp", ["sắp xếp"]),
+        ("Đọc hiểu", ["đọc hiểu"]),
+        ("Hoàn thành câu", ["hoàn thành câu"]),
+        ("Tìm lỗi sai", ["tìm lỗi sai"]),
+        ("Câu giao tiếp", ["giao tiếp"]),
+    ]
 
     for i, col in enumerate(df.columns):
         col_lower = str(col).lower()
 
-        if "điền từ" in col_lower:
-            col_map["Điền từ"] = i
-
-        elif "sắp xếp từ" in col_lower:
-            col_map["Sắp xếp từ"] = i
-
-        elif "sắp xếp/tìm câu mở đoạn" in col_lower:
-            col_map["Sắp xếp/tìm câu mở đoạn"] = i
-
-        elif "sắp xếp/tìm câu kết đoạn" in col_lower:
-            col_map["Sắp xếp/tìm câu kết đoạn"] = i
-
-        elif "sắp xếp" in col_lower:
-            col_map["Sắp xếp"] = i
-
-        elif "đọc hiểu" in col_lower:
-            col_map["Đọc hiểu"] = i
-
-        elif "điền cụm" in col_lower:
-            col_map["Điền cụm từ/điền câu"] = i
-
-        elif "hoàn thành câu - từ cho trước" in col_lower:
-            col_map["Hoàn thành câu - từ cho trước"] = i
-
-        elif "hoàn thành câu" in col_lower:
-            col_map["Hoàn thành câu"] = i
-
-        elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
-            col_map["Đồng nghĩa/Trái nghĩa"] = i
-
-        elif "tìm lỗi sai" in col_lower:
-            col_map["Tìm lỗi sai"] = i
-
-        elif "kết hợp" in col_lower or "viết lại" in col_lower:
-            col_map["Kết hợp/viết lại câu"] = i
-
-        elif "phát âm" in col_lower or "trọng âm" in col_lower:
-            col_map["Phát âm/Trọng âm"] = i
-
-        elif "giao tiếp" in col_lower:
-            col_map["Câu giao tiếp"] = i
-
-        elif "tình huống" in col_lower or "tư duy" in col_lower:
-            col_map["Tư duy/Tình huống"] = i
-
-        elif "tự luận/kết hợp câu" in col_lower:
-            col_map["Tự luận/Kết hợp câu"] = i
-
-        elif "tự luận/viết lại câu" in col_lower:
-            col_map["Tự luận/Viết lại câu"] = i
-
-        elif "tự luận/dạng đúng của từ" in col_lower:
-            col_map["Tự luận/Dạng đúng của từ"] = i
-
-        elif "tự luận/sắp xếp từ" in col_lower:
-            col_map["Tự luận/sắp xếp từ"] = i
-
-        elif "tự luận/hoàn thành câu dùng từ cho trước" in col_lower:
-            col_map["Tự luận/Hoàn thành câu dùng từ cho trước"] = i
+        for label, keys in patterns:
+            if any(k in col_lower for k in keys):
+                # col_map[label] = i
+                if label not in col_map:
+                   col_map[label] = i
+                break  # rất quan trọng
 
     return col_map
 
@@ -252,12 +296,23 @@ def detect_types_in_row(row, type_col_map):
             row_types.append((q_type, levels))
     return row_types
 
+# def detect_all_levels(row, start_index):
+#     found = []
+#     for offset in range(4):
+#         cell = row.iloc[start_index + offset]
+#         if pd.notna(cell) and str(cell).strip() != "":
+#             found.append(LEVELS[offset])
+#     return found
+
 def detect_all_levels(row, start_index):
     found = []
-    for offset in range(4):
+    max_offset = min(4, len(row) - start_index)
+
+    for offset in range(max_offset):
         cell = row.iloc[start_index + offset]
-        if pd.notna(cell) and str(cell).strip() != "":
+        if pd.notna(cell) and str(cell).strip():
             found.append(LEVELS[offset])
+
     return found
 
 
@@ -1100,7 +1155,7 @@ async def generate_exam_docx_thcs(blocks):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25, ai_input_sentence_completion_with_given_word)
             tasks.append(task)
-            block_meta.append(("SENTENCE_COMPLETION_WITH_GIVEN_WORD", topic, n_q, q_count,text_type_en))
+            block_meta.append(("COMPLETE_SENTENCE_GIVEN_WORDS", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
         elif q_type == "Tự luận/Viết lại câu":
@@ -1244,7 +1299,7 @@ async def generate_exam_docx_thcs(blocks):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_word_form_sentence_completion_thcs_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_WORD_FORM_SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
         elif q_type == "Tự luận/Hoàn thành câu dùng từ cho trước":
@@ -1280,7 +1335,7 @@ async def generate_exam_docx_thcs(blocks):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_word_prompt_sentence_completion_thcs_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_WORD_PROMPT_SENTENCE", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
     responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1336,7 +1391,7 @@ def generate_docx_from_ai_results(results, output_path):
     doc.save(output_path)
 
 
-def export_standard_docx_from_data(json_data, output_path):
+def export_standard_docx_thcs(json_data, output_path):
     """
     Nhận trực tiếp JSON object (dict), render docx (STANDARD FORMAT).
     - Hỗ trợ parsed + raw data
@@ -1418,6 +1473,30 @@ def export_standard_docx_from_data(json_data, output_path):
         elif res_type == "WORD_REORDERING":
             i = render_standard_word_reordering_group(doc, results, i)
 
+        elif res_type == "COMPLETE_SENTENCE_GIVEN_WORDS":
+            i = render_standard_complete_sentence_given_words_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_PROMPT_SENTENCE":
+            i = render_standard_essay_word_prompt_sentence_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            i = render_standard_essay_word_form_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_ORDERING":
+            i = render_standard_essay_word_ordering_group(doc, results, i)
+
+        elif res_type == "ESSAY_COMBINE_SENTENCES":
+            i = render_standard_essay_combine_sentences_group(doc, results, i)
+
+        elif res_type == "ESSAY_REWRITING_SENTENCES":
+            i = render_standard_essay_rewriting_group(doc, results, i)
+
+        elif res_type == "ORDER_OPENING":
+            i = render_standard_opening_and_ordering_group(doc, results, i)
+
+        elif res_type == "ORDER_CLOSING":
+            i = render_standard_ordering_and_closing_group(doc, results, i)
+
         # ===== UNKNOWN =====
         else:
             logger.warning(f"Unknown type: {res_type}")
@@ -1427,7 +1506,7 @@ def export_standard_docx_from_data(json_data, output_path):
     return output_path
 
 
-def export_docx_from_data(json_data, output_path):
+def export_docx_thcs(json_data, output_path):
     """
     Render docx từ JSON.
     - Hỗ trợ parsed + raw data
@@ -1497,7 +1576,29 @@ def export_docx_from_data(json_data, output_path):
             i = render_logical_thinking_group(doc, results, i)
         elif res_type == "WORD_REORDERING":
             i = render_word_reordering_group(doc, results, i)
-           
+        elif res_type == "COMPLETE_SENTENCE_GIVEN_WORDS":
+            i = render_complete_sentence_given_words_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_PROMPT_SENTENCE":
+            i = render_essay_word_prompt_sentence_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            i = render_essay_word_form_group(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_ORDERING":
+            i = render_essay_word_ordering_group(doc, results, i)
+
+        elif res_type == "ESSAY_COMBINE_SENTENCES":
+            i = render_essay_combine_sentences_group(doc, results, i)
+
+        elif res_type == "ESSAY_REWRITING_SENTENCES":
+            i = render_essay_rewriting_group(doc, results, i)
+
+        elif res_type == "ORDER_OPENING":
+            i = render_opening_and_ordering_group(doc, results, i)
+
+        elif res_type == "ORDER_CLOSING":
+            i = render_ordering_and_closing_group(doc, results, i)
         # ===== UNKNOWN =====
         else:
             logger.warning(f"Unknown type: {res_type}")
@@ -2470,6 +2571,1122 @@ def _render_arrange(doc, raw_text):
             doc.add_paragraph(ln.strip())
 
 
+def render_standard_complete_sentence_given_words_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+        if res.get("type") != "COMPLETE_SENTENCE_GIVEN_WORDS":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            p.add_run(
+                "Mark the letter A, B, C, or D to indicate the sentence that is BEST written from the given words."
+            ).bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            doc.add_paragraph(f"Question {q['number']}. {q['given_words']}")
+
+            doc.add_paragraph(f"A. {q['options']['option_A']}")
+            doc.add_paragraph(f"B. {q['options']['option_B']}")
+            doc.add_paragraph(f"C. {q['options']['option_C']}")
+            doc.add_paragraph(f"D. {q['options']['option_D']}")
+
+        i += 1
+
+    return i
+
+
+def render_complete_sentence_given_words_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+        if res.get("type") != "COMPLETE_SENTENCE_GIVEN_WORDS":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            p.add_run(
+                "Mark the letter A, B, C, or D to indicate the sentence that is BEST written from the given words."
+            ).bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            doc.add_paragraph(f"Question {q['number']}. {q['given_words']}")
+
+            doc.add_paragraph(f"A. {q['options']['option_A']}")
+            doc.add_paragraph(f"B. {q['options']['option_B']}")
+            doc.add_paragraph(f"C. {q['options']['option_C']}")
+            doc.add_paragraph(f"D. {q['options']['option_D']}")
+
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+
+            doc.add_paragraph(f"Chọn {q['correct_option']}")
+
+            doc.add_paragraph("####")
+
+            if q.get("knowledge"):
+                doc.add_paragraph(f"Kiến thức: {q['knowledge']}")
+
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            doc.add_paragraph(f"Câu đúng: {q['full_sentence']}")
+
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_essay_word_prompt_sentence_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_WORD_PROMPT_SENTENCE":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Complete sentence by using the words or phrases below, adding more words if necessary."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(f"Question {q['number']}. {q['given_prompts']}")
+            p = doc.add_paragraph()
+
+            run1 = p.add_run(f"Question {q['number']}. ")
+            run1.bold = True
+
+            run2 = p.add_run(q['given_prompts'])
+
+            doc.add_paragraph("→ " + "_" * 55)
+
+        i += 1
+
+    return i
+
+def render_essay_word_prompt_sentence_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_WORD_PROMPT_SENTENCE":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Complete sentence by using the words or phrases below, adding more words if necessary."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(f"Question {q['number']}. {q['given_prompts']}")
+            p = doc.add_paragraph()
+
+            run1 = p.add_run(f"Question {q['number']}. ")
+
+            run1.bold = True
+
+            run2 = p.add_run(q['given_prompts'])
+
+            doc.add_paragraph("→ " + "_" * 55)
+
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+
+            doc.add_paragraph(f"Đáp án: {q['answer']}")
+
+            if q.get("knowledge"):
+                doc.add_paragraph(f"Kiến thức: {q['knowledge']}")
+
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            doc.add_paragraph(f"Câu hoàn chỉnh: {q['answer']}")
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_essay_word_form_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        questions = parsed.get("questions", [])
+        if not questions:
+            i += 1
+            continue
+
+        # 👉 Xác định loại của câu đầu tiên
+        first_q = questions[0]
+        current_type = "single" if len(first_q.get("given_words", [])) < 2 else "multi"
+
+        # 👉 Gom group các câu cùng loại liên tiếp
+        group = []
+
+        while i < n:
+            res = results[i]
+            if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+                break
+
+            parsed = res.get("parsed")
+            if not parsed:
+                break
+
+            qs = parsed.get("questions", [])
+            if not qs:
+                break
+
+            q = qs[0]
+            q_type = "single" if len(q.get("given_words", [])) < 2 else "multi"
+
+            if q_type != current_type:
+                break
+
+            group.append(q)
+            i += 1
+
+        # =========================
+        # 👉 Render 1 TITLE cho group
+        # =========================
+        if current_type == "single":
+            title = "Complete the sentence below by filling each blank with the correct form of the word provided."
+        else:
+            title = "Complete each sentence below, using the correct form of the words in the brackets."
+
+        p = doc.add_paragraph()
+        run = p.add_run(title)
+        run.bold = True
+
+        # =========================
+        # 👉 Render toàn bộ câu trong group
+        # =========================
+        for q in group:
+            doc.add_paragraph(f"Question {q['number']}. {q['sentence']}")
+
+    return i
+
+
+def render_essay_word_form_group(doc, results, start_index):
+    i = start_index
+    n = len(results)
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        questions = parsed.get("questions", [])
+        if not questions:
+            i += 1
+            continue
+
+        # 👉 Xác định loại
+        first_q = questions[0]
+        current_type = "single" if len(first_q.get("given_words", [])) < 2 else "multi"
+
+        # 👉 Gom group
+        group = []
+
+        while i < n:
+            res = results[i]
+            if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+                break
+
+            parsed = res.get("parsed")
+            if not parsed:
+                break
+
+            qs = parsed.get("questions", [])
+            if not qs:
+                break
+
+            q = qs[0]
+            q_type = "single" if len(q.get("given_words", [])) < 2 else "multi"
+
+            if q_type != current_type:
+                break
+
+            group.append(q)
+            i += 1
+
+        # =========================
+        # 👉 TITLE
+        # =========================
+        if current_type == "single":
+            title = "Complete the sentence below by filling each blank with the correct form of the word provided."
+        else:
+            title = "Complete each sentence below, using the correct form of the verbs in the brackets."
+
+        p = doc.add_paragraph()
+        run = p.add_run(title)
+        run.bold = True
+
+        # =========================
+        # 👉 Render từng câu (TÁCH RÕ)
+        # =========================
+        for q in group:
+            # 👉 Question
+            doc.add_paragraph(f"Question {q['number']}. {q['sentence']}")
+
+            # 👉 Lời giải (bold)
+            p = doc.add_paragraph()
+            run = p.add_run("Lời giải")
+            run.bold = True
+
+            # 👉 Đáp án
+            doc.add_paragraph(f"Đáp án: {', '.join(q['answers'])}")
+
+            # 👉 Kiến thức
+            if q.get("knowledge"):
+                doc.add_paragraph(f"Kiến thức: {q['knowledge']}")
+
+            # 👉 Explanation (từng dòng riêng)
+            explanation = q.get("explanation", {})
+            for key in sorted(explanation.keys()):
+                val = explanation[key]
+                if val:
+                    doc.add_paragraph(f"- {val}")
+
+            # 👉 Câu hoàn chỉnh (nếu có)
+            if q.get("filled_sentence"):
+                doc.add_paragraph(f"Câu hoàn chỉnh: {q['filled_sentence']}")
+
+            # 👉 Translation
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+            # ✅ QUAN TRỌNG: tạo khoảng cách giữa các câu
+            doc.add_paragraph("")  # dòng trống
+
+    return i
+
+def render_standard_essay_word_ordering_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_WORD_ORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Rearrange the given words or phrases to make a meaningful sentence."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(f"Question {q['number']}. {q['given_words']}")
+            # doc.add_paragraph("→ ________________________________")
+            p = doc.add_paragraph()
+
+            text_part1 = f"Question {q['number']}. "
+            text_part2 = q['given_words']
+
+            run1 = p.add_run(text_part1)
+            run1.bold = True
+
+            run2 = p.add_run(text_part2)
+
+            # ===== TÍNH ĐỘ DÀI "_" =====
+            full_text = text_part1 + text_part2
+
+            underscore_length = int(len(full_text) * 0.7)
+
+            print(f">>>>>> debug underscore_length {underscore_length}")
+
+            MAX_LINE_LENGTH = estimate_max_chars_per_line(doc, font_size_pt=13)
+
+            print(f">>>>> dEBUG MAX LINE LENGTH {MAX_LINE_LENGTH}")
+
+            underscore_length = min(underscore_length, MAX_LINE_LENGTH)
+
+            doc.add_paragraph("→ " + "_" * underscore_length)
+
+        i += 1
+
+    return i
+
+
+
+def render_essay_word_ordering_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_WORD_ORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Rearrange the given words or phrases to make a meaningful sentence."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(f"Question {q['number']}. {q['given_words']}")
+            # doc.add_paragraph("→ ________________________________")
+            p = doc.add_paragraph()
+
+            text_part1 = f"Question {q['number']}. "
+            text_part2 = q['given_words']
+
+            run1 = p.add_run(text_part1)
+            run1.bold = True
+
+            run2 = p.add_run(text_part2)
+
+            # ===== TÍNH ĐỘ DÀI "_" =====
+            full_text = text_part1 + text_part2
+
+            underscore_length = int(len(full_text) * 0.7)
+
+            MAX_LINE_LENGTH = estimate_max_chars_per_line(doc, font_size_pt=13)
+
+            underscore_length = min(underscore_length, MAX_LINE_LENGTH)
+
+            doc.add_paragraph("→ " + "_" * underscore_length)
+
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+            doc.add_paragraph(f"Đáp án: {q['answer']}")
+
+            if q.get("structure"):
+                doc.add_paragraph(f"Cấu trúc: {q['structure']}")
+
+            doc.add_paragraph(f"Câu hoàn chỉnh: {q['full_sentence']}")
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+
+def estimate_max_chars_per_line(doc, font_size_pt=13):
+    section = doc.sections[0]
+
+    usable_width = section.page_width - section.left_margin - section.right_margin
+    usable_width_pt = usable_width / 12700  # EMU → point
+
+    # tinh chỉnh hệ số cho font 13
+    avg_char_width = font_size_pt * 0.6
+
+    return int(usable_width_pt / avg_char_width)
+
+def render_standard_essay_combine_sentences_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_COMBINE_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Combine each pair of sentences below to make a complete sentence."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(
+            #     f"Question {q['number']}. {q['sentence_1']} {q['sentence_2']} ({q['given_word']})"
+            # )
+
+            # doc.add_paragraph("→ ________________________________")
+            p = doc.add_paragraph()
+
+            text_part1 = f"Question {q['number']}. "
+            text_part2 = f"{q['sentence_1']} {q['sentence_2']} "
+            text_part3 = f"({q['given_word']})"
+
+            run1 = p.add_run(text_part1)
+            run1.bold = True
+
+            run2 = p.add_run(text_part2)
+
+            run3 = p.add_run(text_part3)
+            run3.bold = True
+
+            # ===== TÍNH ĐỘ DÀI =====
+            full_text = text_part1 + text_part2 + text_part3
+
+            # độ dài ước lượng
+            underscore_length = int(len(full_text) * 0.7)
+
+            # GIỚI HẠN tối đa 1 dòng
+            # MAX_LINE_LENGTH = 80  # bạn có thể chỉnh (70–100 tùy font/khổ giấy)
+            MAX_LINE_LENGTH = estimate_max_chars_per_line(doc, font_size_pt=13)
+
+            underscore_length = min(underscore_length, MAX_LINE_LENGTH)
+
+            doc.add_paragraph("→ " + "_" * underscore_length)
+
+        i += 1
+
+    return i
+
+def render_essay_combine_sentences_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_COMBINE_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Combine each pair of sentences below to make a complete sentence."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(
+            #     f"Question {q['number']}. {q['sentence_1']} {q['sentence_2']} ({q['given_word']})"
+            # )
+
+            # doc.add_paragraph("→ ________________________________")
+
+            p = doc.add_paragraph()
+
+            text_part1 = f"Question {q['number']}. "
+            text_part2 = f"{q['sentence_1']} {q['sentence_2']} "
+            text_part3 = f"({q['given_word']})"
+
+            run1 = p.add_run(text_part1)
+            run1.bold = True
+
+            run2 = p.add_run(text_part2)
+
+            run3 = p.add_run(text_part3)
+            run3.bold = True
+
+            # ===== TÍNH ĐỘ DÀI =====
+            full_text = text_part1 + text_part2 + text_part3
+
+            # độ dài ước lượng
+            underscore_length = int(len(full_text) * 0.7)
+
+            # GIỚI HẠN tối đa 1 dòng
+            # MAX_LINE_LENGTH = 80  # bạn có thể chỉnh (70–100 tùy font/khổ giấy)
+            MAX_LINE_LENGTH = estimate_max_chars_per_line(doc, font_size_pt=13)
+
+            underscore_length = min(underscore_length, MAX_LINE_LENGTH)
+
+            doc.add_paragraph("→ " + "_" * underscore_length)
+
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+            doc.add_paragraph(f"Đáp án: {q['combined_sentence']}")
+
+            if q.get("knowledge"):
+                doc.add_paragraph(f"Cấu trúc: {q['knowledge']}")
+
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+def render_standard_essay_rewriting_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_REWRITING_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Rewrite the sentence so that its meaning stays the same, using the words given."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(
+            #     f"Question {q['number']}. {q['original_sentence']} ({q['given_word']})"
+            # )
+
+            p = doc.add_paragraph()
+
+            run1 = p.add_run(f"Question {q['number']}. ")
+            run1.bold = True
+
+            run2 = p.add_run(q['original_sentence'] + " ")
+
+            run3 = p.add_run(f"({q['given_word']})")
+            run3.bold = True
+
+            # doc.add_paragraph(f"→ {q['rewrite_prompt']} __________________")
+            doc.add_paragraph(f"→ {q['rewrite_prompt']}" + "_" * 52)
+
+        i += 1
+
+    return i
+
+
+def render_essay_rewriting_group(doc, results, start_index):
+    i = start_index
+    title_added = False
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ESSAY_REWRITING_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            doc.add_paragraph(
+                "Rewrite the sentence so that its meaning stays the same, using the words given."
+            ).runs[0].bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            # doc.add_paragraph(
+            #     f"Question {q['number']}. {q['original_sentence']} ({q['given_word']})"
+            # )
+            p = doc.add_paragraph()
+
+            run1 = p.add_run(f"Question {q['number']}. ")
+
+            run1.bold = True
+
+            run2 = p.add_run(q['original_sentence'] + " ")
+
+            run3 = p.add_run(f"({q['given_word']})")
+            run3.bold = True
+
+            # doc.add_paragraph(f"→ {q['rewrite_prompt']} __________________")
+            doc.add_paragraph(f"→ {q['rewrite_prompt']}" + "_" * 52)
+
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+
+            doc.add_paragraph(f"Đáp án: {q['answer']}")
+
+            if q.get("knowledge"):
+                doc.add_paragraph(f"Cấu trúc: {q['knowledge']}")
+
+            add_multiline_text(doc, q.get("explanation", ""))
+
+            doc.add_paragraph(f"Câu gốc: {q['translation']['original']}")
+
+            doc.add_paragraph(f"= {q['translation']['rewritten']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_opening_and_ordering_group(doc, results, start_index):
+    i = start_index
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ORDER_OPENING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        for group in parsed.get("question_groups", []):
+
+            oq = group["opening_question"]
+            ordq = group["ordering_question"]
+
+            # 👉 THÊM TIÊU ĐỀ Ở ĐÂY
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {oq['question_number']} to {ordq['question_number']}."
+            )
+            run.bold = True
+            run.italic = True
+
+            doc.add_paragraph(group["shared_stem"]["text"])
+
+
+            oq = group["opening_question"]
+            # doc.add_paragraph(f"Question {oq['question_number']}")
+            p = doc.add_paragraph()
+            run = p.add_run(f"Question {oq['question_number']}. Choose the TOPIC SENTENCE that can BEGIN the text most appropriately.")
+            run.bold = True
+
+            for k, v in oq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+                       
+    
+            ordq = group["ordering_question"]
+            # doc.add_paragraph(f"Question {ordq['question_number']}")
+            p = doc.add_paragraph()
+            run = p.add_run(f"Question {ordq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text.")
+            run.bold = True
+
+            for k, v in ordq["sentences"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            for k, v in ordq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+
+        i += 1
+
+    return i
+
+# def render_opening_and_ordering_group(doc, results, start_index):
+#     i = start_index
+
+#     while i < len(results):
+#         res = results[i]
+#         if res.get("type") != "ORDER_OPENING":
+#             break
+
+#         parsed = res.get("parsed")
+#         if not parsed:
+#             break
+
+#         for group in parsed.get("question_groups", []):
+
+#             oq = group["opening_question"]
+#             ordq = group["ordering_question"]
+
+#             # 👉 THÊM TIÊU ĐỀ Ở ĐÂY
+#             p = doc.add_paragraph()
+#             run = p.add_run(
+#                 f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {oq['question_number']} to {ordq['question_number']}."
+#             )
+#             run.bold = True
+#             run.italic = True
+
+
+#             doc.add_paragraph(group["shared_stem"]["text"])
+
+
+
+#             oq = group["opening_question"]
+#             p = doc.add_paragraph()
+#             run = p.add_run(f"Question {oq['question_number']}. Choose the TOPIC SENTENCE that can BEGIN the text most appropriately.")
+#             run.bold = True
+
+#             for k, v in oq["options"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+                       
+#             doc.add_paragraph(f"Chọn {oq['answer']}")
+
+#             ordq = group["ordering_question"]
+#             p = doc.add_paragraph()
+#             run = p.add_run(f"Question {ordq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text.")
+#             run.bold = True
+
+#             for k, v in ordq["sentences"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+
+#             for k, v in ordq["options"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+
+#             doc.add_paragraph(f"Chọn {ordq['answer']}")
+
+#         i += 1
+
+#     return i
+
+
+def render_opening_and_ordering_group(doc, results, start_index):
+    i = start_index
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ORDER_OPENING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        for group in parsed.get("question_groups", []):
+
+            oq = group["opening_question"]
+            ordq = group["ordering_question"]
+
+            # ===== TIÊU ĐỀ =====
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {oq['question_number']} to {ordq['question_number']}."
+            )
+            run.bold = True
+            run.italic = True
+
+            # ===== ĐOẠN VĂN =====
+            doc.add_paragraph(group["shared_stem"]["text"])
+
+            # =========================
+            # ===== QUESTION 17 ======
+            # =========================
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Question {oq['question_number']}. Choose the TOPIC SENTENCE that can BEGIN the text most appropriately."
+            )
+            run.bold = True
+
+            for k, v in oq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            doc.add_paragraph(f"Chọn {oq['answer']}")
+
+            # ===== LỜI GIẢI Q17 =====
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+
+            if oq.get("knowledge"):
+                doc.add_paragraph(f"Cấu trúc: {oq['knowledge']}")
+
+            explanation = oq.get("explanation", {})
+
+            if explanation.get("reasoning"):
+                doc.add_paragraph(explanation["reasoning"])
+
+            if explanation.get("correct_sentence"):
+                doc.add_paragraph(f"→ {explanation['correct_sentence']}")
+
+            # =========================
+            # ===== QUESTION 18 ======
+            # =========================
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Question {ordq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text."
+            )
+            run.bold = True
+
+            for k, v in ordq["sentences"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            for k, v in ordq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            doc.add_paragraph(f"Chọn {ordq['answer']}")
+
+            # ===== LỜI GIẢI Q18 =====
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+
+            if ordq.get("knowledge"):
+                doc.add_paragraph(f"Cấu trúc: {ordq['knowledge']}")
+
+            explanation = ordq.get("explanation", {})
+
+            # từng bước reasoning
+            for step in explanation.get("steps", []):
+                doc.add_paragraph(f"+ {step}")
+
+            if explanation.get("correct_order"):
+                doc.add_paragraph(f"→ Trật tự đúng: {explanation['correct_order']}")
+
+            if explanation.get("full_passage"):
+                doc.add_paragraph("Đoạn văn hoàn chỉnh:")
+                doc.add_paragraph(explanation["full_passage"])
+
+            if explanation.get("translation"):
+                doc.add_paragraph(f"Tạm dịch: {explanation['translation']}")
+
+        i += 1
+
+    return i
+
+def render_standard_ordering_and_closing_group(doc, results, start_index):
+    i = start_index
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ORDER_CLOSING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        for group in parsed.get("question_groups", []):
+            ordclose = group["closing_question"]
+            ordqclose = group["ordering_question"]
+
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {ordqclose['question_number']} to {ordclose['question_number']}."
+            )
+            run.bold = True
+            run.italic = True
+
+            oq = group["ordering_question"]
+
+            p = doc.add_paragraph()
+            run = p.add_run(f"Question {oq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text.")
+            run.bold = True
+
+            for k, v in oq["sentences"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            for k, v in oq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            cq = group["closing_question"]
+            p = doc.add_paragraph()
+            run = p.add_run(f"Question {cq['question_number']}. Choose the sentence that can end the text (in Question {oq['question_number']}) most appropriately.")
+            run.bold = True
+
+            for k, v in cq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            doc.add_paragraph(f"Chọn {cq['answer']}")
+
+        i += 1
+
+    return i
+
+# def render_ordering_and_closing_group(doc, results, start_index):
+#     i = start_index
+
+#     while i < len(results):
+#         res = results[i]
+#         if res.get("type") != "ORDER_CLOSING":
+#             break
+
+#         parsed = res.get("parsed")
+#         if not parsed:
+#             break
+
+#         for group in parsed.get("question_groups", []):
+#             ordclose = group["closing_question"]
+#             ordqclose = group["ordering_question"]
+
+#             p = doc.add_paragraph()
+#             run = p.add_run(
+#                 f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {ordqclose['question_number']} to {ordclose['question_number']}."
+#             )
+#             run.bold = True
+#             run.italic = True
+
+#             oq = group["ordering_question"]
+
+#             p = doc.add_paragraph()
+#             run = p.add_run(f"Question {oq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text.")
+#             run.bold = True
+            
+#             for k, v in oq["sentences"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+
+#             for k, v in oq["options"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+
+#             cq = group["closing_question"]
+
+#             p = doc.add_paragraph()
+#             run = p.add_run(f"Question {cq['question_number']}. Choose the sentence that can end the text (in Question {oq['question_number']}) most appropriately.")
+#             run.bold = True
+
+#             for k, v in cq["options"].items():
+#                 doc.add_paragraph(f"{k}. {v}")
+
+#             doc.add_paragraph(f"Chọn {cq['answer']}")
+
+#         i += 1
+
+#     return i
+
+
+def render_ordering_and_closing_group(doc, results, start_index):
+    i = start_index
+
+    while i < len(results):
+        res = results[i]
+        if res.get("type") != "ORDER_CLOSING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        for group in parsed.get("question_groups", []):
+            oq = group["ordering_question"]
+            cq = group["closing_question"]
+
+            # ===== TIÊU ĐỀ =====
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions from {oq['question_number']} to {cq['question_number']}."
+            )
+            run.bold = True
+            run.italic = True
+
+            # ===== ĐOẠN MỞ =====
+            if oq.get("passage_intro"):
+                doc.add_paragraph(oq["passage_intro"])
+
+            # =========================
+            # ===== QUESTION ORDER =====
+            # =========================
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Question {oq['question_number']}. Put the sentences (a-c) in the correct order, then fill in the blank to make a logical text."
+            )
+            run.bold = True
+
+            # sentences
+            for k, v in oq["sentences"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            # options
+            for k, v in oq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            # answer
+            doc.add_paragraph(f"Chọn {oq['answer']}")
+
+            # ===== LỜI GIẢI ORDER =====
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+            doc.add_paragraph(
+                "Câu hỏi: Hãy sắp xếp các câu (a-c) theo thứ tự đúng, sau đó điền vào chỗ trống để tạo thành một đoạn văn logic."
+            )
+
+            exp = oq.get("explanation", {})
+
+            for step in exp.get("steps", []):
+                doc.add_paragraph(f"+ {step}")
+
+            if exp.get("correct_order"):
+                doc.add_paragraph(f"→ Trật tự đúng là “{exp['correct_order']}”.")
+
+            if exp.get("full_passage"):
+                # p = doc.add_paragraph()
+                # run = p.add_run("Đoạn văn hoàn chỉnh:")
+                # run.bold = True
+
+                # doc.add_paragraph(exp["full_passage"])
+                p = doc.add_paragraph()
+
+                run1 = p.add_run("Đoạn văn hoàn chỉnh: ")
+                run1.bold = True
+
+                run2 = p.add_run(exp["full_passage"])
+
+            if exp.get("translation"):
+                    p = doc.add_paragraph()
+                    
+                    run1 = p.add_run("Tạm dịch: ")
+                    run1.bold = True
+
+                    run2 = p.add_run(exp["translation"])
+
+            # =========================
+            # ===== QUESTION CLOSING ===
+            # =========================
+            p = doc.add_paragraph()
+            run = p.add_run(
+                f"Question {cq['question_number']}. Choose the sentence that can end the text (in Question {oq['question_number']}) most appropriately."
+            )
+            run.bold = True
+
+            # options
+            for k, v in cq["options"].items():
+                doc.add_paragraph(f"{k}. {v}")
+
+            # answer
+            doc.add_paragraph(f"Chọn {cq['answer']}")
+
+            # ===== LỜI GIẢI CLOSING =====
+            doc.add_paragraph("Lời giải").runs[0].bold = True
+            # doc.add_paragraph(
+            #     f"Câu hỏi: Chọn câu có thể kết thúc đoạn văn (ở câu {qq['question_number']}) một cách phù hợp nhất."
+            # )
+            p = doc.add_paragraph()
+
+            run = p.add_run(
+                f"Câu hỏi: Chọn câu có thể kết thúc đoạn văn (ở câu {oq['question_number']}) một cách phù hợp nhất."
+            )
+            run.bold = True
+
+            if cq.get("knowledge"):
+                doc.add_paragraph(f"Cấu trúc: {cq['knowledge']}")
+
+            exp = cq.get("explanation", {})
+
+            # phân tích từng đáp án
+            for k, v in exp.get("option_analysis", {}).items():
+                doc.add_paragraph(f"- {k}. {v}")
+
+            if exp.get("reasoning"):
+                doc.add_paragraph(exp["reasoning"])
+
+        i += 1
+
+    return i
+
 # ============================
 # STYLE & COMMON DOCX HELPERS
 # ============================
@@ -2772,6 +3989,7 @@ async def generate_english_flow_thcs(file):
 
     try:
         with open(excel_path, "wb") as buffer:
+            file.file.seek(0)  # 🔥 QUAN TRỌNG
             shutil.copyfileobj(file.file, buffer)
 
         blocks = extract_blocks_from_excel(str(excel_path))
@@ -2779,12 +3997,14 @@ async def generate_english_flow_thcs(file):
         results = await generate_exam_docx_thcs(blocks)
 
         return {
-            "statusCode": 200,
+            "session_id": session_id,
+            "status": "success",
             "message": "Generate English exam successfully",
             "results": results
         }
 
     except Exception as e:
+        traceback.print_exc()
         logger.exception("Error while generating English exam")
         raise HTTPException(
             status_code=500,

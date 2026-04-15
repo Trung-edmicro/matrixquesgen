@@ -11,6 +11,8 @@ import {
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
   generateQuestionsEnglishTHCS,
+  exportToEnglishExamDocxTHCS,
+  exportToEnglishStandardDocxTHCS,
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
@@ -158,13 +160,13 @@ export default function GenerateExamPage() {
         responseType: "blob"
       })
 
-      downloadFile(res1.data, "English_Exam.docx")
+      downloadFile(res1.data, "English_Exam_THPT.docx")
 
       const res2 = await exportToEnglishStandardDocx(generatedExam, {
         responseType: "blob"
       })
 
-      downloadFile(res2.data, "English_Standard_Exam.docx")
+      downloadFile(res2.data, "English_Standard_Exam_THPT.docx")
 
       setSuccessMessage("Đã xuất 2 file DOCX thành công")
 
@@ -174,6 +176,46 @@ export default function GenerateExamPage() {
       setIsExporting(false)
     }
   }
+
+  
+  const handleExportEnglishDocxTHCS = async () => {
+
+    const storedExam = localStorage.getItem("generatedEnglishTHCSExam");
+    console.log(">>>>>>> debug storedExam", storedExam);
+
+    if (!storedExam) {
+      setError("Không có dữ liệu đề tiếng Anh để xuất file")
+      return
+    }
+
+    const generatedExam = JSON.parse(storedExam)
+
+    try {
+      setIsExporting(true)
+      setError(null)
+
+      const res1 = await exportToEnglishExamDocxTHCS(generatedExam, {
+        responseType: "blob"
+      })
+
+      downloadFile(res1.data, "English_Exam_THCS.docx")
+
+      const res2 = await exportToEnglishStandardDocxTHCS(generatedExam, {
+        responseType: "blob"
+      })
+
+      downloadFile(res2.data, "English_Standard_Exam_THCS.docx")
+
+      setSuccessMessage("Đã xuất 2 file DOCX thành công")
+
+    } catch (err) {
+      setError("Lỗi khi xuất file: " + err.message)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+
 
   const downloadFile = (blob, filename) => {
     const url = window.URL.createObjectURL(blob)
@@ -189,6 +231,8 @@ export default function GenerateExamPage() {
     window.URL.revokeObjectURL(url)
   }
 
+  
+
   const handleExport = async () => {
     // if (!generatedExam || !sessionId) {
     //   setError('Không có dữ liệu để xuất')
@@ -199,12 +243,18 @@ export default function GenerateExamPage() {
 
     const isEnglishMatrixTHCS = matrixData?.file?.name.startsWith("MATRIX_ENGLISH_THCS_");
 
-    if(isEnglishMatrixTHCS) {
+
+    if (isEnglishMatrix) {
+
+      await handleExportEnglishDocx();
+
       return;
     }
 
-    if (isEnglishMatrix) {
-      await handleExportEnglishDocx()
+    if(isEnglishMatrixTHCS) {
+
+      await handleExportEnglishDocxTHCS();
+
       return;
     }
 
@@ -272,16 +322,16 @@ export default function GenerateExamPage() {
       if(isEnglishMatrixTHCS) {
           console.log("English matrix THCS detected  → wait for full response")
          
-          const resultEnglishTHCS = await generateQuestionsEnglishTHCS(matrixData.file);
+          const resultEnglishTHCS = await generateQuestions(matrixData.file);
 
           if(resultEnglishTHCS) {
               setGeneratedExam(resultEnglishTHCS);
 
-              localStorage.setItem("generatedEnglishTHCSExam", JSON.stringify(result));
+              localStorage.setItem("generatedEnglishTHCSExam", JSON.stringify(resultEnglishTHCS));
 
-              console.log("Saved English exam THCS result to localStorage");
-          }else {
-            
+              console.log("Saved English exam THCS result to localStorage", resultEnglishTHCS);
+          } else {
+             setError(result?.error || "Không nhận được phản hồi từ server");
           }
         setIsGenerating(false);
 

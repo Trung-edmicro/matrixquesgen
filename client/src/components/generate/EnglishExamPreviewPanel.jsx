@@ -504,11 +504,11 @@ export function SynonymBlock({ data, showInstruction = true }) {
       {data.questions.map(q => (
         <div key={q.number} className="mb-6">
 
-          <p className="font-semibold">
-            Question {q.number}:
-          </p>
-
-          <p dangerouslySetInnerHTML={{ __html: q.question }} />
+           <p
+            dangerouslySetInnerHTML={{
+              __html: `<strong>Question ${q.number}.</strong> ${q.question}`
+            }}
+          />
 
           <div className="pl-6 mt-2 space-y-1">
             <p>A. {q.option_a}</p>
@@ -605,11 +605,11 @@ export function SentenceTransformationBlock({ data, showInstruction = true }) {
             Question {q.number}:
           </p>
 
-          {q.instruction && (
+          {/* {q.instruction && (
             <p className="italic mb-1">
               {q.instruction}
             </p>
-          )}
+          )} */}
 
           <p>{q.question}</p>
 
@@ -623,7 +623,7 @@ export function SentenceTransformationBlock({ data, showInstruction = true }) {
           <div className="mt-3 pl-6">
             <p className="font-semibold">Lời giải</p>
             <p className="font-semibold">Chọn {q.answer}</p>
-
+            <p>####</p>
             <p className="whitespace-pre-line">
               {q.explanation}
             </p>
