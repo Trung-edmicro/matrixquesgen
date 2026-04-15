@@ -16,6 +16,28 @@ Từ dataset và đặc tả ma trận bên dưới, nhặt ra các giá trị p
 - Mức độ nhận thức: [COGNITIVE_LEVEL]
 - Đặc tả ma trận: [EXPECTED_LEARNING_OUTCOME]
 
+> **⚠️ LƯU Ý ĐẶC BIỆT CHO DẠNG DS (Đúng/Sai):**
+>
+> Dạng DS có 4 ý/mệnh đề (a, b, c, d), mỗi ý có **cognitive_level riêng** và **learning_outcome riêng**.
+>
+> Khi [COGNITIVE_LEVEL] và [EXPECTED_LEARNING_OUTCOME] chứa dữ liệu từ DS với 4 ý, chúng sẽ được **ghép dạng danh sách**:
+>
+> ```
+> Mức độ nhận thức:
+> - Ý a: [cognitive_level của Ý a, VD: TH]
+> - Ý b: [cognitive_level của Ý b, VD: NB]
+> - Ý c: [cognitive_level của Ý c, VD: VD]
+> - Ý d: [cognitive_level của Ý d, VD: VD]
+>
+> Đặc tả ma trận:
+> - Ý a: [learning_outcome của Ý a]
+> - Ý b: [learning_outcome của Ý b]
+> - Ý c: [learning_outcome của Ý c]
+> - Ý d: [learning_outcome của Ý d]
+> ```
+>
+> **Cách xử lý:** Khi xây dựng prompt, hãy sử dụng toàn bộ danh sách này để hiểu TỔNG thể các mục tiêu học tập của câu hỏi DS, không chỉ tập trung vào một mục riêng lẻ. Điều này giúp AI sinh biểu đồ phù hợp với tất cả 4 ý mệnh đề.
+
 ### 2. DATASET
 
 ```

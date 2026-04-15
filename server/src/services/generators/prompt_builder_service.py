@@ -206,6 +206,7 @@ class PromptBuilderService:
         SECONDARY_TYPES = {'LT', 'TT'}
         primary_found: List[str] = []
         secondary_found: List[str] = []
+        chart_metadata: List[str] = []  # For chart_type & dimensions details
         try:
             if not isinstance(spec.rich_content_types, dict):
                 return '**YÊU CẦU NỘI DUNG**: Câu hỏi thuần text.'
@@ -218,6 +219,12 @@ class PromptBuilderService:
                         type_code = type_obj.get('type') or type_obj.get('code', '')
                         type_name_val = type_obj.get('name', type_code)
                         type_name = f"{type_code} ({type_name_val})" if type_name_val else type_code
+                        
+                        # Extract chart metadata if present
+                        if type_code == 'BD' and 'chart_type' in type_obj:
+                            chart_type = type_obj.get('chart_type', 'unknown')
+                            dimensions = type_obj.get('dimensions', 'unknown')
+                            chart_metadata.append(f"- Chart type: {chart_type}, dimensions: {dimensions}")
                     else:
                         type_code = str(type_obj)
                         type_name = type_code

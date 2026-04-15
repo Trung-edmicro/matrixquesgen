@@ -971,11 +971,18 @@ class MatrixParser:
             for item in items:
                 if item.get('rich_content_types'):
                     # Each item may have types like {"C1A": ["BK"], "C1B": ["TT"]}
+                    # or chart types like {"C1A": [{"type": "BD", "chart_type": "bar", "dimensions": "2x3"}]}
                     for stmt_code, types in item['rich_content_types'].items():
                         for type_code in types:
-                            if type_code not in seen_codes:
-                                seen_codes.add(type_code)
-                                all_types.append(type_code)
+                            # Handle both string types and dict types (for charts)
+                            if isinstance(type_code, dict):
+                                type_to_check = type_code.get("type", "BD")
+                            else:
+                                type_to_check = type_code
+                            
+                            if type_to_check not in seen_codes:
+                                seen_codes.add(type_to_check)
+                                all_types.append(type_to_check)
             
             # If we found any types, create aggregated dict at question level
             if all_types:

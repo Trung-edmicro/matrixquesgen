@@ -187,7 +187,9 @@ class QuestionGenerator:
         spec: QuestionSpec, 
         chart_type: str, 
         dimensions: str,
-        question_code: str = "C1"
+        question_code: str = "C1",
+        cognitive_level_override: str = None,
+        learning_outcome_override: str = None
     ) -> Dict:
         """
         🔥 LUỒNG MỚI: Tạo chart theo luồng GenChart
@@ -200,6 +202,8 @@ class QuestionGenerator:
             chart_type: Loại chart (bar, line, pie, area, combo)
             dimensions: Kích thước "XxY" (VD: "2x3" = 2 hàng 3 cột)
             question_code: Mã câu (VD: "C1")
+            cognitive_level_override: (Optional) Override cognitive_level từ spec, dùng cho DS nhiều ý
+            learning_outcome_override: (Optional) Override learning_outcome từ spec, dùng cho DS nhiều ý
         
         Returns:
             Dict: ECharts option đầy đủ
@@ -214,13 +218,20 @@ class QuestionGenerator:
         # Lấy supplementary_materials từ spec
         supplementary_materials = getattr(spec, 'supplementary_material', None) or getattr(spec, 'materials', None) or ""
         
+        # Handle cả QuestionSpec và TrueFalseQuestionSpec bằng getattr với fallback
+        lesson_name = getattr(spec, 'lesson_name', 'Unknown Lesson')
+        
+        # Ưu tiên sử dụng override values (dùng cho DS), fallback to spec attributes
+        cognitive_level = cognitive_level_override or getattr(spec, 'cognitive_level', 'TH')
+        learning_outcome = learning_outcome_override or getattr(spec, 'learning_outcome', '')
+        
         # Build prompt từ template gen_data_chart.md
         prompt = build_chart_data_generation_prompt(
-            lesson_name=spec.lesson_name,
+            lesson_name=lesson_name,
             chart_type=chart_type,
             dimensions=dimensions,
-            cognitive_level=spec.cognitive_level,
-            expected_learning_outcome=spec.learning_outcome,
+            cognitive_level=cognitive_level,
+            expected_learning_outcome=learning_outcome,
             supplementary_materials=supplementary_materials
         )
         
@@ -618,15 +629,147 @@ class QuestionGenerator:
         tried_fallback = False
         attempt = 0
         
+        # ✨ STEP 0: Build DS prompt + prepare chart generation
+        new_dir = str(Path(prompt_template_path).parent)
+        if str(self.prompt_builder.prompt_dir) != new_dir:
+            self.prompt_builder.set_prompt_dir(new_dir)
+        prepared_ds = self.prompt_builder.build_prompt_for_ds(tf_spec, content, question_template)
+        base_prompt_text = prepared_ds.prompt_text
+        has_chart = getattr(prepared_ds, 'has_chart', False)
+        
+        # DS đặc biệt: ghép cognitive_level và learning_outcome từ tất cả 4 ý
+        # Vì mỗi ý có level và outcome riêng - dùng cho cả chart data generation lẫn chart instruction
+        cognitive_levels_list = []
+        learning_outcomes_list = []
+        
+        for stmt in tf_spec.statements:
+            label = stmt.label  # 'a', 'b', 'c', 'd'
+            cognitive_levels_list.append(f"Ý {label}: {stmt.cognitive_level}")
+            learning_outcomes_list.append(f"Ý {label}: {stmt.learning_outcome}")
+        
+        # Formatted text cho chart generation prompts
+        cognitive_levels_text = "Mức độ nhận thức:\n- " + "\n- ".join(cognitive_levels_list)
+        learning_outcomes_text = "Đặc tả ma trận:\n- " + "\n- ".join(learning_outcomes_list)
+        combined_cognitive_info = f"{cognitive_levels_text}\n{learning_outcomes_text}"
+        
+        # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types (dùng GenChart flow)
+        charts_map = {}
+        if has_chart:
+            # Detect chart specifications từ rich_content_types
+            charts_to_generate = {}
+            for code, types_list in tf_spec.rich_content_types.items():
+                if isinstance(types_list, list):
+                    for type_obj in types_list:
+                        # Check NEW FORMAT: {"type": "BD", "chart_type": "bar", "dimensions": "2x3"}
+                        if isinstance(type_obj, dict) and type_obj.get('type') == 'BD':
+                            chart_type = type_obj.get('chart_type', 'bar').lower()
+                            dimensions = type_obj.get('dimensions', '')
+                            
+                            if chart_type and dimensions:
+                                charts_to_generate[code] = {
+                                    'chart_type': chart_type,
+                                    'dimensions': dimensions
+                                }
+                                print(f"📊 {code}: Detected chart {chart_type} {dimensions}")
+                            break
+                        # Check OLD FORMAT: Just "BD" string (fallback to generic chart)
+                        elif type_obj == 'BD':
+                            print(f"⚠️  {code}: Old format chart (BD string only), fallback to generic")
+                            charts_to_generate[code] = {
+                                'chart_type': 'bar',
+                                'dimensions': '2x3'  # Default dimensions
+                            }
+                            break
+            
+            if charts_to_generate:
+                print(f"🎨 Phát hiện {len(charts_to_generate)} câu cần chart (BD)")
+                
+                # Generate chart cho mỗi question code
+                for question_code, chart_spec in charts_to_generate.items():
+                    chart_type = chart_spec['chart_type']
+                    dimensions = chart_spec['dimensions']
+                    
+                    # Retry chart generation independent
+                    echarts_option = None
+                    for chart_attempt in range(self.max_retries):
+                        try:
+                            if self.verbose:
+                                print(f"   🔄 Sinh chart {question_code}: {chart_type} {dimensions} (lần {chart_attempt + 1})")
+                            
+                            echarts_option = self._generate_chart_data_then_convert(
+                                spec=tf_spec,
+                                chart_type=chart_type,
+                                dimensions=dimensions,
+                                question_code=question_code,
+                                cognitive_level_override=cognitive_levels_text,  # Pass danh sách từ 4 ý
+                                learning_outcome_override=learning_outcomes_text  # Pass danh sách từ 4 ý
+                            )
+                            
+                            if self.verbose:
+                                print(f"   ✅ Đã sinh chart {question_code}")
+                            break
+                            
+                        except Exception as chart_err:
+                            if chart_attempt < self.max_retries - 1:
+                                if self.verbose:
+                                    print(f"   ⚠️  Chart lần thử {chart_attempt + 1}/{self.max_retries} thất bại: {str(chart_err)[:80]}")
+                                    print(f"      Thử lại sau {self.retry_delay}s...")
+                                time.sleep(self.retry_delay)
+                            else:
+                                # All retries exhausted
+                                print(f"   ❌ Lỗi sinh chart {question_code} sau {self.max_retries} lần thử: {str(chart_err)[:100]}")
+                                raise
+                    
+                    if echarts_option:
+                        # echarts_option là dict: {'chartType': ..., 'chartData': {...}, 'echarts': {...}}
+                        chart_raw_data = echarts_option.get('chartData', {})
+                        echarts_config = echarts_option.get('echarts', {})
+                        chart_type_value = echarts_option.get('chartType', chart_type)
+                        
+                        # Store chart với question_code làm ID
+                        charts_map[question_code] = {
+                            'chart_id': question_code,
+                            'title': f"Chart cho {question_code}",
+                            'chartType': chart_type_value,
+                            'chartData': chart_raw_data,
+                            'echarts': echarts_config
+                        }
+                
+                # Build chart instruction cho prompt
+                if charts_map:
+                    charts_info = []
+                    for cid, cdata in charts_map.items():
+                        chart_item = {
+                            'chart_id': cid,
+                            'title': cdata.get('title', cid)
+                        }
+                        
+                        # Trích xuất thông tin chi tiết từ echarts
+                        echarts = cdata.get('echarts', {})
+                        if echarts:
+                            summary = extract_chart_summary(echarts)
+                            chart_item.update(summary)
+                        
+                        charts_info.append(chart_item)
+                    
+                    # Dùng combined_cognitive_info đã tạo ở trên cho chart instruction
+                    chart_instruction = build_question_with_chart_prompt(
+                        lesson_name=tf_spec.lesson_name,
+                        charts_info=charts_info,
+                        num_questions=1,  # DS chỉ sinh 1 câu
+                        cognitive_level=combined_cognitive_info  # Pass danh sách cognitive levels + outcomes
+                    )
+                    
+                    base_prompt_text = f"{base_prompt_text}\n\n{chart_instruction}"
+        
+        # history_context is passed as system_instruction (higher priority than prompt body)
+        _sys_instruction = history_context if history_context else None
+        
         # Retry logic với fallback model - dùng while để có thể reset attempt cho fallback
         while attempt < self.max_retries:
             try:
-                # Build DS prompt via PromptBuilderService
-                new_dir = str(Path(prompt_template_path).parent)
-                if str(self.prompt_builder.prompt_dir) != new_dir:
-                    self.prompt_builder.set_prompt_dir(new_dir)
-                prepared_ds = self.prompt_builder.build_prompt_for_ds(tf_spec, content, question_template)
-                prompt = prepared_ds.prompt_text
+                # Use base_prompt_text (with chart instruction if applicable)
+                prompt = base_prompt_text
                 # history_context passed as system_instruction (higher priority than prompt body)
                 _sys_instruction = history_context if history_context else None
 
@@ -694,8 +837,38 @@ class QuestionGenerator:
                         source_origin = "scholarly_book"  # Default to textbook
                         print(f"   ➡️  Sử dụng origin mặc định: {source_origin}")
                 
-                # VALIDATION: Nếu không có rich_content_types, force text-only cho source_text
+                # ✨ STEP 2: Merge chart vào source_text (nếu có)
                 source_text = data.get("source_text", "")
+                if has_chart and charts_map:
+                    print(f"🔄 STEP 2: Merging charts vào source_text...")
+                    print(f"   📊 source_text TRƯỚC merge: type={type(source_text).__name__}, is_dict={isinstance(source_text, dict)}")
+                    if isinstance(source_text, dict):
+                        print(f"      source_text.type={source_text.get('type')}, has_content={bool(source_text.get('content'))}")
+                    
+                    # Merge chart vào source_text
+                    data = merge_chart_into_question(data, charts_map)
+                    source_text = data.get("source_text", source_text)
+                    
+                    print(f"   📊 source_text SAU merge: type={type(source_text).__name__}, is_dict={isinstance(source_text, dict)}")
+                    if isinstance(source_text, dict):
+                        print(f"      source_text.type={source_text.get('type')}, has_content={bool(source_text.get('content'))}")
+                        if source_text.get('type') == 'mixed' and source_text.get('content'):
+                            print(f"      content items: {len(source_text.get('content', []))}")
+                            for idx, item in enumerate(source_text.get('content', [])):
+                                if isinstance(item, dict):
+                                    print(f"        [{idx}] type={item.get('type', 'unknown')}")
+                    
+                    if self.verbose:
+                        print(f"   ✅ Merged chart vào source_text")
+                        # Check xem đã merge thành công chưa
+                        if isinstance(source_text, dict) and source_text.get('type') == 'mixed':
+                            content = source_text.get('content', [])
+                            for item in content:
+                                if isinstance(item, dict) and item.get('type') == 'chart':
+                                    if 'echarts' in item.get('content', {}):
+                                        print(f"      ✓ Chart echarts confirmed in source_text")
+                
+                # VALIDATION: Nếu không có rich_content_types, force text-only cho source_text
                 if not hasattr(tf_spec, 'rich_content_types') or not tf_spec.rich_content_types:
                     if isinstance(source_text, dict) and source_text.get('type') != 'text':
                         print(f"⚠️  FORCE TEXT-ONLY DS: source_text có type={source_text.get('type')}, chuyển sang text")
@@ -770,6 +943,23 @@ class QuestionGenerator:
                     search_evidence=data.get("search_evidence", "")
                 )
                 
+                # Debug: check final source_text trong question object
+                if has_chart and charts_map:
+                    print(f"🔄 Final check - source_text in question object:")
+                    st = question.source_text
+                    print(f"   type={type(st).__name__}, is_dict={isinstance(st, dict)}")
+                    if isinstance(st, dict):
+                        print(f"      dict.type={st.get('type')}, has_content={bool(st.get('content'))}")
+                        if st.get('type') == 'mixed' and st.get('content'):
+                            print(f"      content items: {len(st.get('content', []))}")
+                            for idx, item in enumerate(st.get('content', [])):
+                                if isinstance(item, dict):
+                                    item_type = item.get('type', 'unknown')
+                                    print(f"        [{idx}] type={item_type}")
+                                    if item_type == 'chart' and 'content' in item:
+                                        chart_content = item.get('content', {})
+                                        print(f"             has_echarts={bool(chart_content.get('echarts'))}")
+                
                 return question
                 
             except Exception as e:
@@ -839,16 +1029,127 @@ class QuestionGenerator:
         last_error = None
         tried_fallback = False
         
+        # ✨ STEP 0: Build TLN prompt + prepare chart generation
+        if prompt_template_path:
+            new_dir = str(Path(prompt_template_path).parent)
+            if str(self.prompt_builder.prompt_dir) != new_dir:
+                self.prompt_builder.set_prompt_dir(new_dir)
+        prepared_tln = self.prompt_builder.build_prompt_for_tln(spec, content, question_template)
+        base_prompt_text = prepared_tln.prompt_text
+        has_chart = getattr(prepared_tln, 'has_chart', False)
+        
+        # ✨ STEP 1: Tạo chart riêng nếu có 'BD' trong rich_content_types (dùng GenChart flow)
+        charts_map = {}
+        if has_chart:
+            # Detect chart specifications từ rich_content_types
+            charts_to_generate = {}
+            for code, types_list in spec.rich_content_types.items():
+                if isinstance(types_list, list):
+                    for type_obj in types_list:
+                        # Check NEW FORMAT: {"type": "BD", "chart_type": "bar", "dimensions": "2x3"}
+                        if isinstance(type_obj, dict) and type_obj.get('type') == 'BD':
+                            chart_type = type_obj.get('chart_type', 'bar').lower()
+                            dimensions = type_obj.get('dimensions', '')
+                            
+                            if chart_type and dimensions:
+                                charts_to_generate[code] = {
+                                    'chart_type': chart_type,
+                                    'dimensions': dimensions
+                                }
+                                print(f"📊 {code}: Detected chart {chart_type} {dimensions}")
+                            break
+                        # Check OLD FORMAT: Just "BD" string (fallback to generic chart)
+                        elif type_obj == 'BD':
+                            print(f"⚠️  {code}: Old format chart (BD string only), fallback to generic")
+                            charts_to_generate[code] = {
+                                'chart_type': 'bar',
+                                'dimensions': '2x3'  # Default dimensions
+                            }
+                            break
+            
+            if charts_to_generate:
+                print(f"🎨 Phát hiện {len(charts_to_generate)} câu cần chart (BD)")
+                
+                # Generate chart cho mỗi question code
+                for question_code, chart_spec in charts_to_generate.items():
+                    chart_type = chart_spec['chart_type']
+                    dimensions = chart_spec['dimensions']
+                    
+                    # Retry chart generation independent
+                    echarts_option = None
+                    for chart_attempt in range(self.max_retries):
+                        try:
+                            if self.verbose:
+                                print(f"   🔄 Sinh chart {question_code}: {chart_type} {dimensions} (lần {chart_attempt + 1})")
+                            
+                            echarts_option = self._generate_chart_data_then_convert(
+                                spec=spec,
+                                chart_type=chart_type,
+                                dimensions=dimensions,
+                                question_code=question_code
+                            )
+                            
+                            if self.verbose:
+                                print(f"   ✅ Đã sinh chart {question_code}")
+                            break
+                            
+                        except Exception as chart_err:
+                            if chart_attempt < self.max_retries - 1:
+                                if self.verbose:
+                                    print(f"   ⚠️  Chart lần thử {chart_attempt + 1}/{self.max_retries} thất bại: {str(chart_err)[:80]}")
+                                    print(f"      Thử lại sau {self.retry_delay}s...")
+                                time.sleep(self.retry_delay)
+                            else:
+                                # All retries exhausted
+                                print(f"   ❌ Lỗi sinh chart {question_code} sau {self.max_retries} lần thử: {str(chart_err)[:100]}")
+                                raise
+                    
+                    if echarts_option:
+                        # echarts_option là dict: {'chartType': ..., 'chartData': {...}, 'echarts': {...}}
+                        chart_raw_data = echarts_option.get('chartData', {})
+                        echarts_config = echarts_option.get('echarts', {})
+                        chart_type_value = echarts_option.get('chartType', chart_type)
+                        
+                        # Store chart với question_code làm ID
+                        charts_map[question_code] = {
+                            'chart_id': question_code,
+                            'title': f"Chart cho {question_code}",
+                            'chartType': chart_type_value,
+                            'chartData': chart_raw_data,
+                            'echarts': echarts_config
+                        }
+                
+                # Build chart instruction cho prompt
+                if charts_map:
+                    charts_info = []
+                    for cid, cdata in charts_map.items():
+                        chart_item = {
+                            'chart_id': cid,
+                            'title': cdata.get('title', cid)
+                        }
+                        
+                        # Trích xuất thông tin chi tiết từ echarts
+                        echarts = cdata.get('echarts', {})
+                        if echarts:
+                            summary = extract_chart_summary(echarts)
+                            chart_item.update(summary)
+                        
+                        charts_info.append(chart_item)
+                    
+                    chart_instruction = build_question_with_chart_prompt(
+                        lesson_name=spec.lesson_name,
+                        charts_info=charts_info,
+                        num_questions=spec.num_questions,
+                        cognitive_level=spec.cognitive_level
+                    )
+                    
+                    base_prompt_text = f"{base_prompt_text}\n\n{chart_instruction}"
+        
         # Retry logic với fallback model
         for attempt in range(self.max_retries):
             try:
-                # Build TLN prompt via PromptBuilderService
-                if prompt_template_path:
-                    new_dir = str(Path(prompt_template_path).parent)
-                    if str(self.prompt_builder.prompt_dir) != new_dir:
-                        self.prompt_builder.set_prompt_dir(new_dir)
-                prepared_tln = self.prompt_builder.build_prompt_for_tln(spec, content, question_template)
-                prompt_text = prepared_tln.prompt_text
+                # Use base_prompt_text (with chart instruction if applicable)
+                prompt_text = base_prompt_text
                 # history_context passed as system_instruction (higher priority than prompt body)
                 _sys_instruction = history_context if history_context else None
 
@@ -889,9 +1190,40 @@ class QuestionGenerator:
                     print(f"⚠️ WARNING: AI generated {len(questions_data)} TLN questions, but only {spec.num_questions} requested. Taking first {spec.num_questions}.")
                     questions_data = questions_data[:spec.num_questions]
                 
+                # ✨ STEP 2: Merge chart vào question_stem (nếu có)
+                if has_chart and charts_map:
+                    print(f"🔄 STEP 2: Merging charts vào {len(questions_data)} câu hỏi TLN...")
+                    
+                    for i, q_data in enumerate(questions_data):
+                        question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"Q{i+1}"
+                        
+                        # Nếu có chart cho câu này, merge vào
+                        if question_code in charts_map:
+                            single_chart_map = {question_code: charts_map[question_code]}
+                            q_data = merge_chart_into_question(q_data, single_chart_map)
+                            
+                            if self.verbose:
+                                print(f"   ✅ Merged chart vào câu hỏi TLN {question_code}")
+                        elif self.verbose:
+                            print(f"   ℹ️  Không có chart cho câu {question_code}")
+                        
+                        # Update question_code để dùng sau
+                        q_data['question_code'] = question_code
+                        questions_data[i] = q_data
+                        
+                        if self.verbose:
+                            # Check xem đã merge thành công chưa
+                            if 'question_stem' in q_data and isinstance(q_data['question_stem'], dict):
+                                content = q_data['question_stem'].get('content', [])
+                                for item in content:
+                                    if isinstance(item, dict) and item.get('type') == 'chart':
+                                        if 'echarts' in item.get('content', {}):
+                                            print(f"      ✓ Chart echarts confirmed in question_stem")
+                
                 # Tạo GeneratedQuestion cho mỗi câu TLN
                 for i, question_data in enumerate(questions_data):
-                    question_code = spec.question_codes[i] if i < len(spec.question_codes) else f"Q{i+1}"
+                    # Ưu tiên sử dụng question_code từ merged data, fallback to spec.question_codes
+                    question_code = question_data.get('question_code') or (spec.question_codes[i] if i < len(spec.question_codes) else f"Q{i+1}")
                     
                     # TLN không có options (A/B/C/D), chỉ có correct_answer
                     question = GeneratedQuestion(

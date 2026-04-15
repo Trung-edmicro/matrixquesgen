@@ -203,7 +203,7 @@ class MatrixProcessingService:
             definitions: {"BK": {"name": "Bảng khảo", "description": ""}}
         
         Returns:
-            expanded dict kết hợp định nghĩa nếu có
+            expanded dict kết hợp định nghĩa nếu có, giữ lại chart metadata
         """
         expanded = {}
         for code, types in rich_types.items():
@@ -211,13 +211,22 @@ class MatrixProcessingService:
             for type_item in types:
                 # Xử lý format mới (dictionary)
                 if isinstance(type_item, dict):
-                    # Giữ nguyên toàn bộ dictionary, chỉ thêm definitions nếu có
+                    # Giữ nguyên toàn bộ dictionary + thêm definitions nếu có
+                    result_item = dict(type_item)  # Copy để không modify gốc
                     if definitions and 'type' in type_item:
                         type_code = type_item['type']
                         if type_code in definitions:
-                            type_item['name'] = definitions[type_code].get('name', type_code)
-                            type_item['description'] = definitions[type_code].get('description', '')
-                    expanded[code].append(type_item)
+                            result_item['name'] = definitions[type_code].get('name', type_code)
+                            result_item['description'] = definitions[type_code].get('description', '')
+                        else:
+                            # Nếu không có definition, set default name/description
+                            result_item.setdefault('name', type_code)
+                            result_item.setdefault('description', '')
+                    else:
+                        # Không có definitions, set default
+                        result_item.setdefault('name', result_item.get('type', 'Unknown'))
+                        result_item.setdefault('description', '')
+                    expanded[code].append(result_item)  # Giữ full dict với chart_type, dimensions, etc
                 # Xử lý format cũ (string)
                 else:
                     type_code = type_item
@@ -339,17 +348,23 @@ class MatrixProcessingService:
                     }
                     # Aggregate rich_content_types from all statements into a single list for the question
                     if question_code in ds_rich_types:
-                        # Collect all unique rich content types from all statements
+                        # Collect all unique rich content types from all statements (keeping full dict info)
                         aggregated_types = []
-                        seen_codes = set()
+                        seen_type_keys = set()  # Track by type or full dict for deduplication
                         
                         for stmt_code, types in ds_rich_types[question_code].items():
                             for type_code in types:
-                                if type_code not in seen_codes:
-                                    seen_codes.add(type_code)
-                                    aggregated_types.append(type_code)
+                                # Handle both string types and dict types (for charts)
+                                if isinstance(type_code, dict):
+                                    type_key = type_code.get("type", "BD")
+                                else:
+                                    type_key = type_code
+                                
+                                if type_key not in seen_type_keys:
+                                    seen_type_keys.add(type_key)
+                                    aggregated_types.append(type_code)  # Keep full dict or string
                         
-                        # Expand with definitions at question level (not statement level)
+                        # Expand with definitions at question level (not statement level), same as TN
                         if aggregated_types:
                             ds_item['rich_content_types'] = self._expand_rich_content_types(
                                 {question_code: aggregated_types}, 

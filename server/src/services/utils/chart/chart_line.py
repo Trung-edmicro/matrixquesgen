@@ -45,7 +45,7 @@ def generate_line_chart(data):
                 "subtitle": "Giai đoạn 2020-2022",
                 "show_legend": True,
                 "show_data_labels": True,
-                "smooth": False  # True nếu muốn đường cong
+                "smooth": False
             }
         }
     
@@ -84,7 +84,6 @@ def generate_line_chart(data):
     # Build series
     echarts_series = []
     show_labels = user_options.get('show_data_labels', True)
-    is_smooth = user_options.get('smooth', False)
     
     for idx, series in enumerate(series_list):
         pattern_type = pattern_styles[idx % len(pattern_styles)]['type']
@@ -93,7 +92,7 @@ def generate_line_chart(data):
             'name': series.get('name', f'Series {idx + 1}'),
             'type': 'line',
             'data': series['data'],
-            'smooth': is_smooth,
+            'smooth': False,
             'symbol': symbols[idx % len(symbols)],
             'symbolSize': 8,
             'label': {

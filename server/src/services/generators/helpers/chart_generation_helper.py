@@ -1009,10 +1009,16 @@ def merge_chart_into_question(
     Returns:
         Dict: Câu hỏi đã merge chart
     """
-    if 'question_stem' not in question_data:
+    # Handle both question_stem (TN/TLN) and source_text (DS)
+    field_name = None
+    if 'question_stem' in question_data:
+        field_name = 'question_stem'
+    elif 'source_text' in question_data:
+        field_name = 'source_text'
+    else:
         return question_data
     
-    stem = question_data['question_stem']
+    stem = question_data[field_name]
     if not isinstance(stem, dict):
         return question_data
     
@@ -1148,7 +1154,8 @@ def merge_chart_into_question(
                 'chart_id': chart_id,
                 'content': {
                     'chartType': chart_data.get('chartType'),
-                    'echarts': echarts
+                    'echarts': echarts,
+                    'chart_raw_data': chart_data.get('chartData', {})  # Include raw data for DS
                 },
                 'metadata': {
                     'caption': chart_data.get('title'),

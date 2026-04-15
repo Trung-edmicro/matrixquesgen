@@ -896,9 +896,7 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
             ctx.beginPath()
             ctx.moveTo(xPos - tickLength, yArrowTip)
             ctx.lineTo(xPos, yArrowTip)
-            ctx.stroke()
-            
-            console.log(`✏️ [ComboChart] Drew horizontal connector at y=${yArrowTip} (axis_line=${yAxisLine} + offset=${ySymbolOffset})`)
+            ctx.stroke()            
           } catch (err) {
             console.warn('⚠️ Failed to draw connector line:', err)
           }
