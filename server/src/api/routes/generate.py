@@ -19,6 +19,7 @@ from services.core.matrix_parser import MatrixParser
 from services.generators.question_generator import QuestionGenerator
 from services.exporters.template_generator import QuestionGeneratorWithTemplate
 from services.english_generator_service.english_generator_service import generate_english_flow
+from services.english_generator_service.english_generator_service_THCS import generate_english_flow_thcs
 from services.hsk_generator_service.hsk_generator import generate_hsk_flow
 
 router = APIRouter(prefix="/api/generate", tags=["Generate"])
@@ -314,11 +315,18 @@ async def generate_questions(
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file .xlsx")
     
-    if file.filename.startswith("MATRIX_ENGLISH_"):
+    if file.filename.startswith("MATRIX_ENGLISH_THPT_"):
         try:
             return await generate_english_flow(file)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý ma trận tiếng anh THPT: {str(e)}")
+        
+    if file.filename.startswith("MATRIX_ENGLISH_THCS_"):
+        try:
+            return await  generate_english_flow_thcs(file)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý ma trận tiếng anh THCS: {str(e)}")
+        
     elif file.filename.startswith("MATRIX_HSK_"):
         try:
             return await generate_hsk_flow(file)
@@ -790,11 +798,17 @@ async def generate_questions(
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file .xlsx")
     
-    if file.filename.startswith("MATRIX_ENGLISH_"):
+    if file.filename.startswith("MATRIX_ENGLISH_THPT_"):
         try:
             return await generate_english_flow(file)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý ma trận tiếng anh THPT: {str(e)}")
+        
+    if file.filename.startswith("MATRIX_ENGLISH_THCS_"):
+        try:
+            return await  generate_english_flow_thcs(file)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Lỗi trong quá trình xử lý ma trận tiếng anh THCS: {str(e)}")
     
     # Tạo session ID
     session_id = str(uuid.uuid4())

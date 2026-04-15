@@ -13,7 +13,7 @@ const api = axios.create({
 export const generateQuestions = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
   try {
       const formData = new FormData()
-  formData.append('file', file)
+      formData.append('file', file)
   
   // Thêm template DOCX nếu có
   if (templateDocx) {
@@ -23,7 +23,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   // Thêm PDF files nếu có
   if (pdfFiles && pdfFiles.length > 0) {
     for (const pdf of pdfFiles) {
-      formData.append('pdf_files', pdf)
+      // formData.append('pdf_files', pdf)
     }
   }
   
@@ -32,17 +32,39 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
   if (config.max_retries) formData.append('max_retries', config.max_retries)
   if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
 
-  const response = await api.post('/api/generate', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })
+
+  const response = await api.post('/api/generate', formData,{
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
     console.log(">>>>>> debug response", response.data);
   return response.data
   }catch(error) {
+    console.log(error);
     console.log(">>>>>> error", error);
     throw error;
   }
+
+}
+
+
+export const generateQuestionsEnglishTHCS = async (file) => {
+  try {
+      const formData = new FormData()
+      formData.append('file', file)
+            
+      const response = await api.post('/api/generate', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+        console.log(">>>>>> debug response", response.data);
+      return response.data
+      }catch(error) {
+        console.log(">>>>>> error", error);
+        throw error;
+      }
 
 }
 
@@ -255,6 +277,26 @@ export const exportToEnglishExamDocx = async (generatedExam, config) => {
 export const exportToEnglishStandardDocx = async (generatedExam, config) => {
   const response = await api.post(
     `/api/export-english-standard`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToEnglishExamDocxTHCS = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-exam-thcs`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+
+
+export const exportToEnglishStandardDocxTHCS = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-english-standard-exam-thcs`,
     generatedExam,
     config
   )

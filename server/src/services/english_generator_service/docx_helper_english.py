@@ -345,9 +345,8 @@ def render_standard_word_reordering_group(doc, results, start_index):
         # ===== Title (bold + italic, 1 lần) =====
         if not title_added:
             p_title = doc.add_paragraph()
-            run = p_title.add_run("Reorder the words given to make correct sentences.")
+            run = p_title.add_run("Rearrange the given words or phrases to make a meaningful sentence.")
             run.bold = True
-            run.italic = True
             title_added = True
 
         questions = parsed.get("questions", [])
