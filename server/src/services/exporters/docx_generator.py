@@ -331,10 +331,11 @@ class DocxGenerator:
                 elif item_type == 'chart':
                     # Add line break before chart
                     para.add_run('\n')
-                    # ✨ NEW: Look up Base64 image for this chart
-                    chart_key = f"{self.current_question_code}-{self.current_chart_index}"
+                    # ✨ NEW: Look up Base64 image for this chart (include question_type)
+                    question_type = getattr(self, 'current_question_type', 'TN')  # Default to TN
+                    chart_key = f"{question_type}-{self.current_question_code}-{self.current_chart_index}"
                     image_base64 = self.chart_images.get(chart_key)
-                    self._add_inline_chart(item.get('content', {}), image_base64=image_base64)
+                    self._add_inline_chart(item.get('content', {}), image_base64=image_base64, chart_key=chart_key)
                     self.current_chart_index += 1
                     
                 elif item_type == 'image':
@@ -391,10 +392,11 @@ class DocxGenerator:
                     if item_type == 'table':
                         self._add_inline_table(item.get('content', {}), item.get('metadata', {}))
                     elif item_type == 'chart':
-                        # ✨ NEW: Look up Base64 image for this chart
-                        chart_key = f"{self.current_question_code}-{self.current_chart_index}"
+                        # ✨ NEW: Look up Base64 image for this chart (include question_type)
+                        question_type = getattr(self, 'current_question_type', 'TN')  # Default to TN
+                        chart_key = f"{question_type}-{self.current_question_code}-{self.current_chart_index}"
                         image_base64 = self.chart_images.get(chart_key)
-                        self._add_inline_chart(item.get('content', {}), image_base64=image_base64)
+                        self._add_inline_chart(item.get('content', {}), image_base64=image_base64, chart_key=chart_key)
                         self.current_chart_index += 1
                     elif item_type == 'image':
                         caption = item.get('metadata', {}).get('caption', '')
@@ -465,7 +467,7 @@ class DocxGenerator:
             run.italic = True
             run.font.size = Pt(10)
     
-    def _add_inline_chart(self, chart_data: Dict, image_base64: Optional[str] = None):
+    def _add_inline_chart(self, chart_data: Dict, image_base64: Optional[str] = None, chart_key: Optional[str] = None):
         """
         ✨ SIMPLIFIED: Thêm chart vào document từ Base64 image ONLY
         
@@ -475,6 +477,7 @@ class DocxGenerator:
         Args:
             chart_data: Dict chứa chartType, echarts config, etc.
             image_base64: Base64 PNG từ client canvas (REQUIRED từ frontend)
+            chart_key: Chart identifier for logging purposes
         """
         if not chart_data:
             if self.verbose:
@@ -495,14 +498,17 @@ class DocxGenerator:
         
         # ✨ ONLY USE Base64 from client - NO PLAYWRIGHT FALLBACK
         if not image_base64:
+            # ✨ NEW: Log chart key that was looked up
+            key_info = f" (key: {chart_key})" if chart_key else " (no key provided)"
             # Chart image not provided by frontend
             if self.verbose:
-                print(f"⚠️  [SKIP] No chart image from client for: {title}")
+                print(f"⚠️  [SKIP] No chart image from client for: {title}{key_info}")
             return  # Skip chart if no image provided
         
         try:
             if self.verbose:
-                print(f"📊 [{chart_type.upper()}] Processing chart from Base64: {title}")
+                key_info = f" (key: {chart_key})" if chart_key else ""
+                print(f"✅ [{chart_type.upper()}] Processing chart from Base64{key_info}: {title}")
             
             # Strip data URL prefix if present
             if ',' in image_base64:
@@ -1003,57 +1009,100 @@ class DocxGenerator:
     def _add_chart_data_section(self, json_data: Dict):
         """
         Thêm phần dữ liệu biểu đồ vào cuối document
-        Iterate qua tất cả các câu hỏi để tìm chart_raw_data
-        Sắp xếp theo thứ tự question_code: C1, C2, C3, ...
+        Phân nhóm theo loại câu hỏi (TN, DS, TLN, TL)
         """
         questions_data = json_data.get('questions', {})
-        all_charts = []
         
-        # Quét tất cả các loại câu hỏi
+        # ✨ NEW: Mapping question types to section labels
+        type_labels = {
+            'TN': 'I. Dạng trắc nghiệm',
+            'DS': 'II. Dạng Đúng/Sai',
+            'TLN': 'III. Dạng trả lời ngắn',
+            'TL': 'IV. Dạng tự luận'
+        }
+        
+        # ✨ NEW: Collect charts grouped by question type
+        charts_by_type = {}
         for question_type in ['TN', 'DS', 'TLN', 'TL']:
             questions = questions_data.get(question_type, [])
+            type_charts = []
             
             for question in questions:
                 question_code = question.get('question_code', 'N/A')
                 chart_data = self._extract_chart_data_from_question(question)
                 
                 if chart_data:
-                    all_charts.append({
+                    type_charts.append({
                         'question_code': question_code,
                         'chart_data': chart_data
                     })
+                    if self.verbose:
+                        print(f"✅ Chart data extracted for {question_type}-{question_code}")
+                else:
+                    if self.verbose:
+                        print(f"⚠️  No chart data found in {question_type}-{question_code}")
+            
+            # ✨ Sort within each type by question_code
+            if type_charts:
+                try:
+                    type_charts.sort(key=lambda x: int(x['question_code'][1:]))
+                except (ValueError, IndexError):
+                    pass
+                
+                charts_by_type[question_type] = type_charts
         
-        # ✨ Sort theo question_code (C1, C2, C3, ...)
-        try:
-            all_charts.sort(key=lambda x: int(x['question_code'][1:]))
-        except (ValueError, IndexError):
-            pass  # Giữ thứ tự ban đầu nếu không thể sort
-        
-        # Nếu có biểu đồ, thêm vào document
-        if all_charts:
+        # ✨ NEW: Only add section if there are any charts
+        if charts_by_type:
             self.add_page_break()
             self.add_heading('DỮ LIỆU BIỂU ĐỒ', level=1, alignment='center')
             self.add_paragraph('')
             
-            for idx, chart_info in enumerate(all_charts, 1):
-                question_code = chart_info['question_code']
-                chart_raw_data = chart_info['chart_data']
+            # ✨ NEW: Process each question type with section heading
+            for question_type in ['TN', 'DS', 'TLN', 'TL']:
+                if question_type not in charts_by_type:
+                    continue
                 
-                try:
-                    self._add_chart_data_table(question_code, chart_raw_data, idx)
-                except Exception as e:
-                    if self.verbose:
-                        print(f"❌ Lỗi thêm dữ liệu biểu đồ {question_code}: {e}")
+                type_charts = charts_by_type[question_type]
+                type_label = type_labels.get(question_type, question_type)
+                
+                # ✨ NEW: Add section heading for this question type
+                self.add_heading(type_label, level=2)
+                self.add_paragraph('')
+                
+                # ✨ Add all charts for this type
+                for idx, chart_info in enumerate(type_charts, 1):
+                    question_code = chart_info['question_code']
+                    chart_raw_data = chart_info['chart_data']
+                    
+                    try:
+                        self._add_chart_data_table(question_code, chart_raw_data, idx)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"❌ Lỗi thêm dữ liệu biểu đồ {question_code}: {e}")
+                
+                # ✨ NEW: Add spacing between sections
+                self.add_paragraph('')
     
     def _extract_chart_data_from_question(self, question: Dict) -> Optional[Dict]:
         """
         Trích xuất chart_raw_data từ một câu hỏi
-        Kiểm tra trong question_stem và content
+        Kiểm tra trong question_stem, source_text, và content
         """
-        # Kiểm tra question_stem
+        # Kiểm tra question_stem (TN/TLN)
         question_stem = question.get('question_stem', {})
         if isinstance(question_stem, dict) and question_stem.get('type') == 'chart':
             content_list = question_stem.get('content', [])
+            
+            for item in content_list:
+                if isinstance(item, dict) and item.get('type') == 'chart':
+                    chart_content = item.get('content', {})
+                    if chart_content and chart_content.get('chart_raw_data'):
+                        return chart_content['chart_raw_data']
+        
+        # ✨ NEW: Kiểm tra source_text (DS)
+        source_text = question.get('source_text', {})
+        if isinstance(source_text, dict) and source_text.get('type') == 'chart':
+            content_list = source_text.get('content', [])
             
             for item in content_list:
                 if isinstance(item, dict) and item.get('type') == 'chart':
@@ -1097,12 +1146,14 @@ class DocxGenerator:
             title = options.get('title', f'Biểu đồ {question_code}')
             source = options.get('source', '')
             
-            # Heading cho biểu đồ
-            self.add_heading(f"{question_code}: {title}", level=3)
+            # ✨ Updated: Heading cho biểu đồ with better formatting
+            self.add_heading(f"{question_code}. {title}", level=3)
             
             # ✨ Xử lý đặc biệt cho Pie charts
             if chart_type == 'pie':
-                return self._add_pie_chart_data_table(series, source)
+                self._add_pie_chart_data_table(series, source)
+                self.add_paragraph('')  # ✨ NEW: Spacing after pie chart
+                return
             
             # Xử lý cho Bar/Line/Area/Combo charts
             x_axis_name = options.get('x_axis_unit', 'Danh mục')  # ✨ Lấy từ options
@@ -1110,46 +1161,49 @@ class DocxGenerator:
             # Nếu không có series hoặc categories, skip
             if not series or not categories:
                 self.add_paragraph("(Không có dữ liệu)")
-                return
-            
-            # Tạo headers: X-axis name + tên các series
-            headers = [x_axis_name]  # ✨ Dùng x_axis_name thay vì "Danh mục"
-            for s in series:
-                series_name = s.get('name', 'Series')
-                unit = s.get('unit', '')
-                header_text = f"{series_name} ({unit})" if unit else series_name
-                headers.append(header_text)
-            
-            # Tạo bảng
-            table = self.document.add_table(rows=len(categories) + 1, cols=len(headers))
-            table.style = 'Table Grid'
-            
-            # Thêm header row
-            header_cells = table.rows[0].cells
-            for col_idx, header in enumerate(headers):
-                header_cells[col_idx].text = header
-                # Format header (bold)
-                for paragraph in header_cells[col_idx].paragraphs:
-                    for run in paragraph.runs:
-                        run.bold = True
-            
-            # Thêm dữ liệu rows
-            for row_idx, category in enumerate(categories, start=1):
-                row = table.rows[row_idx]
-                row.cells[0].text = str(category)
+            else:
+                # Tạo headers: X-axis name + tên các series
+                headers = [x_axis_name]  # ✨ Dùng x_axis_name thay vì "Danh mục"
+                for s in series:
+                    series_name = s.get('name', 'Series')
+                    unit = s.get('unit', '')
+                    header_text = f"{series_name} ({unit})" if unit else series_name
+                    headers.append(header_text)
                 
-                # Thêm dữ liệu từ các series
-                for col_idx, s in enumerate(series, start=1):
-                    series_data = s.get('data', [])
-                    if row_idx - 1 < len(series_data):
-                        cell_value = series_data[row_idx - 1]
-                        row.cells[col_idx].text = str(cell_value)
+                # Tạo bảng
+                table = self.document.add_table(rows=len(categories) + 1, cols=len(headers))
+                table.style = 'Table Grid'
+                
+                # Thêm header row
+                header_cells = table.rows[0].cells
+                for col_idx, header in enumerate(headers):
+                    header_cells[col_idx].text = header
+                    # Format header (bold)
+                    for paragraph in header_cells[col_idx].paragraphs:
+                        for run in paragraph.runs:
+                            run.bold = True
+                
+                # Thêm dữ liệu rows
+                for row_idx, category in enumerate(categories, start=1):
+                    row = table.rows[row_idx]
+                    row.cells[0].text = str(category)
+                    
+                    # Thêm dữ liệu từ các series
+                    for col_idx, s in enumerate(series, start=1):
+                        series_data = s.get('data', [])
+                        if row_idx - 1 < len(series_data):
+                            cell_value = series_data[row_idx - 1]
+                            row.cells[col_idx].text = str(cell_value)
             
-            # Thêm source nếu có
+            # ✨ NEW: Thêm source nếu có - with better spacing
             if source:
-                self.add_paragraph(f"Nguồn: {source}", italic=True)
+                self.add_paragraph('')  # Spacing before source
+                para_source = self.document.add_paragraph()
+                run_source = para_source.add_run(f"Nguồn: {source}")
+                run_source.italic = True
             
-            self.add_paragraph('')  # Khoảng cách
+            # ✨ NEW: Spacing after each chart
+            self.add_paragraph('')
             
         except Exception as e:
             if self.verbose:
@@ -1178,9 +1232,9 @@ class DocxGenerator:
                 if not data:
                     continue
                 
-                # Tạo heading phụ cho pie này
+                # ✨ Updated: Tạo heading phụ cho pie này
                 if len(series) > 1:
-                    self.add_heading(f"  {series_name}", level=4)
+                    self.add_heading(f"   {series_name}", level=4)
                 
                 # Tạo bảng cho pie này
                 # Headers: Danh mục | Giá trị (%)
@@ -1214,13 +1268,15 @@ class DocxGenerator:
                     row.cells[0].text = str(item_name)
                     row.cells[1].text = str(item_value)
                 
-                self.add_paragraph('')  # Khoảng cách
+                # ✨ NEW: Spacing after each pie table
+                self.add_paragraph('')
             
-            # Thêm source nếu có
+            # ✨ NEW: Thêm source nếu có - with better spacing
             if source:
-                self.add_paragraph(f"Nguồn: {source}", italic=True)
-            
-            self.add_paragraph('')  # Khoảng cách
+                self.add_paragraph('')  # Spacing before source
+                para_source = self.document.add_paragraph()
+                run_source = para_source.add_run(f"Nguồn: {source}")
+                run_source.italic = True
             
         except Exception as e:
             if self.verbose:
@@ -1246,7 +1302,17 @@ class DocxGenerator:
         
         # ✨ NEW: Store chart images for use during rendering
         self.chart_images = chart_images or {}
+        # ✨ NEW: Log what chart images were received
+        if self.verbose:
+            if self.chart_images:
+                print(f"📊 Received {len(self.chart_images)} chart images from client:")
+                for key in sorted(self.chart_images.keys()):
+                    size_kb = len(self.chart_images[key]) / 1024
+                    print(f"  ✓ {key} ({size_kb:.1f}KB)")
+            else:
+                print("⚠️  No chart images received from client")
         self.current_question_code = None  # Track current question for chart lookup
+        self.current_question_type = None  # ✨ NEW: Track question type for chart key
         self.current_chart_index = 0  # Track chart index within question
         
         # Tạo document mới
@@ -1285,6 +1351,7 @@ class DocxGenerator:
             
             for idx, q in enumerate(tn_questions_sorted, 1):
                 self.current_question_code = q.get('question_code', f'TN{idx}')
+                self.current_question_type = 'TN'  # ✨ NEW: Set question type
                 self.current_chart_index = 0  # Reset chart index for new question
                 self._add_tn_question(q, idx)
             
@@ -1302,6 +1369,7 @@ class DocxGenerator:
             
             for idx, q in enumerate(ds_questions_sorted, 1):
                 self.current_question_code = q.get('question_code', f'DS{idx}')
+                self.current_question_type = 'DS'  # ✨ NEW: Set question type
                 self.current_chart_index = 0  # Reset chart index for new question
                 self._add_ds_question(q, idx, subject)
             
@@ -1319,6 +1387,7 @@ class DocxGenerator:
             
             for idx, q in enumerate(tln_questions_sorted, 1):
                 self.current_question_code = q.get('question_code', f'TLN{idx}')
+                self.current_question_type = 'TLN'  # ✨ NEW: Set question type
                 self.current_chart_index = 0  # Reset chart index for new question
                 self._add_tln_question(q, idx)
             
@@ -1463,7 +1532,13 @@ class DocxGenerator:
                                 run = para.add_run(f"[Hình ảnh: {item.get('content', '')}]")
                             run.italic = True
                         elif item_type == 'chart':
-                            self._add_inline_chart(item.get('content', {}))
+                            # ✨ NEW: Look up Base64 image for this chart (same as TN/TLN)
+                            # Include question_type to match key format from frontend
+                            question_type = self.current_question_type or 'DS'
+                            chart_key = f"{question_type}-{self.current_question_code}-{self.current_chart_index}"
+                            image_base64 = self.chart_images.get(chart_key)
+                            self._add_inline_chart(item.get('content', {}), image_base64=image_base64, chart_key=chart_key)
+                            self.current_chart_index += 1
                         else:
                             para = self.document.add_paragraph()
                             run = para.add_run(str(item))

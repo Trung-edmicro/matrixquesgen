@@ -10,8 +10,9 @@ import * as echarts from 'echarts'
  * @param {Function} onBlur - Callback khi blur (nếu contentEditable)
  * @param {string} className - Additional CSS classes
  * @param {string} questionCode - Question code for chart indexing (e.g., "C1", "C2")
+ * @param {string} questionType - Question type for chart key uniqueness (e.g., "TN", "DS", "TLN")
  */
-export default function RichContentRenderer({ content, contentEditable = false, onBlur, className = '', questionCode = '' }) {
+export default function RichContentRenderer({ content, contentEditable = false, onBlur, className = '', questionCode = '', questionType = 'TN' }) {
   // Handle legacy string format
   if (typeof content === 'string') {
     return (
@@ -130,6 +131,7 @@ export default function RichContentRenderer({ content, contentEditable = false, 
               metadata={item.metadata} 
               questionCode={questionCode}
               chartIndex={currChartIndex}
+              questionType={questionType}
             />
           }
 
@@ -180,6 +182,7 @@ export default function RichContentRenderer({ content, contentEditable = false, 
                 metadata={item.metadata} 
                 questionCode={questionCode}
                 chartIndex={currChartIndex}
+                questionType={questionType}
               />
             }
           }
@@ -735,7 +738,7 @@ function cropCanvasContent(canvas, targetWidth = 900, targetHeight = 550) {
  * - Display image in <img> tag (naturally responsive)
  * - No dimension sync issues, no viewport dependency
  */
-function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 }) {
+function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0, questionType = 'TN' }) {
   const [chartImageUrl, setChartImageUrl] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   
@@ -934,13 +937,14 @@ function ChartRenderer({ content, metadata, questionCode = '', chartIndex = 0 })
 
   const { width: chartWidth, height: chartHeight } = getChartSize()
 
-  // ✨ Create unique key for export identification
-  const chartKey = `${questionCode || 'Q0'}-${chartIndex}`
+  // ✨ Create unique key for export identification (include questionType to prevent collision)
+  const chartKey = `${questionType}-${questionCode || 'Q0'}-${chartIndex}`
 
   return (
     <div
       data-chart-ref={chartKey}
       data-question-code={questionCode || `Q${chartIndex}`}
+      data-question-type={questionType}
       data-chart-index={String(chartIndex)}
       style={{
         width: typeof chartWidth === 'number' ? `${chartWidth}px` : chartWidth,

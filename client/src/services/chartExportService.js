@@ -35,6 +35,8 @@ export async function captureAllChartImages() {
       console.warn('⚠️  No chart containers found with [data-chart-ref]');
       return chartImages;
     }
+    
+    console.log(`📊 Found ${chartContainers.length} chart containers`);
         
     // Process each chart
     let totalSize = 0;
@@ -68,16 +70,21 @@ export async function captureAllChartImages() {
         }
         
         if (!base64) {
-          console.warn(`⚠️  No image data found in chart container ${index} (missing img or canvas)`);
+          // ✨ NEW: Log more details when chart image is missing
+          const questionType = container.getAttribute('data-question-type') || 'TN';
+          const questionCode = container.getAttribute('data-question-code') || `Q${index}`;
+          const chartIndex = container.getAttribute('data-chart-index') || index;
+          console.warn(`⚠️  No image data for chart [${questionType}-${questionCode}-${chartIndex}] (missing img or canvas)`);
           return;
         }
         
         // Get chart metadata from container attributes
+        const questionType = container.getAttribute('data-question-type') || 'TN';
         const questionCode = container.getAttribute('data-question-code') || `Q${index}`;
         const chartIndex = parseInt(container.getAttribute('data-chart-index') || index);
         
-        // Create key for this chart
-        const key = `${questionCode}-${chartIndex}`;
+        // ✨ Create unique key including questionType to prevent collision
+        const key = `${questionType}-${questionCode}-${chartIndex}`;
         chartImages[key] = base64;
         totalSize += base64.length / 1024;
         
@@ -155,6 +162,9 @@ export async function exportDocumentWithCharts(sessionId, apiBaseUrl = null) {
       apiBaseUrl = `${protocol}//${hostname}${port}`;
     }
     
+    // ✨ NEW: Wait for all charts to finish rendering before capturing
+    // DS charts might still be rendering on slow connections
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Step 1: Capture all chart images
     const chartImages = await captureAllChartImages();

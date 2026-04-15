@@ -689,6 +689,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     onBlur={(e) => handleBlur('TN', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300 rounded px-1"
                     questionCode={q.question_code}
+                    questionType="TN"
                   />
                 </div>
                 <div className="space-y-1 pl-4">
@@ -829,6 +830,8 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                       contentEditable={!!sessionId}
                       onBlur={(e) => handleBlur('DS', q.question_code, 'source_text', e)}
                       className="focus:outline-none focus:ring-2 focus:ring-primary-300"
+                      questionCode={q.question_code}
+                      questionType="DS"
                     />
 
                     {/* Source Citation - Only show if subject needs source display */}
@@ -1009,6 +1012,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     onBlur={(e) => handleBlur('TLN', q.question_code, 'question_stem', e)}
                     className="focus:outline-none focus:ring-2 focus:ring-primary-300"
                     questionCode={q.question_code}
+                    questionType="TLN"
                   />
                 </div>
               </div>
@@ -1345,6 +1349,34 @@ function ChartDataTab({ examData, sessionId, onDataChange, mergedExamData, setMe
         if (stem.type === 'chart' && Array.isArray(stem.content)) {
           // Tìm trong mảng content những phần tử có type: 'chart'
           stem.content.forEach((item) => {
+            if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
+              const chartContent = item.content
+              if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
+                const cacheKey = `${type}_${q.question_code}`
+                // Ưu tiên lấy data từ cache nếu có (data mới nhất đã update)
+                const cachedChart = chartCache[cacheKey]
+                const chartData = cachedChart || {
+                  question_code: q.question_code,
+                  question_type: type,
+                  chart_type: chartContent.chartType,
+                  echarts: chartContent.echarts,
+                  chart_raw_data: chartContent.chart_raw_data,
+                  metadata: item.metadata || {}
+                }
+                chartDataList.push(chartData)
+              }
+            }
+          })
+        }
+      }
+
+      // ✨ NEW: Kiểm tra source_text có chứa biểu đồ không (DS)
+      if (q.source_text && typeof q.source_text === 'object') {
+        const sourceText = q.source_text
+        // source_text có thể là {type: 'chart', content: [...]} với mixed content
+        if (sourceText.type === 'chart' && Array.isArray(sourceText.content)) {
+          // Tìm trong mảng content những phần tử có type: 'chart'
+          sourceText.content.forEach((item) => {
             if (item && typeof item === 'object' && item.type === 'chart' && item.content) {
               const chartContent = item.content
               if (chartContent && chartContent.chartType && chartContent.chart_raw_data) {
