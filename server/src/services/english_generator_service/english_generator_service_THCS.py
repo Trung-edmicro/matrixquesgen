@@ -2805,6 +2805,20 @@ def render_standard_essay_word_form_group(doc, results, start_index):
     return i
 
 
+def attach_given_words(sentence, given_words):
+    parts = sentence.split("______")
+    
+    if len(parts) - 1 != len(given_words):
+        # debug nếu mismatch
+        print("⚠️ Mismatch blanks vs given_words")
+        return sentence
+
+    result = parts[0]
+    for i, word in enumerate(given_words):
+        result += f"______({word.lower()})" + parts[i + 1]
+
+    return result
+
 def render_essay_word_form_group(doc, results, start_index):
     i = start_index
     n = len(results)
@@ -2870,7 +2884,10 @@ def render_essay_word_form_group(doc, results, start_index):
         # =========================
         for q in group:
             # 👉 Question
-            doc.add_paragraph(f"Question {q['number']}. {q['sentence']}")
+            # doc.add_paragraph(f"Question {q['number']}. {q['sentence']}")
+            sentence_with_words = attach_given_words(q["sentence"], q.get("given_words", []))
+
+            doc.add_paragraph(f"Question {q['number']}. {sentence_with_words}")
 
             # 👉 Lời giải (bold)
             p = doc.add_paragraph()
