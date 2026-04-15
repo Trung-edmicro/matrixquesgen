@@ -48,18 +48,33 @@ class MatrixProcessingService:
         - DIALY_C12.xlsx
         - DIALY_C12123124.xyz.xlsx
         - Bất kỳ format nào miễn có mã môn + mã lớp
+        
+        Also strips UUID/session ID prefix if present (e.g., "abc123-def456_TOAN_C10.xlsx" → "TOAN_C10.xlsx")
         """
         try:
+            from config.settings import Config
+            import re
+            
+            # Strip UUID/session ID prefix if present
+            # Pattern: {uuid}_{actual_filename}.xlsx
+            # UUID pattern: 8-4-4-4-12 hex digits separated by hyphens
+            uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_'
+            filename_clean = re.sub(uuid_pattern, '', filename, flags=re.IGNORECASE)
+            
             # Sử dụng logic linh hoạt từ MatrixParser
-            subject, curriculum, grade = self.matrix_parser.parse_matrix_filename(filename)
+            subject, curriculum, grade = self.matrix_parser.parse_matrix_filename(filename_clean)
             
             # Cần phải có ít nhất subject + grade
             if not subject or not grade:
                 return None
             
+            # Ensure curriculum defaults to KNTT if not found, empty, or looks like session ID
+            if not curriculum or curriculum == "UNKNOWN" or len(curriculum) > 10:
+                curriculum = Config.DEFAULT_CURRICULUM
+            
             return MatrixMetadata(
                 subject=subject,
-                curriculum=curriculum or "UNKNOWN",  # Default nếu không tìm được
+                curriculum=curriculum,
                 grade=grade,
                 filename=filename,
                 file_path=Path(filename)
@@ -250,9 +265,18 @@ class MatrixProcessingService:
                         rich_content_type_definitions: Dict[str, Dict[str, str]] = None,
                         output_dir: Path = Path("data/matrix")) -> Path:
         """Save matrix processing results to JSON file with question specs"""
+        from config.settings import Config
+        
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"matrix_{metadata.subject}_{metadata.curriculum}_{metadata.grade}.json"
+        # Ensure curriculum defaults to KNTT if empty or looks like session ID (long string)
+        curriculum = metadata.curriculum
+        if not curriculum or len(curriculum) > 10 or curriculum == "UNKNOWN":
+            curriculum = Config.DEFAULT_CURRICULUM
+            # Update metadata object as well
+            metadata.curriculum = curriculum
+        
+        filename = f"matrix_{metadata.subject}_{curriculum}_{metadata.grade}.json"
         output_path = output_dir / filename
 
         # Create lesson data with question specs
@@ -432,7 +456,7 @@ class MatrixProcessingService:
         matrix_data = {
             'metadata': {
                 'subject': metadata.subject,
-                'curriculum': metadata.curriculum,
+                'curriculum': curriculum,
                 'grade': metadata.grade,
                 'filename': metadata.filename
             },

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 # Use absolute imports
 from api.routes import generate, questions, export, google_drive, regenerate, images, update as update_route, chart_regenerate
+from api.routes import math_template_selection
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
 from api.routes.export import routerEnglish
@@ -52,6 +53,7 @@ app.include_router(google_drive.router)
 app.include_router(regenerate.router)
 app.include_router(chart_regenerate.router)
 app.include_router(routerEnglish)
+app.include_router(math_template_selection.router)  # Math template selection
 # Include new feature routers
 app.include_router(images.router)        # Image generation API
 app.include_router(update_route.router)  # Auto-update API

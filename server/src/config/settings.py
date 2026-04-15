@@ -45,6 +45,7 @@ class Config:
         "HOAHOC",
         "LICHSU",
         "SINH",
+        "TOAN",
         "VATLY",
         "TIENGANH",
     ]

@@ -312,4 +312,27 @@ export const updateChartData = async (sessionId, questionType, questionCode, cha
   return response.data
 }
 
+// ===== Math Template Selection APIs =====
+
+// Get enriched matrix for template selection
+export const getEnrichedMatrix = async (sessionId) => {
+  const response = await api.get(`/api/math-template/${sessionId}/enriched-matrix`)
+  return response.data
+}
+
+// Save template selections
+export const saveTemplateSelections = async (sessionId, selections) => {
+  const response = await api.post(`/api/math-template/${sessionId}/save-selections`, {
+    session_id: sessionId,
+    selections: selections
+  })
+  return response.data
+}
+
+// Continue to phase 4 after template selection
+export const continueToPhase4 = async (sessionId) => {
+  const response = await api.post(`/api/math-template/${sessionId}/continue-to-phase4`)
+  return response.data
+}
+
 export default api

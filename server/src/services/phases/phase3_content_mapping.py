@@ -162,6 +162,16 @@ class ContentMappingService:
             )
             extracted_lessons.append(extracted_lesson)
 
+        # Fix curriculum in metadata before saving enriched matrix
+        # Ensure it defaults to KNTT if empty or invalid
+        from config.settings import Config
+        
+        if 'metadata' in matrix_data:
+            curriculum = matrix_data['metadata'].get('curriculum', '')
+            if not curriculum or len(curriculum) > 10:  # If it's a session ID or empty, replace with KNTT
+                matrix_data['metadata']['curriculum'] = Config.DEFAULT_CURRICULUM
+                print(f"✓ Fixed curriculum in enriched matrix metadata to: {Config.DEFAULT_CURRICULUM}")
+
         # Save enriched matrix
         enriched_path = matrix_json_path.parent / f"enriched_{matrix_json_path.name}"
         with open(enriched_path, 'w', encoding='utf-8') as f:

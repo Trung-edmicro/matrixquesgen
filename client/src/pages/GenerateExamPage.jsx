@@ -10,10 +10,14 @@ import {
   downloadDocx,
   exportToEnglishExamDocx,
   exportToEnglishStandardDocx,
+  getEnrichedMatrix,
+  saveTemplateSelections,
+  continueToPhase4,
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
+import QuestionTemplateSelector from '../components/math/QuestionTemplateSelector'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
@@ -35,6 +39,8 @@ export default function GenerateExamPage() {
     phase: '',
     status: 'idle'
   })
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
+  const [enrichedMatrix, setEnrichedMatrix] = useState(null)
   const generationConfig = {
     max_workers: 10,
     min_interval: 0.2,
@@ -98,6 +104,7 @@ export default function GenerateExamPage() {
       'phase1_matrix_processing': 'Xử lý ma trận đề',
       'phase2_content_acquisition': 'Thu thập nội dung',
       'phase3_content_mapping': 'Xử lý nội dung liên quan',
+      'awaiting_template_selection': 'Chờ chọn câu hỏi mẫu',
       'phase4_question_generation': 'Sinh câu hỏi',
       'saving_results': 'Lưu kết quả',
       'completed': 'Hoàn thành',
@@ -312,7 +319,20 @@ export default function GenerateExamPage() {
             status: progress.status || 'processing'
           })
 
-          if (progress.status === 'completed') {
+          // Check if awaiting template selection
+          if (progress.status === 'awaiting_template_selection') {
+            // Load enriched matrix data
+            try {
+              const enrichedData = await getEnrichedMatrix(newSessionId)
+              setEnrichedMatrix(enrichedData)
+              setShowTemplateSelector(true)
+              setIsGenerating(false) // Stop showing the progress bar
+            } catch (err) {
+              console.error('Error loading enriched matrix:', err)
+              setError('Lỗi khi tải dữ liệu câu hỏi mẫu: ' + err.message)
+              setIsGenerating(false)
+            }
+          } else if (progress.status === 'completed') {
             const detail = await getSessionDetail(newSessionId)
             setGeneratedExam(detail)
             setIsGenerating(false)
@@ -341,6 +361,64 @@ export default function GenerateExamPage() {
 
   const handleTestProgress = () => {
     // Removed mock progress simulation
+  }
+
+  const handleTemplateSelectionComplete = async (selections) => {
+    try {
+      setShowTemplateSelector(false)
+      setIsGenerating(true)
+      
+      // Save selections to backend
+      await saveTemplateSelections(sessionId, selections)
+      
+      // Continue to Phase 4
+      await continueToPhase4(sessionId)
+      
+      // Resume polling for Phase 4 progress
+      let pollDelay = 2000
+      const maxDelay = 10000
+
+      const pollPhase4Progress = async () => {
+        try {
+          const progress = await getGenerationProgress(sessionId)
+
+          setGenerationProgress({
+            percentage: progress.progress || 0,
+            phase: progress.current_phase || '',
+            status: progress.status || 'processing'
+          })
+
+          if (progress.status === 'completed') {
+            const detail = await getSessionDetail(sessionId)
+            setGeneratedExam(detail)
+            setIsGenerating(false)
+            setIsDirty(false)
+          } else if (progress.status === 'failed') {
+            setError(progress.error || 'Lỗi khi sinh câu hỏi')
+            setIsGenerating(false)
+          } else {
+            pollDelay = Math.min(pollDelay * 1.2, maxDelay)
+            setTimeout(pollPhase4Progress, pollDelay)
+          }
+
+        } catch (err) {
+          setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+          setIsGenerating(false)
+        }
+      }
+
+      setTimeout(pollPhase4Progress, pollDelay)
+
+    } catch (err) {
+      setError('Lỗi khi lưu câu hỏi mẫu: ' + err.message)
+      setIsGenerating(false)
+      setShowTemplateSelector(true) // Show again on error
+    }
+  }
+
+  const handleTemplateSelectionSkip = () => {
+    // Close modal and let user see the error/info
+    setShowTemplateSelector(false)
   }
 
   return (
@@ -470,6 +548,16 @@ export default function GenerateExamPage() {
           />
         )}
       </div>
+
+      {/* Math Template Selector Modal */}
+      {showTemplateSelector && enrichedMatrix && (
+        <QuestionTemplateSelector
+          sessionId={sessionId}
+          enrichedMatrix={enrichedMatrix}
+          onComplete={handleTemplateSelectionComplete}
+          onSkip={handleTemplateSelectionSkip}
+        />
+      )}
     </div>
   )
 }
