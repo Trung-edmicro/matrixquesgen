@@ -73,7 +73,6 @@ def generate_questions_task(
 ):
     """
     Background task để sinh câu hỏi theo 4 phase workflow
-    For Math subject (TOAN), pauses after phase 3 for template selection
     """
     session_file = _get_sessions_dir() / f"{session_id}.json"
     
@@ -108,64 +107,23 @@ def generate_questions_task(
             max_concurrent_generations=config.get('max_workers', 5)
         ), progress_callback=_on_progress)
         
+        # Execute complete workflow (Phase 2 will gracefully handle missing Google Drive)
         import logging as _logging
         _log = _logging.getLogger(__name__)
         _log.info(f"[{session_id}] Starting WorkflowOrchestrator")
-        
-        # Execute Phase 1: Matrix Processing
-        _on_progress('phase1_matrix_processing', 10)
-        metadata, lessons, drive_paths, matrix_output_path = orchestrator.execute_phase1_matrix_processing(
+        workflow_result = orchestrator.execute_complete_workflow(
             Path(matrix_file_path)
         )
         
-        # Check if this is Math subject (TOAN)
-        is_math = metadata.subject.upper() == 'TOAN'
-        _log.info(f"[{session_id}] Subject: {metadata.subject}, Is Math: {is_math}")
-        
-        # Execute Phase 2: Content Enrichment
-        _on_progress('phase2_content_acquisition', 30)
-        processed_contents = orchestrator.execute_phase2_content_enrichment(
-            matrix_output_path, metadata, lessons, drive_paths
-        )
-        
-        # Execute Phase 3: Content Mapping
-        _on_progress('phase3_content_mapping', 50)
-        mapping_result = orchestrator.execute_phase3_content_mapping(matrix_output_path)
-        
-        # Save enriched matrix path to session
-        session_data['enriched_matrix_path'] = str(mapping_result.enriched_matrix_path)
-        session_data['matrix_metadata'] = {
-            'subject': metadata.subject,
-            'curriculum': metadata.curriculum,
-            'grade': metadata.grade
-        }
-        update_session(session_data)
-        
-        # FOR MATH: Pause and wait for template selection
-        if is_math:
-            _log.info(f"[{session_id}] Math subject detected - pausing for template selection")
-            session_data['status'] = 'awaiting_template_selection'
-            session_data['current_phase'] = 'awaiting_template_selection'
-            session_data['progress'] = 60
-            session_data['message'] = 'Chờ người dùng chọn câu hỏi mẫu'
-            update_session(session_data)
-            _log.info(f"[{session_id}] Workflow paused. Awaiting template selection from user.")
-            return  # Exit workflow - user will continue via API endpoint
-        
-        # FOR NON-MATH: Continue to Phase 4 immediately
-        _log.info(f"[{session_id}] Non-Math subject - continuing to Phase 4")
-        _on_progress('phase4_question_generation', 80)
-        question_set = orchestrator.execute_phase4_question_generation(mapping_result.enriched_matrix_path)
-        
-        if not question_set:
-            raise Exception("Failed to generate questions")
+        if not workflow_result.success:
+            raise Exception(f"Failed: {', '.join(workflow_result.errors)}")
         
         # Extract data from workflow result
-        matrix_metadata = metadata
-        question_sets = [question_set]
+        matrix_metadata = workflow_result.matrix_metadata
+        question_sets = workflow_result.question_sets
         
-        # Convert metadata (already in dict format from metadata object)
-        metadata_dict = {
+        # Convert metadata
+        metadata = {
             "subject": matrix_metadata.subject,
             "grade": matrix_metadata.grade,
             "curriculum": matrix_metadata.curriculum,
@@ -534,8 +492,6 @@ async def get_generation_result(session_id: str):
     
     return data
 import os
-<<<<<<< HEAD
-=======
 import json
 import uuid
 import re
@@ -991,4 +947,3 @@ async def get_generation_result(session_id: str):
         data = json.load(f)
     
     return data
->>>>>>> gitlab/dev
