@@ -13,11 +13,15 @@ import {
   generateQuestionsEnglishTHCS,
   exportToEnglishExamDocxTHCS,
   exportToEnglishStandardDocxTHCS,
+  getEnrichedMatrix,
+  saveTemplateSelections,
+  continueToPhase4,
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
 import EnglishExamTHCSPreviewPanel from '../components/generate/EnglishExamTHCSPreviewPanel'
+import QuestionTemplateSelector from '../components/math/QuestionTemplateSelector'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
@@ -389,6 +393,7 @@ export default function GenerateExamPage() {
         try {
           const progress = await getGenerationProgress(newSessionId)
 
+
           setGenerationProgress({
             percentage: progress.progress || 0,
             phase: progress.current_phase || '',
@@ -404,7 +409,7 @@ export default function GenerateExamPage() {
               setShowTemplateSelector(true)
               setIsGenerating(false) // Stop showing the progress bar
             } catch (err) {
-              console.error('Error loading enriched matrix:', err)
+              console.error('[TOAN Workflow] Error loading enriched matrix:', err)
               setError('Lỗi khi tải dữ liệu câu hỏi mẫu: ' + err.message)
               setIsGenerating(false)
             }
@@ -628,6 +633,9 @@ export default function GenerateExamPage() {
       </div>
 
       {/* Math Template Selector Modal */}
+      {(() => {
+        return null
+      })()}
       {showTemplateSelector && enrichedMatrix && (
         <QuestionTemplateSelector
           sessionId={sessionId}

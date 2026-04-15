@@ -120,7 +120,7 @@ class ContentMappingService:
             lesson_name = lesson_data.get('lesson_name', f"Lesson {lesson_num}")
 
             # Find corresponding Phase 2 content file
-            content_file = self._find_content_file(chapter_num, lesson_num)
+            content_file = self._find_content_file(subject, grade, chapter_num, lesson_num)
             content = ""
             if content_file:
                 # Load content
@@ -141,7 +141,7 @@ class ContentMappingService:
             # Map content to specs if content file exists
             questions_mapped = 0
             if content_file:
-                questions_mapped = self._map_lesson_content(lesson_data, content_file)
+                questions_mapped = self._map_lesson_content(lesson_data, content_file, subject)
                 if questions_mapped > 0:
                     lessons_mapped += 1
                     total_questions_mapped += questions_mapped
@@ -210,19 +210,51 @@ class ContentMappingService:
         
         return specs
 
-    def _find_content_file(self, chapter_num: int, lesson_num: int) -> Optional[Path]:
-        """Find the Phase 2 content file for a specific lesson"""
-        # Pattern: LICHSU_KNTT_C12_3_6_content.json
-        pattern = f"*_{chapter_num}_{lesson_num}_content.json"
-
-        matching_files = list(self.content_dir.glob(pattern))
+    def _find_content_file(self, subject: str, grade: str, chapter_num: int, lesson_num: int) -> Optional[Path]:
+        """Find the Phase 2 content file for a specific lesson
+        
+        Args:
+            subject: Subject code (e.g., 'TOAN', 'HOAHOC')
+            grade: Grade code (e.g., 'C10', 'C11')
+            chapter_num: Chapter number
+            lesson_num: Lesson number
+            
+        Returns:
+            Path to content file or None if not found
+            
+        Pattern: SUBJECT_CURRICULUM_GRADE_CHAPTER_LESSON_content.json
+        e.g., TOAN_KNTT_C10_1_1_content.json, HOAHOC_KNTT_C11_1_1_content.json
+        """
+        # First try: exact match with subject, grade, and lesson
+        primary_pattern = f"{subject}_*_{grade}_{chapter_num}_{lesson_num}_content.json"
+        matching_files = list(self.content_dir.glob(primary_pattern))
+        
         if matching_files:
-            return matching_files[0]  # Take the first match
-
+            print(f"✅ Found content file for {subject} {grade} lesson {chapter_num}.{lesson_num}: {matching_files[0].name}")
+            return matching_files[0]
+        
+        # Fallback: if grade/curriculum varies, try broader pattern but verify subject
+        fallback_pattern = f"{subject}_*_{chapter_num}_{lesson_num}_content.json"
+        fallback_files = list(self.content_dir.glob(fallback_pattern))
+        
+        if fallback_files:
+            print(f"⚠️  Using fallback pattern for {subject} lesson {chapter_num}.{lesson_num}: {fallback_files[0].name}")
+            return fallback_files[0]
+        
+        # If still not found
+        print(f"❌ Content file not found for {subject} {grade} lesson {chapter_num}.{lesson_num}")
         return None
 
-    def _map_lesson_content(self, lesson_data: Dict, content_file: Path) -> int:
-        """Map content from Phase 2 file into lesson data"""
+    def _map_lesson_content(self, lesson_data: Dict, content_file: Path, subject: str = 'TOAN') -> int:
+        """Map content from Phase 2 file into lesson data
+        
+        Args:
+            lesson_data: Lesson data from Phase 1 matrix
+            content_file: Path to Phase 2 content file
+            subject: Subject code (e.g., 'TOAN', 'HOAHOC')
+                     For TOAN: maps ALL available templates
+                     For other subjects: limits to 5 templates per question
+        """
         try:
             with open(content_file, 'r', encoding='utf-8') as f:
                 content_data = json.load(f)
@@ -255,25 +287,28 @@ class ContentMappingService:
                 lesson_data['supplementary_material'] = supplementary_material
                 print(f"   ✓ Mapped supplementary_material: {len(supplementary_material)} chars")
 
+            # Determine if we should map all templates (TOAN) or limit to 5 (other subjects)
+            map_all_templates = (subject.upper() == 'TOAN')
+
             # Map TN questions with random selection
             tn_data = data.get('TN', {})
             if tn_data and 'TN' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TN'], tn_data)
+                questions_mapped += self._map_tn_questions(lesson_data['TN'], tn_data, map_all_templates)
 
             # Map TLN questions with random selection
             tln_data = data.get('TLN', {})
             if tln_data and 'TLN' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TLN'], tln_data)
+                questions_mapped += self._map_tn_questions(lesson_data['TLN'], tln_data, map_all_templates)
 
             # Map TL questions with random selection
             tl_data = data.get('TL', {})
             if tl_data and 'TL' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data)
+                questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data, map_all_templates)
 
             # Map DS questions with random selection
             ds_data = data.get('DS', {})
             if 'DS' in lesson_data and lesson_data['DS']:
-                questions_mapped += self._map_ds_questions(lesson_data['DS'], ds_data.get('questions', []), ds_data.get('material', []))
+                questions_mapped += self._map_ds_questions(lesson_data['DS'], ds_data.get('questions', []), ds_data.get('material', []), map_all_templates)
 
             return questions_mapped
 
@@ -281,8 +316,15 @@ class ContentMappingService:
             print(f"Error mapping content from {content_file}: {e}")
             return 0
 
-    def _map_tn_questions(self, tn_specs: Dict, tn_content: Dict) -> int:
-        """Map TN questions with random selection"""
+    def _map_tn_questions(self, tn_specs: Dict, tn_content: Dict, map_all: bool = False) -> int:
+        """Map TN questions with template selection
+        
+        Args:
+            tn_specs: Question specifications from Phase 1 matrix
+            tn_content: Content data from Phase 2 file
+            map_all: If True, map ALL templates (for TOAN)
+                     If False, limit to 5 templates per question
+        """
         questions_mapped = 0
 
         # Collect all available questions by level
@@ -301,33 +343,51 @@ class ContentMappingService:
                 if 'question_template' in spec:
                     available = available_questions[level]
                     if available:
-                        # Sample up to 5 questions as reference examples (independent of num)
-                        num_to_sample = min(5, len(available))
-                        if len(available) >= num_to_sample:
-                            selected = random.sample(available, num_to_sample)
-                        else:
+                        if map_all:
+                            # For TOAN: include ALL available templates
                             selected = list(available)
+                        else:
+                            # For other subjects: limit to 5 templates
+                            num_to_sample = min(5, len(available))
+                            if len(available) >= num_to_sample:
+                                selected = random.sample(available, num_to_sample)
+                            else:
+                                selected = list(available)
                         spec['question_template'] = selected
                         questions_mapped += len(selected)
 
         return questions_mapped
 
-    def _map_ds_questions(self, ds_specs: List, ds_questions: List, ds_materials: List) -> int:
-        """Map DS questions with random selection"""
+    def _map_ds_questions(self, ds_specs: List, ds_questions: List, ds_materials: List, map_all: bool = False) -> int:
+        """Map DS questions with template selection
+        
+        Args:
+            ds_specs: Question specifications from Phase 1 matrix
+            ds_questions: Question data from Phase 2 file
+            ds_materials: Material data from Phase 2 file
+            map_all: If True, map ALL templates (for TOAN)
+                     If False, limit to 5 templates per question
+        """
         questions_mapped = 0
 
         if not ds_specs:
             return 0
 
-        # For each DS spec, randomly select up to 5 questions and one material if available
+        # For each DS spec, select questions based on subject
+        # For TOAN: select ALL questions, For others: limit to 5
         for spec in ds_specs:
             # Map questions
             if 'question_template' in spec and ds_questions:
-                num_to_sample = min(5, len(ds_questions))
-                if len(ds_questions) >= num_to_sample:
-                    selected_questions = random.sample(ds_questions, num_to_sample)
-                else:
+                if map_all:
+                    # For TOAN: include ALL available questions
                     selected_questions = list(ds_questions)
+                else:
+                    # For other subjects: limit to 5 questions
+                    num_to_sample = min(5, len(ds_questions))
+                    if len(ds_questions) >= num_to_sample:
+                        selected_questions = random.sample(ds_questions, num_to_sample)
+                    else:
+                        selected_questions = list(ds_questions)
                 spec['question_template'] = selected_questions
                 questions_mapped += len(selected_questions)
 

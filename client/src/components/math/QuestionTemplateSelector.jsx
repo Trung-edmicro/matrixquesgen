@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 
+const TEMPLATES_PER_PAGE = 5
+
 export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, onComplete, onSkip }) {
   const [selections, setSelections] = useState({})
   const [expandedQuestions, setExpandedQuestions] = useState({})
   const [customTemplates, setCustomTemplates] = useState({})
   const [validationErrors, setValidationErrors] = useState([])
+  const [templatePages, setTemplatePages] = useState({}) // Track current page per question
 
   // Initialize selections from enriched matrix
   useEffect(() => {
@@ -17,17 +20,19 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
         ['NB', 'TH', 'VD'].forEach(level => {
           const questions = lesson.TN[level] || []
           questions.forEach((q, qIndex) => {
-            if (q.question_template && q.question_template.length > 0) {
-              const key = `${lessonIndex}-TN-${level}-${qIndex}`
-              initialSelections[key] = {
-                lesson_index: lessonIndex,
-                question_type: 'TN',
-                level: level,
-                question_index: qIndex,
-                selected_template: null,
-                is_custom: false,
-                is_random: false
-              }
+            const key = `${lessonIndex}-TN-${level}-${qIndex}`
+            const hasTemplates = q.question_template && q.question_template.length > 0
+            
+            // Include ALL questions, even those without templates
+            initialSelections[key] = {
+              lesson_index: lessonIndex,
+              question_type: 'TN',
+              level: level,
+              question_index: qIndex,
+              selected_template: null,
+              is_custom: false,
+              is_random: false,
+              has_templates: hasTemplates  // Track if question has templates
             }
           })
         })
@@ -36,17 +41,18 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
       // Process DS questions
       if (lesson.DS && Array.isArray(lesson.DS)) {
         lesson.DS.forEach((q, qIndex) => {
-          if (q.question_template && q.question_template.length > 0) {
-            const key = `${lessonIndex}-DS-${qIndex}`
-            initialSelections[key] = {
-              lesson_index: lessonIndex,
-              question_type: 'DS',
-              level: null,
-              question_index: qIndex,
-              selected_template: null,
-              is_custom: false,
-              is_random: false
-            }
+          const key = `${lessonIndex}-DS-${qIndex}`
+          const hasTemplates = q.question_template && q.question_template.length > 0
+          
+          initialSelections[key] = {
+            lesson_index: lessonIndex,
+            question_type: 'DS',
+            level: null,
+            question_index: qIndex,
+            selected_template: null,
+            is_custom: false,
+            is_random: false,
+            has_templates: hasTemplates
           }
         })
       }
@@ -56,17 +62,18 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
         ['NB', 'TH', 'VD'].forEach(level => {
           const questions = lesson.TLN[level] || []
           questions.forEach((q, qIndex) => {
-            if (q.question_template && q.question_template.length > 0) {
-              const key = `${lessonIndex}-TLN-${level}-${qIndex}`
-              initialSelections[key] = {
-                lesson_index: lessonIndex,
-                question_type: 'TLN',
-                level: level,
-                question_index: qIndex,
-                selected_template: null,
-                is_custom: false,
-                is_random: false
-              }
+            const key = `${lessonIndex}-TLN-${level}-${qIndex}`
+            const hasTemplates = q.question_template && q.question_template.length > 0
+            
+            initialSelections[key] = {
+              lesson_index: lessonIndex,
+              question_type: 'TLN',
+              level: level,
+              question_index: qIndex,
+              selected_template: null,
+              is_custom: false,
+              is_random: false,
+              has_templates: hasTemplates
             }
           })
         })
@@ -77,17 +84,18 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
         ['NB', 'TH', 'VD'].forEach(level => {
           const questions = lesson.TL[level] || []
           questions.forEach((q, qIndex) => {
-            if (q.question_template && q.question_template.length > 0) {
-              const key = `${lessonIndex}-TL-${level}-${qIndex}`
-              initialSelections[key] = {
-                lesson_index: lessonIndex,
-                question_type: 'TL',
-                level: level,
-                question_index: qIndex,
-                selected_template: null,
-                is_custom: false,
-                is_random: false
-              }
+            const key = `${lessonIndex}-TL-${level}-${qIndex}`
+            const hasTemplates = q.question_template && q.question_template.length > 0
+            
+            initialSelections[key] = {
+              lesson_index: lessonIndex,
+              question_type: 'TL',
+              level: level,
+              question_index: qIndex,
+              selected_template: null,
+              is_custom: false,
+              is_random: false,
+              has_templates: hasTemplates
             }
           })
         })
@@ -152,6 +160,30 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
     const customValue = customTemplates[key]
     if (customValue && customValue.trim()) {
       handleTemplateSelect(key, customValue.trim(), true)
+    }
+  }
+
+  const getCurrentPage = (key) => {
+    return templatePages[key] || 0
+  }
+
+  const goToNextPage = (key, maxPage) => {
+    const currentPage = getCurrentPage(key)
+    if (currentPage < maxPage) {
+      setTemplatePages(prev => ({
+        ...prev,
+        [key]: currentPage + 1
+      }))
+    }
+  }
+
+  const goToPreviousPage = (key) => {
+    const currentPage = getCurrentPage(key)
+    if (currentPage > 0) {
+      setTemplatePages(prev => ({
+        ...prev,
+        [key]: currentPage - 1
+      }))
     }
   }
 
@@ -262,10 +294,9 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   {lesson.TN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TN[level] || []
                     return questions.map((q, qIndex) => {
-                      if (!q.question_template || q.question_template.length === 0) return null
-                      
                       const key = `${lessonIndex}-TN-${level}-${qIndex}`
                       const selection = selections[key]
+                      if (!selection) return null  // Skip if not in selections
                       const isExpanded = expandedQuestions[key]
                       const hasError = validationErrors.includes(key)
 
@@ -280,11 +311,14 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                           isExpanded={isExpanded}
                           hasError={hasError}
                           customTemplate={customTemplates[key] || ''}
+                          currentPage={getCurrentPage(key)}
                           onTemplateSelect={handleTemplateSelect}
                           onRandomSelect={handleRandomSelect}
                           onToggleExpand={toggleExpanded}
                           onCustomTemplateChange={handleCustomTemplateChange}
                           onCustomTemplateApply={handleCustomTemplateApply}
+                          onNextPage={goToNextPage}
+                          onPreviousPage={goToPreviousPage}
                         />
                       )
                     })
@@ -292,10 +326,9 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
 
                   {/* Render DS questions */}
                   {lesson.DS && lesson.DS.map((q, qIndex) => {
-                    if (!q.question_template || q.question_template.length === 0) return null
-                    
                     const key = `${lessonIndex}-DS-${qIndex}`
                     const selection = selections[key]
+                    if (!selection) return null  // Skip if not in selections
                     const isExpanded = expandedQuestions[key]
                     const hasError = validationErrors.includes(key)
 
@@ -310,11 +343,14 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                         isExpanded={isExpanded}
                         hasError={hasError}
                         customTemplate={customTemplates[key] || ''}
+                        currentPage={getCurrentPage(key)}
                         onTemplateSelect={handleTemplateSelect}
                         onRandomSelect={handleRandomSelect}
                         onToggleExpand={toggleExpanded}
                         onCustomTemplateChange={handleCustomTemplateChange}
                         onCustomTemplateApply={handleCustomTemplateApply}
+                        onNextPage={goToNextPage}
+                        onPreviousPage={goToPreviousPage}
                       />
                     )
                   })}
@@ -323,10 +359,9 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   {lesson.TLN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TLN[level] || []
                     return questions.map((q, qIndex) => {
-                      if (!q.question_template || q.question_template.length === 0) return null
-                      
                       const key = `${lessonIndex}-TLN-${level}-${qIndex}`
                       const selection = selections[key]
+                      if (!selection) return null  // Skip if not in selections
                       const isExpanded = expandedQuestions[key]
                       const hasError = validationErrors.includes(key)
 
@@ -341,11 +376,14 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                           isExpanded={isExpanded}
                           hasError={hasError}
                           customTemplate={customTemplates[key] || ''}
+                          currentPage={getCurrentPage(key)}
                           onTemplateSelect={handleTemplateSelect}
                           onRandomSelect={handleRandomSelect}
                           onToggleExpand={toggleExpanded}
                           onCustomTemplateChange={handleCustomTemplateChange}
                           onCustomTemplateApply={handleCustomTemplateApply}
+                          onNextPage={goToNextPage}
+                          onPreviousPage={goToPreviousPage}
                         />
                       )
                     })
@@ -355,10 +393,9 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   {lesson.TL && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TL[level] || []
                     return questions.map((q, qIndex) => {
-                      if (!q.question_template || q.question_template.length === 0) return null
-                      
                       const key = `${lessonIndex}-TL-${level}-${qIndex}`
                       const selection = selections[key]
+                      if (!selection) return null  // Skip if not in selections
                       const isExpanded = expandedQuestions[key]
                       const hasError = validationErrors.includes(key)
 
@@ -373,11 +410,14 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                           isExpanded={isExpanded}
                           hasError={hasError}
                           customTemplate={customTemplates[key] || ''}
+                          currentPage={getCurrentPage(key)}
                           onTemplateSelect={handleTemplateSelect}
                           onRandomSelect={handleRandomSelect}
                           onToggleExpand={toggleExpanded}
                           onCustomTemplateChange={handleCustomTemplateChange}
                           onCustomTemplateApply={handleCustomTemplateApply}
+                          onNextPage={goToNextPage}
+                          onPreviousPage={goToPreviousPage}
                         />
                       )
                     })
@@ -419,14 +459,20 @@ function QuestionTemplateItem({
   isExpanded,
   hasError,
   customTemplate,
+  currentPage = 0,
   onTemplateSelect,
   onRandomSelect,
   onToggleExpand,
   onCustomTemplateChange,
-  onCustomTemplateApply
+  onCustomTemplateApply,
+  onNextPage,
+  onPreviousPage
 }) {
   const levelNames = { NB: 'Nhận biết', TH: 'Thông hiểu', VD: 'Vận dụng' }
   const typeNames = { TN: 'Trắc nghiệm', DS: 'Đúng/Sai', TLN: 'Trả lời ngắn', TL: 'Tự luận' }
+  
+  // Check if question has templates or not
+  const hasTemplates = question.question_template && question.question_template.length > 0
 
   return (
     <div className={`p-4 ${hasError ? 'bg-red-50' : 'bg-white'}`}>
@@ -446,7 +492,7 @@ function QuestionTemplateItem({
             )}
           </div>
           <div className="text-sm text-gray-700 mb-2">
-            <span className="font-medium">Kết quả học tập:</span> {question.learning_outcome || 'N/A'}
+            <span className="font-medium">Đặc tả ma trận:</span> {question.learning_outcome || 'N/A'}
           </div>
           {selection && selection.selected_template && (
             <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
@@ -470,24 +516,106 @@ function QuestionTemplateItem({
 
       {isExpanded && (
         <div className="mt-4 space-y-3">
-          {/* Template options */}
-          <div className="grid grid-cols-1 gap-2">
-            {question.question_template.map((template, idx) => (
-              <label
-                key={idx}
-                className="flex items-start gap-3 p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name={questionKey}
-                  checked={selection && selection.selected_template === template && !selection.is_custom}
-                  onChange={() => onTemplateSelect(questionKey, template, false)}
-                  className="mt-1 flex-shrink-0"
-                />
-                <span className="text-sm text-gray-700 flex-1">{template}</span>
-              </label>
-            ))}
-          </div>
+          {/* If no templates available: show text input */}
+          {!hasTemplates && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">
+                    Không có câu hỏi mẫu cho câu hỏi này
+                  </h4>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Vui lòng nhập câu hỏi mẫu để hệ thống có thể sinh câu hỏi tương tự
+                  </p>
+                  <div className="space-y-2">
+                    <textarea
+                      value={customTemplate}
+                      onChange={(e) => onCustomTemplateChange(questionKey, e.target.value)}
+                      placeholder="Nhập câu hỏi mẫu của bạn..."
+                      rows="3"
+                      autoFocus
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                    <button
+                      onClick={() => onCustomTemplateApply(questionKey)}
+                      disabled={!customTemplate || !customTemplate.trim()}
+                      className="w-full px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Áp dụng câu mẫu
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* If templates available: show selector with pagination */}
+          {hasTemplates && (
+            <>
+          {/* Template options with pagination */}
+          {(() => {
+            const templates = question.question_template || []
+            const totalPages = Math.ceil(templates.length / TEMPLATES_PER_PAGE)
+            const startIdx = currentPage * TEMPLATES_PER_PAGE
+            const endIdx = startIdx + TEMPLATES_PER_PAGE
+            const visibleTemplates = templates.slice(startIdx, endIdx)
+
+            return (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-600">
+                      Trang {currentPage + 1} / {totalPages} ({templates.length} mẫu)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {visibleTemplates.map((template, idx) => (
+                      <label
+                        key={startIdx + idx}
+                        className="flex items-start gap-3 p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name={questionKey}
+                          checked={selection && selection.selected_template === template && !selection.is_custom}
+                          onChange={() => onTemplateSelect(questionKey, template, false)}
+                          className="mt-1 flex-shrink-0"
+                        />
+                        <span className="text-sm text-gray-700 flex-1">{template}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Pagination controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between gap-2 mt-3 pt-2 border-t border-gray-200">
+                      <button
+                        onClick={() => onPreviousPage(questionKey)}
+                        disabled={currentPage === 0}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ← Trang trước
+                      </button>
+                      <span className="text-xs text-gray-600">
+                        {startIdx + 1} - {Math.min(endIdx, templates.length)} / {templates.length}
+                      </span>
+                      <button
+                        onClick={() => onNextPage(questionKey, totalPages - 1)}
+                        disabled={currentPage >= totalPages - 1}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Trang sau →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )
+          })()}
 
           {/* Custom template input */}
           <div className="border border-gray-300 rounded p-3 bg-gray-50">
@@ -517,6 +645,8 @@ function QuestionTemplateItem({
           >
             Chọn ngẫu nhiên
           </button>
+            </>
+          )}
         </div>
       )}
     </div>

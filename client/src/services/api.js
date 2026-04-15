@@ -38,7 +38,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
           'Content-Type': 'multipart/form-data',
         },
       })
-    console.log(">>>>>> debug response", response.data);
+    // console.log(">>>>>> debug response", response.data);
   return response.data
   }catch(error) {
     console.log(error);
@@ -59,7 +59,7 @@ export const generateQuestionsEnglishTHCS = async (file) => {
           'Content-Type': 'multipart/form-data',
         },
       })
-        console.log(">>>>>> debug response", response.data);
+        // console.log(">>>>>> debug response", response.data);
       return response.data
       }catch(error) {
         console.log(">>>>>> error", error);
@@ -124,7 +124,7 @@ export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
       },
     })
 
-    console.log(">>>>>> debug response english", response.data)
+    // console.log(">>>>>> debug response english", response.data)
     return response.data
 
   } catch (error) {
@@ -182,7 +182,7 @@ export const generateQuestionsEnglish = async (file, config = {}, templateDocx =
       'Content-Type': 'multipart/form-data',
     },
   })
-  console.log(">>>>>> debug response", response.data);
+  // console.log(">>>>>> debug response", response.data);
   return response.data
 }
 

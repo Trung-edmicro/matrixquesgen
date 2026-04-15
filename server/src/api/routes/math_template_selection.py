@@ -27,7 +27,8 @@ def _get_app_dir() -> Path:
     app_dir = os.getenv('APP_DIR')
     if app_dir:
         return Path(app_dir)
-    return Path(__file__).parent.parent.parent.parent
+    # Fallback: Go up from server/src/api/routes/math_template_selection.py to project root
+    return Path(__file__).parent.parent.parent.parent.parent
 
 
 def _get_sessions_dir() -> Path:
@@ -100,8 +101,10 @@ async def get_enriched_matrix_for_selection(session_id: str):
                 detail="Enriched matrix not found. Phase 3 may not be completed."
             )
         
-        # Load enriched matrix
+        # Load enriched matrix - resolve path relative to app dir
         enriched_path = Path(enriched_matrix_path)
+        if not enriched_path.is_absolute():
+            enriched_path = _get_app_dir() / enriched_matrix_path
         if not enriched_path.exists():
             raise HTTPException(status_code=404, detail=f"Enriched matrix file not found: {enriched_path}")
         
@@ -181,8 +184,10 @@ async def save_template_selections(session_id: str, request: SaveTemplatesReques
         if not enriched_matrix_path:
             raise HTTPException(status_code=404, detail="Enriched matrix not found")
         
-        # Load enriched matrix
+        # Load enriched matrix - resolve path relative to app dir
         enriched_path = Path(enriched_matrix_path)
+        if not enriched_path.is_absolute():
+            enriched_path = _get_app_dir() / enriched_matrix_path
         with open(enriched_path, 'r', encoding='utf-8') as f:
             matrix_data = json.load(f)
         
@@ -280,6 +285,12 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
     """
     Background task to run phase 4 with selected templates
     """
+    import logging
+    _log = logging.getLogger(__name__)
+    
+    _log.info(f"🔄 [{session_id}] Starting Phase 4 with selected templates")
+    _log.info(f"   Enriched matrix: {enriched_matrix_path}")
+    
     session_file = _get_sessions_dir() / f"{session_id}.json"
     
     def update_session(data: dict):
@@ -326,10 +337,13 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
         print(f"   Grade: {grade}")
         
         # Download prompts from Drive before generating questions
-        _log.info(f"→ Downloading prompts from Google Drive ({grade}/{subject}/Prompts)...")
+        _log.info(f"📥 Downloading prompts from Google Drive ({grade}/{subject}/Prompts)...")
         try:
+            from services.core.google_drive_service import GoogleDriveService
             from services.phases.phase2_content_acquisition import ContentAcquisitionService
-            content_service = ContentAcquisitionService()
+            
+            drive_service = GoogleDriveService()
+            content_service = ContentAcquisitionService(drive_service)
             
             prompts_downloaded = content_service.download_prompts_from_drive(
                 grade=grade,
@@ -337,7 +351,7 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
                 curriculum=curriculum
             )
             if prompts_downloaded:
-                _log.info("✓ Prompts downloaded successfully")
+                _log.info("✅ Prompts downloaded successfully from Google Drive")
             else:
                 _log.warning("⚠️ Could not download prompts from Drive - using local fallback")
         except Exception as e:
@@ -350,9 +364,17 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
         # Set prompts directory based on subject/curriculum/grade
         question_service.set_prompts_directory(subject, curriculum, grade)
         
+        # Resolve enriched matrix path
+        enriched_path = Path(enriched_matrix_path)
+        if not enriched_path.is_absolute():
+            enriched_path = _get_app_dir() / enriched_matrix_path
+        
+        _log.info(f"🎯 Generating questions from enriched matrix: {enriched_path.name}")
+        _log.info(f"   Question types: TN, DS, TLN, TL")
+        
         # Generate questions from enriched matrix with selected templates
         question_set = question_service.process_enriched_matrix(
-            Path(enriched_matrix_path),
+            enriched_path,
             question_types=["TN", "DS", "TLN", "TL"]
         )
         
@@ -446,6 +468,9 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
         with open(questions_file, 'w', encoding='utf-8') as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
         
+        _log.info(f"💾 Questions saved to: {questions_file.name}")
+        _log.info(f"   Total: {len(question_set.questions)} (TN={len(generated_tn)}, DS={len(generated_ds)}, TLN={len(generated_tln)}, TL={len(generated_tl)})")
+        
         # Update session
         session_data.update({
             'current_phase': 'completed',
@@ -460,7 +485,8 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
         })
         update_session(session_data)
         
-        _log.info(f"✅ Phase 4 completed! Generated {len(question_set.questions)} questions")
+        _log.info(f"✅ [{session_id}] Phase 4 completed! Generated {len(question_set.questions)} questions total")
+        _log.info(f"   Status: {session_data['status']}, Progress: {session_data['progress']}%")
         
     except Exception as e:
         import traceback
