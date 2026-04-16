@@ -27,11 +27,20 @@ router = APIRouter(prefix="/api/generate", tags=["Generate"])
 
 # Helper functions for lazy path loading (ensures APP_DIR env var is set)
 def _get_app_dir() -> Path:
-    """Get APP_DIR with lazy loading to ensure env var is set"""
+    """Get APP_DIR with lazy loading to ensure env var is set (server directory)"""
     app_dir = os.getenv('APP_DIR')
     if app_dir:
         return Path(app_dir)
-    # Fallback: Go up from server/src/api/routes/generate.py to project root
+    # Fallback for dev mode: 4 levels up to server/
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _get_project_root() -> Path:
+    """Get project root directory (for matrix, exports, prompts in dev mode)"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode: 5 levels up to project root
     return Path(__file__).parent.parent.parent.parent.parent
 
 
@@ -57,10 +66,8 @@ def _get_uploads_dir() -> Path:
 
 
 def _get_exports_dir() -> Path:
-    """Get exports directory path with lazy loading"""
-    exports_dir = _get_app_dir() / "exports"
-    if exports_dir.parent.name == "server":
-        exports_dir = exports_dir.parent.parent / "exports"
+    """Get exports directory path with lazy loading (in project root)"""
+    exports_dir = _get_project_root() / "exports"
     exports_dir.mkdir(parents=True, exist_ok=True)
     return exports_dir
 

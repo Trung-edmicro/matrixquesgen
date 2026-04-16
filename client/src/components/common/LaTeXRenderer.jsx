@@ -15,66 +15,108 @@ export default function LaTeXRenderer({ children, className = '', contentEditabl
     renderLatex()
   }, [children])
 
+  // Helper function to decode HTML entities
+  const decodeHtmlEntities = (text) => {
+    const textArea = document.createElement('textarea')
+    textArea.innerHTML = text
+    return textArea.value
+  }
+
+  // Helper function to add text with line breaks support
+  const addTextWithLineBreaks = (container, text) => {
+    // Decode HTML entities
+    text = decodeHtmlEntities(text)
+    
+    // Split by newlines, but trim each line to avoid weird spacing
+    const lines = text.split('\n')
+    lines.forEach((line, index) => {
+      if (index > 0) {
+        container.appendChild(document.createElement('br'))
+      }
+      // Trim line to avoid leading/trailing whitespace but preserve content whitespace
+      line = line.trim()
+      if (line) {
+        // Replace multiple spaces with single space to prevent concatenation issues
+        line = line.replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ')
+        const textNode = document.createTextNode(line)
+        container.appendChild(textNode)
+      }
+    })
+  }
+
   const renderLatex = () => {
     if (!containerRef.current) return
 
     const container = containerRef.current
     let text = typeof children === 'string' ? children : ''
     
+    // Decode HTML entities first for the entire text
+    text = decodeHtmlEntities(text)
+    
     // Clear existing content
     container.innerHTML = ''
 
-    // Pattern to match $...$ (inline) and $$...$$ (display)
-    // Use negative lookbehind to avoid matching \$
-    const pattern = /(?<!\\)\$\$([^\$]+)\$\$|(?<!\\)\$([^\$]+)\$/g
+    // Improved pattern: handle $ ... $ patterns more carefully
+    // Match inline (\$text\$) or display (\$\$text\$\$) but be more flexible
+    const pattern = /\$\$([^\$]*?)\$\$|\$([^\$]*?)\$/g
     let lastIndex = 0
     let match
 
-    while ((match = pattern.exec(text)) !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        const textNode = document.createTextNode(text.substring(lastIndex, match.index))
-        container.appendChild(textNode)
-      }
+    try {
+      while ((match = pattern.exec(text)) !== null) {
+        // Add text before the match (with line break handling)
+        if (match.index > lastIndex) {
+          addTextWithLineBreaks(container, text.substring(lastIndex, match.index))
+        }
 
-      // Create span for LaTeX
-      const span = document.createElement('span')
-      span.classList.add('latex-formula')
-      
-      try {
         const isDisplay = match[0].startsWith('$$')
-        const formula = isDisplay ? match[1] : match[2]
+        const formula = isDisplay ? match[1].trim() : match[2].trim()
         
-        katex.render(formula, span, {
-          displayMode: isDisplay,
-          throwOnError: false,
-          errorColor: '#cc0000',
-          strict: false,
-          trust: true,
-          macros: {
-            '\\frac': '\\dfrac', // Use display-style fractions by default
-          }
-        })
-      } catch (e) {
-        // If error, show original text
-        span.textContent = match[0]
-        span.style.color = '#cc0000'
-        span.title = 'LaTeX Error: ' + e.message
+        // Skip empty formulas
+        if (!formula) {
+          lastIndex = match.index + match[0].length
+          continue
+        }
+
+        // Create span for LaTeX
+        const span = document.createElement('span')
+        span.classList.add('latex-formula')
+        span.style.display = isDisplay ? 'block' : 'inline'
+        span.style.margin = isDisplay ? '0.5em 0' : '0 0.2em'
+        
+        try {
+          katex.render(formula, span, {
+            displayMode: isDisplay,
+            throwOnError: false,
+            errorColor: '#cc0000',
+            strict: false,
+            trust: true,
+            macros: {
+              '\\frac': '\\dfrac', // Use display-style fractions by default
+            }
+          })
+        } catch (e) {
+          // If error, show original text
+          span.textContent = match[0]
+          span.style.color = '#cc0000'
+          span.title = 'LaTeX Error: ' + e.message
+        }
+        
+        container.appendChild(span)
+        lastIndex = match.index + match[0].length
       }
-      
-      container.appendChild(span)
-      lastIndex = match.index + match[0].length
+    } catch (e) {
+      // If regex fails, just show plain text
+      addTextWithLineBreaks(container, text)
+      return
     }
 
-    // Add remaining text
+    // Add remaining text (with line break handling)
     if (lastIndex < text.length) {
-      const textNode = document.createTextNode(text.substring(lastIndex))
-      container.appendChild(textNode)
-    }
-
-    // If no LaTeX found, just add the text
-    if (lastIndex === 0 && text) {
-      container.textContent = text
+      addTextWithLineBreaks(container, text.substring(lastIndex))
+    } else if (lastIndex === 0 && text) {
+      // If no LaTeX found at all, just add the text with line breaks
+      addTextWithLineBreaks(container, text)
     }
   }
 
@@ -109,6 +151,7 @@ export default function LaTeXRenderer({ children, className = '', contentEditabl
       suppressContentEditableWarning
       onFocus={handleFocus}
       onBlur={handleBlurLocal}
+      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
     />
   )
 }

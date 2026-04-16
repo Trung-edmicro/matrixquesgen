@@ -161,54 +161,5 @@ class Config:
         print(f"Temperature: {cls.VERTEX_AI_TEMPERATURE}")
         print("=" * 80 + "\n")
 
-
-class PromptTemplates:
-    """Template cho các prompts sử dụng với AI"""
-    
-    GENERATE_QUESTIONS = """
-    Bạn là một giáo viên có kinh nghiệm. Hãy tạo các câu hỏi trắc nghiệm dựa trên thông tin sau:
-    
-    Môn học: {subject}
-    Chủ đề: {topic}
-    Mức độ: {level}
-    Số lượng câu hỏi: {num_questions}
-    
-    Yêu cầu:
-    - Mỗi câu hỏi có 4 đáp án A, B, C, D
-    - Chỉ có 1 đáp án đúng
-    - Câu hỏi phải rõ ràng, chính xác
-    - Đáp án phải phù hợp với mức độ
-    
-    Trả về kết quả dạng JSON với cấu trúc:
-    {{
-        "questions": [
-            {{
-                "question": "Nội dung câu hỏi",
-                "options": {{
-                    "A": "Đáp án A",
-                    "B": "Đáp án B",
-                    "C": "Đáp án C",
-                    "D": "Đáp án D"
-                }},
-                "correct_answer": "A",
-                "explanation": "Giải thích"
-            }}
-        ]
-    }}
-    """
-    
-    PROCESS_EXCEL_DATA = """
-    Hãy phân tích dữ liệu Excel sau và tạo câu hỏi trắc nghiệm:
-    
-    Dữ liệu:
-    {excel_data}
-    
-    Yêu cầu:
-    - Tạo {num_questions} câu hỏi
-    - Mỗi câu hỏi dựa trên dữ liệu trong bảng
-    - Format JSON như mẫu trên
-    """
-
-
 # Khởi tạo các thư mục khi import module
 Config.ensure_directories()

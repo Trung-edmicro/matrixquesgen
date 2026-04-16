@@ -364,10 +364,13 @@ export const getEnrichedMatrix = async (sessionId) => {
 
 // Save template selections
 export const saveTemplateSelections = async (sessionId, selections) => {
-  const response = await api.post(`/api/math-template/${sessionId}/save-selections`, {
+  const payload = {
     session_id: sessionId,
     selections: selections
-  })
+  }
+  console.log('[API] All selections before filter:', selections.length)
+  console.log('[API] Saving selections:', JSON.stringify(payload, null, 2))
+  const response = await api.post(`/api/math-template/${sessionId}/save-selections`, payload)
   return response.data
 }
 

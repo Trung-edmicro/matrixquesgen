@@ -8,8 +8,8 @@ import json
 import uuid
 from pathlib import Path
 from typing import Optional, Dict, List
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from pydantic import BaseModel, ValidationError
 from datetime import datetime
 import sys
 
@@ -23,11 +23,20 @@ router = APIRouter(prefix="/api/math-template", tags=["Math Templates"])
 
 # Helper functions
 def _get_app_dir() -> Path:
-    """Get APP_DIR with lazy loading to ensure env var is set"""
+    """Get APP_DIR with lazy loading to ensure env var is set (server directory)"""
     app_dir = os.getenv('APP_DIR')
     if app_dir:
         return Path(app_dir)
-    # Fallback: Go up from server/src/api/routes/math_template_selection.py to project root
+    # Fallback for dev mode: 4 levels up to server/
+    return Path(__file__).parent.parent.parent.parent
+
+
+def _get_project_root() -> Path:
+    """Get project root directory (for matrix and prompts in dev mode)"""
+    app_dir = os.getenv('APP_DIR')
+    if app_dir:
+        return Path(app_dir)
+    # Fallback for dev mode: 5 levels up to project root
     return Path(__file__).parent.parent.parent.parent.parent
 
 
@@ -39,8 +48,8 @@ def _get_sessions_dir() -> Path:
 
 
 def _get_matrix_dir() -> Path:
-    """Get matrix directory path"""
-    matrix_dir = _get_app_dir() / "data" / "matrix"
+    """Get matrix directory path (in project root)"""
+    matrix_dir = _get_project_root() / "data" / "matrix"
     matrix_dir.mkdir(parents=True, exist_ok=True)
     return matrix_dir
 
@@ -67,7 +76,7 @@ class TemplateSelection(BaseModel):
     question_type: str  # "TN", "DS", "TLN", "TL"
     level: Optional[str] = None  # "NB", "TH", "VD" for TN/TLN/TL
     question_index: int  # Index within the level/type array
-    selected_template: str  # The selected template text
+    selected_template: Optional[str] = None  # The selected template text (can be null if not selected)
     is_custom: bool = False  # True if user provided custom template
     is_random: bool = False  # True if system randomly selected
 
@@ -101,10 +110,10 @@ async def get_enriched_matrix_for_selection(session_id: str):
                 detail="Enriched matrix not found. Phase 3 may not be completed."
             )
         
-        # Load enriched matrix - resolve path relative to app dir
+        # Load enriched matrix - resolve path relative to project root
         enriched_path = Path(enriched_matrix_path)
         if not enriched_path.is_absolute():
-            enriched_path = _get_app_dir() / enriched_matrix_path
+            enriched_path = _get_project_root() / enriched_matrix_path
         if not enriched_path.exists():
             raise HTTPException(status_code=404, detail=f"Enriched matrix file not found: {enriched_path}")
         
@@ -167,11 +176,33 @@ async def get_enriched_matrix_for_selection(session_id: str):
 
 
 @router.post("/{session_id}/save-selections")
-async def save_template_selections(session_id: str, request: SaveTemplatesRequest):
+async def save_template_selections(session_id: str, request: Request):
     """
     Save template selections and update enriched matrix
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Read raw body for debugging
+        raw_body = await request.body()
+        logger.info(f"Raw request body: {raw_body.decode('utf-8') if raw_body else 'EMPTY'}")
+        
+        # Parse JSON manually first to debug
+        try:
+            body_dict = json.loads(raw_body)
+            logger.info(f"Parsed body dict: {body_dict}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+        
+        # Now validate with Pydantic
+        try:
+            save_request = SaveTemplatesRequest(**body_dict)
+        except ValidationError as e:
+            logger.error(f"Pydantic validation error: {e.json()}")
+            raise HTTPException(status_code=422, detail=f"Validation error: {e.json()}")
+        
         # Load session data
         session_file = _get_sessions_dir() / f"{session_id}.json"
         if not session_file.exists():
@@ -184,15 +215,15 @@ async def save_template_selections(session_id: str, request: SaveTemplatesReques
         if not enriched_matrix_path:
             raise HTTPException(status_code=404, detail="Enriched matrix not found")
         
-        # Load enriched matrix - resolve path relative to app dir
+        # Load enriched matrix - resolve path relative to project root
         enriched_path = Path(enriched_matrix_path)
         if not enriched_path.is_absolute():
-            enriched_path = _get_app_dir() / enriched_matrix_path
+            enriched_path = _get_project_root() / enriched_matrix_path
         with open(enriched_path, 'r', encoding='utf-8') as f:
             matrix_data = json.load(f)
         
-        # Apply selections
-        for selection in request.selections:
+        # Apply selections to enriched matrix - add selected_question_template field to each question
+        for selection in save_request.selections:
             lesson = matrix_data['lessons'][selection.lesson_index]
             
             if selection.question_type == "TN":
@@ -206,13 +237,13 @@ async def save_template_selections(session_id: str, request: SaveTemplatesReques
             else:
                 continue
             
-            # Update question_template to be a single selected template (string)
-            # instead of an array
-            question['selected_question_template'] = selection.selected_template
-            question['template_is_custom'] = selection.is_custom
-            question['template_is_random'] = selection.is_random
+            # Add selected template info to question (can be null if not selected)
+            if question:
+                question['selected_question_template'] = selection.selected_template
+                question['template_is_custom'] = selection.is_custom
+                question['template_is_random'] = selection.is_random
         
-        # Save updated enriched matrix
+        # Save updated enriched matrix back to the original file
         with open(enriched_path, 'w', encoding='utf-8') as f:
             json.dump(matrix_data, f, ensure_ascii=False, indent=2)
         
@@ -226,7 +257,7 @@ async def save_template_selections(session_id: str, request: SaveTemplatesReques
         return {
             "success": True,
             "message": "Templates saved successfully",
-            "selections_count": len(request.selections)
+            "selections_count": len(save_request.selections)
         }
     
     except HTTPException:
@@ -258,6 +289,7 @@ async def continue_to_phase4(session_id: str, background_tasks: BackgroundTasks)
                 detail="Templates not selected. Please select templates first."
             )
         
+        # Use the enriched_matrix_path which now contains selected_question_template fields
         enriched_matrix_path = session_data.get('enriched_matrix_path')
         if not enriched_matrix_path:
             raise HTTPException(status_code=404, detail="Enriched matrix not found")
@@ -364,10 +396,10 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
         # Set prompts directory based on subject/curriculum/grade
         question_service.set_prompts_directory(subject, curriculum, grade)
         
-        # Resolve enriched matrix path
+        # Resolve enriched matrix path (relative to project root)
         enriched_path = Path(enriched_matrix_path)
         if not enriched_path.is_absolute():
-            enriched_path = _get_app_dir() / enriched_matrix_path
+            enriched_path = _get_project_root() / enriched_matrix_path
         
         _log.info(f"🎯 Generating questions from enriched matrix: {enriched_path.name}")
         _log.info(f"   Question types: TN, DS, TLN, TL")

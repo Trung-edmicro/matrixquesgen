@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import LaTeXRenderer from '../common/LaTeXRenderer'
 
 const TEMPLATES_PER_PAGE = 5
 
@@ -8,6 +9,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
   const [customTemplates, setCustomTemplates] = useState({})
   const [validationErrors, setValidationErrors] = useState([])
   const [templatePages, setTemplatePages] = useState({}) // Track current page per question
+  const [selectedQuestionType, setSelectedQuestionType] = useState('TN') // Track selected question type tab
 
   // Initialize selections from enriched matrix
   useEffect(() => {
@@ -160,6 +162,11 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
     const customValue = customTemplates[key]
     if (customValue && customValue.trim()) {
       handleTemplateSelect(key, customValue.trim(), true)
+      // Reset custom template input after applying
+      setCustomTemplates(prev => ({
+        ...prev,
+        [key]: ''
+      }))
     }
   }
 
@@ -197,7 +204,9 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
   const validateSelections = () => {
     const errors = []
     Object.keys(selections).forEach(key => {
-      if (!selections[key].selected_template) {
+      const selection = selections[key]
+      // Only require template if question originally had templates
+      if (selection.has_templates && !selection.selected_template) {
         errors.push(key)
       }
     })
@@ -207,11 +216,22 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
 
   const handleSubmit = () => {
     if (!validateSelections()) {
-      alert('Vui lòng chọn câu hỏi mẫu cho tất cả các câu hỏi hoặc chọn "Bỏ qua" để hệ thống tự chọn ngẫu nhiên')
+      alert('Vui lòng chọn câu hỏi mẫu cho các câu hỏi có mẫu hoặc chọn "Bỏ qua" để hệ thống tự chọn ngẫu nhiên')
       return
     }
 
-    const selectionsArray = Object.values(selections)
+    // Convert selections to array and filter out has_templates field
+    // Keep all selections including those with null selected_template
+    const selectionsArray = Object.values(selections).map(selection => ({
+      lesson_index: selection.lesson_index,
+      question_type: selection.question_type,
+      level: selection.level,
+      question_index: selection.question_index,
+      selected_template: selection.selected_template,
+      is_custom: selection.is_custom,
+      is_random: selection.is_random
+    }))
+    
     onComplete(selectionsArray)
   }
 
@@ -243,7 +263,18 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
 
     setSelections(newSelections)
     setTimeout(() => {
-      onComplete(Object.values(newSelections))
+      // Filter out has_templates field before sending
+      // Keep all selections including those with null selected_template
+      const selectionsArray = Object.values(newSelections).map(selection => ({
+        lesson_index: selection.lesson_index,
+        question_type: selection.question_type,
+        level: selection.level,
+        question_index: selection.question_index,
+        selected_template: selection.selected_template,
+        is_custom: selection.is_custom,
+        is_random: selection.is_random
+      }))
+      onComplete(selectionsArray)
     }, 500)
   }
 
@@ -255,18 +286,55 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
     )
   }
 
+  // Count questions by type
+  const questionCountByType = {
+    TN: Object.keys(selections).filter(k => selections[k].question_type === 'TN').length,
+    DS: Object.keys(selections).filter(k => selections[k].question_type === 'DS').length,
+    TLN: Object.keys(selections).filter(k => selections[k].question_type === 'TLN').length,
+    TL: Object.keys(selections).filter(k => selections[k].question_type === 'TL').length
+  }
+
+  const questionCountByTypeSelected = {
+    TN: Object.values(selections).filter(s => s.question_type === 'TN' && s.selected_template).length,
+    DS: Object.values(selections).filter(s => s.question_type === 'DS' && s.selected_template).length,
+    TLN: Object.values(selections).filter(s => s.question_type === 'TLN' && s.selected_template).length,
+    TL: Object.values(selections).filter(s => s.question_type === 'TL' && s.selected_template).length
+  }
+
   const totalQuestions = Object.keys(selections).length
   const selectedCount = Object.values(selections).filter(s => s.selected_template).length
 
+  // Get available question types (only types with questions needing templates)
+  const availableQuestionTypes = [
+    { type: 'TN', label: 'Trắc nghiệm (TN)' },
+    { type: 'DS', label: 'Đúng/Sai (DS)' },
+    { type: 'TLN', label: 'Trả lời ngắn (TLN)' },
+    { type: 'TL', label: 'Tự luận (TL)' }
+  ].filter(tab => questionCountByType[tab.type] > 0)
+
+  // Set initial selected type to first available type
+  useEffect(() => {
+    if (availableQuestionTypes.length > 0 && !availableQuestionTypes.find(t => t.type === selectedQuestionType)) {
+      setSelectedQuestionType(availableQuestionTypes[0].type)
+    }
+  }, [availableQuestionTypes, selectedQuestionType])
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col relative">
+        {/* Close button */}
+        <button
+          onClick={onSkip}
+          className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors z-10"
+          title="Đóng"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Chọn câu hỏi mẫu cho môn Toán</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Hệ thống cần bạn chọn 1 câu hỏi mẫu cho mỗi câu để AI sinh câu hỏi tương tự
-          </p>
           <div className="flex items-center gap-4 mt-3">
             <div className="text-sm text-gray-700">
               <span className="font-medium">{selectedCount}</span> / {totalQuestions} câu đã chọn
@@ -278,20 +346,52 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
               />
             </div>
           </div>
+
+          {/* Question Type Tabs */}
+          <div className="flex gap-2 mt-4 border-b border-gray-200">
+            {availableQuestionTypes.map(tab => (
+              <button
+                key={tab.type}
+                onClick={() => setSelectedQuestionType(tab.type)}
+                className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+                  selectedQuestionType === tab.type
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+                <span className="ml-2 text-xs text-gray-500">
+                  ({questionCountByTypeSelected[tab.type]}/{questionCountByType[tab.type]})
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-4">
-            {enrichedMatrix.lessons.map((lesson, lessonIndex) => (
+            {enrichedMatrix.lessons.map((lesson, lessonIndex) => {
+              // Filter questions by selected type
+              const hasQuestionsOfSelectedType = selectedQuestionType === 'TN'
+                ? (lesson.TN && Object.values(lesson.TN).some(level => level && level.length > 0))
+                : selectedQuestionType === 'DS'
+                ? (lesson.DS && lesson.DS.length > 0)
+                : selectedQuestionType === 'TLN'
+                ? (lesson.TLN && Object.values(lesson.TLN).some(level => level && level.length > 0))
+                : (lesson.TL && Object.values(lesson.TL).some(level => level && level.length > 0))
+
+              if (!hasQuestionsOfSelectedType) return null
+
+              return (
               <div key={lessonIndex} className="border border-gray-300 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 font-medium text-gray-900">
-                  Chương {lesson.chapter_number} - Bài {lesson.lesson_number}: {lesson.lesson_name || 'Bài học'}
-                </div>
+                {/* <div className="bg-gray-50 px-4 py-2 font-medium text-gray-900">
+                  Chương {lesson.chapter_number} - Bài {lesson.lesson_number}
+                </div> */}
                 
                 <div className="divide-y divide-gray-200">
                   {/* Render TN questions */}
-                  {lesson.TN && ['NB', 'TH', 'VD'].map(level => {
+                  {selectedQuestionType === 'TN' && lesson.TN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TN[level] || []
                     return questions.map((q, qIndex) => {
                       const key = `${lessonIndex}-TN-${level}-${qIndex}`
@@ -325,7 +425,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   })}
 
                   {/* Render DS questions */}
-                  {lesson.DS && lesson.DS.map((q, qIndex) => {
+                  {selectedQuestionType === 'DS' && lesson.DS && lesson.DS.map((q, qIndex) => {
                     const key = `${lessonIndex}-DS-${qIndex}`
                     const selection = selections[key]
                     if (!selection) return null  // Skip if not in selections
@@ -356,7 +456,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   })}
 
                   {/* Render TLN questions */}
-                  {lesson.TLN && ['NB', 'TH', 'VD'].map(level => {
+                  {selectedQuestionType === 'TLN' && lesson.TLN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TLN[level] || []
                     return questions.map((q, qIndex) => {
                       const key = `${lessonIndex}-TLN-${level}-${qIndex}`
@@ -390,7 +490,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   })}
 
                   {/* Render TL questions */}
-                  {lesson.TL && ['NB', 'TH', 'VD'].map(level => {
+                  {selectedQuestionType === 'TL' && lesson.TL && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TL[level] || []
                     return questions.map((q, qIndex) => {
                       const key = `${lessonIndex}-TL-${level}-${qIndex}`
@@ -424,7 +524,8 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   })}
                 </div>
               </div>
-            ))}
+              )}
+            )}
           </div>
         </div>
 
@@ -468,8 +569,7 @@ function QuestionTemplateItem({
   onNextPage,
   onPreviousPage
 }) {
-  const levelNames = { NB: 'Nhận biết', TH: 'Thông hiểu', VD: 'Vận dụng' }
-  const typeNames = { TN: 'Trắc nghiệm', DS: 'Đúng/Sai', TLN: 'Trả lời ngắn', TL: 'Tự luận' }
+  const levelNames = { NB: { code: 'NB', color: 'bg-green-100 text-green-800' }, TH: { code: 'TH', color: 'bg-blue-100 text-blue-800' }, VD: { code: 'VD', color: 'bg-yellow-100 text-yellow-800' } }
   
   // Check if question has templates or not
   const hasTemplates = question.question_template && question.question_template.length > 0
@@ -479,20 +579,15 @@ function QuestionTemplateItem({
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-              {typeNames[questionType]}
-            </span>
+            <span className="font-medium">Mã câu: {question.code ? question.code[0] : 'N/A'}</span>
             {level && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                {levelNames[level]}
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${levelNames[level].color}`}>
+                {levelNames[level].code}
               </span>
             )}
             {hasError && (
               <span className="text-xs text-red-600 font-medium">Chưa chọn</span>
             )}
-          </div>
-          <div className="text-sm text-gray-700 mb-2">
-            <span className="font-medium">Đặc tả ma trận:</span> {question.learning_outcome || 'N/A'}
           </div>
           {selection && selection.selected_template && (
             <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
@@ -502,7 +597,9 @@ function QuestionTemplateItem({
                 </svg>
                 Đã chọn {selection.is_custom ? '(Tự nhập)' : selection.is_random ? '(Ngẫu nhiên)' : ''}
               </div>
-              <div className="text-sm text-gray-800 whitespace-pre-wrap">{selection.selected_template}</div>
+              <div className="text-sm text-gray-800 whitespace-pre-wrap">
+                <LaTeXRenderer>{selection.selected_template}</LaTeXRenderer>
+              </div>
             </div>
           )}
         </div>
@@ -516,25 +613,19 @@ function QuestionTemplateItem({
 
       {isExpanded && (
         <div className="mt-4 space-y-3">
-          {/* If no templates available: show text input */}
-          {!hasTemplates && (
+          {/* If no templates available and none selected yet: show text input */}
+          {!hasTemplates && !(selection && selection.selected_template) && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2z" clipRule="evenodd" />
-                </svg>
                 <div className="flex-1">
                   <h4 className="text-sm font-medium text-blue-900 mb-2">
                     Không có câu hỏi mẫu cho câu hỏi này
                   </h4>
-                  <p className="text-xs text-blue-700 mb-3">
-                    Vui lòng nhập câu hỏi mẫu để hệ thống có thể sinh câu hỏi tương tự
-                  </p>
                   <div className="space-y-2">
                     <textarea
                       value={customTemplate}
                       onChange={(e) => onCustomTemplateChange(questionKey, e.target.value)}
-                      placeholder="Nhập câu hỏi mẫu của bạn..."
+                      placeholder="Nhập câu hỏi mẫu của bạn (tùy chọn)..."
                       rows="3"
                       autoFocus
                       className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -549,6 +640,31 @@ function QuestionTemplateItem({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* If no templates and custom template was applied: show edit button */}
+          {!hasTemplates && selection && selection.selected_template && (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <button
+                onClick={() => {
+                  setSelections(prev => ({
+                    ...prev,
+                    [questionKey]: {
+                      ...prev[questionKey],
+                      selected_template: null,
+                      is_custom: false
+                    }
+                  }))
+                  setCustomTemplates(prev => ({
+                    ...prev,
+                    [questionKey]: ''
+                  }))
+                }}
+                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-300 rounded hover:bg-blue-50"
+              >
+                Sửa câu mẫu
+              </button>
             </div>
           )}
 
@@ -585,7 +701,9 @@ function QuestionTemplateItem({
                           onChange={() => onTemplateSelect(questionKey, template, false)}
                           className="mt-1 flex-shrink-0"
                         />
-                        <span className="text-sm text-gray-700 flex-1">{template}</span>
+                        <span className="text-sm text-gray-700 flex-1">
+                          <LaTeXRenderer>{template}</LaTeXRenderer>
+                        </span>
                       </label>
                     ))}
                   </div>

@@ -487,8 +487,9 @@ class MatrixParser:
         # ═════ BƯỚC 1: Loại bỏ "Ma trận_" prefix nếu có ═════
         name_clean = re.sub(r'^Ma\s*trận\s*[_-]?', '', name_without_ext, flags=re.IGNORECASE).strip()
         
-        # Split by underscore hoặc dash để lấy các phần
-        parts = re.split(r'[_\-]+', name_clean)
+        # Split by underscore ONLY (not dash, to preserve UUID format)
+        # UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx_SUBJECT_GRADE
+        parts = re.split(r'_+', name_clean)
         parts = [p.strip() for p in parts if p.strip()]  # Remove empty parts
         
         # ═════ BƯỚC 2: Tìm mã lớp (C + 1-2 số) ═════
