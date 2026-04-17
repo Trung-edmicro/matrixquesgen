@@ -245,7 +245,7 @@ export default function GenerateExamPage() {
 
 
     if (isEnglishMatrix) {
-
+      console.log(">>>> deubg export THPT English ")
       await handleExportEnglishDocx();
 
       return;

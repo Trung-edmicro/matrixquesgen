@@ -24,66 +24,6 @@ export default function EnglishExamPreviewPanel({ examData }) {
           ĐỀ THI TIẾNG ANH
         </h1>
 
-        {/* {blocks.map((block, index) => {
-
-          if (block.type === "ARRANGE") {
-            return (
-              <ArrangeBlock
-                key={index}
-                data={block.parsed}
-              />
-            )
-          }
-
-          return (
-            <ClozeBlock
-              key={index}
-              data={block.parsed}
-            />
-          )
-        })} */}
-
-        {/* {blocks.map((block, index) => {
-          const data = block.parsed
-          console.log(">>>>>>> debug {13123131", block.type)
-
-          switch (block.type) {
-
-            case "ARRANGE":
-              return <ArrangeBlock key={index} data={data} />
-
-            // case "GAP":
-            //   return <ClozeBlock key={index} data={data} />
-
-            case "SENTENCE_COMPLETION":
-              return <SentenceCompletionBlock key={index} data={data} />
-
-            case "SYNONYM_ANTONYM":
-              return <SynonymBlock key={index} data={data} />
-
-            case "ERROR_IDENTIFICATION":
-              return <ErrorIdentificationBlock key={index} data={data} />
-
-            case "SENTENCE_TRANSFORMATION":
-              return <SentenceTransformationBlock key={index} data={data} />
-
-            case "PRONUNCIATION_STRESS":
-              return <PronunciationBlock key={index} data={data} />
-
-            case "DIALOUGE_COMPLETION":
-              return <DialogueBlock key={index} data={data} />
-
-            case "LOGICAL_THINKING":
-              return <LogicalThinkingBlock key={index} data={data} />
-
-            case "WORD_REORDERING":
-              return <WordReorderingBlock key={index} data={data} />
-           case "GAP":
-          case "RC":
-          case "CLOZE":
-            return <ClozeBlock key={index} data={data} type={block.type} />
-          }
-        })} */}
 
         {blocks.map((block, index) => {
           const data = block.parsed
@@ -185,6 +125,50 @@ export default function EnglishExamPreviewPanel({ examData }) {
                   showInstruction={isFirstOfGroup}
                 />
               )
+            case "ESSAY_REWRITING_SENTENCES":
+                return (
+                  <EssaySentenceRewritingBlock
+                    key={index}
+                    data={data}
+                    showInstruction={isFirstOfGroup}
+                  />
+                )
+
+              case "ESSAY_COMBINE_SENTENCES":
+                return (
+                  <EssayCombineSentencesBlock
+                    key={index}
+                    data={data}
+                    showInstruction={isFirstOfGroup}
+                  />
+                )
+
+              case "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+                return (
+                  <EssayWordFormBlock
+                    key={index}
+                    data={data}
+                    showInstruction={isFirstOfGroup}
+                  />
+                )
+
+              case "ESSAY_WORD_PROMPT_SENTENCE":
+                return (
+                  <EssayWordPromptBlock
+                    key={index}
+                    data={data}
+                    showInstruction={isFirstOfGroup}
+                  />
+                )
+
+               case "ESSAY_WORD_ORDERING":
+                  return (
+                    <EssayWordOrderingBlock
+                      key={index}
+                      data={data}
+                      showInstruction={isFirstOfGroup}
+                    />
+                  )
           }
         })}
 
@@ -428,56 +412,6 @@ export function SentenceCompletionBlock({ data, showInstruction = true }) {
   )
 }
 
-
-// function SynonymBlock({ data }) {
-//   if (!data || typeof data !== 'object') return null
-//   const type = data.questions?.[0]?.type
-
-//   const title =
-//     type === "antonym"
-//       ? "Antonyms: Choose A, B, C or D that has the OPPOSITE meaning to the underlined word/phrase in each question."
-//       : "Synonyms: Choose A, B, C or D that has the CLOSEST meaning to the underlined word/phrase in each question."
-
-//   return (
-//     <div className="mb-10">
-
-//       <p className="font-bold mb-6">
-//         {title}
-//       </p>
-
-//       {data.questions.map(q => (
-//         <div key={q.number} className="mb-6">
-
-//            <p className="font-bold mb-6">
-//               {title}
-//             </p>
-
-//           <p className="font-semibold">
-//             Question {q.number}:
-//           </p>
-
-//           <p dangerouslySetInnerHTML={{ __html: q.question }} />
-
-//           <div className="pl-6 mt-2 space-y-1">
-//             <p>A. {q.option_a}</p>
-//             <p>B. {q.option_b}</p>
-//             <p>C. {q.option_c}</p>
-//             <p>D. {q.option_d}</p>
-//           </div>
-
-//           <div className="mt-3 pl-6">
-//             <p className="font-semibold">Lời giải</p>
-//             <p className="font-semibold">Chọn {q.answer}</p>
-
-//             <p className="mt-1 whitespace-pre-line">
-//               {q.explanation}
-//             </p>
-//           </div>
-//         </div>
-//       ))}
-//     </div>
-//   )
-// }
 
 export function SynonymBlock({ data, showInstruction = true }) {
   if (!data || typeof data !== 'object') return null
@@ -936,6 +870,238 @@ export function LogicalThinkingBlock({ data, showInstruction = true }) {
         </div>
       ))}
 
+    </div>
+  )
+}
+
+
+export function EssayWordOrderingBlock({ data, showInstruction = true }) {
+  return (
+    <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold italic mb-6">
+          Reorder the words given to make correct sentences.
+        </p>
+      )}
+
+      {data.questions.map(q => (
+        <div key={q.number} className="mb-6">
+
+
+          <p><strong>Question {q.number}.</strong> {q.given_words}</p>
+
+          <div className="mt-3 pl-6">
+            <p className="font-semibold">Lời giải</p>
+
+            <p>{q.correct_sentence}</p>
+
+            <p className="mt-1">
+              <b>Kiến thức:</b> {q.knowledge}
+            </p>
+
+            <p className="mt-1 whitespace-pre-line">
+              {q.explanation}
+            </p>
+
+            <p className="mt-1">
+              <b>Tạm dịch:</b> {q.translation}
+            </p>
+          </div>
+
+        </div>
+      ))}
+    </div>
+  )
+}
+
+
+export function EssaySentenceRewritingBlock({ data, showInstruction = true }) {
+  return (
+    <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          Rewrite the following sentences without changing their meaning.
+        </p>
+      )}
+
+      {data.questions.map(q => (
+        <div key={q.number} className="mb-6">
+
+
+
+          <p><strong>Question {q.number}.</strong> {q.original_sentence}</p>
+          <p>→ {q.rewrite_prompt} ___________________________.</p>
+
+          <div className="mt-3 pl-6">
+            <p className="font-semibold">Lời giải</p>
+
+            <p>{q.full_rewritten_sentence}</p>
+
+            <p className="mt-1">
+              <b>Kiến thức:</b> {q.knowledge}
+            </p>
+
+            <p className="mt-1 whitespace-pre-line">
+              {q.explanation}
+            </p>
+
+            <p className="mt-1">
+              <b>Tạm dịch:</b> {q.translation?.rewritten}
+            </p>
+          </div>
+
+        </div>
+      ))}
+    </div>
+  )
+}
+
+
+export function EssayCombineSentencesBlock({ data, showInstruction = true }) {
+  return (
+    <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          Rewrite the sentence that best combines each pair of sentences in the following question.
+        </p>
+      )}
+
+      {data.questions.map(q => (
+        <div key={q.number} className="mb-6">
+
+   
+          <p><strong>Question {q.number}.</strong> {q.sentence_1}{q.sentence_2}</p>
+          <p>→ {q.rewrite_prompt} ___________________________.</p>
+
+          <div className="mt-3 pl-6">
+            <p className="font-semibold">Lời giải</p>
+
+            <p>{q.combined_sentence}</p>
+
+            <p className="mt-1">
+              <b>Kiến thức:</b> {q.knowledge}
+            </p>
+
+            <p className="mt-1 whitespace-pre-line">
+              {q.explanation}
+            </p>
+
+            <p className="mt-1">
+              <b>Tạm dịch:</b> {q.translation?.combined}
+            </p>
+          </div>
+
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function EssayWordFormBlock({ data, showInstruction = true }) {
+
+  const formatSentence = (sentence, givenWord) => {
+    if (!sentence) return ""
+
+    // Check nếu đã có (WORD)
+    const hasBracketWords = /______\s*\([A-Za-z ,]+\)/i.test(sentence)
+
+    if (hasBracketWords) return sentence
+
+    if (!givenWord) return sentence
+
+    const words = givenWord.split(",").map(w => w.trim())
+    let index = 0
+
+    return sentence.replace(/______/g, () => {
+      if (index < words.length) {
+        const word = words[index++]
+        return `______ (${word})`
+      }
+      return "______"
+    })
+  }
+
+  return (
+    <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold italic mb-6">
+          Complete the following sentences with the correct forms of the word in the brackets.
+        </p>
+      )}
+
+      {data.questions.map(q => {
+        const finalSentence = formatSentence(q.sentence, q.given_word)
+
+        return (
+          <div key={q.number} className="mb-6">
+            <p>
+              <strong>Question {q.number}.</strong> {finalSentence}
+            </p>
+
+            <div className="mt-3 pl-6">
+              <p className="font-semibold">Lời giải</p>
+
+              <p>{q.answer}</p>
+
+              <p className="mt-1 whitespace-pre-line">
+                {q.explanation}
+              </p>
+
+              <p className="mt-1">
+                <b>Tạm dịch:</b> {q.translation}
+              </p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+
+export function EssayWordPromptBlock({ data, showInstruction = true }) {
+  return (
+    <div className="mb-10">
+
+      {showInstruction && (
+        <p className="font-bold mb-6">
+          Complete sentence by using the words or phrases below, adding more words if necessary.
+        </p>
+      )}
+
+      {data.questions.map(q => (
+        <div key={q.number} className="mb-6">
+
+          <p><strong>Question {q.number}.</strong> {q.given_prompts}</p>
+
+          {q.sentence_starter && (
+            <p>→ {q.sentence_starter} ___________________________.</p>
+          )}
+
+          <div className="mt-3 pl-6">
+            <p className="font-semibold">Lời giải</p>
+
+            <p>Đáp án: {q.full_sentence}</p>
+
+            <p className="mt-1">
+              <b>Kiến thức:</b> {q.knowledge}
+            </p>
+
+            <p className="mt-1 whitespace-pre-line">
+              {q.explanation}
+            </p>
+
+            <p className="mt-1">
+              <b>Tạm dịch:</b> {q.translation}
+            </p>
+          </div>
+
+        </div>
+      ))}
     </div>
   )
 }

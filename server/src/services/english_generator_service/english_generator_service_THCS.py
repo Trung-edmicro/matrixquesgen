@@ -553,10 +553,20 @@ async def generate_exam_docx_thcs(blocks):
         model="gemini-2.5-pro"
     )
 
+#     client_31 = AsyncVertexGemini31(
+#     project_id="onluyen-media",
+#     model="gemini-3.1-pro-preview",
+#     thinking_level="HIGH"
+# )
+
+    BASE_DIR = Path(__file__).resolve().parent 
+    credentials_path = str(BASE_DIR / "data" / "SA" / "secret_key.json")
+    
     client_31 = AsyncVertexGemini31(
     project_id="onluyen-media",
-    model="gemini-3.1-pro-preview",
-    thinking_level="HIGH"
+    location="global",           # Tùy chọn, mặc định là us-central1
+    thinking_level="HIGH",            # LOW, MEDIUM, hoặc HIGH
+    credentials_path=credentials_path # Nếu chạy local, nếu chạy trên Cloud thì không cần
 )
 
     q_count = 1
