@@ -17,67 +17,50 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
 
     const initialSelections = {}
     enrichedMatrix.lessons.forEach((lesson, lessonIndex) => {
-      // Process TN questions
-      if (lesson.TN) {
-        ['NB', 'TH', 'VD'].forEach(level => {
-          const questions = lesson.TN[level] || []
-          questions.forEach((q, qIndex) => {
-            const key = `${lessonIndex}-TN-${level}-${qIndex}`
-            const hasTemplates = q.question_template && q.question_template.length > 0
-            
-            // Include ALL questions, even those without templates
-            initialSelections[key] = {
-              lesson_index: lessonIndex,
-              question_type: 'TN',
-              level: level,
-              question_index: qIndex,
-              selected_template: null,
-              is_custom: false,
-              is_random: false,
-              has_templates: hasTemplates  // Track if question has templates
-            }
-          })
-        })
-      }
-
-      // Process DS questions
-      if (lesson.DS && Array.isArray(lesson.DS)) {
-        lesson.DS.forEach((q, qIndex) => {
-          const key = `${lessonIndex}-DS-${qIndex}`
-          const hasTemplates = q.question_template && q.question_template.length > 0
+      // Helper function to process questions with multiple codes
+      const processQuestions = (questionsArray, questionType, level) => {
+        questionsArray.forEach((q, qIndex) => {
+          // Extract codes - can be array or single value
+          const codes = Array.isArray(q.code) ? q.code : [q.code || 'unknown']
           
-          initialSelections[key] = {
-            lesson_index: lessonIndex,
-            question_type: 'DS',
-            level: null,
-            question_index: qIndex,
-            selected_template: null,
-            is_custom: false,
-            is_random: false,
-            has_templates: hasTemplates
-          }
-        })
-      }
-
-      // Process TLN questions
-      if (lesson.TLN) {
-        ['NB', 'TH', 'VD'].forEach(level => {
-          const questions = lesson.TLN[level] || []
-          questions.forEach((q, qIndex) => {
-            const key = `${lessonIndex}-TLN-${level}-${qIndex}`
+          // Create selection for each code
+          codes.forEach(code => {
+            const key = `${lessonIndex}-${questionType}-${level ? level + '-' : ''}${qIndex}-${code}`
             const hasTemplates = q.question_template && q.question_template.length > 0
             
             initialSelections[key] = {
               lesson_index: lessonIndex,
-              question_type: 'TLN',
-              level: level,
+              question_type: questionType,
+              level: level || null,
               question_index: qIndex,
+              question_code: code,  // Track which code this selection is for
               selected_template: null,
               is_custom: false,
               is_random: false,
               has_templates: hasTemplates
             }
           })
+        })
+      }
+
+      // Process TN questions
+      if (lesson.TN) {
+        ['NB', 'TH', 'VD'].forEach(level => {
+          const questions = lesson.TN[level] || []
+          processQuestions(questions, 'TN', level)
+        })
+      }
+
+      // Process DS questions
+      if (lesson.DS && Array.isArray(lesson.DS)) {
+        processQuestions(lesson.DS, 'DS', null)
+      }
+
+      // Process TLN questions
+      if (lesson.TLN) {
+        ['NB', 'TH', 'VD'].forEach(level => {
+          const questions = lesson.TLN[level] || []
+          processQuestions(questions, 'TLN', level)
         })
       }
 
@@ -85,21 +68,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
       if (lesson.TL) {
         ['NB', 'TH', 'VD'].forEach(level => {
           const questions = lesson.TL[level] || []
-          questions.forEach((q, qIndex) => {
-            const key = `${lessonIndex}-TL-${level}-${qIndex}`
-            const hasTemplates = q.question_template && q.question_template.length > 0
-            
-            initialSelections[key] = {
-              lesson_index: lessonIndex,
-              question_type: 'TL',
-              level: level,
-              question_index: qIndex,
-              selected_template: null,
-              is_custom: false,
-              is_random: false,
-              has_templates: hasTemplates
-            }
-          })
+          processQuestions(questions, 'TL', level)
         })
       }
     })
@@ -227,6 +196,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
       question_type: selection.question_type,
       level: selection.level,
       question_index: selection.question_index,
+      question_code: selection.question_code,
       selected_template: selection.selected_template,
       is_custom: selection.is_custom,
       is_random: selection.is_random
@@ -270,6 +240,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
         question_type: selection.question_type,
         level: selection.level,
         question_index: selection.question_index,
+        question_code: selection.question_code,
         selected_template: selection.selected_template,
         is_custom: selection.is_custom,
         is_random: selection.is_random
@@ -393,8 +364,48 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                   {/* Render TN questions */}
                   {selectedQuestionType === 'TN' && lesson.TN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TN[level] || []
-                    return questions.map((q, qIndex) => {
-                      const key = `${lessonIndex}-TN-${level}-${qIndex}`
+                    return questions.flatMap((q, qIndex) => {
+                      // Handle multiple codes in one question
+                      const codes = Array.isArray(q.code) ? q.code : [q.code || 'unknown']
+                      return codes.map(code => {
+                        const key = `${lessonIndex}-TN-${level}-${qIndex}-${code}`
+                        const selection = selections[key]
+                        if (!selection) return null  // Skip if not in selections
+                        const isExpanded = expandedQuestions[key]
+                        const hasError = validationErrors.includes(key)
+
+                        return (
+                          <QuestionTemplateItem
+                            key={key}
+                            questionKey={key}
+                            questionType="TN"
+                            level={level}
+                            question={q}
+                            questionCode={code}
+                            selection={selection}
+                            isExpanded={isExpanded}
+                            hasError={hasError}
+                            customTemplate={customTemplates[key] || ''}
+                            currentPage={getCurrentPage(key)}
+                            onTemplateSelect={handleTemplateSelect}
+                            onRandomSelect={handleRandomSelect}
+                            onToggleExpand={toggleExpanded}
+                            onCustomTemplateChange={handleCustomTemplateChange}
+                            onCustomTemplateApply={handleCustomTemplateApply}
+                            onNextPage={goToNextPage}
+                            onPreviousPage={goToPreviousPage}
+                          />
+                        )
+                      })
+                    })
+                  })}
+
+                  {/* Render DS questions */}
+                  {selectedQuestionType === 'DS' && lesson.DS && lesson.DS.flatMap((q, qIndex) => {
+                    // Handle multiple codes in one question
+                    const codes = Array.isArray(q.code) ? q.code : [q.code || 'unknown']
+                    return codes.map(code => {
+                      const key = `${lessonIndex}-DS-${qIndex}-${code}`
                       const selection = selections[key]
                       if (!selection) return null  // Skip if not in selections
                       const isExpanded = expandedQuestions[key]
@@ -404,9 +415,10 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                         <QuestionTemplateItem
                           key={key}
                           questionKey={key}
-                          questionType="TN"
-                          level={level}
+                          questionType="DS"
+                          level={null}
                           question={q}
+                          questionCode={code}
                           selection={selection}
                           isExpanded={isExpanded}
                           hasError={hasError}
@@ -424,102 +436,81 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                     })
                   })}
 
-                  {/* Render DS questions */}
-                  {selectedQuestionType === 'DS' && lesson.DS && lesson.DS.map((q, qIndex) => {
-                    const key = `${lessonIndex}-DS-${qIndex}`
-                    const selection = selections[key]
-                    if (!selection) return null  // Skip if not in selections
-                    const isExpanded = expandedQuestions[key]
-                    const hasError = validationErrors.includes(key)
-
-                    return (
-                      <QuestionTemplateItem
-                        key={key}
-                        questionKey={key}
-                        questionType="DS"
-                        level={null}
-                        question={q}
-                        selection={selection}
-                        isExpanded={isExpanded}
-                        hasError={hasError}
-                        customTemplate={customTemplates[key] || ''}
-                        currentPage={getCurrentPage(key)}
-                        onTemplateSelect={handleTemplateSelect}
-                        onRandomSelect={handleRandomSelect}
-                        onToggleExpand={toggleExpanded}
-                        onCustomTemplateChange={handleCustomTemplateChange}
-                        onCustomTemplateApply={handleCustomTemplateApply}
-                        onNextPage={goToNextPage}
-                        onPreviousPage={goToPreviousPage}
-                      />
-                    )
-                  })}
-
                   {/* Render TLN questions */}
                   {selectedQuestionType === 'TLN' && lesson.TLN && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TLN[level] || []
-                    return questions.map((q, qIndex) => {
-                      const key = `${lessonIndex}-TLN-${level}-${qIndex}`
-                      const selection = selections[key]
-                      if (!selection) return null  // Skip if not in selections
-                      const isExpanded = expandedQuestions[key]
-                      const hasError = validationErrors.includes(key)
+                    return questions.flatMap((q, qIndex) => {
+                      // Handle multiple codes in one question
+                      const codes = Array.isArray(q.code) ? q.code : [q.code || 'unknown']
+                      return codes.map(code => {
+                        const key = `${lessonIndex}-TLN-${level}-${qIndex}-${code}`
+                        const selection = selections[key]
+                        if (!selection) return null  // Skip if not in selections
+                        const isExpanded = expandedQuestions[key]
+                        const hasError = validationErrors.includes(key)
 
-                      return (
-                        <QuestionTemplateItem
-                          key={key}
-                          questionKey={key}
-                          questionType="TLN"
-                          level={level}
-                          question={q}
-                          selection={selection}
-                          isExpanded={isExpanded}
-                          hasError={hasError}
-                          customTemplate={customTemplates[key] || ''}
-                          currentPage={getCurrentPage(key)}
-                          onTemplateSelect={handleTemplateSelect}
-                          onRandomSelect={handleRandomSelect}
-                          onToggleExpand={toggleExpanded}
-                          onCustomTemplateChange={handleCustomTemplateChange}
-                          onCustomTemplateApply={handleCustomTemplateApply}
-                          onNextPage={goToNextPage}
-                          onPreviousPage={goToPreviousPage}
-                        />
-                      )
+                        return (
+                          <QuestionTemplateItem
+                            key={key}
+                            questionKey={key}
+                            questionType="TLN"
+                            level={level}
+                            question={q}
+                            questionCode={code}
+                            selection={selection}
+                            isExpanded={isExpanded}
+                            hasError={hasError}
+                            customTemplate={customTemplates[key] || ''}
+                            currentPage={getCurrentPage(key)}
+                            onTemplateSelect={handleTemplateSelect}
+                            onRandomSelect={handleRandomSelect}
+                            onToggleExpand={toggleExpanded}
+                            onCustomTemplateChange={handleCustomTemplateChange}
+                            onCustomTemplateApply={handleCustomTemplateApply}
+                            onNextPage={goToNextPage}
+                            onPreviousPage={goToPreviousPage}
+                          />
+                        )
+                      })
                     })
                   })}
 
                   {/* Render TL questions */}
                   {selectedQuestionType === 'TL' && lesson.TL && ['NB', 'TH', 'VD'].map(level => {
                     const questions = lesson.TL[level] || []
-                    return questions.map((q, qIndex) => {
-                      const key = `${lessonIndex}-TL-${level}-${qIndex}`
-                      const selection = selections[key]
-                      if (!selection) return null  // Skip if not in selections
-                      const isExpanded = expandedQuestions[key]
-                      const hasError = validationErrors.includes(key)
+                    return questions.flatMap((q, qIndex) => {
+                      // Handle multiple codes in one question
+                      const codes = Array.isArray(q.code) ? q.code : [q.code || 'unknown']
+                      return codes.map(code => {
+                        const key = `${lessonIndex}-TL-${level}-${qIndex}-${code}`
+                        const selection = selections[key]
+                        if (!selection) return null  // Skip if not in selections
+                        const isExpanded = expandedQuestions[key]
+                        const hasError = validationErrors.includes(key)
 
-                      return (
-                        <QuestionTemplateItem
-                          key={key}
-                          questionKey={key}
-                          questionType="TL"
-                          level={level}
-                          question={q}
-                          selection={selection}
-                          isExpanded={isExpanded}
-                          hasError={hasError}
-                          customTemplate={customTemplates[key] || ''}
-                          currentPage={getCurrentPage(key)}
-                          onTemplateSelect={handleTemplateSelect}
-                          onRandomSelect={handleRandomSelect}
-                          onToggleExpand={toggleExpanded}
-                          onCustomTemplateChange={handleCustomTemplateChange}
-                          onCustomTemplateApply={handleCustomTemplateApply}
-                          onNextPage={goToNextPage}
-                          onPreviousPage={goToPreviousPage}
-                        />
-                      )
+                        return (
+                          <QuestionTemplateItem
+                            key={key}
+                            questionKey={key}
+                            questionType="TL"
+                            level={level}
+                            question={q}
+                            questionCode={code}
+                            selection={selection}
+                            isExpanded={isExpanded}
+                            hasError={hasError}
+                            customTemplate={customTemplates[key] || ''}
+                            currentPage={getCurrentPage(key)}
+                            onTemplateSelect={handleTemplateSelect}
+                            onRandomSelect={handleRandomSelect}
+                            onToggleExpand={toggleExpanded}
+                            onCustomTemplateChange={handleCustomTemplateChange}
+                            onCustomTemplateApply={handleCustomTemplateApply}
+                            onNextPage={goToNextPage}
+                            onPreviousPage={goToPreviousPage}
+                          />
+                        )
+                      })
                     })
                   })}
                 </div>
@@ -556,6 +547,7 @@ function QuestionTemplateItem({
   questionType,
   level,
   question,
+  questionCode,
   selection,
   isExpanded,
   hasError,
@@ -579,7 +571,7 @@ function QuestionTemplateItem({
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className="font-medium">Mã câu: {question.code ? question.code[0] : 'N/A'}</span>
+            <span className="font-medium">Mã câu: {questionCode || 'N/A'}</span>
             {level && (
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${levelNames[level].color}`}>
                 {levelNames[level].code}

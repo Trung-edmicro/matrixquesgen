@@ -32,6 +32,10 @@ from .cross_lesson_ds_helper import merge_cross_lesson_ds_context
 # Import image workflow for HA_MH/HA_TL support
 from ..generators.image_workflow_service import ImageWorkflowService
 
+# Import Math variable mapping and prompt parser
+from ..generators.math_variable_mapping_service import MathVariableMappingService
+from ..prompts.prompt_parser import PromptParserService
+
 
 @dataclass
 class GeneratedQuestion:
@@ -1532,6 +1536,21 @@ class QuestionGenerationService:
                         codes_str = ', '.join(codes) if codes else 'TN'
                         print(f"  → TN {codes_str}: Using prompt {prompt_path.name}")
 
+                        # Apply Math variable mapping: Load and fill template with {{NUM}}, {{QUESTION_CODES}}, etc.
+                        filled_template = self._get_filled_prompt_template(
+                            prompt_path=prompt_path,
+                            question_type="TN",
+                            spec_data=spec_data,
+                            lesson_data=lesson_data,
+                            content=content,
+                            cognitive_level=level
+                        )
+                        
+                        # Set filled template for the question generator
+                        if filled_template:
+                            self.question_generator.prompt_builder.templates['TN'] = filled_template
+                            print(f"    ✓ Prompt template filled with Math variables")
+
                         # Check if this is HA_TL (need to generate image first, then question)
                         image_type = self._has_image_requirements(spec)
 
@@ -1650,6 +1669,22 @@ class QuestionGenerationService:
                     ds_code = spec_data.get('question_code', spec_data.get('code', ['DS'])[0])
                     print(f"  → DS {ds_code}: Using prompt {prompt_path.name}")
 
+                    # Apply Math variable mapping: Load and fill template with variables
+                    # Note: DS doesn't have cognitive_level in enriched_matrix (it's a list, not dict with levels)
+                    filled_template = self._get_filled_prompt_template(
+                        prompt_path=prompt_path,
+                        question_type="DS",
+                        spec_data=spec_data,
+                        lesson_data=lesson_data,
+                        content=content,
+                        cognitive_level=""  # DS doesn't have level from dict key
+                    )
+                    
+                    # Set filled template for the question generator
+                    if filled_template:
+                        self.question_generator.prompt_builder.templates['DS'] = filled_template
+                        print(f"    ✓ Prompt template filled with Math variables")
+
                     # Check if this is HA_TL (need to generate image first)
                     image_type = self._has_image_requirements(spec)
                     
@@ -1758,6 +1793,21 @@ class QuestionGenerationService:
                         codes_str = ', '.join(codes_tln) if codes_tln else 'TLN'
                         print(f"  → TLN {codes_str}: Using prompt {prompt_path.name}")
 
+                        # Apply Math variable mapping: Load and fill template with {{NUM}}, {{QUESTION_CODES}}, etc.
+                        filled_template = self._get_filled_prompt_template(
+                            prompt_path=prompt_path,
+                            question_type="TLN",
+                            spec_data=spec_data,
+                            lesson_data=lesson_data,
+                            content=content,
+                            cognitive_level=level
+                        )
+                        
+                        # Set filled template for the question generator
+                        if filled_template:
+                            self.question_generator.prompt_builder.templates['TLN'] = filled_template
+                            print(f"    ✓ Prompt template filled with Math variables")
+
                         # Generate TLN questions using TLN prompt
                         generated = self.question_generator.generate_tln_questions(
                             spec=spec,
@@ -1811,6 +1861,21 @@ class QuestionGenerationService:
                     # Log with question codes for identification
                     codes_str = ', '.join(spec_data['code']) if spec_data.get('code') else 'TL'
                     print(f"  → TL {codes_str}: Using prompt {prompt_path.name}")
+
+                    # Apply Math variable mapping: Load and fill template with variables
+                    filled_template = self._get_filled_prompt_template(
+                        prompt_path=prompt_path,
+                        question_type="TL",
+                        spec_data=spec_data,
+                        lesson_data=lesson_data,
+                        content=content,
+                        cognitive_level=level
+                    )
+                    
+                    # Set filled template for the question generator
+                    if filled_template:
+                        self.question_generator.prompt_builder.templates['TL'] = filled_template
+                        print(f"    ✓ Prompt template filled with Math variables")
 
                     # Generate TL questions using TL prompt (essay questions with full structure)
                     generated = self.question_generator.generate_tl_questions(
@@ -1882,6 +1947,107 @@ class QuestionGenerationService:
         
         # Should not reach here
         return []
+    
+    def _apply_math_variable_mapping(
+        self, 
+        prompt_template: str,
+        question_type: str,
+        spec_data: Dict[str, Any],
+        lesson_data: Dict[str, Any],
+        content: str = "",
+        cognitive_level: str = ""
+    ) -> str:
+        """
+        Apply Math-specific variable mapping to prompt template.
+        Populates {{NUM}}, {{QUESTION_CODES}}, {{TEMPLATE_MODE}}, 
+        {{SELECTED_QUESTION_TEMPLATE}}, and other variables.
+        
+        Only applies to Math (TOAN) subject. For other subjects, returns template unchanged.
+        
+        Args:
+            prompt_template: Raw prompt template with {{VARIABLE}} placeholders
+            question_type: "TN", "DS", "TLN", or "TL"
+            spec_data: Question spec from enriched_matrix (includes codes, selected_templates_by_code)
+            lesson_data: Lesson data from enriched_matrix
+            content: Extracted lesson content (optional)
+            cognitive_level: Cognitive level from enriched_matrix (NB, TH, VD, VDC)
+            
+        Returns:
+            Prompt template with all variables populated
+        """
+        try:
+            # Populate variables using Math variable mapping service
+            variables = MathVariableMappingService.populate_variables(
+                question_type=question_type,
+                spec_data=spec_data,
+                lesson_data=lesson_data,
+                content=content,
+                cognitive_level=cognitive_level
+            )
+            
+            # Fill variables into template using PromptParserService
+            filled_template = PromptParserService.fill_variables(prompt_template, variables)
+            
+            # Log variable mapping for debugging
+            num_questions = variables.get('NUM', '1')
+            template_mode = variables.get('TEMPLATE_MODE', 'SINGLE')
+            question_codes = variables.get('QUESTION_CODES', '')
+            print(f"    ✓ Math variables mapped: NUM={num_questions}, MODE={template_mode}, CODES={question_codes}")
+            
+            return filled_template
+            
+        except Exception as e:
+            print(f"    ⚠️  Math variable mapping failed: {e}")
+            print(f"       Continuing with original template")
+            return prompt_template
+    
+    def _get_filled_prompt_template(
+        self,
+        prompt_path: Path,
+        question_type: str,
+        spec_data: Dict[str, Any],
+        lesson_data: Dict[str, Any],
+        content: str = "",
+        cognitive_level: str = ""
+    ) -> str:
+        """
+        Load prompt template from file and apply variable mapping for Math.
+        
+        Args:
+            prompt_path: Path to prompt template file (e.g., TN.txt)
+            question_type: "TN", "DS", "TLN", or "TL"
+            spec_data: Question spec from enriched_matrix
+            lesson_data: Lesson data from enriched_matrix
+            content: Extracted content (optional)
+            cognitive_level: Cognitive level from enriched_matrix (NB, TH, VD, VDC)
+            
+        Returns:
+            Prompt template with all variables filled
+        """
+        try:
+            # Load raw prompt template
+            if not prompt_path.exists():
+                print(f"    ⚠️  Prompt file not found: {prompt_path}")
+                return ""
+            
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                raw_template = f.read()
+            
+            # Apply variable mapping for Math questions
+            filled_template = self._apply_math_variable_mapping(
+                prompt_template=raw_template,
+                question_type=question_type,
+                spec_data=spec_data,
+                lesson_data=lesson_data,
+                content=content,
+                cognitive_level=cognitive_level
+            )
+            
+            return filled_template
+            
+        except Exception as e:
+            print(f"    ❌ Failed to load/fill template: {e}")
+            return ""
     
     def _process_ha_mh_workflow(self, spec, content: str, questions: List) -> List:
         """

@@ -76,6 +76,7 @@ class TemplateSelection(BaseModel):
     question_type: str  # "TN", "DS", "TLN", "TL"
     level: Optional[str] = None  # "NB", "TH", "VD" for TN/TLN/TL
     question_index: int  # Index within the level/type array
+    question_code: Optional[str] = None  # Question code (e.g., "C1", "C2") for grouped questions
     selected_template: Optional[str] = None  # The selected template text (can be null if not selected)
     is_custom: bool = False  # True if user provided custom template
     is_random: bool = False  # True if system randomly selected
@@ -239,9 +240,22 @@ async def save_template_selections(session_id: str, request: Request):
             
             # Add selected template info to question (can be null if not selected)
             if question:
-                question['selected_question_template'] = selection.selected_template
-                question['template_is_custom'] = selection.is_custom
-                question['template_is_random'] = selection.is_random
+                # If question_code is provided, store in dict for grouped questions
+                if selection.question_code:
+                    # Initialize dict if not exists
+                    if 'selected_templates_by_code' not in question:
+                        question['selected_templates_by_code'] = {}
+                    # Store selection for this code
+                    question['selected_templates_by_code'][selection.question_code] = {
+                        'template': selection.selected_template,
+                        'is_custom': selection.is_custom,
+                        'is_random': selection.is_random
+                    }
+                else:
+                    # Single question (no code): store directly (backward compatibility)
+                    question['selected_question_template'] = selection.selected_template
+                    question['template_is_custom'] = selection.is_custom
+                    question['template_is_random'] = selection.is_random
         
         # Save updated enriched matrix back to the original file
         with open(enriched_path, 'w', encoding='utf-8') as f:
