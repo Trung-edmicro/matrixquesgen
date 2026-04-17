@@ -126,7 +126,7 @@ export default function SoluteExamPage() {
         const result = await generateSolutions(
           null,
           generationConfig,
-         examPdf.files
+          examPdf.files
         );
 
         

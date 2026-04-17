@@ -10,8 +10,13 @@ PROMPTS = {
     "Sắp xếp từ": "TA_Sap_xep_tu.md",
     "Phát âm/Trọng âm": "TA_Phat_am_trong_am.md",
     "Câu giao tiếp": "TA_Cau_giao_tiep.md",
-    "Tư duy/Tình huống": "TA_Tinh_huong_tu_duy.md"
-
+    "Tư duy/Tình huống": "TA_Tinh_huong_tu_duy.md",
+    "Hoàn thành câu - từ cho trước": "TA_Hoan_thanh_cau_tu_cho_truoc.md",
+    "Tự luận/Kết hợp câu": "TA_Tu_luan_ket_hop_cau.md",
+    "Tự luận/Viết lại câu": "TA_Tu_luan_viet_lai_cau.md",
+    "Tự luận/Dạng đúng của từ": "TA_Tu_luan_dang_dung_cua_tu.md",
+    "Tự luận/sắp xếp từ": "TA_Tu_luan_sap_xep_tu.md",
+    "Tự luận/Hoàn thành câu dùng từ cho trước": "TA_Tu_luan_Hoan_thanh_cau_dung_tu_cho_truoc.md"
 }
 
 # ============================
@@ -518,60 +523,7 @@ Quy tắc bắt buộc:
 - Không cần viết thông tin, tạm dịch vì cấu trúc json trả về đã yêu cầu
 """.strip()
 
-ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA = """
-Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
 
-{{
-  "questions": [
-    {{
-      "number": <số thứ tự câu hỏi, integer>,
-
-      "original_sentence": "<câu gốc tiếng Anh>",
-
-      "given_word": "<từ/cụm từ gợi ý (có thể rỗng nếu đề không cho)>",
-
-      "rewrite_prompt": "<phần đầu câu viết lại (có thể rỗng nếu đề không cho)>",
-
-      "answer": "<câu viết lại hoàn chỉnh hoặc phần còn lại tùy format đề>",
-
-      "knowledge": "<tên cấu trúc/ngữ pháp chính>",
-
-      "explanation": {{
-        "rule": "<mô tả cấu trúc/ngữ pháp>",
-        "application": "<giải thích cách áp dụng vào câu cụ thể>"
-      }},
-
-      "translation": "<dịch nghĩa câu viết lại sang tiếng Việt>"
-    }}
-  ]
-}}
-""".strip()
-
-
-ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA = """
-Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
-
-{
-  "questions": [
-    {
-      "number": <số thứ tự câu hỏi, integer>,
-
-      "given_words": "<chuỗi từ/cụm từ đã xáo trộn, ngăn cách bằng ' / '>",
-
-      "answer": "<câu hoàn chỉnh đúng>",
-
-      "knowledge": "<tên cấu trúc/ngữ pháp hoặc dạng câu>",
-
-      "explanation": {
-        "reasoning": "<giải thích logic sắp xếp (chủ ngữ, động từ, trạng ngữ, mệnh đề, liên từ...)>",
-        "note": "<ghi chú thêm nếu có (ví dụ: because nối mệnh đề nguyên nhân/kết quả)>"
-      },
-
-      "translation": "<dịch nghĩa câu hoàn chỉnh sang tiếng Việt>"
-    }
-  ]
-}
-"""
 
 
 WORD_FORM_SENTENCE_COMPLETION_THPT_JSON_SCHEMA = """
@@ -609,3 +561,183 @@ Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text
   ]
 }
 """
+
+
+ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "original_sentence": "<câu gốc tiếng Anh>",
+
+      "rewrite_prompt": "<phần đầu câu viết lại đã cho sẵn>",
+
+      "answer": "<phần còn lại của câu viết lại>",
+
+      "full_rewritten_sentence": "<câu hoàn chỉnh sau khi viết lại>",
+
+      "knowledge": "<tên cấu trúc/ngữ pháp chính>",
+
+      "explanation": "<giải thích cấu trúc và cách áp dụng vào câu này>",
+
+      "translation": {{
+        "original": "<dịch câu gốc sang tiếng Việt>",
+        "rewritten": "<dịch câu viết lại hoàn chỉnh sang tiếng Việt>"
+      }}
+    }}
+  ]
+}}
+
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer KHÔNG phải A/B/C/D, mà là phần còn lại của câu
+- full_rewritten_sentence = rewrite_prompt + answer
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()
+
+
+ESSAY_COMBINE_SENTENCES_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "sentence_1": "<câu gốc thứ nhất>",
+
+      "sentence_2": "<câu gốc thứ hai>",
+
+      "rewrite_prompt": "<phần đầu câu đã cho sẵn (ví dụ: Jack, who)>",
+
+      "answer": "<phần còn lại của câu>",
+
+      "combined_sentence": "<câu hoàn chỉnh sau khi kết hợp>",
+
+      "knowledge": "<tên cấu trúc: relative clause / although / because / participle clause...>",
+
+      "explanation": "<giải thích cách dùng cấu trúc, mối quan hệ nghĩa giữa 2 câu và cách kết hợp>",
+
+      "translation": {{
+        "original_1": "<dịch câu 1>",
+        "original_2": "<dịch câu 2>",
+        "combined": "<dịch câu đã kết hợp>"
+      }}
+    }}
+  ]
+}}
+
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer là phần còn lại của câu (KHÔNG phải A/B/C/D)
+- combined_sentence = rewrite_prompt + answer
+- rewrite_prompt phải giữ nguyên đề bài cho
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()
+
+
+ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "given_words": "<chuỗi từ/cụm từ đã xáo trộn, ngăn cách bằng ' / ' và bao gồm dấu câu>",
+
+      "correct_sentence": "<câu hoàn chỉnh đúng>",
+
+      "knowledge": "<tên cấu trúc/ngữ pháp chính (ví dụ: S + V + O / because clause / adverb of frequency...)>",
+
+      "explanation": "<giải thích cách sắp xếp từ, trật tự câu và ý nghĩa>",
+
+      "translation": "<dịch câu hoàn chỉnh sang tiếng Việt>"
+    }}
+  ]
+}}
+
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- correct_sentence là câu hoàn chỉnh đúng (KHÔNG phải A/B/C/D)
+- given_words phải giữ nguyên thứ tự đề bài (không tự ý sửa)
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()
+
+ESSAY_WORD_FORM_SENTENCE_COMPLETION_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "sentence": "<câu có chỗ trống ______>", nếu có từ trong ngoặc thì phải viết thường,
+
+       "given_words": [
+        "<TỪ GỐC 1 - viết thường>",
+        "<TỪ GỐC 2 - viết thường nếu có>",
+        "<TỪ GỐC 3 - nếu có>"
+      ],
+
+      "answer": "<từ đúng sau khi biến đổi>",
+
+      "full_sentence": "<câu hoàn chỉnh sau khi điền>",
+
+      "knowledge": "<tên kiến thức chính: word form / V-ing / adjective / noun form...>",
+
+      "explanation": "<giải thích vì sao dùng dạng từ này (loại từ, cấu trúc, vị trí trong câu...)",
+
+      "translation": "<dịch câu hoàn chỉnh sang tiếng Việt>"
+    }}
+  ]
+}}
+
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer là từ đúng (KHÔNG phải A/B/C/D)
+- given_words phải viết thường
+- full_sentence phải đúng ngữ pháp và khớp với answer
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()
+
+
+ESSAY_WORD_PROMPT_SENTENCE_COMPLETION_THPT_JSON_SCHEMA = """
+Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
+
+{{
+  "questions": [
+    {{
+      "number": <số thứ tự câu hỏi, integer>,
+
+      "given_prompts": "<chuỗi từ/cụm từ ngăn cách bằng dấu ' / '>",
+
+      "sentence_starter": "<phần đầu câu nếu đề cho (ví dụ: Binh), nếu không thì null>",
+
+      "full_sentence": "<câu hoàn chỉnh đúng (viết hoa đầu câu, có dấu chấm)>",
+
+      "knowledge": "<tên cấu trúc: present simple / adverb of frequency / It takes / to-infinitive...>",
+
+      "explanation": "<giải thích cách dựng câu: trật tự từ, chia động từ, thêm từ cần thiết>",
+
+      "translation": "<dịch câu hoàn chỉnh sang tiếng Việt>"
+    }}
+  ]
+}}
+
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- full_sentence là câu hoàn chỉnh đúng (KHÔNG phải A/B/C/D)
+- given_prompts phải giữ nguyên thứ tự đề bài
+- sentence_starter = null nếu đề không cho sẵn
+- full_sentence phải sử dụng đầy đủ ý từ given_prompts (có thể thêm từ chức năng cần thiết)
+- KHÔNG thêm bất kỳ text nào ngoài JSON
+""".strip()

@@ -117,7 +117,7 @@ async def export_english_exam(payload: dict):
     output_dir = _get_exports_dir()
     file_path = output_dir / "English_Exam.docx"
 
-    export_docx_thcs(payload, str(file_path))
+    export_docx_from_data(payload, str(file_path))
 
     return FileResponse(
         path=str(file_path),

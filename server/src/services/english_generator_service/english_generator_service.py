@@ -24,7 +24,8 @@ from collections import defaultdict, Counter
 from .constants import (CLOZE_EXPLANATION_TEMPLATE, 
                         ARRANGE_JSON_SCHEMA,
      CLOZE_WITH_TITLE_JSON_SCHEMA, CLOZE_JSON_SCHEMA,SENTENCE_COMPLETION_JSON_SCHEMA,SYNONYM_ANTONYM_JSON_SCHEMA,ERROR_IDENTIFICATION_JSON_SCHEMA,SENTENCE_TRANSFORMATION_JSON_SCHEMA,WORD_REORDERING_JSON_SCHEMA,PRONUNCIATION_STRESS_JSON_SCHEMA,DIALOGUE_COMPLETION_JSON_SCHEMA,LOGICAL_THINKING_JSON_SCHEMA,
-       READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS)
+       READING_COMPREHENSION_EXPLANATION_TEMPLATE, SILENT_PHASE_EXPLANATION_TEMPLATE, PROMPTS, ESSAY_COMBINE_SENTENCES_THPT_JSON_SCHEMA, ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA, ESSAY_WORD_FORM_SENTENCE_COMPLETION_JSON_SCHEMA,
+         ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA, ESSAY_WORD_PROMPT_SENTENCE_COMPLETION_THPT_JSON_SCHEMA)
 logger = logging.getLogger(__name__)
 from .drive_helper_services import load_vocabulary_from_drive, load_vocabulary_local, sync_drive_to_local
 from services.solute_exam_service.solute_english_exam_service import API_KEY
@@ -194,34 +195,72 @@ def load_prompt(filename: str) -> str:
 
 
 
+# def detect_type_columns(df):
+#     col_map = {}
+#     for i, col in enumerate(df.columns):
+#         col_lower = str(col).lower()
+#         if "điền từ" in col_lower:
+#             col_map["Điền từ"] = i
+#         elif "sắp xếp từ" in col_lower:
+#             col_map["Sắp xếp từ"] = i
+#         elif "sắp xếp" in col_lower:
+#             col_map["Sắp xếp"] = i
+#         elif "đọc hiểu" in col_lower:
+#             col_map["Đọc hiểu"] = i
+#         elif "điền cụm" in col_lower:
+#             col_map["Điền cụm từ/điền câu"] = i
+#         elif "hoàn thành câu" in col_lower:
+#             col_map["Hoàn thành câu"] = i
+#         elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
+#             col_map["Đồng nghĩa/Trái nghĩa"] = i
+#         elif "tìm lỗi sai" in col_lower:
+#             col_map["Tìm lỗi sai"] = i
+#         elif "kết hợp" in col_lower or "viết lại" in col_lower:
+#             col_map["Kết hợp/viết lại câu"] = i
+#         elif "phát âm" in col_lower or "trọng âm" in col_lower:
+#             col_map["Phát âm/Trọng âm"] = i
+#         elif "giao tiếp" in col_lower:
+#             col_map["Câu giao tiếp"] = i
+#         elif "tình huống" in col_lower or "tư duy" in col_lower:
+#             col_map["Tư duy/Tình huống"] = i
+#     return col_map
+
 def detect_type_columns(df):
     col_map = {}
+
+    # Danh sách pattern theo thứ tự ưu tiên (quan trọng nhất ở trên)
+    patterns = [
+        ("Tự luận/Hoàn thành câu dùng từ cho trước", ["tự luận/hoàn thành câu dùng từ cho trước"]),
+        ("Hoàn thành câu - từ cho trước", ["hoàn thành câu - từ cho trước"]),
+        ("Tự luận/sắp xếp từ", ["tự luận/sắp xếp từ"]),
+        ("Tự luận/Dạng đúng của từ", ["tự luận/dạng đúng của từ"]),
+        ("Tự luận/Viết lại câu", ["tự luận/viết lại câu"]),
+        ("Tự luận/Kết hợp câu", ["tự luận/kết hợp câu"]),
+        ("Sắp xếp từ", ["sắp xếp từ"]),
+        ("Điền cụm từ/điền câu", ["điền cụm"]),
+        ("Đồng nghĩa/Trái nghĩa", ["đồng nghĩa", "trái nghĩa"]),
+        ("Kết hợp/viết lại câu", ["kết hợp", "viết lại"]),
+        ("Phát âm/Trọng âm", ["phát âm", "trọng âm"]),
+        ("Tư duy/Tình huống", ["tư duy", "tình huống"]),
+        # GENERIC đặt cuối
+        ("Điền từ", ["điền từ"]),
+        ("Sắp xếp", ["sắp xếp"]),
+        ("Đọc hiểu", ["đọc hiểu"]),
+        ("Hoàn thành câu", ["hoàn thành câu"]),
+        ("Tìm lỗi sai", ["tìm lỗi sai"]),
+        ("Câu giao tiếp", ["giao tiếp"]),
+    ]
+
     for i, col in enumerate(df.columns):
         col_lower = str(col).lower()
-        if "điền từ" in col_lower:
-            col_map["Điền từ"] = i
-        elif "sắp xếp từ" in col_lower:
-            col_map["Sắp xếp từ"] = i
-        elif "sắp xếp" in col_lower:
-            col_map["Sắp xếp"] = i
-        elif "đọc hiểu" in col_lower:
-            col_map["Đọc hiểu"] = i
-        elif "điền cụm" in col_lower:
-            col_map["Điền cụm từ/điền câu"] = i
-        elif "hoàn thành câu" in col_lower:
-            col_map["Hoàn thành câu"] = i
-        elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
-            col_map["Đồng nghĩa/Trái nghĩa"] = i
-        elif "tìm lỗi sai" in col_lower:
-            col_map["Tìm lỗi sai"] = i
-        elif "kết hợp" in col_lower or "viết lại" in col_lower:
-            col_map["Kết hợp/viết lại câu"] = i
-        elif "phát âm" in col_lower or "trọng âm" in col_lower:
-            col_map["Phát âm/Trọng âm"] = i
-        elif "giao tiếp" in col_lower:
-            col_map["Câu giao tiếp"] = i
-        elif "tình huống" in col_lower or "tư duy" in col_lower:
-            col_map["Tư duy/Tình huống"] = i
+
+        for label, keys in patterns:
+            if any(k in col_lower for k in keys):
+                # col_map[label] = i
+                if label not in col_map:
+                   col_map[label] = i
+                break  # rất quan trọng
+
     return col_map
 
 
@@ -233,12 +272,23 @@ def detect_types_in_row(row, type_col_map):
             row_types.append((q_type, levels))
     return row_types
 
+# def detect_all_levels(row, start_index):
+#     found = []
+#     for offset in range(4):
+#         cell = row.iloc[start_index + offset]
+#         if pd.notna(cell) and str(cell).strip() != "":
+#             found.append(LEVELS[offset])
+#     return found
+
 def detect_all_levels(row, start_index):
     found = []
-    for offset in range(4):
+    max_offset = min(4, len(row) - start_index)
+
+    for offset in range(max_offset):
         cell = row.iloc[start_index + offset]
-        if pd.notna(cell) and str(cell).strip() != "":
+        if pd.notna(cell) and str(cell).strip():
             found.append(LEVELS[offset])
+
     return found
 
 
@@ -405,7 +455,7 @@ async def generate_with_retry(client, prompt, max_retries=5):
     raise Exception("❌ Max retries exceeded")
 
 
-async def generate_with_fallback(client_31, client_25, prompt, max_retries=3):
+async def generate_with_fallback(client_31: AsyncVertexGemini31, client_25: AsyncVertexClient, prompt, max_retries=3):
     """
     Ưu tiên dùng Gemini 3.1. Nếu gặp lỗi 429 (Resource Exhausted), 
     sẽ chuyển sang dùng Gemini 2.5 Pro.
@@ -476,10 +526,19 @@ async def generate_exam_docx(blocks, output_path):
         model="gemini-2.5-pro"
     )
 
+#     client_31 = AsyncVertexGemini31(
+#     project_id="onluyen-media",
+#     model="gemini-3.1-pro-preview",
+#     thinking_level="HIGH"
+# )
+    BASE_DIR = Path(__file__).resolve().parent 
+    credentials_path = str(BASE_DIR / "data" / "SA" / "secret_key.json")
+    
     client_31 = AsyncVertexGemini31(
     project_id="onluyen-media",
-    model="gemini-3.1-pro-preview",
-    thinking_level="HIGH"
+    location="global",           # Tùy chọn, mặc định là us-central1
+    thinking_level="HIGH",            # LOW, MEDIUM, hoặc HIGH
+    credentials_path=credentials_path # Nếu chạy local, nếu chạy trên Cloud thì không cần
 )
 
     q_count = 1
@@ -658,7 +717,7 @@ async def generate_exam_docx(blocks, output_path):
                 TEXT_TYPE=text_type,
                 N_Q=n_q,
                 START_NUM=q_count
-            )
+            ).strip()
 
             formatted_silent_prompt = (
                         prompt_template
@@ -685,7 +744,7 @@ async def generate_exam_docx(blocks, output_path):
                 f"Số câu: {n_q}\n"
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
-                + output_rule_fill_in_phrase
+                + output_rule_fill_in_phrase.strip()
             )
            
 
@@ -708,7 +767,7 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{CEFR_LEVEL}", safe_str(diff))
                     .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
-                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))).strip()
             ai_input_sentence_completion = (
                 f"{formatted_sentence_prompt}\n\n"
                 f"Từ vựng tham khảo: {vocabulary}"
@@ -721,7 +780,7 @@ async def generate_exam_docx(blocks, output_path):
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
                 + output_rule_sentence_completion
-            )
+            ).strip()
 
             task = limited_generate(client_31, client_25, ai_input_sentence_completion)
             tasks.append(task)
@@ -741,7 +800,7 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{CEFR_LEVEL}", safe_str(diff))
                     .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
-                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))).strip()
             
             ai_input_synonym_antonym = (
                 f"{formatted_synonum_antonym_prompt}\n\n"
@@ -775,7 +834,8 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{CEFR_LEVEL}", safe_str(diff))
                     .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
-                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))).strip()
+            
             ai_input_error_identification = (
                 f"{formatted_error_identification_prompt}\n\n"
                 f"Từ vựng tham khảo: {vocabulary}"
@@ -801,7 +861,7 @@ async def generate_exam_docx(blocks, output_path):
             output_rule_sentence_transformation = SENTENCE_TRANSFORMATION_JSON_SCHEMA.format(
                 N_Q = n_q,
                 START_NUM = q_count
-            )
+            ).strip()
 
             formatted_sentence_transformation_prompt = (prompt_template
                     .replace("{TOPIC_NAME}", safe_str(topic))
@@ -809,10 +869,15 @@ async def generate_exam_docx(blocks, output_path):
                     .replace("{CEFR_LEVEL}", safe_str(diff))
                     .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
                     .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
-                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample))
+                    .replace("MATRIX_TABLE", "Các dữ liệu đầu vào dưới đây")).strip()
+                 
+            
+            print(f">>>>>>> DEBUG  formatted_sentence_transformation_prompt {formatted_sentence_transformation_prompt}")
             
             ai_input_sentence_transformation = (
                 f"{formatted_sentence_transformation_prompt}\n\n"
+                f"Chủ đề: {topic}"
                 f"Từ vựng tham khảo: {vocabulary}"
                 f"Tài liệu tham khảo: {document_sample}"
                 f"Đặc tả ma trận: {spec_item['spec']}\n"
@@ -823,9 +888,7 @@ async def generate_exam_docx(blocks, output_path):
                 + "\n".join(specs_list)
                 + "\n\n## OUTPUT FORMAT\n"
                 + output_rule_sentence_transformation
-            )
-
-            print(f">>>>> debug ai_input_sentence_transformation: {ai_input_sentence_transformation}")
+            ).strip()
 
             task = limited_generate(client_31, client_25,  ai_input_sentence_transformation)
             tasks.append(task)
@@ -973,6 +1036,185 @@ async def generate_exam_docx(blocks, output_path):
             block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en))
             q_count += n_q
 
+        elif q_type == "Tự luận/Viết lại câu":
+            spec_item = questions[0]
+
+            output_rule_sentence_rewriting = ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_sentence_rewriting_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_sentence_rewriting_prompt = (
+                f"{formatted_sentence_rewriting_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## CẤU TRÚC ĐẦU RA YÊU CẦU:\n"
+                + output_rule_sentence_rewriting
+            )
+
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25, ai_input_sentence_rewriting_prompt)
+            tasks.append(task)
+            block_meta.append(("ESSAY_REWRITING_SENTENCES", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tự luận/Kết hợp câu":
+            spec_item = questions[0]
+
+            output_rule_combine_sentence = ESSAY_COMBINE_SENTENCES_THPT_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_combine_sentence_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_combine_sentence_prompt = (
+                f"{formatted_combine_sentence_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## CẤU TRÚC ĐẦU RA YÊU CẦU:\n"
+                + output_rule_combine_sentence
+            )
+
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25,  ai_input_combine_sentence_prompt)
+            tasks.append(task)
+            block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tự luận/sắp xếp từ":
+            spec_item = questions[0]
+
+            output_rule_ordering_word = ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_ordering_word_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_ordering_word_prompt = (
+                f"{formatted_ordering_word_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## CẤU TRÚC ĐẦU RA YÊU CẦU:\n"
+                + output_rule_ordering_word
+            )
+
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25,  ai_input_ordering_word_prompt)
+            tasks.append(task)
+            block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tự luận/Dạng đúng của từ":
+            spec_item = questions[0]
+
+            output_essay_word_form_completion_thcs = ESSAY_WORD_FORM_SENTENCE_COMPLETION_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_essay_word_form_completion_thcs_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_word_form_sentence_completion_thcs_prompt = (
+                f"{formatted_essay_word_form_completion_thcs_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## CẤU TRÚC ĐẦU RA YÊU CẦU:\n"
+                + output_essay_word_form_completion_thcs
+            )
+
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25,  ai_input_word_form_sentence_completion_thcs_prompt)
+            tasks.append(task)
+            block_meta.append(("ESSAY_WORD_FORM_SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
+            q_count += n_q
+
+        elif q_type == "Tự luận/Hoàn thành câu dùng từ cho trước":
+            spec_item = questions[0]
+
+            output_essay_word_prompt_sentence_completion_thcs = ESSAY_WORD_PROMPT_SENTENCE_COMPLETION_THPT_JSON_SCHEMA.format(
+                N_Q = n_q,
+                START_NUM = q_count
+            )
+
+            formatted_essay_word_prompt_sentence_completion_thcs_prompt = (prompt_template
+                    .replace("{TOPIC_NAME}", safe_str(topic))
+                    .replace("{TEXT_TYPE}", safe_str(text_type))
+                    .replace("{CEFR_LEVEL}", safe_str(diff))
+                    .replace("{VOCABULARY_LIST}", safe_str(vocabulary))
+                    .replace("{TARGET_WORD_COUNT}", safe_str(so_tu))
+                    .replace("{SOURCE_TEXT}", safe_str(document_sample)))
+            
+            ai_input_word_prompt_sentence_completion_thcs_prompt = (
+                f"{formatted_essay_word_prompt_sentence_completion_thcs_prompt}\n\n"
+                f"Từ vựng tham khảo: {vocabulary}"
+                f"Tài liệu tham khảo: {document_sample}"
+                f"Đặc tả ma trận: {spec_item['spec']}\n"
+                f"Mức độ: {spec_item['level']}\n"
+                f"Cấm tuyệt đối không viết lại câu hỏi trong phần giải thích"
+                f"Dạng thức: {text_type}\n"
+                f"Số câu: {n_q}\n"
+                + "\n".join(specs_list)
+                + "\n\n## CẤU TRÚC ĐẦU RA YÊU CẦU:\n"
+                + output_essay_word_prompt_sentence_completion_thcs
+            )
+
+            # task = limited_generate(client, ai_input_logical_thinking)
+            task = limited_generate(client_31, client_25,  ai_input_word_prompt_sentence_completion_thcs_prompt)
+            tasks.append(task)
+            block_meta.append(("ESSAY_WORD_PROMPT_SENTENCE", topic, n_q, q_count,text_type_en))
+            q_count += n_q
     responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     results = []
@@ -991,9 +1233,7 @@ async def generate_exam_docx(blocks, output_path):
             "start_num": start_num,
             "text_type_en": text_type_en.lower()
         })
-        # print(f">>>>>> debug results {results}")
 
-    # generate_docx_from_ai_results(results, output_path)
     return results
 
 
@@ -1107,7 +1347,20 @@ def export_standard_docx_from_data(json_data, output_path):
         # ===== WORD REORDERING =====
         elif res_type == "WORD_REORDERING":
             i = render_standard_word_reordering_group(doc, results, i)
+        elif res_type == "ESSAY_COMBINE_SENTENCES":
+            i = render_standard_essay_combine_sentences(doc, results, i)
 
+        elif res_type == "ESSAY_REWRITING_SENTENCES":
+            i = render_standard_essay_sentence_rewriting(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            i = render_standard_essay_word_form(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_PROMPT_SENTENCE":
+            i = render_standard_essay_word_prompt(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_ORDERING":
+            i = render_standard_essay_word_ordering(doc, results, i)
         # ===== UNKNOWN =====
         else:
             logger.warning(f"Unknown type: {res_type}")
@@ -1187,6 +1440,20 @@ def export_docx_from_data(json_data, output_path):
             i = render_logical_thinking_group(doc, results, i)
         elif res_type == "WORD_REORDERING":
             i = render_word_reordering_group(doc, results, i)
+        elif res_type == "ESSAY_COMBINE_SENTENCES":
+            i = render_essay_combine_sentences(doc, results, i)
+
+        elif res_type == "ESSAY_REWRITING_SENTENCES":
+            i = render_essay_sentence_rewriting(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            i = render_essay_word_form(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_PROMPT_SENTENCE":
+            i = render_essay_word_prompt(doc, results, i)
+
+        elif res_type == "ESSAY_WORD_ORDERING":
+            i = render_essay_word_ordering(doc, results, i)
            
         # ===== UNKNOWN =====
         else:
@@ -1278,6 +1545,454 @@ def _render_standard_cloze_from_json(doc: Document, parsed: dict, merge_options:
             doc.add_paragraph(f"D. {opt_d}")
 
 
+def render_standard_essay_combine_sentences(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_COMBINE_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== TITLE =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Rewrite the sentence that best combines each pair of sentences in the following question."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(f"{q.get('sentence_1','')} {q.get('sentence_2','')}")
+
+            doc.add_paragraph(f"→ {q.get('rewrite_prompt','')} ___________________________.")
+
+        i += 1
+
+    return i
+
+
+def render_essay_combine_sentences(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_COMBINE_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== TITLE =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Rewrite the sentence that best combines each pair of sentences in the following question."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(f"{q.get('sentence_1','')} {q.get('sentence_2','')}")
+
+            doc.add_paragraph(f"→ {q.get('rewrite_prompt','')} ___________________________.")
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            doc.add_paragraph(q.get("combined_sentence", ""))
+
+            doc.add_paragraph(f"Kiến thức: {q.get('knowledge','')}")
+
+            add_multiline_text(doc, q.get("explanation"))
+
+            if q.get("translation", {}).get("combined"):
+                doc.add_paragraph(f"Tạm dịch: {q['translation']['combined']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_essay_sentence_rewriting(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_REWRITING_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Rewrite the following sentences without changing their meaning."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("original_sentence", ""))
+
+            doc.add_paragraph(f"→ {q.get('rewrite_prompt','')} ___________________________.")
+
+
+        i += 1
+
+    return i
+
+def render_essay_sentence_rewriting(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_REWRITING_SENTENCES":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Rewrite the following sentences without changing their meaning."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("original_sentence", ""))
+
+            doc.add_paragraph(f"→ {q.get('rewrite_prompt','')} ___________________________.")
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            doc.add_paragraph(q.get("full_rewritten_sentence", ""))
+
+            doc.add_paragraph(f"Kiến thức: {q.get('knowledge','')}")
+
+            add_multiline_text(doc, q.get("explanation"))
+
+            if q.get("translation", {}).get("rewritten"):
+                doc.add_paragraph(f"Tạm dịch: {q['translation']['rewritten']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_essay_word_form(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== TITLE =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Complete the following sentences with the correct forms of the word in the brackets."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            sentence = q.get("sentence", "")
+            given_words = q.get("given_word", "")
+
+            # ===== CHECK nếu đã có (WORD) trong sentence =====
+            has_bracket_words = bool(re.search(r"______\s*\([A-Za-z ,]+\)", sentence))
+
+            final_sentence = sentence
+
+            # ===== Nếu CHƯA có (WORD) → chèn =====
+            if not has_bracket_words and given_words:
+                words = [w.strip() for w in given_words.split(",")]
+
+                def replace_blank(match):
+                    if replace_blank.index < len(words):
+                        word = words[replace_blank.index]
+                        replace_blank.index += 1
+                        return f"______ ({word})"
+                    return "______"
+
+                replace_blank.index = 0
+                final_sentence = re.sub(r"______", replace_blank, sentence)
+
+            # ===== RENDER =====
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(final_sentence)
+
+        i += 1
+
+    return i
+
+def render_essay_word_form(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        # ===== TITLE =====
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Complete the following sentences with the correct forms of the word in the brackets."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            sentence = q.get("sentence", "")
+            given_words = q.get("given_word", "")
+
+            # ===== CHECK nếu đã có (WORD) trong sentence =====
+            has_bracket_words = bool(re.search(r"______\s*\([A-Za-z ,]+\)", sentence))
+
+            final_sentence = sentence
+
+            # ===== Nếu CHƯA có (WORD) → chèn =====
+            if not has_bracket_words and given_words:
+                words = [w.strip() for w in given_words.split(",")]
+
+                def replace_blank(match):
+                    if replace_blank.index < len(words):
+                        word = words[replace_blank.index]
+                        replace_blank.index += 1
+                        return f"______ ({word})"
+                    return "______"
+
+                replace_blank.index = 0
+                final_sentence = re.sub(r"______", replace_blank, sentence)
+
+            # ===== RENDER =====
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(final_sentence)
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            doc.add_paragraph(q.get("answer", ""))
+
+            add_multiline_text(doc, q.get("explanation"))
+
+            if q.get("translation"):
+                doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+
+def render_standard_essay_word_prompt(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_PROMPT_SENTENCE":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Complete sentence by using the words or phrases below, adding more words if necessary."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("given_prompts", ""))
+
+            if q.get("sentence_starter"):
+                doc.add_paragraph(f"→ {q['sentence_starter']} ___________________________.")
+
+        i += 1
+
+    return i
+
+def render_essay_word_prompt(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_PROMPT_SENTENCE":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Complete sentence by using the words or phrases below, adding more words if necessary."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("given_prompts", ""))
+
+            if q.get("sentence_starter"):
+                doc.add_paragraph(f"→ {q['sentence_starter']} ___________________________.")
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            doc.add_paragraph(q.get("full_sentence", ""))
+
+            doc.add_paragraph(f"Kiến thức: {q.get('knowledge','')}")
+
+            add_multiline_text(doc, q.get("explanation"))
+
+            if q.get("translation"):
+                doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
+
+
+
+def render_standard_essay_word_ordering(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_ORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Reorder the words given to make correct sentences."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("given_words", ""))
+
+        i += 1
+
+    return i
+
+def render_essay_word_ordering(doc, results, start_index):
+    i = start_index
+    n = len(results)
+    title_added = False
+
+    while i < n:
+        res = results[i]
+
+        if res.get("type") != "ESSAY_WORD_ORDERING":
+            break
+
+        parsed = res.get("parsed")
+        if not parsed:
+            break
+
+        if not title_added:
+            p = doc.add_paragraph()
+            run = p.add_run(
+                "Reorder the words given to make correct sentences."
+            )
+            run.bold = True
+            title_added = True
+
+        for q in parsed.get("questions", []):
+            p = doc.add_paragraph()
+            p.add_run(f"Question {q['number']}. ").bold = True
+            p.add_run(q.get("given_words", ""))
+
+            p = doc.add_paragraph()
+            p.add_run("Lời giải").bold = True
+
+            doc.add_paragraph(q.get("correct_sentence", ""))
+
+            doc.add_paragraph(f"Kiến thức: {q.get('knowledge','')}")
+
+            add_multiline_text(doc, q.get("explanation"))
+
+            if q.get("translation"):
+                doc.add_paragraph(f"Tạm dịch: {q['translation']}")
+
+        i += 1
+
+    return i
 
 
 def add_html_paragraph(doc, text, prefix=None):
@@ -2300,7 +3015,6 @@ def add_text_with_markdown_bold(paragraph, text):
 # ============================
 
 def extract_cloze_sections(raw_text):
-    print(f">>>>>> debug raw_text (fallback): {raw_text[:200]}")
     s = html.unescape(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
     PASS_HDR = "BÀI ĐỌC (PASSAGE)"
     KEY1 = "ANSWER KEY"
