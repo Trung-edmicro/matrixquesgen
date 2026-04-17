@@ -41,10 +41,10 @@ class ContentAcquisitionService:
             'sgv': ['_SGV', 'Sách giáo viên'],  # Check SGV first to avoid confusion with SGK
             'sgk': ['_SGK', 'Sách giáo khoa'],
             'sbt': ['_SBT', 'Sách bài tập', 'Bài tập'],
-            'tn': ['_TN_', 'Trắc nghiệm'],
-            'tln': ['_TLN_', 'Trắc nghiệm luận'],
-            'tl': ['_TL_', 'Tự luận'],
-            'ds': ['_DS_', 'Đúng sai', 'questions'],
+            'tn': ['_tn', 'Trắc nghiệm'],  # Matches both _TN_ and _TN.txt
+            'tln': ['_tln', 'Trắc nghiệm luận'],  # Matches both _TLN_ and _TLN.txt
+            'tl': ['_tl', 'Tự luận'],  # Matches both _TL_ and _TL.txt
+            'ds': ['_ds', 'Đúng sai', 'questions'],  # Matches both _DS_ and _DS.txt
             'sup_material': ['_sup_material'],  # Must check sup_material BEFORE material to avoid false match
             'material': ['_material', 'material', 'tư liệu', 'tài liệu']  # Material for DS text questions
         }
@@ -364,11 +364,22 @@ class ContentAcquisitionService:
             content_preview = (item.content or "").lower()[:300]  # First 300 chars for content check
 
             # Priority 1: Filename-based categorization
+            # IMPORTANT: Check more specific patterns FIRST to avoid false matches
+            # e.g., check _TLN_ before _TN_ (because _TN_ is a substring of _TLN_)
             categorized_flag = False
-            for content_type, keywords in self.content_types.items():
+            
+            # Check patterns in order of specificity (most specific first)
+            filename_check_order = ['sup_material', 'sgv', 'sgk', 'sbt', 'tln', 'ds', 'tl', 'tn', 'material']
+            
+            for content_type in filename_check_order:
+                if content_type not in self.content_types:
+                    continue
+                    
+                keywords = self.content_types[content_type]
                 if any(keyword.lower() in item_name for keyword in keywords):
                     categorized[content_type].append(item)
                     categorized_flag = True
+                    print(f"   ✓ {item.name} → {content_type} (matched: {[k for k in keywords if k.lower() in item_name]})")
                     break
 
             if categorized_flag:
@@ -377,17 +388,23 @@ class ContentAcquisitionService:
             # Priority 2: Content-based categorization
             if any(keyword in content_preview for keyword in ['material', 'tư liệu', 'tài liệu']):
                 categorized['material'].append(item)
+                print(f"   ✓ {item.name} → material (content-based)")
             elif any(keyword in content_preview for keyword in ['(nb)', '(th)', '(vd)', 'trắc nghiệm']):
                 categorized['tn'].append(item)
+                print(f"   ✓ {item.name} → tn (content-based)")
             elif any(keyword in content_preview for keyword in ['bài tập', 'sách bài tập', 'câu hỏi và bài tập']):
                 categorized['sbt'].append(item)
+                print(f"   ✓ {item.name} → sbt (content-based)")
             elif any(keyword in content_preview for keyword in ['sách giáo viên', 'hướng dẫn giáo viên']):
                 categorized['sgv'].append(item)
+                print(f"   ✓ {item.name} → sgv (content-based)")
             elif any(keyword in content_preview for keyword in ['## bài', '### bài', 'bài học', 'sách giáo khoa']):
                 categorized['sgk'].append(item)
+                print(f"   ✓ {item.name} → sgk (content-based)")
             else:
                 # Default to SGK if uncertain
                 categorized['sgk'].append(item)
+                print(f"   ✓ {item.name} → sgk (default)")
 
         return categorized
 
@@ -470,6 +487,77 @@ class ContentAcquisitionService:
                 questions['VD'].extend(vd_questions)
 
         return questions
+
+    def parse_tn_for_toan(self, tn_content_items: List[ContentItem], subject: str, grade: str, chapter: str, lesson: str) -> Dict[str, Any]:
+        """Parse TN content for TOAN subject - all questions go into raw_questions array
+        
+        For TOAN, the files contain all cognitive levels mixed together
+        Example: TOAN_KNTT_C10_1_1_1_TN.txt contains NB, TH, VD questions mixed
+        
+        Returns:
+            Dict with structure:
+            {
+                "NB": [],  # Empty initially, will be filled by AI filtering in phase3
+                "TH": [],  # Empty initially
+                "VD": [],  # Empty initially
+                "raw_questions": [...]  # All questions from file
+            }
+        """
+        raw_questions = []
+
+        for item in tn_content_items:
+            content = item.content or ""
+            if not content.strip():
+                continue
+
+            # Parse all questions without level filtering
+            questions = self.parse_questions_from_content(content)
+            raw_questions.extend(questions)
+
+        return {
+            'NB': [],
+            'TH': [],
+            'VD': [],
+            'raw_questions': raw_questions
+        }
+
+    def parse_tln_for_toan(self, tln_content_items: List[ContentItem], subject: str, grade: str, chapter: str, lesson: str) -> Dict[str, Any]:
+        """Parse TLN content for TOAN subject - all questions go into raw_questions array"""
+        raw_questions = []
+
+        for item in tln_content_items:
+            content = item.content or ""
+            if not content.strip():
+                continue
+
+            questions = self.parse_questions_from_content(content)
+            raw_questions.extend(questions)
+
+        return {
+            'NB': [],
+            'TH': [],
+            'VD': [],
+            'raw_questions': raw_questions
+        }
+
+    def parse_tl_for_toan(self, tl_content_items: List[ContentItem], subject: str, grade: str, chapter: str, lesson: str) -> Dict[str, Any]:
+        """Parse TL content for TOAN subject - all questions go into raw_questions array"""
+        raw_questions = []
+
+        for item in tl_content_items:
+            content = item.content or ""
+            if not content.strip():
+                continue
+
+            questions = self.parse_questions_from_content(content)
+            raw_questions.extend(questions)
+
+        return {
+            'NB': [],
+            'TH': [],
+            'VD': [],
+            'raw_questions': raw_questions
+        }
 
     def parse_questions_from_content(self, content: str) -> List[str]:
         """Parse individual questions from a content string.
@@ -632,13 +720,22 @@ class ContentAcquisitionService:
             supplementary_material = "\n\n".join(sup_material_contents)
             print(f"📄 Found supplementary_material: {len(supplementary_material)} chars")
 
+        # Check if subject is TOAN for special handling
+        is_toan = subject.upper() == 'TOAN'
+
         # Parse TN content from separate files
         tn_files = categorized_content.get('tn', [])
         print(f"🔍 Parsing TN from {len(tn_files)} files")
-        tn_data = self.parse_tn_from_separate_files(tn_files, subject, grade, chapter, lesson)
-        print(f"   NB: {len(tn_data.get('NB', []))} questions")
-        print(f"   TH: {len(tn_data.get('TH', []))} questions")
-        print(f"   VD: {len(tn_data.get('VD', []))} questions")
+        if is_toan:
+            # For TOAN: parse all questions into raw_questions array (not split by level yet)
+            tn_data = self.parse_tn_for_toan(tn_files, subject, grade, chapter, lesson)
+            print(f"   Raw questions: {len(tn_data.get('raw_questions', []))} questions")
+        else:
+            # For other subjects: parse by level as usual
+            tn_data = self.parse_tn_from_separate_files(tn_files, subject, grade, chapter, lesson)
+            print(f"   NB: {len(tn_data.get('NB', []))} questions")
+            print(f"   TH: {len(tn_data.get('TH', []))} questions")
+            print(f"   VD: {len(tn_data.get('VD', []))} questions")
 
         # Parse DS content from separate files
         # Separate: DS questions files vs material files
@@ -666,18 +763,30 @@ class ContentAcquisitionService:
         # Parse TLN content (similar to TN)
         tln_files = categorized_content.get('tln', [])
         print(f"🔍 Parsing TLN from {len(tln_files)} files")
-        tln_data = self.parse_tln_from_separate_files(tln_files, subject, grade, chapter, lesson)
-        print(f"   NB: {len(tln_data.get('NB', []))} questions")
-        print(f"   TH: {len(tln_data.get('TH', []))} questions")
-        print(f"   VD: {len(tln_data.get('VD', []))} questions")
+        if is_toan:
+            # For TOAN: parse all questions into raw_questions array
+            tln_data = self.parse_tln_for_toan(tln_files, subject, grade, chapter, lesson)
+            print(f"   Raw questions: {len(tln_data.get('raw_questions', []))} questions")
+        else:
+            # For other subjects: parse by level as usual
+            tln_data = self.parse_tln_from_separate_files(tln_files, subject, grade, chapter, lesson)
+            print(f"   NB: {len(tln_data.get('NB', []))} questions")
+            print(f"   TH: {len(tln_data.get('TH', []))} questions")
+            print(f"   VD: {len(tln_data.get('VD', []))} questions")
 
         # Parse TL content (similar to TN)
         tl_files = categorized_content.get('tl', [])
         print(f"🔍 Parsing TL from {len(tl_files)} files")
-        tl_data = self.parse_tl_from_separate_files(tl_files, subject, grade, chapter, lesson)
-        print(f"   NB: {len(tl_data.get('NB', []))} questions")
-        print(f"   TH: {len(tl_data.get('TH', []))} questions")
-        print(f"   VD: {len(tl_data.get('VD', []))} questions")
+        if is_toan:
+            # For TOAN: parse all questions into raw_questions array
+            tl_data = self.parse_tl_for_toan(tl_files, subject, grade, chapter, lesson)
+            print(f"   Raw questions: {len(tl_data.get('raw_questions', []))} questions")
+        else:
+            # For other subjects: parse by level as usual
+            tl_data = self.parse_tl_from_separate_files(tl_files, subject, grade, chapter, lesson)
+            print(f"   NB: {len(tl_data.get('NB', []))} questions")
+            print(f"   TH: {len(tl_data.get('TH', []))} questions")
+            print(f"   VD: {len(tl_data.get('VD', []))} questions")
 
         data = {
             "content": {

@@ -77,7 +77,7 @@ class GeneratedEssayQuestion:
 class QuestionGenerator:
     """Class sinh câu hỏi tự động"""
     
-    def __init__(self, ai_client, prompt_template_path: str, verbose: bool = False, matrix_parser=None):
+    def __init__(self, ai_client, prompt_template_path: str, verbose: bool = False, matrix_parser=None, subject: str = None):
         """
         Khởi tạo Question Generator
         
@@ -86,18 +86,21 @@ class QuestionGenerator:
             prompt_template_path: Đường dẫn đến file prompt template
             verbose: Hiển thị logs chi tiết
             matrix_parser: MatrixParser (optional) - để access SampleQuestionBank
+            subject: Subject name (optional) - for TOAN-specific logic
         """
         self.ai_client = ai_client
         self.prompt_template = self._load_prompt_template(prompt_template_path)
         self.verbose = verbose
         self.matrix_parser = matrix_parser
+        self.subject = subject  # Store subject for TOAN-specific logic
         self.max_retries = 5
         self.retry_delay = 5.0  # seconds
         self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL  # Fallback khi rate limit
         # Single source of truth for prompt building
         self.prompt_builder = PromptBuilderService(
             prompt_dir=str(Path(prompt_template_path).parent),
-            verbose=verbose
+            verbose=verbose,
+            subject=subject  # Pass subject to PromptBuilderService
         )
         self._prompt_builder_dir = str(Path(prompt_template_path).parent)
     

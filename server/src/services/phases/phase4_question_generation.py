@@ -188,6 +188,11 @@ class QuestionGenerationService:
             curriculum: Curriculum name (e.g., "KNTT")
             grade: Grade level (e.g., "C12")
         """
+        # Store subject for later use (e.g., TOAN-specific logic)
+        self.subject = subject
+        self.curriculum = curriculum
+        self.grade = grade
+        
         prompts_subdir = f"{subject}_{curriculum}_{grade}"
         self.prompts_dir = self.prompts_base_dir / prompts_subdir
         
@@ -239,7 +244,8 @@ class QuestionGenerationService:
                         ai_client=self.genai_client,
                         prompt_template_path=tn_prompt_path,
                         verbose=True,
-                        matrix_parser=self.matrix_parser
+                        matrix_parser=self.matrix_parser,
+                        subject=self.subject  # Pass subject for TOAN-specific logic
                     )
                     print(f"✓ QuestionGenerator initialized with {Path(tn_prompt_path).name}")
                 else:
@@ -254,11 +260,19 @@ class QuestionGenerationService:
         """
         Get prompt template path with type-specific fallback logic
 
-        Priority order:
+        For TOAN (Math): Always uses prompt.txt for all question types
+        
+        For other subjects, Priority order:
             1. {QTYPE}_{type_code}.txt      (e.g. TN_BD.txt  – rich content tier-1)
             2. {QTYPE}_{LEVEL}.txt          (e.g. TN_NB.txt  – cognitive level tier-2)
             3. {QTYPE}2.txt / {QTYPE}.txt   (e.g. TN2.txt / TN.txt – generic)
         """
+        # For TOAN (Math), always use prompt.txt for all question types
+        if self.subject and self.subject.upper() == 'TOAN':
+            prompt_txt = self.prompts_dir / "prompt.txt"
+            if prompt_txt.exists():
+                return prompt_txt
+        
         # Generic fallback — TN prefers TN2.txt
         if question_type == "TN" and (self.prompts_dir / "TN2.txt").exists():
             generic_prompt = self.prompts_dir / "TN2.txt"
@@ -457,12 +471,25 @@ class QuestionGenerationService:
     def check_prompt_availability(self, question_types: List[str]) -> Dict[str, bool]:
         """Check which prompt templates are available.
 
-        A question type is considered available if ANY of the following exist:
+        For TOAN (Math) subject: Always uses prompt.txt for all question types
+        For other subjects:
           - {QTYPE}.txt          (e.g. TN.txt  — flat/legacy)
           - {QTYPE}2.txt         (e.g. TN2.txt — alternative)
           - {QTYPE}_*.txt        (e.g. TN_NB.txt — 3-tier)
+          - prompt.txt           (fallback generic prompt for all types)
         """
         availability = {}
+        
+        # For TOAN (Math), always use prompt.txt for all question types
+        if self.subject and self.subject.upper() == 'TOAN':
+            has_toan_prompt = (self.prompts_dir / "prompt.txt").exists()
+            for q_type in question_types:
+                availability[q_type] = has_toan_prompt
+            return availability
+        
+        # Check if fallback prompt.txt exists (can be used for all question types)
+        has_fallback_prompt = (self.prompts_dir / "prompt.txt").exists()
+        
         for q_type in question_types:
             # Flat file
             if (self.prompts_dir / f"{q_type}.txt").exists():
@@ -472,6 +499,9 @@ class QuestionGenerationService:
                 availability[q_type] = True
             # Any tier-based file (e.g. TN_NB.txt, TL_VD.txt)
             elif any(self.prompts_dir.glob(f"{q_type}_*.txt")):
+                availability[q_type] = True
+            # Fallback to generic prompt.txt if available
+            elif has_fallback_prompt:
                 availability[q_type] = True
             else:
                 availability[q_type] = False
@@ -1543,7 +1573,8 @@ class QuestionGenerationService:
                             spec_data=spec_data,
                             lesson_data=lesson_data,
                             content=content,
-                            cognitive_level=level
+                            cognitive_level=level,
+                            subject=getattr(self, 'subject', '')
                         )
                         
                         # Set filled template for the question generator
@@ -1677,7 +1708,8 @@ class QuestionGenerationService:
                         spec_data=spec_data,
                         lesson_data=lesson_data,
                         content=content,
-                        cognitive_level=""  # DS doesn't have level from dict key
+                        cognitive_level="",  # DS doesn't have level from dict key
+                        subject=getattr(self, 'subject', '')
                     )
                     
                     # Set filled template for the question generator
@@ -1800,7 +1832,8 @@ class QuestionGenerationService:
                             spec_data=spec_data,
                             lesson_data=lesson_data,
                             content=content,
-                            cognitive_level=level
+                            cognitive_level=level,
+                            subject=getattr(self, 'subject', '')
                         )
                         
                         # Set filled template for the question generator
@@ -1869,7 +1902,8 @@ class QuestionGenerationService:
                         spec_data=spec_data,
                         lesson_data=lesson_data,
                         content=content,
-                        cognitive_level=level
+                        cognitive_level=level,
+                        subject=getattr(self, 'subject', '')
                     )
                     
                     # Set filled template for the question generator
@@ -2000,6 +2034,104 @@ class QuestionGenerationService:
             print(f"    ⚠️  Math variable mapping failed: {e}")
             print(f"       Continuing with original template")
             return prompt_template
+
+    def _apply_math_variable_mapping_for_toan(
+        self,
+        prompt_template: str,
+        question_type: str,
+        spec_data: Dict[str, Any],
+        lesson_data: Dict[str, Any],
+        content: str = "",
+        cognitive_level: str = ""
+    ) -> str:
+        """
+        Apply TOAN-specific variable mapping to prompt.txt template.
+        
+        Variables for TOAN:
+        - {{QUESTION_TYPE}}: TN, DS, TLN, TL
+        - {{COGNITIVE_LEVEL}}: NB, TH, VD
+        - {{INFO_COGNITIVE_LEVEL}}: Detailed cognitive level description
+        - {{EXPECTED_LEARNING_OUTCOME}}: Learning outcome from spec
+        - {{SELECTED_QUESTION_TEMPLATE}}: User-selected question template
+        
+        Args:
+            prompt_template: prompt.txt content
+            question_type: TN, DS, TLN, TL
+            spec_data: Question spec from enriched_matrix
+            lesson_data: Lesson data
+            content: Lesson content
+            cognitive_level: NB, TH, VD
+            
+        Returns:
+            Filled prompt template
+        """
+        try:
+            # Load cognitive level info
+            info_cognitive_level = self._load_cognitive_level_info(question_type, cognitive_level)
+            
+            # Get expected learning outcome
+            expected_learning_outcome = spec_data.get('learning_outcome', '')
+            
+            # Get selected question template
+            # User already selected from question_template array via UI
+            selected_template_obj = spec_data.get('selected_templates_by_code', {})
+            
+            # Build selected template string
+            if selected_template_obj:
+                # Format: "Câu mã C1\n{template1}\n\nCâu mã C2\n{template2}"
+                selected_parts = []
+                for code, template_data in selected_template_obj.items():
+                    if isinstance(template_data, dict):
+                        template_text = template_data.get('template', str(template_data))
+                    else:
+                        template_text = str(template_data)
+                    selected_parts.append(f"Câu mã {code}\n{template_text}")
+                selected_question_template = "\n\n".join(selected_parts)
+            else:
+                # Fallback: get first template from question_template array
+                question_templates = spec_data.get('question_template', [])
+                if question_templates:
+                    selected_question_template = question_templates[0]
+                else:
+                    selected_question_template = ""
+            
+            # Build variables dict
+            variables = {
+                'QUESTION_TYPE': question_type,
+                'COGNITIVE_LEVEL': cognitive_level,
+                'INFO_COGNITIVE_LEVEL': info_cognitive_level,
+                'EXPECTED_LEARNING_OUTCOME': expected_learning_outcome,
+                'SELECTED_QUESTION_TEMPLATE': selected_question_template
+            }
+            
+            # Fill variables
+            filled_template = PromptParserService.fill_variables(prompt_template, variables)
+            
+            print(f"    ✓ TOAN variables: TYPE={question_type}, LEVEL={cognitive_level}, OUTCOME={expected_learning_outcome[:50]}...")
+            
+            return filled_template
+            
+        except Exception as e:
+            print(f"    ⚠️  TOAN variable mapping failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return prompt_template
+
+    def _load_cognitive_level_info(self, question_type: str, cognitive_level: str) -> str:
+        """Load cognitive level info from math_subject/info_cognitive_level/{question_type}/{cognitive_level}.md"""
+        try:
+            prompts_dir = Path(__file__).parent.parent / 'prompts' / 'math_subject' / 'info_cognitive_level'
+            info_path = prompts_dir / question_type / f"{cognitive_level}.md"
+            
+            if not info_path.exists():
+                print(f"    ⚠️  Cognitive level info not found: {info_path}")
+                return f"Cấp độ {cognitive_level}"
+            
+            with open(info_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"    ⚠️  Error loading cognitive level info: {e}")
+            return f"Cấp độ {cognitive_level}"
     
     def _get_filled_prompt_template(
         self,
@@ -2008,45 +2140,80 @@ class QuestionGenerationService:
         spec_data: Dict[str, Any],
         lesson_data: Dict[str, Any],
         content: str = "",
-        cognitive_level: str = ""
+        cognitive_level: str = "",
+        subject: str = ""
     ) -> str:
         """
         Load prompt template from file and apply variable mapping for Math.
         
+        For TOAN subject: uses prompt.txt instead of TN.txt/DS.txt/etc.
+        For other subjects: uses type-specific prompts (TN.txt, DS.txt, etc.)
+        
         Args:
-            prompt_path: Path to prompt template file (e.g., TN.txt)
+            prompt_path: Path to prompt template file (e.g., TN.txt or prompt.txt for TOAN)
             question_type: "TN", "DS", "TLN", or "TL"
             spec_data: Question spec from enriched_matrix
             lesson_data: Lesson data from enriched_matrix
             content: Extracted content (optional)
             cognitive_level: Cognitive level from enriched_matrix (NB, TH, VD, VDC)
+            subject: Subject code (e.g., 'TOAN', 'HOAHOC')
             
         Returns:
             Prompt template with all variables filled
         """
         try:
+            is_toan = subject.upper() == 'TOAN'
+            
+            # For TOAN: use prompt.txt instead of type-specific prompts
+            if is_toan:
+                # Override prompt_path to use prompt.txt
+                prompt_dir = prompt_path.parent
+                prompt_path = prompt_dir / 'prompt.txt'
+                print(f"    📝 Using TOAN prompt.txt: {prompt_path}")
+            
             # Load raw prompt template
             if not prompt_path.exists():
                 print(f"    ⚠️  Prompt file not found: {prompt_path}")
-                return ""
+                # Fallback to original path if prompt.txt doesn't exist
+                if is_toan:
+                    original_prompt_path = prompt_dir / f'{question_type}.txt'
+                    if original_prompt_path.exists():
+                        prompt_path = original_prompt_path
+                        print(f"    → Fallback to: {prompt_path}")
+                    else:
+                        return ""
+                else:
+                    return ""
             
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 raw_template = f.read()
             
             # Apply variable mapping for Math questions
-            filled_template = self._apply_math_variable_mapping(
-                prompt_template=raw_template,
-                question_type=question_type,
-                spec_data=spec_data,
-                lesson_data=lesson_data,
-                content=content,
-                cognitive_level=cognitive_level
-            )
+            if is_toan:
+                filled_template = self._apply_math_variable_mapping_for_toan(
+                    prompt_template=raw_template,
+                    question_type=question_type,
+                    spec_data=spec_data,
+                    lesson_data=lesson_data,
+                    content=content,
+                    cognitive_level=cognitive_level
+                )
+            else:
+                filled_template = self._apply_math_variable_mapping(
+                    prompt_template=raw_template,
+                    question_type=question_type,
+                    spec_data=spec_data,
+                    lesson_data=lesson_data,
+                    content=content,
+                    cognitive_level=cognitive_level
+                )
             
             return filled_template
             
         except Exception as e:
             print(f"    ❌ Failed to load/fill template: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
     
     def _process_ha_mh_workflow(self, spec, content: str, questions: List) -> List:

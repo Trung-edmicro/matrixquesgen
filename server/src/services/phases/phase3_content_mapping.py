@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 from .phase1_matrix_processing import MatrixMetadata, LessonInfo
+from ..ai.math_template_filter_service import MathTemplateFilterService
+from ..core.genai_client import GenAIClient
 
 
 @dataclass
@@ -38,9 +40,30 @@ class ContentMappingResult:
 class ContentMappingService:
     """Service for mapping Phase 2 content into Phase 1 matrix structure"""
 
-    def __init__(self):
+    def __init__(self, genai_client: Optional[GenAIClient] = None):
         self.content_dir = Path("data/content")
         self.matrix_dir = Path("data/matrix")
+        
+        # Initialize Math template filter service
+        if genai_client:
+            self.math_filter_service = MathTemplateFilterService(genai_client)
+        else:
+            # Create default GenAI client for Math filtering
+            project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
+            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            api_key = os.getenv("GENAI_API_KEY")
+            
+            try:
+                default_client = GenAIClient(
+                    project_id=project_id,
+                    credentials_path=credentials_path,
+                    api_key=api_key
+                )
+                self.math_filter_service = MathTemplateFilterService(default_client)
+            except Exception as e:
+                print(f"⚠️ Failed to initialize GenAI client for Math filtering: {e}")
+                # MathTemplateFilterService will handle None client
+                self.math_filter_service = MathTemplateFilterService(None)
 
     def map_content_to_matrix(self, matrix_json_path: Path) -> ContentMappingResult:
         """Map content from Phase 2 JSON files into the matrix JSON"""
@@ -289,21 +312,49 @@ class ContentMappingService:
 
             # Determine if we should map all templates (TOAN) or limit to 5 (other subjects)
             map_all_templates = (subject.upper() == 'TOAN')
+            is_toan = (subject.upper() == 'TOAN')
 
-            # Map TN questions with random selection
+            # Map TN questions
             tn_data = data.get('TN', {})
             if tn_data and 'TN' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TN'], tn_data, map_all_templates)
+                if is_toan and 'raw_questions' in tn_data:
+                    # For TOAN: use AI filtering on raw_questions
+                    questions_mapped += self._map_toan_questions_with_ai_filtering(
+                        lesson_data['TN'], 
+                        tn_data.get('raw_questions', []),
+                        'TN'
+                    )
+                else:
+                    # For other subjects: use random selection
+                    questions_mapped += self._map_tn_questions(lesson_data['TN'], tn_data, map_all_templates)
 
-            # Map TLN questions with random selection
+            # Map TLN questions
             tln_data = data.get('TLN', {})
             if tln_data and 'TLN' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TLN'], tln_data, map_all_templates)
+                if is_toan and 'raw_questions' in tln_data:
+                    # For TOAN: use AI filtering
+                    questions_mapped += self._map_toan_questions_with_ai_filtering(
+                        lesson_data['TLN'],
+                        tln_data.get('raw_questions', []),
+                        'TLN'
+                    )
+                else:
+                    # For other subjects: use random selection
+                    questions_mapped += self._map_tn_questions(lesson_data['TLN'], tln_data, map_all_templates)
 
-            # Map TL questions with random selection
+            # Map TL questions
             tl_data = data.get('TL', {})
             if tl_data and 'TL' in lesson_data:
-                questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data, map_all_templates)
+                if is_toan and 'raw_questions' in tl_data:
+                    # For TOAN: use AI filtering
+                    questions_mapped += self._map_toan_questions_with_ai_filtering(
+                        lesson_data['TL'],
+                        tl_data.get('raw_questions', []),
+                        'TL'
+                    )
+                else:
+                    # For other subjects: use random selection
+                    questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data, map_all_templates)
 
             # Map DS questions with random selection
             ds_data = data.get('DS', {})
@@ -402,3 +453,74 @@ class ContentMappingService:
                 spec['materials'] = ""
 
         return questions_mapped
+
+    def _map_toan_questions_with_ai_filtering(
+        self, 
+        question_specs: Dict,
+        raw_questions: List[str],
+        question_type: str
+    ) -> int:
+        """Map TOAN questions using AI filtering
+        
+        Args:
+            question_specs: Question specifications (dict with NB/TH/VD levels)
+            raw_questions: Raw questions list from Phase 2 (all levels mixed)
+            question_type: Type of question (TN, TLN, TL)
+        
+        Returns:
+            Number of questions mapped
+        """
+        questions_mapped = 0
+
+        try:
+            if not raw_questions:
+                print(f"   No raw questions to filter for {question_type}")
+                return 0
+
+            print(f"\n🤖 AI Filtering for {question_type} - {len(raw_questions)} raw questions")
+
+            # For each level (NB, TH, VD), filter questions for each spec
+            for level in ['NB', 'TH', 'VD']:
+                if level not in question_specs:
+                    continue
+
+                level_specs = question_specs[level]
+                
+                for spec in level_specs:
+                    learning_outcome = spec.get('learning_outcome', '')
+                    
+                    if not learning_outcome:
+                        print(f"   ⚠️  No learning outcome for {question_type}-{level}, skipping AI filter")
+                        # Fallback: use first 5 questions
+                        spec['question_template'] = raw_questions[:5]
+                        questions_mapped += len(spec['question_template'])
+                        continue
+
+                    # Call AI filtering service
+                    filtered_questions = self.math_filter_service.filter_question_templates(
+                        question_type=question_type,
+                        cognitive_level=level,
+                        expected_learning_outcome=learning_outcome,
+                        question_list=raw_questions
+                    )
+
+                    # Map filtered questions to spec
+                    spec['question_template'] = filtered_questions
+                    questions_mapped += len(filtered_questions)
+
+            return questions_mapped
+
+        except Exception as e:
+            print(f"❌ Error in AI filtering for {question_type}: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Fallback: assign first 5 raw questions to each spec
+            for level in ['NB', 'TH', 'VD']:
+                if level not in question_specs:
+                    continue
+                for spec in question_specs[level]:
+                    spec['question_template'] = raw_questions[:5]
+                    questions_mapped += 5
+            
+            return questions_mapped

@@ -37,9 +37,10 @@ class PromptBuilderService:
     Single source of truth — replaces duplicate logic in QuestionGenerator.
     """
 
-    def __init__(self, prompt_dir: str = None, verbose: bool = False):
+    def __init__(self, prompt_dir: str = None, verbose: bool = False, subject: str = None):
         self.verbose = verbose
         self.prompt_dir = Path(prompt_dir) if prompt_dir else None
+        self.subject = subject  # Store subject for TOAN-specific logic
         self.templates: Dict[str, str] = {}
         self._rich_guide_cache: Optional[str] = None
         self._cognitive_level_cache: Dict[str, str] = {}
@@ -56,7 +57,25 @@ class PromptBuilderService:
         self.load_templates()
 
     def load_templates(self):
-        """Load TN/DS/TLN/TL prompt files. Tries TN2.txt before TN.txt."""
+        """Load prompt files.
+        
+        For TOAN (Math): Uses single prompt.txt for all question types
+        For other subjects: Tries type-specific files (TN.txt, DS.txt, etc.)
+        """
+        # For TOAN, load prompt.txt once and use for all types
+        if self.subject and self.subject.upper() == 'TOAN':
+            generic_path = self.prompt_dir / "prompt.txt"
+            if generic_path.exists():
+                with open(generic_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+                # Use same template for all question types
+                for q_type in ['TN', 'DS', 'TLN', 'TL']:
+                    self.templates[q_type] = template_content
+                if self.verbose:
+                    print(f"✓ PromptBuilderService (TOAN) loaded: prompt.txt for all types")
+                return
+        
+        # For other subjects, load type-specific files
         files = {
             'TN':  ['TN2.txt', 'TN.txt'],
             'DS':  ['DS.txt'],
