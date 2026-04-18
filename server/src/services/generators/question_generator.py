@@ -446,7 +446,7 @@ class QuestionGenerator:
 
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
-                tn_schema = get_multiple_choice_array_schema(content_schema)
+                tn_schema = get_multiple_choice_array_schema(content_schema, num_questions=spec.num_questions)
                 
                 # Gọi AI với array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
@@ -476,6 +476,10 @@ class QuestionGenerator:
                 # Kiểm tra nếu không có câu hỏi nào được sinh
                 if not questions_data or len(questions_data) == 0:
                     raise ValueError("AI không trả về câu hỏi nào")
+                
+                # ⚠️ VALIDATION: AI phải sinh đúng số lượng câu hỏi
+                if len(questions_data) < spec.num_questions:
+                    raise ValueError(f"AI chỉ sinh {len(questions_data)} câu, yêu cầu {spec.num_questions} câu. Codes: {spec.question_codes}")
                 
                 # ⚠️ VALIDATION: AI có thể generate nhiều hơn yêu cầu → chỉ lấy đúng số lượng
                 if len(questions_data) > spec.num_questions:
@@ -1158,7 +1162,7 @@ class QuestionGenerator:
 
                 # Chọn content schema phù hợp dựa trên rich_content_types
                 content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
-                tln_schema = get_short_answer_array_schema(content_schema)
+                tln_schema = get_short_answer_array_schema(content_schema, num_questions=spec.num_questions)
                 
                 # Gọi AI với TLN array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
@@ -1343,7 +1347,7 @@ class QuestionGenerator:
                 if spec_sub_items:
                     tl_schema = get_essay_with_sub_items_array_schema(spec_sub_items, content_schema)
                 else:
-                    tl_schema = get_essay_array_schema(content_schema)
+                    tl_schema = get_essay_array_schema(content_schema, num_questions=spec.num_questions)
                 
                 # Gọi AI với TL array schema - sử dụng fallback model nếu đã thử
                 if tried_fallback:
@@ -1446,7 +1450,7 @@ class QuestionGenerator:
                     try:
                         # Chọn content schema phù hợp dựa trên rich_content_types
                         content_schema = get_content_schema_by_rich_types(spec.rich_content_types)
-                        tl_schema_fallback = get_essay_array_schema(content_schema)
+                        tl_schema_fallback = get_essay_array_schema(content_schema, num_questions=spec.num_questions)
                         
                         # Retry with fallback model using array schema
                         # ⚠️ CRITICAL: gemini-2.5-pro KHÔNG hỗ trợ Search + JSON schema
@@ -1686,7 +1690,7 @@ class QuestionGenerator:
         try:
             # Chọn content schema phù hợp dựa trên rich_content_types
             content_schema = get_content_schema_by_rich_types(rich_content_types)
-            tn_schema = get_multiple_choice_array_schema(content_schema)
+            tn_schema = get_multiple_choice_array_schema(content_schema, num_questions=num_questions)
             
             # Call AI with the custom prompt
             response = self.ai_client.generate_content_with_schema(

@@ -24,12 +24,14 @@ class MathVariableMappingService:
     """
     
     @staticmethod
+    @staticmethod
     def populate_variables_for_tn(
         spec_data: Dict[str, Any],
         lesson_data: Dict[str, Any],
         content: str = "",
         question_template: str = "",
-        cognitive_level: str = ""
+        cognitive_level: str = "",
+        question_type: str = "TN"
     ) -> Dict[str, str]:
         """
         Populate all template variables for TN (multiple choice) questions.
@@ -40,11 +42,10 @@ class MathVariableMappingService:
             content: Extracted lesson content (optional override)
             question_template: Question template text (optional)
             cognitive_level: Cognitive level from enriched_matrix key (NB, TH, VD, VDC)
+            question_type: Question type string for template variable
             
         Returns:
-            Dict with 8 variables: NUM, QUESTION_CODES, TEMPLATE_MODE, 
-            SELECTED_QUESTION_TEMPLATE, COGNITIVE_LEVEL, EXPECTED_LEARNING_OUTCOME,
-            LESSON_NAME, CONTENT
+            Dict with template variables
         """
         # Step 1: Extract codes and determine mode
         codes = spec_data.get('code', [])
@@ -66,7 +67,13 @@ class MathVariableMappingService:
         level = cognitive_level if cognitive_level else spec_data.get('level', 'NB')
         learning_outcome = spec_data.get('learning_outcome', '')
         
-        # Step 4: Extract lesson info
+        # Step 4: Load INFO_COGNITIVE_LEVEL from file
+        info_cognitive_level = MathVariableMappingService._load_info_cognitive_level(
+            question_type=question_type,
+            cognitive_level=level
+        )
+        
+        # Step 5: Extract lesson info
         lesson_name = lesson_data.get('lesson_name', '')
         lesson_content = content if content else lesson_data.get('content', '')
         
@@ -76,7 +83,9 @@ class MathVariableMappingService:
             'QUESTION_CODES': question_codes_str,
             'TEMPLATE_MODE': template_mode,
             'SELECTED_QUESTION_TEMPLATE': selected_template,
+            'QUESTION_TYPE': question_type,
             'COGNITIVE_LEVEL': level,
+            'INFO_COGNITIVE_LEVEL': info_cognitive_level,
             'EXPECTED_LEARNING_OUTCOME': learning_outcome,
             'LESSON_NAME': lesson_name,
             'CONTENT': lesson_content
@@ -90,7 +99,8 @@ class MathVariableMappingService:
         lesson_data: Dict[str, Any],
         content: str = "",
         question_template: str = "",
-        cognitive_level: str = ""
+        cognitive_level: str = "",
+        question_type: str = "DS"
     ) -> Dict[str, str]:
         """
         Populate template variables for DS (true/false) questions.
@@ -101,27 +111,56 @@ class MathVariableMappingService:
             content: Extracted lesson content (optional override)
             question_template: Question template text (optional)
             cognitive_level: Cognitive level from enriched_matrix key (NB, TH, VD, VDC)
+            question_type: Question type string for template variable
             
         Returns:
-            Dict with template variables (adapted for DS questions)
+            Dict with template variables
         """
-        # DS typically has single question_code, but use same logic for consistency
-        codes = spec_data.get('code', ['DS1'])
-        if isinstance(codes, str):
-            codes = [codes]
+        # DS uses question_code (single value) not code array
+        question_code = spec_data.get('question_code', 'DS1')
         
-        selected_template = spec_data.get('selected_question_template', '')
-        level = cognitive_level if cognitive_level else spec_data.get('level', 'NB')
-        learning_outcome = spec_data.get('learning_outcome', '')
+        # DS question_template is array, join into string
+        template_array = spec_data.get('question_template', [])
+        selected_template = ' '.join(template_array) if isinstance(template_array, list) else str(template_array)
+        
+        # DS statements provide learning_outcome
+        statements = spec_data.get('statements', [])
+        learning_outcome = ''
+        if statements and isinstance(statements, list) and len(statements) > 0:
+            learning_outcome = statements[0].get('learning_outcome', '')
+        
+        # DS can have multiple cognitive levels in statements, but pick first for level
+        level = cognitive_level if cognitive_level else 'NB'
+        if statements and isinstance(statements, list) and len(statements) > 0:
+            level = statements[0].get('cognitive_level', level)
+        
+        # Load INFO_COGNITIVE_LEVEL from file
+        info_cognitive_level = MathVariableMappingService._load_info_cognitive_level(
+            question_type=question_type,
+            cognitive_level=level
+        )
+        
+        # ✅ For DS: append statement levels detail to INFO_COGNITIVE_LEVEL (a:NB, b:TH, c:VD, d:VD)
+        if question_type == 'DS' and statements and isinstance(statements, list):
+            level_parts = []
+            for stmt in statements:
+                label = stmt.get('label', '?')
+                stmt_level = stmt.get('cognitive_level', 'NB')
+                level_parts.append(f"Ý {label}: {stmt_level}")
+            statement_levels_detail = ', '.join(level_parts)
+            info_cognitive_level += f"\n\n**Yêu cầu level từng ý:** {statement_levels_detail}"
+        
         lesson_name = lesson_data.get('lesson_name', '')
         lesson_content = content if content else lesson_data.get('content', '')
         
         variables = {
             'NUM': '1',  # DS is always single question per spec
-            'QUESTION_CODES': codes[0] if codes else 'DS1',
+            'QUESTION_CODES': str(question_code),
             'TEMPLATE_MODE': 'SINGLE',  # DS doesn't support MULTIPLE mode yet
             'SELECTED_QUESTION_TEMPLATE': selected_template,
+            'QUESTION_TYPE': question_type,
             'COGNITIVE_LEVEL': level,
+            'INFO_COGNITIVE_LEVEL': info_cognitive_level,
             'EXPECTED_LEARNING_OUTCOME': learning_outcome,
             'LESSON_NAME': lesson_name,
             'CONTENT': lesson_content
@@ -135,7 +174,8 @@ class MathVariableMappingService:
         lesson_data: Dict[str, Any],
         content: str = "",
         question_template: str = "",
-        cognitive_level: str = ""
+        cognitive_level: str = "",
+        question_type: str = "TLN"
     ) -> Dict[str, str]:
         """
         Populate template variables for TLN (short answer) questions.
@@ -157,6 +197,12 @@ class MathVariableMappingService:
         
         level = cognitive_level if cognitive_level else spec_data.get('level', 'NB')
         learning_outcome = spec_data.get('learning_outcome', '')
+        
+        info_cognitive_level = MathVariableMappingService._load_info_cognitive_level(
+            question_type=question_type,
+            cognitive_level=level
+        )
+        
         lesson_name = lesson_data.get('lesson_name', '')
         lesson_content = content if content else lesson_data.get('content', '')
         
@@ -165,7 +211,9 @@ class MathVariableMappingService:
             'QUESTION_CODES': question_codes_str,
             'TEMPLATE_MODE': template_mode,
             'SELECTED_QUESTION_TEMPLATE': selected_template,
+            'QUESTION_TYPE': question_type,
             'COGNITIVE_LEVEL': level,
+            'INFO_COGNITIVE_LEVEL': info_cognitive_level,
             'EXPECTED_LEARNING_OUTCOME': learning_outcome,
             'LESSON_NAME': lesson_name,
             'CONTENT': lesson_content
@@ -178,7 +226,9 @@ class MathVariableMappingService:
         spec_data: Dict[str, Any],
         lesson_data: Dict[str, Any],
         content: str = "",
-        question_template: str = ""
+        question_template: str = "",
+        cognitive_level: str = "",
+        question_type: str = "TL"
     ) -> Dict[str, str]:
         """
         Populate template variables for TL (essay) questions.
@@ -189,8 +239,14 @@ class MathVariableMappingService:
             codes = [codes]
         
         selected_template = spec_data.get('selected_question_template', '')
-        level = spec_data.get('level', 'medium')
+        level = cognitive_level if cognitive_level else spec_data.get('level', 'NB')
         learning_outcome = spec_data.get('learning_outcome', '')
+        
+        info_cognitive_level = MathVariableMappingService._load_info_cognitive_level(
+            question_type=question_type,
+            cognitive_level=level
+        )
+        
         lesson_name = lesson_data.get('lesson_name', '')
         lesson_content = content if content else lesson_data.get('content', '')
         
@@ -199,13 +255,55 @@ class MathVariableMappingService:
             'QUESTION_CODES': ', '.join(codes) if codes else 'C1',
             'TEMPLATE_MODE': 'SINGLE',  # TL doesn't support MULTIPLE mode
             'SELECTED_QUESTION_TEMPLATE': selected_template,
+            'QUESTION_TYPE': question_type,
             'COGNITIVE_LEVEL': level,
+            'INFO_COGNITIVE_LEVEL': info_cognitive_level,
             'EXPECTED_LEARNING_OUTCOME': learning_outcome,
             'LESSON_NAME': lesson_name,
             'CONTENT': lesson_content
         }
         
         return variables
+    
+    @staticmethod
+    def _load_info_cognitive_level(question_type: str, cognitive_level: str) -> str:
+        """
+        Load cognitive level information from markdown file.
+        
+        File structure:
+        server/src/services/prompts/math_subject/info_cognitive_level/{TN|DS|TLN|TL}/{NB|TH|VD|VDC}.md
+        
+        Args:
+            question_type: "TN", "DS", "TLN", or "TL"
+            cognitive_level: "NB", "TH", "VD", or "VDC"
+            
+        Returns:
+            Content of the .md file, or empty string if file not found
+        """
+        try:
+            # Build path to info file
+            from pathlib import Path
+            import os
+            
+            # Find the base path - use the service's location as reference
+            # __file__ is at: server/src/services/generators/math_variable_mapping_service.py
+            # We need: server/src/services/prompts/math_subject/info_cognitive_level/
+            service_path = Path(__file__).parent.parent  # services/
+            base_path = service_path / "prompts" / "math_subject" / "info_cognitive_level"
+            
+            info_file = base_path / question_type / f"{cognitive_level}.md"
+            
+            if info_file.exists():
+                with open(info_file, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    return content
+            else:
+                print(f"⚠️ Info file not found: {info_file}")
+                return ""
+                
+        except Exception as e:
+            print(f"❌ Error loading info cognitive level: {e}")
+            return ""
     
     @staticmethod
     def _build_selected_template(
@@ -291,19 +389,19 @@ class MathVariableMappingService:
         """
         if question_type == "TN":
             return MathVariableMappingService.populate_variables_for_tn(
-                spec_data, lesson_data, content, question_template, cognitive_level
+                spec_data, lesson_data, content, question_template, cognitive_level, question_type
             )
         elif question_type == "DS":
             return MathVariableMappingService.populate_variables_for_ds(
-                spec_data, lesson_data, content, question_template, cognitive_level
+                spec_data, lesson_data, content, question_template, cognitive_level, question_type
             )
         elif question_type == "TLN":
             return MathVariableMappingService.populate_variables_for_tln(
-                spec_data, lesson_data, content, question_template, cognitive_level
+                spec_data, lesson_data, content, question_template, cognitive_level, question_type
             )
         elif question_type == "TL":
             return MathVariableMappingService.populate_variables_for_tl(
-                spec_data, lesson_data, content, question_template, cognitive_level
+                spec_data, lesson_data, content, question_template, cognitive_level, question_type
             )
         else:
             # Fallback for unknown types

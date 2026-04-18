@@ -886,13 +886,14 @@ VD 3 - Câu hỏi TLN có bảng:
 - Với câu hỏi TN: options (A/B/C/D) thường là text thuần, CHỈ question_stem mới có rich content"""
     }
 
-def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> Dict:
+def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None, num_questions: Optional[int] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm
     HỖ TRỢ RICH CONTENT: Ảnh, Bảng, Biểu đồ ECharts, Công thức LaTeX
     
     Args:
         content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
+        num_questions: Số lượng câu hỏi cần sinh (nếu có → thêm minItems/maxItems vào schema)
     
     Returns:
         Dict: JSON schema cho array questions với metadata sư phạm phong phú và rich content
@@ -902,12 +903,22 @@ def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> D
     if content_schema is None:
         content_schema = get_text_content_schema()
     
+    # Build array constraints
+    array_constraints = {
+        "type": "array",
+        "description": """Mảng các câu hỏi trắc nghiệm. Mỗi câu hỏi phải khác nhau về nội dung và góc độ tiếp cận.""",
+    }
+    
+    # Add minItems/maxItems if num_questions is specified
+    if num_questions is not None and num_questions > 0:
+        array_constraints["minItems"] = num_questions
+        array_constraints["maxItems"] = num_questions
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
-                "type": "array",
-                "description": """Mảng các câu hỏi trắc nghiệm. Mỗi câu hỏi phải khác nhau về nội dung và góc độ tiếp cận.""",
+                **array_constraints,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -973,13 +984,14 @@ def get_multiple_choice_array_schema(content_schema: Optional[Dict] = None) -> D
         "required": ["questions"]
     }
 
-def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
+def get_essay_array_schema(content_schema: Optional[Dict] = None, num_questions: Optional[int] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Tự luận (TL)
     HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa tư liệu ảnh, bảng, biểu đồ
     
     Args:
         content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
+        num_questions: Số lượng câu hỏi cần sinh (nếu có → thêm minItems/maxItems vào schema)
     
     Returns:
         Dict: JSON schema cho array questions TL - tối ưu hóa độ dài output
@@ -989,12 +1001,22 @@ def get_essay_array_schema(content_schema: Optional[Dict] = None) -> Dict:
     if content_schema is None:
         content_schema = get_text_content_schema()
     
+    # Build array constraints
+    array_constraints = {
+        "type": "array",
+        "description": "Mảng câu hỏi Tự luận. Mỗi câu phải khác nhau về góc độ tiếp cận (analysis/comparison/evaluation).",
+    }
+    
+    # Add minItems/maxItems if num_questions is specified
+    if num_questions is not None and num_questions > 0:
+        array_constraints["minItems"] = num_questions
+        array_constraints["maxItems"] = num_questions
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
-                "type": "array",
-                "description": "Mảng câu hỏi Tự luận. Mỗi câu phải khác nhau về góc độ tiếp cận (analysis/comparison/evaluation).",
+                **array_constraints,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -1430,13 +1452,14 @@ def get_true_false_schema(content_schema: Optional[Dict] = None) -> Dict:
         ]
     }
 
-def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict:
+def get_short_answer_array_schema(content_schema: Optional[Dict] = None, num_questions: Optional[int] = None) -> Dict:
     """
     Trả về JSON schema cho nhiều câu hỏi Trắc nghiệm luận (TLN)
     HỖ TRỢ RICH CONTENT: Câu hỏi có thể chứa ảnh, bảng, biểu đồ
     
     Args:
         content_schema: Schema cho question_stem (nếu None → dùng text_content_schema)
+        num_questions: Số lượng câu hỏi cần sinh (nếu có → thêm minItems/maxItems vào schema)
     
     Returns:
         Dict: JSON schema cho array questions TLN với hướng dẫn đa dạng hóa và rich content
@@ -1446,12 +1469,22 @@ def get_short_answer_array_schema(content_schema: Optional[Dict] = None) -> Dict
     if content_schema is None:
         content_schema = get_text_content_schema()
     
+    # Build array constraints
+    array_constraints = {
+        "type": "array",
+        "description": "Mảng câu hỏi TLN. Mỗi câu phải khác nhau về loại (time/location/name/concept).",
+    }
+    
+    # Add minItems/maxItems if num_questions is specified
+    if num_questions is not None and num_questions > 0:
+        array_constraints["minItems"] = num_questions
+        array_constraints["maxItems"] = num_questions
+    
     return {
         "type": "object",
         "properties": {
             "questions": {
-                "type": "array",
-                "description": "Mảng câu hỏi TLN. Mỗi câu phải khác nhau về loại (time/location/name/concept).",
+                **array_constraints,
                 "items": {
                     "type": "object",
                     "properties": {

@@ -216,12 +216,23 @@ class QuestionGenerationService:
             try:
                 # Try to find TN prompt file (TN2.txt or TN.txt)
                 tn_prompt_path = None
-                if (self.prompts_dir / "TN2.txt").exists():
-                    tn_prompt_path = str(self.prompts_dir / "TN2.txt")
-                    print(f"✓ Using TN2.txt for QuestionGenerator init")
-                elif (self.prompts_dir / "TN.txt").exists():
-                    tn_prompt_path = str(self.prompts_dir / "TN.txt")
-                    print(f"✓ Using TN.txt for QuestionGenerator init")
+                
+                # For TOAN: Check for unified prompt.txt first
+                if subject and subject.upper() == 'TOAN':
+                    if (self.prompts_dir / "prompt.txt").exists():
+                        tn_prompt_path = str(self.prompts_dir / "prompt.txt")
+                        print(f"📝 TOAN detected: Using unified prompt.txt for QuestionGenerator init")
+                    else:
+                        print(f"⚠️ TOAN subject but prompt.txt not found in {self.prompts_dir}")
+                
+                # For other subjects or fallback: Find type-specific files
+                if not tn_prompt_path:
+                    if (self.prompts_dir / "TN2.txt").exists():
+                        tn_prompt_path = str(self.prompts_dir / "TN2.txt")
+                        print(f"✓ Using TN2.txt for QuestionGenerator init")
+                    elif (self.prompts_dir / "TN.txt").exists():
+                        tn_prompt_path = str(self.prompts_dir / "TN.txt")
+                        print(f"✓ Using TN.txt for QuestionGenerator init")
                 
                 if not tn_prompt_path:
                     # Fallback: try tier-specific TN files (3-tier prompt system)
@@ -249,7 +260,7 @@ class QuestionGenerationService:
                     )
                     print(f"✓ QuestionGenerator initialized with {Path(tn_prompt_path).name}")
                 else:
-                    print(f"⚠️ Neither TN.txt nor TN2.txt found in {self.prompts_dir}")
+                    print(f"⚠️ No prompt template found in {self.prompts_dir}")
                     print(f"   QuestionGenerator will not be initialized")
                     self.question_generator = None
             except Exception as e:
@@ -271,7 +282,11 @@ class QuestionGenerationService:
         if self.subject and self.subject.upper() == 'TOAN':
             prompt_txt = self.prompts_dir / "prompt.txt"
             if prompt_txt.exists():
+                print(f"🔍 [_get_prompt_path] TOAN {question_type} → prompt.txt")
                 return prompt_txt
+            else:
+                print(f"⚠️ [_get_prompt_path] TOAN {question_type} → prompt.txt NOT FOUND at {prompt_txt}")
+
         
         # Generic fallback — TN prefers TN2.txt
         if question_type == "TN" and (self.prompts_dir / "TN2.txt").exists():
@@ -1254,6 +1269,18 @@ class QuestionGenerationService:
                             if not codes_in_this_spec:
                                 continue  # Skip this spec, no missing codes
                             
+                            # ✅ Create modified spec_data with ONLY missing codes
+                            modified_spec = spec_data.copy()
+                            modified_spec['code'] = sorted(codes_in_this_spec)
+                            modified_spec['num'] = len(codes_in_this_spec)
+                            
+                            # Keep only selected_templates for missing codes
+                            if 'selected_templates_by_code' in modified_spec:
+                                templates = modified_spec['selected_templates_by_code']
+                                modified_spec['selected_templates_by_code'] = {
+                                    code: templates[code] for code in codes_in_this_spec if code in templates
+                                }
+                            
                             task = {
                                 'type': 'TN',
                                 'lesson_data': lesson_data,
@@ -1262,7 +1289,7 @@ class QuestionGenerationService:
                                 'content': content,
                                 'supplementary': supplementary,
                                 'level': level,
-                                'spec_data': spec_data
+                                'spec_data': modified_spec  # ✅ Use modified spec with only missing codes
                             }
                             try:
                                 questions = self._generate_question_task(task)
@@ -1319,6 +1346,18 @@ class QuestionGenerationService:
                             if not codes_in_this_spec:
                                 continue  # Skip this spec, no missing codes
                             
+                            # ✅ Create modified spec_data with ONLY missing codes
+                            modified_spec = spec_data.copy()
+                            modified_spec['code'] = sorted(codes_in_this_spec)
+                            modified_spec['num'] = len(codes_in_this_spec)
+                            
+                            # Keep only selected_templates for missing codes
+                            if 'selected_templates_by_code' in modified_spec:
+                                templates = modified_spec['selected_templates_by_code']
+                                modified_spec['selected_templates_by_code'] = {
+                                    code: templates[code] for code in codes_in_this_spec if code in templates
+                                }
+                            
                             task = {
                                 'type': 'TLN',
                                 'lesson_data': lesson_data,
@@ -1327,7 +1366,7 @@ class QuestionGenerationService:
                                 'content': content,
                                 'supplementary': supplementary,
                                 'level': level,
-                                'spec_data': spec_data
+                                'spec_data': modified_spec  # ✅ Use modified spec with only missing codes
                             }
                             try:
                                 questions = self._generate_question_task(task)
@@ -1352,6 +1391,18 @@ class QuestionGenerationService:
                             if not codes_in_this_spec:
                                 continue  # Skip this spec, no missing codes
                             
+                            # ✅ Create modified spec_data with ONLY missing codes
+                            modified_spec = spec_data.copy()
+                            modified_spec['code'] = sorted(codes_in_this_spec)
+                            modified_spec['num'] = len(codes_in_this_spec)
+                            
+                            # Keep only selected_templates for missing codes (if applicable)
+                            if 'selected_templates_by_code' in modified_spec:
+                                templates = modified_spec['selected_templates_by_code']
+                                modified_spec['selected_templates_by_code'] = {
+                                    code: templates[code] for code in codes_in_this_spec if code in templates
+                                }
+                            
                             task = {
                                 'type': 'TL',
                                 'lesson_data': lesson_data,
@@ -1360,7 +1411,7 @@ class QuestionGenerationService:
                                 'content': content,
                                 'supplementary': supplementary,
                                 'level': level,
-                                'spec_data': spec_data
+                                'spec_data': modified_spec  # ✅ Use modified spec with only missing codes
                             }
                             try:
                                 questions = self._generate_question_task(task)
@@ -1996,7 +2047,10 @@ class QuestionGenerationService:
         Populates {{NUM}}, {{QUESTION_CODES}}, {{TEMPLATE_MODE}}, 
         {{SELECTED_QUESTION_TEMPLATE}}, and other variables.
         
-        Only applies to Math (TOAN) subject. For other subjects, returns template unchanged.
+        ⚠️  NOTE: This method is NOT currently used in the main Phase 4 flow.
+        Variable mapping is now TOAN-specific only (uses _apply_math_variable_mapping_for_toan).
+        
+        This method is kept for backward compatibility or future use with non-TOAN Math subjects.
         
         Args:
             prompt_template: Raw prompt template with {{VARIABLE}} placeholders
@@ -2047,12 +2101,13 @@ class QuestionGenerationService:
         """
         Apply TOAN-specific variable mapping to prompt.txt template.
         
-        Variables for TOAN:
+        Uses MathVariableMappingService.populate_variables to get all variables:
         - {{QUESTION_TYPE}}: TN, DS, TLN, TL
         - {{COGNITIVE_LEVEL}}: NB, TH, VD
-        - {{INFO_COGNITIVE_LEVEL}}: Detailed cognitive level description
+        - {{INFO_COGNITIVE_LEVEL}}: Detailed cognitive level description (includes statement levels for DS)
         - {{EXPECTED_LEARNING_OUTCOME}}: Learning outcome from spec
         - {{SELECTED_QUESTION_TEMPLATE}}: User-selected question template
+        - {{NUM}}, {{QUESTION_CODES}}, {{TEMPLATE_MODE}}, {{LESSON_NAME}}, {{CONTENT}}
         
         Args:
             prompt_template: prompt.txt content
@@ -2066,48 +2121,24 @@ class QuestionGenerationService:
             Filled prompt template
         """
         try:
-            # Load cognitive level info
-            info_cognitive_level = self._load_cognitive_level_info(question_type, cognitive_level)
+            # Use MathVariableMappingService to populate ALL variables
+            variables = MathVariableMappingService.populate_variables(
+                question_type=question_type,
+                spec_data=spec_data,
+                lesson_data=lesson_data,
+                content=content,
+                cognitive_level=cognitive_level
+            )
             
-            # Get expected learning outcome
-            expected_learning_outcome = spec_data.get('learning_outcome', '')
-            
-            # Get selected question template
-            # User already selected from question_template array via UI
-            selected_template_obj = spec_data.get('selected_templates_by_code', {})
-            
-            # Build selected template string
-            if selected_template_obj:
-                # Format: "Câu mã C1\n{template1}\n\nCâu mã C2\n{template2}"
-                selected_parts = []
-                for code, template_data in selected_template_obj.items():
-                    if isinstance(template_data, dict):
-                        template_text = template_data.get('template', str(template_data))
-                    else:
-                        template_text = str(template_data)
-                    selected_parts.append(f"Câu mã {code}\n{template_text}")
-                selected_question_template = "\n\n".join(selected_parts)
-            else:
-                # Fallback: get first template from question_template array
-                question_templates = spec_data.get('question_template', [])
-                if question_templates:
-                    selected_question_template = question_templates[0]
-                else:
-                    selected_question_template = ""
-            
-            # Build variables dict
-            variables = {
-                'QUESTION_TYPE': question_type,
-                'COGNITIVE_LEVEL': cognitive_level,
-                'INFO_COGNITIVE_LEVEL': info_cognitive_level,
-                'EXPECTED_LEARNING_OUTCOME': expected_learning_outcome,
-                'SELECTED_QUESTION_TEMPLATE': selected_question_template
-            }
-            
-            # Fill variables
+            # Fill variables into template
             filled_template = PromptParserService.fill_variables(prompt_template, variables)
             
-            print(f"    ✓ TOAN variables: TYPE={question_type}, LEVEL={cognitive_level}, OUTCOME={expected_learning_outcome[:50]}...")
+            # Log key variables
+            num_questions = variables.get('NUM', '1')
+            question_codes = variables.get('QUESTION_CODES', '')
+            cog_level = variables.get('COGNITIVE_LEVEL', cognitive_level)
+            
+            print(f"    ✓ TOAN variables: TYPE={question_type}, NUM={num_questions}, CODES={question_codes}, LEVEL={cog_level}")
             
             return filled_template
             
@@ -2188,7 +2219,8 @@ class QuestionGenerationService:
             with open(prompt_path, 'r', encoding='utf-8') as f:
                 raw_template = f.read()
             
-            # Apply variable mapping for Math questions
+            # Apply variable mapping - only for TOAN (Math) subjects
+            # Variable mapping is TOAN-specific: uses unified prompt.txt with all 10 variables
             if is_toan:
                 filled_template = self._apply_math_variable_mapping_for_toan(
                     prompt_template=raw_template,
@@ -2198,15 +2230,12 @@ class QuestionGenerationService:
                     content=content,
                     cognitive_level=cognitive_level
                 )
+                print(f"    ✓ TOAN prompt.txt - all 10 variables populated and filled")
             else:
-                filled_template = self._apply_math_variable_mapping(
-                    prompt_template=raw_template,
-                    question_type=question_type,
-                    spec_data=spec_data,
-                    lesson_data=lesson_data,
-                    content=content,
-                    cognitive_level=cognitive_level
-                )
+                # For non-TOAN subjects: use template as-is, no variable mapping
+                # (These subjects use type-specific prompts without {{VARIABLE}} placeholders)
+                filled_template = raw_template
+                print(f"    ✓ Non-TOAN prompt - no variable mapping applied")
             
             return filled_template
             

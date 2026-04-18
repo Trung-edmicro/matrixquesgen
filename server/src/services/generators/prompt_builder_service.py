@@ -73,7 +73,12 @@ class PromptBuilderService:
                     self.templates[q_type] = template_content
                 if self.verbose:
                     print(f"✓ PromptBuilderService (TOAN) loaded: prompt.txt for all types")
+                print(f"📝 TOAN unified prompt loaded from: {generic_path}")
+                print(f"   Template size: {len(template_content)} chars, loaded for types: TN, DS, TLN, TL")
                 return
+            else:
+                print(f"⚠️ TOAN prompt.txt NOT FOUND at: {generic_path}")
+                print(f"   Falling back to type-specific prompts")
         
         # For other subjects, load type-specific files
         files = {
@@ -654,8 +659,22 @@ class PromptBuilderService:
         Tier 3 — Dạng.txt              (e.g. TN.txt / TN2.txt)
                   Cognitive-level guide is appended automatically.
 
+        For TOAN: Uses unified prompt.txt for all question types (loaded at init time).
+
         Returns (template_text, template_filename, tier_used).
         """
+        # ✨ SPECIAL HANDLING FOR TOAN: Use unified prompt.txt via self.templates
+        if self.subject and self.subject.upper() == 'TOAN':
+            template_text = self.templates.get(question_type)
+            if template_text:
+                if self.verbose:
+                    print(f"✓ TOAN unified template (prompt.txt) for {question_type}")
+                print(f"🔍 [resolve_template_for_spec] TOAN {question_type} → using prompt.txt (tier 0)")
+                return template_text, "prompt.txt", 0  # Tier 0 = unified TOAN template
+            else:
+                print(f"⚠️  [resolve_template_for_spec] TOAN {question_type} → templates NOT loaded, fallback to tier system")
+
+
         base = self.prompt_dir or Path('.')
         level = cognitive_level.strip().upper() if cognitive_level else ""
         type_code = self._extract_first_type_code(rich_content_types) or ""
