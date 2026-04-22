@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-
+import { EssayWordFormBlock, EssayWordPromptBlock, EssayCombineSentencesBlock, EssaySentenceRewritingBlock, EssayWordOrderingBlock } from "./EnglishExamPreviewPanel";
 export default function SoluteEnglishPreviewPanel({ examData }) {
   // Xử lý dữ liệu mảng lồng [[...]] từ data.json
   const blocks = useMemo(() => {
@@ -54,13 +54,50 @@ export default function SoluteEnglishPreviewPanel({ examData }) {
 
             case "PRONUNCIATION_STRESS":
               return <PronunciationBlock key={index} block={block} />
-
+            case "COMPLETE_SENTENCE_GIVEN_WORD":
+                return <CompleteSentenceGivenWordsMCQBlock key={index} block={block} />
             case "DIALOGUE_COMPLETION":
               return <DialogueBlock key={index} block={block} />
 
             case "LOGICAL_THINKING":
               return <LogicalThinkingBlock key={index} block={block} />
-
+            case "ESSAY_REWRITING_SENTENCES":
+              return (
+                <EssaySentenceRewritingBlock
+                  key={index}
+                  data={data}
+                  showInstruction={isFirstOfGroup}
+                              />)
+            case "ESSAY_COMBINE_SENTENCES":
+                return (
+                  <EssayCombineSentencesBlock
+                      key={index}
+                      data={data}
+                      showInstruction={isFirstOfGroup}
+                              />)
+            
+            case "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
+                 return (
+                    <EssayWordFormBlock
+                        key={index}
+                        data={data}
+                        showInstruction={isFirstOfGroup}
+                              /> )
+            case "ESSAY_WORD_PROMPT_SENTENCE":
+                  return (
+                    <EssayWordPromptBlock
+                      key={index}
+                      data={data}
+                      showInstruction={isFirstOfGroup}
+                              />)
+            
+            case "ESSAY_WORD_ORDERING":
+                return (
+                  <EssayWordOrderingBlock
+                      key={index}
+                      data={data}
+                      showInstruction={isFirstOfGroup}
+                                /> )
             default:
               return <QuestionListBlock key={index} block={block} />
           }
@@ -129,7 +166,7 @@ function ErrorIdentificationBlock({ block }) {
 
               {/* TRANSLATION */}
               {q.translation && (
-                <p className="text-gray-600 italic mt-2">
+                <p className="mt-2">
                   <b>Tạm dịch:</b> {q.translation}
                 </p>
               )}
@@ -189,8 +226,8 @@ function SentenceCompletionBlock({ block }) {
       <div className="space-y-10">
         {parsed.questions?.map((q) => (
           <div key={q.number}>
-            <p className="font-bold mb-2">
-              <span dangerouslySetInnerHTML={{ __html: q.question }} />
+            <p className="mb-2">
+             <strong>Question {q.number}.</strong> <span dangerouslySetInnerHTML={{ __html: q.question }} />
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pl-4 mb-4">
@@ -227,10 +264,7 @@ function SentenceTransformationBlock({ block }) {
         {parsed.questions?.map((q) => (
           <div key={q.number}>
             <p className="font-bold mb-2">
-              Question {q.number}:{" "}
-              {q.type && (
-                <span className="italic text-gray-500">({q.type}) </span>
-              )}
+              Question {q.number}.{" "}
               <span dangerouslySetInnerHTML={{ __html: q.question }} />
             </p>
 
@@ -247,15 +281,32 @@ function SentenceTransformationBlock({ block }) {
               <p dangerouslySetInnerHTML={{ __html: q.explanation }} />
 
               {q.correct_translation && (
-                <p className="text-purple-700">
+                <p className="">
                   <b>Dịch câu đúng:</b> {q.correct_translation}
                 </p>
               )}
 
-              {q.translation && (
-                <p className="italic text-gray-600">
+              {/* {q.translation && (
+                <p className="text-sm">
                   <b>Tạm dịch:</b> {q.translation}
                 </p>
+              )} */}
+              {q.translation && (
+                <div className="text-sm">
+                  <b>Tạm dịch:</b>{" "}
+                  {typeof q.translation === "object" ? (
+                    <div className="ml-2 mt-1 space-y-1">
+                      {q.translation.original && (
+                        <p>- Câu gốc: {q.translation.original}</p>
+                      )}
+                      {q.translation.rewritten && (
+                        <p>- Câu viết lại: {q.translation.rewritten}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span>{q.translation}</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -271,7 +322,7 @@ function PassageBlock({ block }) {
   return (
     <div className="mb-14 border-b border-gray-200 pb-8 last:border-0">
       <div className="font-bold text-lg mb-2">{titleQuestion}</div>
-      <div className="bg-gray-50 p-6 rounded-lg mb-8 border-l-4 border-blue-500">
+      <div className="bg-gray-50 p-6 rounded-lg mb-8 ">
 
          <h3
           className="text-center font-bold text-lg mb-4 uppercase"
@@ -280,7 +331,7 @@ function PassageBlock({ block }) {
         
             <div
       className="text-justify"
-      dangerouslySetInnerHTML={{ __html: parsed.passage }}
+      dangerouslySetInnerHTML={{ __html: parsed.passage?.replace(/\n/g, "<br/>") }}
     />
       </div>
 
@@ -299,7 +350,7 @@ function QuestionListBlock({ block }) {
   const { titleQuestion,  parsed } = block;
   return (
     <div className="mb-14 border-b border-gray-200 pb-8 last:border-0">
-      <div className="text-blue-800 font-bold text-lg mb-2">{titleQuestion}</div>
+      <div className="font-bold text-lg mb-2">{titleQuestion}</div>
       
       <div className="space-y-10">
         {parsed.questions?.map((q) => (
@@ -352,7 +403,7 @@ function ArrangeBlock({ block }) {
 function PronunciationBlock({ block }) {
   return (
     <div className="mb-14 border-b border-gray-200 pb-8 last:border-0">
-      <div className="text-blue-800 font-bold text-lg mb-2">{block.titleQuestion}</div>
+      <div className="font-bold text-lg mb-2">{block.titleQuestion}</div>
       <div className="space-y-8">
         {block.parsed.questions?.map((q) => (
           <div key={q.number}>
@@ -367,7 +418,7 @@ function PronunciationBlock({ block }) {
                <p className="font-bold text-green-800">Chọn {q.answer}</p>
                <p className="text-sm">{q.explanation}</p>
                {q.details?.map((d, i) => (
-                 <p key={i} className="text-xs text-gray-600 italic">
+                 <p key={i} className="text-sm">
                    {d.word} {d.ipa} ({d.pos}): {d.meaning}
                  </p>
                ))}
@@ -385,7 +436,7 @@ function PronunciationBlock({ block }) {
 function DialogueBlock({ block }) {
   return (
     <div className="mb-14 border-b border-gray-200 pb-8 last:border-0">
-      <div className="text-blue-800 font-bold text-lg mb-2">
+      <div className=" font-bold text-lg mb-2">
         {block.titleQuestion}
       </div>
 
@@ -396,31 +447,48 @@ function DialogueBlock({ block }) {
 
             {/* DIALOGUE */}
             <div className="bg-gray-50 p-3 rounded mb-2 italic">
-              {q.speaker_a && <p><b>A:</b> {q.speaker_a}</p>}
-              {q.speaker_b && <p><b>B:</b> {q.speaker_b}</p>}
+              {q.speaker_a && (
+                <p>
+                  <b>{q.speaker_a.name}:</b> {q.speaker_a.text}
+                </p>
+              )}
+              {q.speaker_b && (
+                <p>
+                  <b>{q.speaker_b.name}:</b> {q.speaker_b.text}
+                </p>
+              )}
             </div>
 
             {/* OPTIONS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pl-4 mb-2">
-              <p>{q.option_a}</p>
-              <p>{q.option_b}</p>
-              <p>{q.option_c}</p>
-              <p>{q.option_d}</p>
+              <p>A. {q.option_a}</p>
+              <p>B. {q.option_b}</p>
+              <p>C. {q.option_c}</p>
+              <p>D. {q.option_d}</p>
             </div>
 
             {/* ANSWER */}
             <div className="bg-green-50 p-3 rounded text-sm">
-              <p className="font-bold ">
-                Chọn {q.answer}
-              </p>
+              <p className="font-bold">Chọn {q.answer}</p>
 
-              <p>{q.explanation}</p>
+              {/* giữ xuống dòng cho explanation */}
+              <p className="whitespace-pre-line">{q.explanation}</p>
 
-              {/* ✅ FIX CHÍNH Ở ĐÂY */}
+              {/* TRANSLATION */}
               {q.translation && (
                 <div className="mt-2 italic">
-                  <p><b>A:</b> {q.translation.speaker_a}</p>
-                  <p><b>B:</b> {q.translation.speaker_b}</p>
+                  {q.translation.speaker_a && (
+                    <p>
+                      <b>{q.translation.speaker_a.name}:</b>{" "}
+                      {q.translation.speaker_a.text}
+                    </p>
+                  )}
+                  {q.translation.speaker_b && (
+                    <p>
+                      <b>{q.translation.speaker_b.name}:</b>{" "}
+                      {q.translation.speaker_b.text}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -477,8 +545,15 @@ function LogicalThinkingBlock({ block }) {
 function SingleQuestion({ q, isErrorType = false }) {
   return (
     <div className="group">
-      <p className="font-bold mb-2 text-gray-800">
-        Question {q.number}: {q.question_content && <span>{q.question_content}</span>}
+      {/* <p className="font-bold mb-2 text-gray-800">
+        Question {q.number}. {q.question_content && <span>{q.question_content}</span>}
+      </p> */}
+      <p className="font-bold mb-2 font-bold text-gray-800">
+        Question {q.number}.
+        {q.question_content && <span>{q.question_content}</span>}
+        {q.word_list && (
+          <span className="ml-2 font-bold font-normal">({q.word_list})</span>
+        )}
       </p>
 
       {/* Nội dung câu hỏi chính (nếu có, ví dụ trong Sentence Transformation) */}
@@ -487,7 +562,7 @@ function SingleQuestion({ q, isErrorType = false }) {
       )}
 
       {/* Word list (cho loại Word Reordering) */}
-      {q.word_list && <p className="italic mb-3 text-blue-700">({q.word_list})</p>}
+      {/* {q.word_list && <p className="italic mb-3 ">({q.word_list})</p>} */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 mb-4 pl-4">
         <p><span className="font-semibold">A.</span> {q.option_a}</p>
@@ -508,18 +583,18 @@ function SingleQuestion({ q, isErrorType = false }) {
         </p>
           
           {isErrorType && q.correction && (
-            <p className="text-blue-700 font-bold">Sửa lỗi: {q.correction}</p>
+            <p className="font-bold">Sửa lỗi: {q.correction}</p>
           )}
 
           {q.quote && (
-            <p className="italic bg-white p-2 rounded border border-green-200 text-sm">
+            <p className="rounded  border-green-200 text-sm">
               <span className="font-bold ">Trích bài:</span>{" "}
               <span dangerouslySetInnerHTML={{ __html: q.quote }} />
             </p>
           )}
 
           {q.translation && (
-            <p className="text-gray-600 italic">
+            <p className="">
               <span className="font-bold not-italic">Tạm dịch:</span> {q.translation}
             </p>
           )}
@@ -527,4 +602,66 @@ function SingleQuestion({ q, isErrorType = false }) {
       </div>
     </div>
   )
+}
+
+function CompleteSentenceGivenWordsMCQBlock({ block }) {
+  const { titleQuestion, parsed } = block;
+
+  return (
+    <div className="mb-14 border-b border-gray-200 pb-8 last:border-0">
+      {/* TITLE */}
+      <div className="font-bold text-lg mb-2">
+        {titleQuestion}
+      </div>
+
+      <div className="space-y-10">
+        {parsed.questions?.map((q) => (
+          <div key={q.number}>
+            
+            {/* QUESTION */}
+            <p className="mb-2">
+              <strong>Question {q.number}.</strong>
+              <span className="">
+                {q.given_words}
+              </span>
+            </p>
+
+            {/* OPTIONS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pl-4 mb-4">
+              <p>A. {q.options.option_A}</p>
+              <p>B. {q.options.option_B}</p>
+              <p>C. {q.options.option_C}</p>
+              <p>D. {q.options.option_D}</p>
+            </div>
+
+            {/* SOLUTION */}
+            <div className="bg-green-50 p-4 rounded border border-green-100">
+              <p className="text-green-800 font-bold mb-1">
+                Chọn {q.answer}
+              </p>
+
+              {/* EXPLANATION */}
+              <p className="mb-2 whitespace-pre-line">
+                {q.explanation}
+              </p>
+
+              {/* FULL SENTENCE */}
+              {q.full_sentence && (
+                <p className="font-bold">
+                  Câu hoàn chỉnh: {q.full_sentence}
+                </p>
+              )}
+
+              {/* TRANSLATION */}
+              {q.translation && (
+                <p className="mt-2">
+                  <b>Tạm dịch:</b> {q.translation}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

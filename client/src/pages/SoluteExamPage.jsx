@@ -9,7 +9,7 @@ import {
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 import { useNotification } from '../hooks/useNotification'
-
+import { Modal, Spin } from 'antd'
 // Storage
 const STORAGE_KEY = 'matrixquesgen_solute_page_state'
 const STORAGE_EXPIRY_HOURS = 5
@@ -22,6 +22,7 @@ export default function SoluteExamPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [loadingModal, setLoadingModal] = useState(false)
 
   const [generationProgress, setGenerationProgress] = useState({
     percentage: 0,
@@ -39,32 +40,64 @@ export default function SoluteExamPage() {
   // =========================
   // Restore state
   // =========================
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (!saved) return
+// useEffect(() => {
+//   try {
+//     const saved = localStorage.getItem(STORAGE_KEY)
+//     if (saved) {
+//       const parsed = JSON.parse(saved)
 
-      const parsed = JSON.parse(saved)
+//       if (parsed.timestamp) {
+//         const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000;
+//         if (Date.now() > expiry) {
+//           localStorage.removeItem(STORAGE_KEY);
+//         } else {
+//           if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam);
+//           if (parsed.sessionId) setSessionId(parsed.sessionId);
+//           if (parsed.examPdf) setExamPdf(parsed.examPdf);
+//         }
+//       }
+//     }
 
-      if (parsed.timestamp) {
-        const expiry = parsed.timestamp + STORAGE_EXPIRY_HOURS * 3600 * 1000;
-        if (Date.now() > expiry) {
-          localStorage.removeItem(STORAGE_KEY);
+//     // ✅ NEW: restore English exam
+//     const storedEnglishExam = localStorage.getItem("solutedEnglishExam")
+//     if (storedEnglishExam) {
+//       const parsedEnglish = JSON.parse(storedEnglishExam)
 
-          return;
-        }
-      }
+//       if (parsedEnglish && parsedEnglish.data) {
+//         const rawBlocks = Array.isArray(parsedEnglish.data[0])
+//           ? parsedEnglish.data[0]
+//           : parsedEnglish.data
 
-      if (parsed.generatedExam) setGeneratedExam(parsed.generatedExam);
+//         setGeneratedExam({ results: rawBlocks })
+//       }
+//     }
 
-      if (parsed.sessionId) setSessionId(parsed.sessionId);
+//   } catch (err) {
+//     console.error('Restore error:', err)
+//   }
+// }, [])
 
-      if (parsed.examPdf) setExamPdf(parsed.examPdf);
 
-    } catch (err) {
-      console.error('Restore error:', err)
+useEffect(() => {
+  try {
+    const stored = localStorage.getItem("solutedEnglishExam");
+    if (!stored) return;
+
+    const parsed = JSON.parse(stored);
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > ONE_HOUR) {
+      localStorage.removeItem("solutedEnglishExam");
+      return;
     }
-  }, [])
+
+    if (parsed.data) {
+      setGeneratedExam(parsed.data);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}, []);
 
   // =========================
   // Save state
@@ -94,6 +127,8 @@ export default function SoluteExamPage() {
       setExamPdf(null)
     }
 
+    localStorage.removeItem("solutedEnglishExam")
+
     setGeneratedExam(null);
 
     setSessionId(null);
@@ -113,12 +148,11 @@ export default function SoluteExamPage() {
     }
 
     const isEnglishPdf = examPdf?.files?.[0]?.name?.startsWith("ENGLISH_PDF_");
-    console.log(">>>>>>>>> debug isEnglishPDF", isEnglishPdf);
-
     setGeneratedExam(null)
     setSessionId(null)
     setIsGenerating(true)
-    notify.error(null)
+    // notify.error(null)
+    setLoadingModal(true)
 
     try {
 
@@ -130,15 +164,41 @@ export default function SoluteExamPage() {
         );
 
         
+        // if (result && result.data) {
+        //     const rawBlocks = Array.isArray(result.data[0]) ? result.data[0] : result.data;
+
+
+        //   setGeneratedExam({ results: rawBlocks });
+
+        //   // localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
+        //    localStorage.setItem(
+        //     "solutedEnglishExam",
+        //     JSON.stringify({
+        //       data: formatted,
+        //       timestamp: Date.now()
+        //     })
+        //   );
+
+        // }
+
         if (result && result.data) {
-            const rawBlocks = Array.isArray(result.data[0]) ? result.data[0] : result.data;
+          const rawBlocks = Array.isArray(result.data[0])
+            ? result.data[0]
+            : result.data;
 
-          setGeneratedExam({ results: rawBlocks });
+          const formattedData = { results: rawBlocks };
 
-          localStorage.setItem("solutedEnglishExam", JSON.stringify(result));
+          setGeneratedExam(formattedData);
 
+          localStorage.setItem(
+            "solutedEnglishExam",
+            JSON.stringify({
+              data: formattedData,
+              timestamp: Date.now()
+            })
+          );
         }
-        setIsGenerating(false);
+        // setIsGenerating(false);
         return;
       }
 
@@ -148,47 +208,14 @@ export default function SoluteExamPage() {
         examPdf.files
       )
 
-      const newSessionId = result.session_id
-      setSessionId(newSessionId)
-
-      let delay = 2000
-      const maxDelay = 10000
-
-      const pollProgress = async () => {
-        try {
-          const progress = await getGenerationProgress(newSessionId)
-
-          setGenerationProgress({
-            percentage: progress.progress || 0,
-            phase: progress.current_phase || '',
-            status: progress.status || 'processing'
-          })
-
-          if (progress.status === 'completed') {
-            const detail = await getSessionDetail(newSessionId)
-            setGeneratedExam(detail)
-            setIsGenerating(false)
-            setIsDirty(false)
-          } else if (progress.status === 'failed') {
-            notify.error(progress.error || 'Lỗi khi giải đề')
-            setIsGenerating(false)
-          } else {
-            delay = Math.min(delay * 1.2, maxDelay)
-            setTimeout(pollProgress, delay)
-          }
-
-        } catch (err) {
-          notify.error('Lỗi khi kiểm tra tiến độ: ' + err.message)
-          setIsGenerating(false)
-        }
-      }
-
-      setTimeout(pollProgress, delay)
 
     } catch (err) {
       notify.error('Lỗi khi bắt đầu giải đề: ' + err.message)
       setIsGenerating(false)
-    }
+    } finally {
+    setIsGenerating(false)
+    setLoadingModal(false) // 👈 đóng modal
+  }
   }
 
   const downloadFile = (blob, filename) => {
@@ -215,7 +242,9 @@ export default function SoluteExamPage() {
          return
        }
    
-       const generatedExam = JSON.parse(storedExam)
+      //  const generatedExam = JSON.parse(storedExam)
+      const parsed = JSON.parse(storedExam);
+      const generatedExam = parsed.data;
    
        try {
          setIsExporting(true)
@@ -318,7 +347,22 @@ export default function SoluteExamPage() {
           />
         )}
       </div>
-
+        <Modal
+          open={loadingModal}
+          footer={null}
+          closable={false}
+          centered
+        >
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16, fontSize: 16 }}>
+              ⏳ Hệ thống đang phân tích và giải đề...
+            </div>
+            <div style={{ color: '#888', marginTop: 8 }}>
+              Quá trình này có thể mất vài phút, vui lòng chờ.
+            </div>
+          </div>
+        </Modal>
     </div>
   )
 }
