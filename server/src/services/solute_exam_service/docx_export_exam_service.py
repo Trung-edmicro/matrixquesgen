@@ -191,10 +191,32 @@ def _render_solution_block(doc, q, res_type=None):
         _render_html_text(p_quote, str(q["quote"]))
 
                 
+    # if q.get("translation"):
+    #     p_trans = doc.add_paragraph()
+    #     p_trans.add_run("Tạm dịch: ").bold = True
+    #     p_trans.add_run(str(q['translation']))
     if q.get("translation"):
         p_trans = doc.add_paragraph()
         p_trans.add_run("Tạm dịch: ").bold = True
-        p_trans.add_run(str(q['translation']))
+
+        trans = q["translation"]
+
+        # Case 1: Dialogue (có speaker_a, speaker_b)
+        if isinstance(trans, dict) and (
+            "speaker_a" in trans or "speaker_b" in trans
+        ):
+            # xuống dòng sau label
+            p_trans.add_run("\n")
+
+            if trans.get("speaker_a"):
+                p_trans.add_run(f"A: {trans['speaker_a']}\n")
+
+            if trans.get("speaker_b"):
+                p_trans.add_run(f"B: {trans['speaker_b']}")
+
+        # Case 2: dạng text bình thường
+        else:
+            p_trans.add_run(str(trans))
 
 
 def _render_solution__reading_comprehensive_block(doc, q):
