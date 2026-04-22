@@ -151,6 +151,7 @@ export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
       console.log(">>>>>> cleaned up temp files")
     } catch (cleanupError) {
       console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
     }
   }
 }

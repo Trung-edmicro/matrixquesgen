@@ -37,8 +37,8 @@ def get_drive_file_content():
 
 DRIVE_PROMPT_ENGLISH_SOLUTION = "https://drive.google.com/drive/folders/19WaudkbI20vukSvswqrHGvv407E6PiLZ"
 
-ENGLISH_SCHEMA_SOLUTE = r"""
-[
+ENGLISH_SCHEMA_SOLUTE = """
+ [
   {
     "type": "CLOZE",
     "titleQuestion": "string",
@@ -114,7 +114,7 @@ ENGLISH_SCHEMA_SOLUTE = r"""
   {
     "type": "ARRANGE",
     "titleQuestion": "string",
-    "question_count": "number,
+    "question_count": "number",
     "start_num": "number",
     "parsed": {
       "question_number": "number",
@@ -247,10 +247,10 @@ ENGLISH_SCHEMA_SOLUTE = r"""
         {
           "number": "number",
           "type": "pronunciation | stress",
-          "option_a": "string",
-          "option_b": "string",
-          "option_c": "string",
-          "option_d": "string",
+          "option_a": "<u>string</u>",
+          "option_b": "<u>string</u>",
+          "option_c": "<u>string</u>",
+          "option_d": "<u>string</u>",
           "answer": "A | B | C | D",
           "explanation": "string",
           "details": [
@@ -275,8 +275,14 @@ ENGLISH_SCHEMA_SOLUTE = r"""
       "questions": [
         {
           "number": "number",
-          "speaker_a": "string",
-          "speaker_b": "______",
+           "speaker_a": {
+            "name": "string",
+            "text": "string"
+          },
+          "speaker_b": {
+            "name": "string",
+            "text": "string"
+          },
           "option_a": "string",
           "option_b": "string",
           "option_c": "string",
@@ -284,8 +290,14 @@ ENGLISH_SCHEMA_SOLUTE = r"""
           "answer": "A | B | C | D",
           "explanation": "string",
           "translation": {
-            "speaker_a": "string",
-            "speaker_b": "string"
+            "speaker_a": {
+            "name": "string",
+            "text": "string"
+            },
+            "speaker_b": {
+            "name": "string",
+            "text": "string"
+          }
           }
         }
       ]
@@ -320,8 +332,272 @@ ENGLISH_SCHEMA_SOLUTE = r"""
         }
       ]
     }
+  },
+  {
+    "type": "ESSAY_WORD_FORM",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "sentence": "string",
+          "given_words": ["string"],
+          "answers": ["string"],
+          "knowledge": "string",
+          "explanation": {
+            "blank_1": "string",
+            "blank_2": "string",
+            "blank_3": "string"
+          },
+          "translation": "string"
+        }
+      ]
+    }
+  },
+  {
+    "type": "ESSAY_SENTENCE_REWRITING",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "original_sentence": "string",
+          "rewrite_prompt": "string",
+          "answer": "string",
+          "full_rewritten_sentence": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "translation": {
+            "original": "string",
+            "rewritten": "string"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "ESSAY_COMBINE_SENTENCES",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "sentence_1": "string",
+          "sentence_2": "string",
+          "rewrite_prompt": "string",
+          "answer": "string",
+          "combined_sentence": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "translation": {
+            "original_1": "string",
+            "original_2": "string",
+            "combined": "string"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "ESSAY_WORD_ORDERING",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "given_words": "string",
+          "correct_sentence": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "translation": "string"
+        }
+      ]
+    }
+  },
+  {
+    "type": "ESSAY_WORD_FORM",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "sentence": "string",
+          "given_words": ["string"],
+          "answer": "string",
+          "full_sentence": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "translation": "string"
+        }
+      ]
+    }
+  },
+  {
+    "type": "ESSAY_WORD_PROMPT_COMPLETION",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "given_prompts": "string",
+          "sentence_starter": "string | null",
+          "full_sentence": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "translation": "string"
+        }
+      ]
+    }
+  },
+  {
+    "type": "OPENING_AND_ORDERING",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "question_groups": [
+        {
+          "group_number": "number",
+          "shared_stem": {
+            "range": "string",
+            "text": "string"
+          },
+          "opening_question": {
+            "question_number": "number",
+            "options": {
+              "A": "string",
+              "B": "string",
+              "C": "string",
+              "D": "string"
+            },
+            "answer": "A | B | C | D",
+            "knowledge": "string",
+            "explanation": {
+              "reasoning": "string",
+              "correct_sentence": "string"
+            }
+          },
+          "ordering_question": {
+            "question_number": "number",
+            "sentences": {
+              "a": "string",
+              "b": "string",
+              "c": "string"
+            },
+            "options": {
+              "A": "string",
+              "B": "string",
+              "C": "string",
+              "D": "string"
+            },
+            "answer": "A | B | C | D",
+            "knowledge": "string",
+            "explanation": {
+              "steps": ["string"],
+              "correct_order": "string",
+              "full_passage": "string",
+              "translation": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "ORDERING_AND_CLOSING",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "question_groups": [
+        {
+          "group_number": "number",
+          "ordering_question": {
+            "question_number": "number",
+            "passage_intro": "string",
+            "sentences": {
+              "a": "string",
+              "b": "string",
+              "c": "string"
+            },
+            "options": {
+              "A": "string",
+              "B": "string",
+              "C": "string",
+              "D": "string"
+            },
+            "answer": "A | B | C | D",
+            "explanation": {
+              "steps": ["string"],
+              "correct_order": "string",
+              "full_passage": "string",
+              "translation": "string"
+            }
+          },
+          "closing_question": {
+            "question_number": "number",
+            "options": {
+              "A": "string",
+              "B": "string",
+              "C": "string",
+              "D": "string"
+            },
+            "answer": "A | B | C | D",
+            "knowledge": "string",
+            "explanation": {
+              "option_analysis": {
+                "A": "string",
+                "B": "string",
+                "C": "string",
+                "D": "string"
+              },
+              "reasoning": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "COMPLETE_SENTENCE_GIVEN_WORD",
+    "titleQuestion": "string",
+    "question_count": "number",
+    "start_num": "number",
+    "parsed": {
+      "questions": [
+        {
+          "number": "number",
+          "given_words": "string",
+          "sentence_stem": "string",
+          "options": {
+            "option_A": "string",
+            "option_B": "string",
+            "option_C": "string",
+            "option_D": "string"
+          },
+          "correct_option": "A | B | C | D",
+          "answer": "string",
+          "knowledge": "string",
+          "explanation": "string",
+          "full_sentence": "string",
+          "translation": "string"
+        }
+      ]
+    }
   }
-]
+ ]
 """
 
 
@@ -345,7 +621,7 @@ def get_md_file_from_drive():
 
         params = {
             "key": API_KEY,
-            "q": f"'{folder_id}' in parents and name = 'TA_Huong_dan_giai.md'",
+            "q": f"'{folder_id}' in parents and name = 'TA_Huong_dan_giai_21_4.md'",
             "fields": "files(id, name, mimeType)"
         }
 
@@ -360,10 +636,10 @@ def get_md_file_from_drive():
         file_id = files[0]["id"]
 
         # 2. Download file content
-        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}/export"
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
 
         params = {
-            "mimeType": "text/plain",
+            "alt":"media",
             "key": API_KEY
         }
 
@@ -396,6 +672,7 @@ async def solute_with_fallback(
     client_25: AsyncVertexClient,
     prompt: str,
     pdf_path: str,
+    schema:Any = None,
     max_retries: int = 3
 ):
     """
@@ -408,6 +685,7 @@ async def solute_with_fallback(
         return await client_31.solute(
             prompt=prompt,
             pdf_path=pdf_path,
+            schema=schema,
             temperature=1.0
         )
     except Exception as e:
@@ -455,22 +733,58 @@ async def solute_with_fallback(
 # PER-FILE PROCESSOR
 # ============================
 
+# async def process_single_pdf(
+#     pdf_path: str,
+#     prompt: str,
+#     client_31: AsyncVertexGemini31,
+#     client_25: AsyncVertexClient,
+#     schema: Any,
+# ):
+#     """
+#     Xử lý 1 file PDF với cơ chế fallback Gemini 3.1 → 2.5.
+#     """
+#     result = await solute_with_fallback(
+#         pdf_path=pdf_path,
+#         prompt=prompt,
+#         client_31=client_31,
+#         client_25=client_25,
+#         schema=schema,
+#     )
+#     return result
+
 async def process_single_pdf(
     pdf_path: str,
     prompt: str,
     client_31: AsyncVertexGemini31,
-    client_25: AsyncVertexClient
+    client_25: AsyncVertexClient,
 ):
     """
     Xử lý 1 file PDF với cơ chế fallback Gemini 3.1 → 2.5.
+    Đã thêm try-catch để đảm bảo một file lỗi không làm sập toàn bộ tiến trình.
     """
-    result = await solute_with_fallback(
-        client_31=client_31,
-        client_25=client_25,
-        prompt=prompt,
-        pdf_path=pdf_path
-    )
-    return result
+    try:
+        logger.info(f"🚀 Đang bắt đầu xử lý file: {pdf_path}")
+        
+        result = await solute_with_fallback(
+            pdf_path=pdf_path,
+            prompt=prompt,
+            client_31=client_31,
+            client_25=client_25,
+        )
+
+        if result is None:
+            logger.warning(f"⚠️ Cảnh báo: Kết quả trả về từ file {pdf_path} bị trống (None).")
+        else:
+            logger.info(f"✅ Xử lý thành công file: {pdf_path}")
+            
+        return result
+
+    except Exception as e:
+        # exc_info=True sẽ in chi tiết trackback lỗi để bạn dễ debug
+        logger.error(f"❌ Lỗi nghiêm trọng khi xử lý file {pdf_path}: {str(e)}", exc_info=True)
+        
+        # Trả về None thay vì raise lỗi để các task khác trong asyncio.gather vẫn chạy tiếp được
+        return None
 
 
 # ============================
@@ -519,6 +833,14 @@ def _parse_single_result(result: Any) -> Any:
 async def solve_english_exam(file_paths: List[str]):
     print(f">>>>> debug file_paths {file_paths}")
 
+    raw_schema_list = json.loads(ENGLISH_SCHEMA_SOLUTE)
+    
+    valid_schema = {
+        "type": "array",
+        "items": {
+            "anyOf": raw_schema_list
+        }
+    }
     try:
         base_prompt = get_md_file_from_drive()
 
@@ -555,7 +877,7 @@ OUTPUT FORMAT (STRICT JSON):
 
         async def run_all():
             tasks = [
-                process_single_pdf(pdf_path, full_prompt, client_31, client_25)
+                process_single_pdf(pdf_path, full_prompt,client_31, client_25)
                 for pdf_path in file_paths
             ]
             return await asyncio.gather(*tasks)
@@ -563,7 +885,7 @@ OUTPUT FORMAT (STRICT JSON):
         # ✅ FIX HERE
         results = await run_all()
         cleaned_results = clean_json(results)
-        print(f">>>>> debug cleaned_results {cleaned_results}")
+        print(">>>>> debug cleaned_results:\n", json.dumps(cleaned_results, indent=2, ensure_ascii=False))
         return cleaned_results
 
 
