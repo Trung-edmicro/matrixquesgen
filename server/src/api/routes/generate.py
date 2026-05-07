@@ -109,9 +109,13 @@ def generate_questions_task(
             session_data['progress'] = progress
             update_session(session_data)
 
+        # Read AI provider from settings (Gemini or OpenAI)
+        from services.core.ai_provider_settings import get_ai_provider as _get_ai_provider
+        _ai_provider = _get_ai_provider()
+
         # Use WorkflowOrchestrator
         orchestrator = WorkflowOrchestrator(config=WorkflowConfig(
-            ai_provider="genai",
+            ai_provider=_ai_provider,
             question_types=["TN", "DS", "TLN", "TL"],
             max_concurrent_generations=config.get('max_workers', 5)
         ), progress_callback=_on_progress)

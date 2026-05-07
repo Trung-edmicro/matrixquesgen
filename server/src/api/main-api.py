@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # Use absolute imports
 from api.routes import generate, questions, export, google_drive, regenerate, images, update as update_route, chart_regenerate
 from api.routes import math_template_selection
+from api.routes.ai_settings import router as ai_settings_router
 from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
 from api.custom_prompts_api import router as custom_prompts_router
 from api.routes.export import routerEnglish
@@ -67,6 +68,8 @@ app.include_router(workflow_router)
 
 # Include custom prompts router (Case 2)
 app.include_router(custom_prompts_router, prefix="/api")
+# Include AI settings router
+app.include_router(ai_settings_router)
 
 
 @app.get("/")

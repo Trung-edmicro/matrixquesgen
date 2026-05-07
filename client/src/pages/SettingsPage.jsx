@@ -23,6 +23,16 @@ const STATUS_COLORS = {
   unavailable: 'text-gray-400',
 }
 
+const AI_PROVIDER_LABELS = {
+  gemini: 'Google Gemini',
+  openai: 'OpenAI (GPT)',
+}
+
+const AI_PROVIDER_DESCRIPTIONS = {
+  gemini: 'Sử dụng Google Gemini (Vertex AI) — mặc định',
+  openai: 'Sử dụng OpenAI GPT-4o',
+}
+
 export default function SettingsPage() {
   const [versionInfo, setVersionInfo] = useState({ version: '…', app_name: 'MatrixQuesGen' })
   const [updateState, setUpdateState] = useState({
@@ -36,6 +46,11 @@ export default function SettingsPage() {
   })
   const [polling, setPolling] = useState(false)
 
+  // AI provider state
+  const [aiProvider, setAiProvider] = useState('gemini')
+  const [aiProviderLoading, setAiProviderLoading] = useState(false)
+  const [aiProviderMessage, setAiProviderMessage] = useState('')
+
   // Fetch current version on mount
   useEffect(() => {
     fetch(`${API_BASE}/api/update/version`)
@@ -47,6 +62,12 @@ export default function SettingsPage() {
     fetch(`${API_BASE}/api/update/status`)
       .then(r => r.json())
       .then(data => setUpdateState(s => ({ ...s, ...data })))
+      .catch(() => {})
+
+    // Load current AI provider
+    fetch(`${API_BASE}/api/ai-settings`)
+      .then(r => r.json())
+      .then(data => setAiProvider(data.ai_provider || 'gemini'))
       .catch(() => {})
   }, [])
 
@@ -99,6 +120,31 @@ export default function SettingsPage() {
     pollStatus()
   }
 
+  // Switch AI provider
+  const handleSwitchAiProvider = async (provider) => {
+    if (provider === aiProvider || aiProviderLoading) return
+    setAiProviderLoading(true)
+    setAiProviderMessage('')
+    try {
+      const res = await fetch(`${API_BASE}/api/ai-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ai_provider: provider }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || 'Lỗi không xác định')
+      }
+      const data = await res.json()
+      setAiProvider(data.ai_provider)
+      setAiProviderMessage(`Đã chuyển sang ${AI_PROVIDER_LABELS[data.ai_provider]}.`)
+    } catch (e) {
+      setAiProviderMessage(`Lỗi: ${e.message}`)
+    } finally {
+      setAiProviderLoading(false)
+    }
+  }
+
   const isRunning = ['checking', 'downloading', 'installing'].includes(updateState.status)
   const showDownloadBtn = updateState.status === 'available'
   const showProgress = ['downloading', 'installing'].includes(updateState.status)
@@ -106,6 +152,53 @@ export default function SettingsPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-8">
       <h1 className="text-2xl font-bold text-gray-900">Cài đặt</h1>
+
+      {/* ── AI Provider card ── */}
+      <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+          <h2 className="text-base font-semibold text-gray-700">Nhà cung cấp AI</h2>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-gray-500">
+            Chọn AI sẽ được sử dụng để sinh câu hỏi. Thay đổi có hiệu lực ngay từ lần sinh tiếp theo.
+          </p>
+
+          <div className="flex gap-3">
+            {['gemini', 'openai'].map((provider) => {
+              const active = aiProvider === provider
+              return (
+                <button
+                  key={provider}
+                  onClick={() => handleSwitchAiProvider(provider)}
+                  disabled={aiProviderLoading}
+                  className={`flex-1 flex flex-col items-start gap-1 px-4 py-3 rounded-lg border-2 text-left transition-colors
+                    ${active
+                      ? 'border-primary-500 bg-primary-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'}
+                    ${aiProviderLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span className={`text-sm font-semibold ${active ? 'text-primary-700' : 'text-gray-700'}`}>
+                    {AI_PROVIDER_LABELS[provider]}
+                    {active && <span className="ml-2 text-xs font-medium bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded">Đang dùng</span>}
+                  </span>
+                  <span className="text-xs text-gray-500">{AI_PROVIDER_DESCRIPTIONS[provider]}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {aiProviderLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Spinner /> Đang lưu cài đặt…
+            </div>
+          )}
+          {aiProviderMessage && !aiProviderLoading && (
+            <p className={`text-sm ${aiProviderMessage.startsWith('Lỗi') ? 'text-red-600' : 'text-green-600'}`}>
+              {aiProviderMessage}
+            </p>
+          )}
+        </div>
+      </section>
 
       {/* ── Version & Update card ── */}
       <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

@@ -137,7 +137,48 @@ class QuestionGenerationService:
         self.primary_model = Config.VERTEX_AI_MODEL
         self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
 
-        if ai_provider == "genai":
+        if ai_provider == "openai":
+            # Initialize OpenAI client for text generation
+            try:
+                from ..core.openai_client import OpenAIClient
+                from ..core.openai_client import OpenAIClient as _OpenAIClient
+                self.genai_client = OpenAIClient()
+                # Update primary_model and fallback_model from actual client
+                if self.genai_client and self.genai_client.model_name:
+                    self.primary_model = self.genai_client.model_name
+                self.fallback_model = _OpenAIClient.FALLBACK_MODEL
+                print("✅ Initialized OpenAI client for question generation service")
+                print(f"✓ Configured retry strategy:")
+                print(f"   Primary model: {self.primary_model} (5 retries)")
+                print(f"   Fallback model: {self.fallback_model} (3 retries)")
+            except Exception as e:
+                print(f"❌ Failed to initialize OpenAI client: {e}")
+                self.genai_client = None
+                self.question_generator = None
+
+            # Always initialize ImageWorkflowService with Gemini client
+            # (image generation requires Gemini/Imagen regardless of text AI provider)
+            try:
+                project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
+                credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+                api_key = os.getenv("GENAI_API_KEY")
+                gemini_for_images = GenAIClient(
+                    project_id=project_id,
+                    credentials_path=credentials_path,
+                    api_key=api_key
+                )
+                self.image_workflow_service = ImageWorkflowService(
+                    ai_client=gemini_for_images,
+                    image_save_dir=None,
+                    prompts_dir=None
+                )
+                print("✅ Initialized ImageWorkflowService with Gemini (for HA_MH/HA_TL, always uses Gemini)")
+            except Exception as img_err:
+                print(f"⚠️ Failed to initialize ImageWorkflowService for OpenAI mode: {img_err}")
+                print("   Image-based questions (HA_MH/HA_TL) will not be available")
+                self.image_workflow_service = None
+
+        elif ai_provider == "genai":
             # Initialize GenAI client
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
             credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")

@@ -170,9 +170,10 @@ a = Analysis(
         'google.oauth2',
         'google.oauth2.credentials',
         'google.oauth2.service_account',
-        # Other dependencies
+        # Data processing & Excel (TOAN matrix processing)
         'pandas',
         'openpyxl',
+        'xlrd',
         'pdfplumber',
         'pdf2image',
         'docx',          # python-docx installs as 'docx'
@@ -181,6 +182,8 @@ a = Analysis(
         'dotenv',
         # Explicitly include newly added exam-solving route
         'api.routes.solute',
+        # TOAN template selection workflow
+        'api.routes.math_template_selection',
         # Server modules — pathex includes server/src so these resolve correctly
         # collect_submodules walks each package and finds all sub-modules
         *collect_submodules('api'),

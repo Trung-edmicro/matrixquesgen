@@ -446,7 +446,12 @@ class ContentMappingService:
             if 'supplementary_materials' in spec:
                 del spec['supplementary_materials']  # Remove old field
 
-            if ds_materials:
+            # Only map materials from content if not already set in spec
+            existing_materials = spec.get('materials', '')
+            if existing_materials:
+                # Keep existing materials from matrix, don't override from content
+                pass
+            elif ds_materials:
                 selected_material = random.choice(ds_materials)
                 spec['materials'] = selected_material
             else:
