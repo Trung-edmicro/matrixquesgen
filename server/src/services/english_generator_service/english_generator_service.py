@@ -164,25 +164,6 @@ def fetch_drive_md_files():
         return {}
 
 
-# def load_prompt(filename: str) -> str:
-#     print("🔎 Fetching prompts from Drive...")
-
-#     drive_prompts = fetch_drive_md_files()
-
-#     # Ưu tiên Drive
-#     if filename in drive_prompts:
-#         print(f"✅ Load từ Drive: {filename}")
-#         return drive_prompts[filename]
-
-#     # fallback local
-#     path = PROMPT_DIR / filename
-
-#     if not path.exists():
-#         raise Exception(f"Không tìm thấy prompt: {filename}")
-
-#     print(f"📂 Load từ LOCAL: {filename}")
-#     return path.read_text(encoding="utf-8")
-
 def load_prompt(filename: str) -> str:
     path = PROMPT_DIR / filename
 
@@ -193,37 +174,6 @@ def load_prompt(filename: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-
-
-# def detect_type_columns(df):
-#     col_map = {}
-#     for i, col in enumerate(df.columns):
-#         col_lower = str(col).lower()
-#         if "điền từ" in col_lower:
-#             col_map["Điền từ"] = i
-#         elif "sắp xếp từ" in col_lower:
-#             col_map["Sắp xếp từ"] = i
-#         elif "sắp xếp" in col_lower:
-#             col_map["Sắp xếp"] = i
-#         elif "đọc hiểu" in col_lower:
-#             col_map["Đọc hiểu"] = i
-#         elif "điền cụm" in col_lower:
-#             col_map["Điền cụm từ/điền câu"] = i
-#         elif "hoàn thành câu" in col_lower:
-#             col_map["Hoàn thành câu"] = i
-#         elif "đồng nghĩa" in col_lower or "trái nghĩa" in col_lower:
-#             col_map["Đồng nghĩa/Trái nghĩa"] = i
-#         elif "tìm lỗi sai" in col_lower:
-#             col_map["Tìm lỗi sai"] = i
-#         elif "kết hợp" in col_lower or "viết lại" in col_lower:
-#             col_map["Kết hợp/viết lại câu"] = i
-#         elif "phát âm" in col_lower or "trọng âm" in col_lower:
-#             col_map["Phát âm/Trọng âm"] = i
-#         elif "giao tiếp" in col_lower:
-#             col_map["Câu giao tiếp"] = i
-#         elif "tình huống" in col_lower or "tư duy" in col_lower:
-#             col_map["Tư duy/Tình huống"] = i
-#     return col_map
 
 def detect_type_columns(df):
     col_map = {}
@@ -295,62 +245,155 @@ def detect_all_levels(row, start_index):
 META_COLS = ["STT", "Chủ đề", "Số từ","Từ vựng", "Độ khó", "Dạng thức bài đọc (VI)","Dạng thức bài đọc (EN)","Từ vựng tham khảo","Tài liệu tham khảo"]
 
 
-def extract_blocks_from_excel(file_path: str):
+# def extract_blocks_from_excel(file_path: str):
 
+#     df = pd.read_excel(file_path, sheet_name="Ma trận")
+#     df.columns = [str(col).strip() for col in df.columns]
+#     df[META_COLS] = df[META_COLS].ffill()
+
+#     type_col_map = detect_type_columns(df)
+#     blocks = []
+#     total_counts = Counter()
+#     grouped = df.groupby("STT")
+
+#     for stt, group in grouped:
+#         topic = group.iloc[0]["Chủ đề"]
+#         vocabulary_example = group.iloc[0]["Từ vựng"]
+#         word_count = str(group.iloc[0]["Số từ"])
+#         difficulty = group.iloc[0]["Độ khó"]
+#         text_type = group.iloc[0]["Dạng thức bài đọc (VI)"]
+#         text_type_en = group.iloc[0]["Dạng thức bài đọc (EN)"]
+#         vocabulary = group.iloc[0]["Từ vựng tham khảo"]
+#         document_sample = group.iloc[0]["Tài liệu tham khảo"]
+#         question_types = defaultdict(list)
+
+#         for _, row in group.iterrows():
+#             spec = row.get("Đặc tả ma trận")
+#             if pd.isna(spec):
+#                 continue
+#             spec = str(spec).strip()
+#             for q_type, start_col in type_col_map.items():
+#                 levels = detect_all_levels(row, start_col)
+#                 for lv in levels:
+#                     question_types[q_type].append({"spec": spec, "level": lv})
+
+#         print(f"\n=== STT {stt} ===")
+#         for q_type, questions in question_types.items():
+#             count = len(questions)
+#             print(f"{q_type}: {count} questions")
+#             total_counts[q_type] += count
+#             blocks.append({
+#                 "type": q_type,
+#                 "topic": topic,
+#                 "difficulty": difficulty,
+#                 "text_type": text_type,
+#                 "text_type_en": text_type_en,
+#                 "word_count": word_count,
+#                 "question_count": count,
+#                 "questions": questions,
+#                 "vocabulary": vocabulary,
+#                 "document_sample": document_sample,
+#                 "vocabulary_example": vocabulary_example
+#             })
+
+#     print("\n=== TOTAL QUESTIONS PER COLUMN ===")
+#     for q_type, count in total_counts.items():
+#         print(f"{q_type}: {count}")
+#     print(f">>>>>> debug blocks {blocks}")
+#     return blocks
+
+
+def extract_blocks_from_excel(file_path: str):
     df = pd.read_excel(file_path, sheet_name="Ma trận")
+
+    # Chuẩn hóa column
     df.columns = [str(col).strip() for col in df.columns]
+
+    # Fill meta
     df[META_COLS] = df[META_COLS].ffill()
 
+    # Detect các cột dạng câu hỏi
     type_col_map = detect_type_columns(df)
+
     blocks = []
     total_counts = Counter()
+
     grouped = df.groupby("STT")
 
     for stt, group in grouped:
-        topic = group.iloc[0]["Chủ đề"]
-        vocabulary_example = group.iloc[0]["Từ vựng"]
-        word_count = str(group.iloc[0]["Số từ"])
-        difficulty = group.iloc[0]["Độ khó"]
-        text_type = group.iloc[0]["Dạng thức bài đọc (VI)"]
-        text_type_en = group.iloc[0]["Dạng thức bài đọc (EN)"]
-        vocabulary = group.iloc[0]["Từ vựng tham khảo"]
-        document_sample = group.iloc[0]["Tài liệu tham khảo"]
+        first_row = group.iloc[0]
+
+        topic = first_row["Chủ đề"]
+        vocabulary_example = first_row["Từ vựng"]
+        word_count = str(first_row["Số từ"])
+        difficulty = first_row["Độ khó"]
+        text_type = first_row["Dạng thức bài đọc (VI)"]
+        text_type_en = first_row["Dạng thức bài đọc (EN)"]
+        vocabulary = first_row["Từ vựng tham khảo"]
+        document_sample = first_row["Tài liệu tham khảo"]
+
+        # Lưu toàn bộ question theo type
         question_types = defaultdict(list)
 
         for _, row in group.iterrows():
             spec = row.get("Đặc tả ma trận")
             if pd.isna(spec):
                 continue
+
             spec = str(spec).strip()
+
             for q_type, start_col in type_col_map.items():
                 levels = detect_all_levels(row, start_col)
+
                 for lv in levels:
-                    question_types[q_type].append({"spec": spec, "level": lv})
+                    question_types[q_type].append({
+                        "spec": spec,
+                        "level": lv
+                    })
 
         print(f"\n=== STT {stt} ===")
-        for q_type, questions in question_types.items():
-            count = len(questions)
-            print(f"{q_type}: {count} questions")
-            total_counts[q_type] += count
-            blocks.append({
-                "type": q_type,
-                "topic": topic,
-                "difficulty": difficulty,
-                "text_type": text_type,
-                "text_type_en": text_type_en,
-                "word_count": word_count,
-                "question_count": count,
-                "questions": questions,
-                "vocabulary": vocabulary,
-                "document_sample": document_sample,
-                "vocabulary_example": vocabulary_example
 
-            })
+        # ✅ TÁCH BLOCK THEO LEVEL
+        for q_type, questions in question_types.items():
+            level_group = defaultdict(list)
+
+            for q in questions:
+                level_group[q["level"]].append(q)
+
+            for lv, qs in level_group.items():
+                count = len(qs)
+
+                print(f"{q_type} - {lv}: {count} questions")
+
+                total_counts[q_type] += count
+
+                block = {
+                    "type": q_type,
+                    "level": lv,  # ✅ level riêng
+                    "topic": topic,
+                    "difficulty": difficulty,
+                    "text_type": text_type,
+                    "text_type_en": text_type_en,
+                    "word_count": word_count,
+
+                    "question_count": count,
+                    "questions": qs,
+
+                    # metadata thêm
+                    "specs": list(set(q["spec"] for q in qs)),
+                    "distribution": Counter(q["level"] for q in qs),
+
+                    "vocabulary": vocabulary,
+                    "document_sample": document_sample,
+                    "vocabulary_example": vocabulary_example
+                }
+
+                blocks.append(block)
 
     print("\n=== TOTAL QUESTIONS PER COLUMN ===")
     for q_type, count in total_counts.items():
         print(f"{q_type}: {count}")
-
+    print(f">>>>>> debug block {blocks}")
     return blocks
 
 
@@ -624,7 +667,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_cloze)
             tasks.append(task)
-            block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en))
+            block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         # ===============================
@@ -660,7 +703,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_arrange)
             tasks.append(task)
-            block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en))
+            block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += 1
 
         # ===============================
@@ -704,7 +747,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_reading_comprehensive)
             tasks.append(task)
-            block_meta.append(("RC", topic, n_q, q_count,text_type_en))
+            block_meta.append(("RC", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         # ===============================
@@ -751,7 +794,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_silent)
             tasks.append(task)
-            block_meta.append(("GAP", topic, n_q, q_count,text_type_en))
+            block_meta.append(("GAP", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
         
         elif q_type == "Hoàn thành câu":
@@ -784,7 +827,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = limited_generate(client_31, client_25, ai_input_sentence_completion)
             tasks.append(task)
-            block_meta.append(("SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
+            block_meta.append(("SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Đồng nghĩa/Trái nghĩa":
@@ -818,7 +861,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = limited_generate(client_31, client_25, ai_input_synonym_antonym)
             tasks.append(task)
-            block_meta.append(("SYNONYM_ANTONYM", topic, n_q, q_count,text_type_en))
+            block_meta.append(("SYNONYM_ANTONYM", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tìm lỗi sai":
@@ -853,7 +896,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_error_identification)
             task = limited_generate(client_31, client_25, ai_input_error_identification)
             tasks.append(task)
-            block_meta.append(("ERROR_IDENTIFICATION", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ERROR_IDENTIFICATION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
         
         elif q_type == "Kết hợp/viết lại câu":
@@ -892,7 +935,7 @@ async def generate_exam_docx(blocks, output_path):
 
             task = limited_generate(client_31, client_25,  ai_input_sentence_transformation)
             tasks.append(task)
-            block_meta.append(("SENTENCE_TRANSFORMATION", topic, n_q, q_count,text_type_en))
+            block_meta.append(("SENTENCE_TRANSFORMATION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Sắp xếp từ":
@@ -927,7 +970,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_word_reordering)
             task = limited_generate(client_31, client_25, ai_input_word_reordering)
             tasks.append(task)
-            block_meta.append(("WORD_REORDERING", topic, n_q, q_count,text_type_en))
+            block_meta.append(("WORD_REORDERING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
         
         elif q_type == "Phát âm/Trọng âm":
@@ -962,7 +1005,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_pronounciation_stress)
             task = limited_generate(client_31, client_25, ai_input_pronounciation_stress)
             tasks.append(task)
-            block_meta.append(("PRONUNCIATION_STRESS", topic, n_q, q_count,text_type_en))
+            block_meta.append(("PRONUNCIATION_STRESS", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Câu giao tiếp":
@@ -997,7 +1040,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_pronounciation_stress)
             task = limited_generate(client_31, client_25, ai_input_dialouge_completion_stress)
             tasks.append(task)
-            block_meta.append(("DIALOUGE_COMPLETION", topic, n_q, q_count,text_type_en))
+            block_meta.append(("DIALOUGE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tư duy/Tình huống":
@@ -1033,7 +1076,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25, ai_input_logical_thinking)
             tasks.append(task)
-            block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en))
+            block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/Viết lại câu":
@@ -1069,7 +1112,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25, ai_input_sentence_rewriting_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_REWRITING_SENTENCES", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_REWRITING_SENTENCES", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/Kết hợp câu":
@@ -1105,7 +1148,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_combine_sentence_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/sắp xếp từ":
@@ -1141,7 +1184,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_ordering_word_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/Dạng đúng của từ":
@@ -1177,7 +1220,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_word_form_sentence_completion_thcs_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_WORD_FORM_SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_WORD_FORM_SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/Hoàn thành câu dùng từ cho trước":
@@ -1213,12 +1256,12 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_word_prompt_sentence_completion_thcs_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_WORD_PROMPT_SENTENCE", topic, n_q, q_count,text_type_en))
+            block_meta.append(("ESSAY_WORD_PROMPT_SENTENCE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
     responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     results = []
-    for (block_type, topic, n_q, start_num, text_type_en), response_text in zip(block_meta, responses):
+    for (block_type, topic, n_q, start_num, text_type_en,diff,text_type, spec, level), response_text in zip(block_meta, responses):
         if isinstance(response_text, Exception):
             logger.error(f"Block {block_type}/{topic} failed: {response_text}")
             response_text = ""
@@ -1231,7 +1274,11 @@ async def generate_exam_docx(blocks, output_path):
             "parsed": parsed,            # dict đã parse
             "question_count": n_q,
             "start_num": start_num,
-            "text_type_en": text_type_en.lower()
+            "diff": diff,
+            "text_type": text_type,
+            "text_type_en": text_type_en.lower(),
+            "spec":spec,
+            "level": level
         })
 
     return results

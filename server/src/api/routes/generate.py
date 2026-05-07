@@ -4,7 +4,7 @@ import uuid
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import traceback
