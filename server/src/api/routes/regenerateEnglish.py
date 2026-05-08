@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 
 from server.src.services.english_generator_service.regenerate_english_service import regenerate_english_question
 
@@ -11,7 +12,9 @@ class RegenerateRequest(BaseModel):
     spec:str
     level:str
     diff:str
-    question_number:int
+    passage:str
+    passage_title:str
+    question_number:Optional[int]
     text_type:str|None = None
     user_feedback:str
     current_question_data:dict

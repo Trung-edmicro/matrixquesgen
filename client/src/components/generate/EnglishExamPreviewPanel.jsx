@@ -29,10 +29,16 @@ const handleUpdateBlock = (blockIndex, updatedQuestion) => {
   
   // 2. Lấy ra block (nhóm câu hỏi) cần update
   const targetBlock = { ...newResults[blockIndex] };
+//    if (!targetBlock.parsed) targetBlock.parsed = {};
 
+ if (updatedQuestion.passage ) {
+    targetBlock.parsed = {
+      ...targetBlock.parsed,
+      ...updatedQuestion // Ghi đè toàn bộ passage, passage_title và questions mới
+    };
+  } 
   // 3. Kiểm tra nếu block này có chứa mảng questions (đa số các block Tiếng Anh)
   if (targetBlock.parsed && Array.isArray(targetBlock.parsed.questions)) {
-    // Duyệt qua mảng câu hỏi cũ, nếu trùng số thứ tự (number) thì thay bằng câu mới
     const newQuestions = targetBlock.parsed.questions.map((q) => {
       // So sánh theo q.number (ví dụ: Câu 1, Câu 2...)
       return q.number === updatedQuestion.number ? updatedQuestion : q;
@@ -60,7 +66,6 @@ const handleUpdateBlock = (blockIndex, updatedQuestion) => {
     results: newResults
   });
 };
-
 
   return (
     <div className="h-full overflow-auto bg-gray-50 p-6">
@@ -226,6 +231,8 @@ const handleUpdateBlock = (blockIndex, updatedQuestion) => {
                 <ClozeBlock
                   key={index}
                   data={data}
+                  index={index}
+                  onUpdate={handleUpdateBlock}
                   type={block.type}
                   showInstruction={isFirstOfGroup}
                 />
@@ -313,15 +320,77 @@ const handleUpdateBlock = (blockIndex, updatedQuestion) => {
 }
 
 
-export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
-  const [activeQuestion, setActiveQuestion] = useState(null)
-  const [valueMap, setValueMap] = useState({})
-  const [loadingMap, setLoadingMap] = useState({})
-  const [messageApi, contextHolder] = message.useMessage()
+export function ClozeBlock({ data,index,onUpdate, type = "GAP", showInstruction= true }) {
+  const [activeQuestion, setActiveQuestion] = useState(null);
+  const [isReloadingBlock, setIsReloadingBlock] = useState(false);
+  const [blockFeedback, setBlockFeedback] = useState("");
+  const [valueMap, setValueMap] = useState({});
+  const [loadingMap, setLoadingMap] = useState({});
 
-  const title = data?.passage_title
-  const passage = data?.passage || ""
-  const questions = data?.questions || []
+  const title = data?.passage_title;
+  const passage = data?.passage || "";
+  const questions = data?.questions || [];
+
+  const handleRegenerateWholeBlock = async () => {
+    if (!blockFeedback) {
+      notification.warning({ message: "Vui lòng nhập yêu cầu sinh lại đoạn văn" });
+      return;
+    }
+    
+    setIsReloadingBlock(true);
+    try {
+      // Truyền q = null để báo hiệu sinh toàn bộ block
+      const result = await handleRegenerateEnglishQuestion(data, null, blockFeedback);
+      
+      if (result.status === "success") {
+        // result.parsed lúc này sẽ chứa { passage, passage_title, questions: [...] }
+        onUpdate(index, result.parsed); 
+        setBlockFeedback("");
+        notification.success({ message: "Đã cập nhật đoạn văn và câu hỏi mới!" });
+      }
+    } catch (error) {
+      console.error(error);
+      notification.error({ message: "Lỗi kết nối máy chủ" });
+    } finally {
+      setIsReloadingBlock(false);
+    }
+  };
+
+   const handleSubmitSingleQ = async (qNumber) => {
+    const feedback = valueMap[qNumber] || "Sinh lại câu hỏi này dựa trên nội dung bài đọc";
+    setLoadingMap(prev => ({ ...prev, [qNumber]: true }));
+
+    try {
+      const currentQuestion = questions.find(q => q.number === qNumber);
+      // Gửi kèm passage để AI biết ngữ cảnh
+      const result = await handleRegenerateEnglishQuestion(
+      {
+        ...data,
+        // Đảm bảo truyền đủ context bài đọc
+        passage: passage,
+        passage_title: title,
+        type: type 
+      }, 
+      currentQuestion, 
+      feedback
+    );
+
+      if (result.status === "success") {
+        const updatedQuestion = result.parsed?.questions?.[0];
+        if (updatedQuestion) {
+          onUpdate(index, updatedQuestion);
+          setActiveQuestion(null);
+          notification.success({ message: `Đã cập nhật câu ${qNumber}` });
+        }
+      }
+    } catch (error) {
+      notification.error({ message: "Lỗi khi sinh lại câu hỏi" });
+    } finally {
+      setLoadingMap(prev => ({ ...prev, [qNumber]: false }));
+    }
+  };
+
+
 
   const getInstruction = () => {
 
@@ -329,16 +398,16 @@ export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
     if (type === "CLOZE") {
       const textType = (data?.text_type_en || "").toLowerCase()
 
-      return `Read the following ${textType} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.`
+      return `Read the following ${textType} and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blanks.`;
     }
 
     // ✅ RC: cố định
     if (type === "RC") {
-      return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions."
+      return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the correct answer to each of the following questions.";
     }
 
     // ✅ GAP: cố định
-    return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blank."
+    return "Read the following passage and mark the letter A, B, C or D on your answer sheet to indicate the option that best fits each of the numbered blank.";
   }
 
   const handleChange = (qNumber, val) => {
@@ -347,31 +416,43 @@ export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
       [qNumber]: val,
     }))
   }
-
-  const handleSubmit = (qNumber) => {
-    const val = valueMap[qNumber] || ""
-
-    messageApi.success(`Đã gửi: ${val}`)
-
-    setLoadingMap((prev) => ({
-      ...prev,
-      [qNumber]: true,
-    }))
-
-    setTimeout(() => {
-      setLoadingMap((prev) => ({
-        ...prev,
-        [qNumber]: false,
-      }))
-      setValueMap((prev) => ({
-        ...prev,
-        [qNumber]: "",
-      }))
-    }, 2000)
-  }
-
   return (
-    <div className="mb-12">
+    <div className="mb-12 border-l-4 border-blue-200 pl-4">
+
+      <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm">
+        {/* Dòng 1: Header chứa Tag và Nút bấm */}
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <Tag color="blue" className="font-bold">{type} BLOCK</Tag>
+            <span className="text-gray-500 text-sm italic">
+              
+            </span>
+          </div>
+          
+          <Button 
+            type="primary" 
+            danger 
+            size="small" 
+            icon={<ReloadOutlined />} 
+            loading={isReloadingBlock}
+            onClick={handleRegenerateWholeBlock}
+          >
+            Sinh lại toàn bộ
+          </Button>
+        </div>
+
+        {/* Dòng 2: Ô nhập góp ý (p mới) */}
+        <div className="mt-2">
+          <Input 
+            placeholder="Nhập yêu cầu cụ thể để sinh lại toàn bộ đoạn văn và câu hỏi" 
+            size="middle" 
+            value={blockFeedback}
+            onChange={e => setBlockFeedback(e.target.value)}
+            className="w-full shadow-sm"
+            allowClear
+          />
+        </div>
+</div>
 
       {/* INSTRUCTION */}
       {showInstruction && (
@@ -424,7 +505,7 @@ export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
               }
             />
             {"    "}
-
+          
             {/* TAGS */}
             <Tag color="geekblue">Chủ đề: {data.title}</Tag>{"    "}
             <Tag color="geekblue">Dạng câu hỏi: {data.spec}</Tag>{"    "}
@@ -435,39 +516,29 @@ export function ClozeBlock({ data, type = "GAP", showInstruction= true }) {
               Độ khó: {data.diff}
             </Tag>
             </p>
+
+
             {activeQuestion === q.number && (
-            <div className="mt-2 pl-6 border p-3 rounded-lg bg-gray-50">
-
-              <div className="flex justify-end gap-2 mb-2">
-                <Button
-                  size="small"
-                  icon={<CloseOutlined />}
-                  onClick={() => setActiveQuestion(null)}
-                >
-                  Đóng
-                </Button>
+              <div className="my-2 p-3 border  rounded bg-gray-50">
+                <TextArea
+                  rows={2}
+                  placeholder="Ví dụ: Đổi câu hỏi này sang kiểm tra từ vựng thay vì ngữ pháp..."
+                  value={valueMap[q.number] || ""}
+                 onChange={(e) => handleChange(q.number, e.target.value)}
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button size="small" onClick={() => setActiveQuestion(null)}>Hủy</Button>
+                  <Button size="small" type="primary" loading={loadingMap[q.number]} onClick={() => handleSubmitSingleQ(q.number)}>
+                    Gửi
+                  </Button>
+                </div>
               </div>
+            )}
 
-              <TextArea
-                rows={3}
-                placeholder="Nhập câu trả lời..."
-                value={valueMap[q.number] || ""}
-                onChange={(e) =>
-                  handleChange(q.number, e.target.value)
-                }
-              />
+             <p className="mt-2 text-sm">
+                {q.question_content}
+              </p>
 
-              <div className="mt-2 flex justify-end">
-                <Button
-                  type="primary"
-                  loading={loadingMap[q.number]}
-                  onClick={() => handleSubmit(q.number)}
-                >
-                  Gửi
-                </Button>
-              </div>
-            </div>
-          )}  
 
             <div className="pl-6 mt-1">
               {isLong ? (
@@ -768,6 +839,7 @@ const handleSubmit = async (qNumber) => {
       const updatedQuestion = result.parsed?.questions?.[0];
 
       if (updatedQuestion) {
+        console.log(">>>>>> debug index", index);
         onUpdate(index, updatedQuestion); 
         setActiveQuestion(null);
 

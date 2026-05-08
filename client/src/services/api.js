@@ -68,10 +68,13 @@ export const handleRegenerateEnglishQuestion = async (block, q, userFeedback) =>
     level: block.level,      
     diff: block.diff,      
     text_type: block.text_type,
-    question_number: q?.number || q.parsed.question_number,
-    user_feedback: userFeedback || "Sinh lại câu hỏi này",
-    current_question_data: q || block.parsed 
+    question_number: q ? (q.number || (q.parsed && q.parsed.question_number)) : null,
+    user_feedback: userFeedback || "Sinh lại nội dung câu hỏi này",
+    passage: block.parsed?.passage || block.passage || "",
+    passage_title: block.parsed?.passage_title || block.passage_title || "",
+    current_question_data: q || block.parsed
   };
+  console.log(">>>>>> debug payload ", payload);
 
   const response =  await api.post('/api/regenerate-english/regenerate-one-question', payload);
 
@@ -94,21 +97,16 @@ export const handleGenerateArrangeEnglishQuestion = async (
     text_type: block.text_type,
     text_type_en: block.text_type_en,
     question_number: parsed.question_number,
-
     user_feedback:
       userFeedback || "Sinh lại câu hỏi sắp xếp hội thoại này",
-
     current_question_data: {
       question_number: parsed.question_number,
       question_stem: parsed.question_stem,
-
       option_a: parsed.option_a,
       option_b: parsed.option_b,
       option_c: parsed.option_c,
       option_d: parsed.option_d,
-
       answer: parsed.answer,
-
       solution_lines: parsed.solution_lines || [],
       translation_lines: parsed.translation_lines || [],
     },

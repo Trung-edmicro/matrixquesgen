@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+import traceback
 
 
 from server.src.api.callApi import get_credentials
@@ -116,7 +117,78 @@ async def regenerate_english_question(payload: dict):
     print(f">>>>> debug parsed {parsed}")
     return parsed
 
+# async def regenerate_english_question(payload: dict):
+#     try:
+#         print(f">>>>> debug regenerate_english_question payload {payload}")
 
+#         # =========================
+#         # 1. Init AI
+#         # =========================
+#         credentials, project_id = get_credentials()
+
+#         client_25 = AsyncVertexClient(
+#             project_id=project_id,
+#             creds=credentials,
+#             model="gemini-2.5-pro"
+#         )
+
+#         BASE_DIR = Path(__file__).resolve().parent
+#         credentials_path = str(
+#             BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json"
+#         )
+
+#         client_31 = AsyncVertexGemini31(
+#             project_id="onluyen-media",
+#             location="global",
+#             thinking_level="HIGH",
+#             credentials_path=credentials_path
+#         )
+
+#         # =========================
+#         # 2. Dispatcher
+#         # =========================
+#         q_type = payload["type"]
+
+#         handler = HANDLERS.get(q_type)
+
+#         print(f">>>>> debug handler {handler}")
+
+#         if not handler:
+#             raise Exception(f"Unsupported type: {q_type}")
+
+#         ai_input = handler(payload)
+
+#         print(f">>>>> debug ai_input {ai_input}")
+
+#         # =========================
+#         # 3. Call AI
+#         # =========================
+#         response = await limited_generate(
+#             client_31,
+#             client_25,
+#             ai_input
+#         )
+
+#         print(f">>>>> debug raw response {response}")
+
+#         parsed = _safe_parse_json(response)
+
+#         print(f">>>>> debug parsed {parsed}")
+
+#         return {
+#             "status": "success",
+#             "parsed": parsed
+#         }
+
+#     except Exception as e:
+#         print(">>>>>> ERROR regenerate_english_question")
+#         print(traceback.format_exc())
+
+#         return {
+#             "status": "error",
+#             "message": str(e),
+#             "trace": traceback.format_exc()
+#         }
 
 
 
@@ -723,8 +795,173 @@ def handle_essay_word_prompt_sentence_completion(payload):
 
     return ai_input, output_rule_essay_word_prompt_sentence_completion
 
+# def handle_passage_based_regenerate(payload):
+#     """
+#     Dùng chung cho CLOZE, RC, GAP
+#     """
+#     q_type = payload["type"]
+#     feedback = payload["user_feedback"]
+#     q_number = payload.get("question_number") # Có thể None nếu sinh cả block
+#     passage = payload.get("passage", "")
+#     passage_title = payload.get("passage_title","")
+#     current_data = payload["current_question_data"]
+    
+#     # Xác định Schema
+#     # Nếu q_number có giá trị => Sinh 1 câu => Schema chỉ gồm mảng questions 1 phần tử
+#     # Nếu q_number là None => Sinh cả block => Schema gồm passage + questions
+#     if q_number:
+#         output_rule = CLOZE_JSON_SCHEMA.format(N_Q=q_number, START_NUM=q_number)
+#         mode_desc = f"Giữ nguyên đoạn văn dưới đây, chỉ sửa lại duy nhất câu hỏi số {q_number}."
+#     else:
+#         output_rule = CLOZE_WITH_TITLE_JSON_SCHEMA # Schema có cả field passage
+#         mode_desc = "Viết lại một đoạn văn mới hoàn toàn và các câu hỏi đi kèm dựa trên feedback."
+
+#     prompt_template = load_prompt(PROMPTS.get(q_type, PROMPTS["Điền từ"]))
+
+#     ai_input = f"""
+# {prompt_template}
+
+# ## CONTEXT
+# {mode_desc}
+
+# ## CURRENT PASSAGE
+# {passage}
+
+# ## CURRENT QUESTION/DATA
+# {current_data}
+
+# ## USER FEEDBACK
+# {feedback}
+
+# ## REQUIREMENT
+# - Mức độ: {payload['level']}
+# - Độ khó: {payload['diff']}
+# - Đảm bảo câu hỏi logic với nội dung bài đọc.
+
+# ## OUTPUT FORMAT
+# {output_rule}
+# """
+#     return ai_input
+
+
+def handle_passage_based_regenerate(payload):
+    q_type = payload["type"]
+    feedback = payload["user_feedback"]
+    q_number = payload.get("question_number")
+    passage = payload.get("passage", "")
+    current_data = payload["current_question_data"]
+    text_type = payload.get("text_type", "")
+    diff = payload.get("diff", "B2")
+    level = payload.get("level", "Thông hiểu")
+
+    # =========================
+    # MAP TYPE -> PROMPT KEY
+    # =========================
+    TYPE_TO_PROMPT_KEY = {
+        "RC": "Đọc hiểu",
+        "CLOZE": "Điền từ",
+        "GAP": "Điền cụm từ/điền câu"
+    }
+
+    prompt_key = TYPE_TO_PROMPT_KEY.get(q_type, "Điền từ")
+
+    # =========================
+    # MODE
+    # =========================
+    if q_number:
+        # regenerate 1 question
+        output_rule = CLOZE_JSON_SCHEMA.format(
+            N_Q=1,
+            START_NUM=q_number
+        )
+
+        mode_desc = (
+            f"Giữ nguyên đoạn văn, "
+            f"chỉ sửa lại câu hỏi số {q_number} "
+            f"dựa trên yêu cầu."
+        )
+
+    else:
+        # regenerate whole block
+        q_count = (
+            len(current_data.get("questions", []))
+            if isinstance(current_data, dict)
+            else 5
+        )
+
+        start_num = (
+            current_data.get("questions", [{}])[0].get("number", 1)
+            if isinstance(current_data, dict)
+            else 1
+        )
+
+        output_rule = CLOZE_WITH_TITLE_JSON_SCHEMA.format(
+            N_Q=q_count,
+            START_NUM=start_num,
+            TEXT_TYPE=payload.get("text_type", "")
+        )
+
+        mode_desc = (
+            "Viết lại một đoạn văn hoàn toàn mới "
+            "và các câu hỏi đi kèm "
+            "dựa trên chủ đề và feedback."
+        )
+
+    # =========================
+    # LOAD PROMPT
+    # =========================
+    prompt_path = PROMPTS.get(prompt_key)
+
+    if not prompt_path:
+        raise Exception(
+            f"Prompt not found for q_type={q_type}, "
+            f"prompt_key={prompt_key}"
+        )
+
+    prompt_template = load_prompt(prompt_path)
+
+    # =========================
+    # AI INPUT
+    # =========================
+    ai_input = f"""
+{prompt_template}
+
+## CONTEXT
+{mode_desc}
+
+## CURRENT DATA
+Passage: {passage}
+
+Current Questions:
+{current_data}
+
+## USER FEEDBACK
+{feedback}
+
+## CONSTRAINTS
+- Topic: {payload.get('topic')}
+- CEFR Level: {diff}
+- Cognitive Level: {level}
+
+## OUTPUT INSTRUCTION
+Tuyệt đối không nhắc lại A,B,C,D
+Phải viết lại toàn bộ nội dung của các đáp án A,B,C,D
+Trả về JSON đúng cấu trúc sau:
+
+
+{output_rule}
+"""
+
+    return ai_input
+
+
+# Cập nhật HANDLERS mapping
+
 
 HANDLERS = {
+    "GAP":handle_passage_based_regenerate,
+    "RC": handle_passage_based_regenerate,
+    "CLOZE": handle_passage_based_regenerate,
     "ARRANGE": handle_arrange,
     "SENTENCE_COMPLETION": handle_sentence_completion,
     "SYNONYM_ANTONYM": handle_synonym_antonym,
