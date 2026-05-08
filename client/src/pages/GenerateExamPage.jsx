@@ -101,6 +101,15 @@ export default function GenerateExamPage() {
           matrixData,
           timestamp: Date.now() // Thêm timestamp để kiểm tra expiry
         }))
+
+        if (generatedExam && matrixData?.file?.name) {
+        const fileName = matrixData.file.name;
+        if (fileName.startsWith("MATRIX_ENGLISH_THPT_")) {
+          localStorage.setItem("generatedEnglishExam", JSON.stringify(generatedExam));
+        } else if (fileName.startsWith("MATRIX_ENGLISH_THCS_")) {
+          localStorage.setItem("generatedEnglishTHCSExam", JSON.stringify(generatedExam));
+        }
+      }
       } catch (err) {
         console.error('Lỗi khi lưu state:', err)
       }
@@ -262,14 +271,18 @@ const handleRegenerateMultipleQuestions = async () => {
 
   const handleExportEnglishDocx = async () => {
 
-    const storedExam = localStorage.getItem("generatedEnglishExam");
+    // const storedExam = localStorage.getItem("generatedEnglishExam");
 
-    if (!storedExam) {
-      setError("Không có dữ liệu đề tiếng Anh để xuất file")
-      return
-    }
+    // if (!storedExam) {
+    //   setError("Không có dữ liệu đề tiếng Anh để xuất file")
+    //   return
+    // }
 
-    const generatedExam = JSON.parse(storedExam)
+    // const generatedExam = JSON.parse(storedExam)
+      if (!generatedExam) {
+        setError("Không có dữ liệu đề tiếng Anh để xuất file");
+        return;
+      }
 
     try {
       setIsExporting(true)
