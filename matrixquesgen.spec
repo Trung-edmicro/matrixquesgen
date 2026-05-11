@@ -184,6 +184,8 @@ a = Analysis(
         'api.routes.solute',
         # TOAN template selection workflow
         'api.routes.math_template_selection',
+        # LICHSU DS material selection workflow
+        'api.routes.history_material_selection',
         # Server modules — pathex includes server/src so these resolve correctly
         # collect_submodules walks each package and finds all sub-modules
         *collect_submodules('api'),
