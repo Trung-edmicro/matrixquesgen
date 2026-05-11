@@ -1,6 +1,10 @@
+import { Button } from "antd"
+
 export default function ActionBar({ 
   onGenerate, 
-  onExport, 
+  onExport,
+  onRegenerateMultiple,
+  selectedCount,
   isGenerating,
   isExporting, 
   canGenerate, 
@@ -10,6 +14,16 @@ export default function ActionBar({
     <div className="flex items-center gap-3">
 
       
+      {selectedCount >= 2 && (
+        <Button
+          type="primary"
+          danger
+          onClick={onRegenerateMultiple}
+          loading={isGenerating}
+        >
+          Sinh lại {selectedCount} câu hỏi
+        </Button>
+      )}
 
       <button
         onClick={onGenerate}

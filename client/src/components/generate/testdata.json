@@ -1,0 +1,1101 @@
+{
+    "session_id": "3586e47c-308d-4f6a-b708-dae616a1f774",
+    "status": "success",
+    "message": "Generate English exam successfully",
+    "results": [
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Benefits of international cooperation",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 1,
+                        "question": "The scholarship program ______ provides financial support to international students is funded by several global organizations.",
+                        "option_a": "who",
+                        "option_b": "which",
+                        "option_c": "whom",
+                        "option_d": "whose",
+                        "answer": "B",
+                        "explanation": "Đại từ quan hệ 'which' được dùng để thay thế cho danh từ chỉ sự vật hoặc sự việc, làm chủ ngữ hoặc tân ngữ trong mệnh đề quan hệ. Trong câu này, chỗ trống đứng sau danh từ chỉ sự vật 'The scholarship program' và trước động từ 'provides', do đó cần dùng 'which' đóng vai trò chủ ngữ.",
+                        "translation": "Chương trình học bổng mà cung cấp hỗ trợ tài chính cho sinh viên quốc tế được tài trợ bởi một số tổ chức toàn cầu."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 1,
+            "diff": "B2",
+            "text_type": "Ngữ pháp",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Unit 6. Gender Equality",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 2,
+                        "question": "Both male and female firefighters ______ pass exactly the same physical fitness tests before they are officially accepted into the fire department.",
+                        "option_a": "must",
+                        "option_b": "might",
+                        "option_c": "should",
+                        "option_d": "can",
+                        "answer": "A",
+                        "explanation": "must + V (nguyên thể): phải làm gì (chỉ sự bắt buộc, điều kiện tiên quyết) → phù hợp ngữ cảnh\nmight + V (nguyên thể): có thể làm gì (chỉ khả năng xảy ra)\nshould + V (nguyên thể): nên làm gì (chỉ lời khuyên)\ncan + V (nguyên thể): có thể làm gì (chỉ năng lực hoặc sự cho phép)",
+                        "translation": "Cả lính cứu hỏa nam và nữ đều phải vượt qua các bài kiểm tra thể lực giống hệt nhau trước khi họ chính thức được nhận vào sở cứu hỏa."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 2,
+            "diff": "B2",
+            "text_type": "Ngữ pháp",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Unit 4. For A Better Community",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 3,
+                        "question": "The new community project aims to ______ local businesses by attracting more tourists to the town.",
+                        "option_a": "donate",
+                        "option_b": "raise",
+                        "option_c": "deliver",
+                        "option_d": "boost",
+                        "answer": "D",
+                        "explanation": "donate (v): quyên góp, hiến tặng\nraise (v): quyên góp\ndeliver (v): phân phát, giao (hàng)\nboost (v): thúc đẩy, làm tăng thêm → phù hợp ngữ cảnh",
+                        "translation": "Dự án cộng đồng mới nhằm mục đích thúc đẩy các doanh nghiệp địa phương bằng cách thu hút thêm nhiều khách du lịch đến thị trấn."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 3,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Hoàn thành câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Unit 8. New Ways To Learn",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 4,
+                        "question": "In blended learning, each student often ______ ideas with others through an online platform.",
+                        "option_a": "exchanges",
+                        "option_b": "exchange",
+                        "option_c": "is exchanging",
+                        "option_d": "has exchanged",
+                        "answer": "A",
+                        "explanation": "Thì hiện tại đơn (Present Simple) diễn tả một thói quen hoặc một hành động lặp đi lặp lại ở hiện tại. Dấu hiệu nhận biết: trạng từ chỉ tần suất 'often' (thường xuyên). Chủ ngữ 'each student' (mỗi học sinh) là ngôi thứ ba số ít, nên động từ chính phải thêm 's' hoặc 'es'. Cấu trúc: S + V(s/es).",
+                        "translation": "Trong phương pháp học tập kết hợp, mỗi học sinh thường trao đổi ý tưởng với những người khác thông qua một nền tảng trực tuyến."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 4,
+            "diff": "B2",
+            "text_type": "Ngữ pháp",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Unit 5. Inventions",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 5,
+                        "question": "Many scientists spend years in the laboratory working on a new ______.",
+                        "option_a": "invent",
+                        "option_b": "inventive",
+                        "option_c": "inventively",
+                        "option_d": "invention",
+                        "answer": "D",
+                        "explanation": "Vị trí chỗ trống đứng sau mạo từ \"a\" và tính từ \"new\" nên cần một danh từ.\nA. invent (v): phát minh\nB. inventive (adj): có tài phát minh, sáng tạo\nC. inventively (adv): một cách sáng tạo\nD. invention (n): phát minh → chọn",
+                        "translation": "Nhiều nhà khoa học dành hàng năm trời trong phòng thí nghiệm để nghiên cứu một phát minh mới."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 5,
+            "diff": "B2",
+            "text_type": "Ngữ pháp",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Unit 8. New Ways To Learn",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 6,
+                        "question": "When studying from home, students should find a quiet space and turn off their mobile phones to minimize any ______ that could affect their concentration.",
+                        "option_a": "strategy",
+                        "option_b": "distraction",
+                        "option_c": "resource",
+                        "option_d": "schedule",
+                        "answer": "B",
+                        "explanation": "strategy (n): chiến lược\ndistraction (n): sự xao nhãng, sự mất tập trung → phù hợp ngữ cảnh\nresource (n): tài nguyên, nguồn lực\nschedule (n): lịch trình",
+                        "translation": "Khi học tại nhà, học sinh nên tìm một không gian yên tĩnh và tắt điện thoại di động để giảm thiểu bất kỳ sự xao nhãng nào có thể ảnh hưởng đến sự tập trung của họ."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 6,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Gender stereotypes and discrimination",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 7,
+                        "question": "We should not let traditional gender stereotypes ______ women from pursuing demanding careers such as firefighters or cosmonauts.",
+                        "option_a": "discourage",
+                        "option_b": "to discourage",
+                        "option_c": "discouraging",
+                        "option_d": "discouraged",
+                        "answer": "A",
+                        "explanation": "Cấu trúc 'let + Object + bare infinitive' (để/cho phép ai/cái gì làm gì). Trong câu này, động từ đi sau tân ngữ 'traditional gender stereotypes' phải ở dạng động từ nguyên thể không 'to'.",
+                        "translation": "Chúng ta không nên để những định kiến giới truyền thống ngăn cản phụ nữ theo đuổi các nghề nghiệp đòi hỏi cao như lính cứu hỏa hay nhà du hành vũ trụ."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 7,
+            "diff": "B2",
+            "text_type": "Ngữ pháp",
+            "text_type_en": "grammar ",
+            "spec": "Hoàn thành câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_COMPLETION",
+            "title": "Equality in education and employment",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 8,
+                        "question": "Despite the recent progress in gender equality, a large number of uneducated women still ______ victim to domestic violence due to their lack of financial independence.",
+                        "option_a": "fall",
+                        "option_b": "drop",
+                        "option_c": "become",
+                        "option_d": "suffer",
+                        "answer": "A",
+                        "explanation": "fall (v): rơi, ngã; trong cụm \"fall victim to\": trở thành nạn nhân của điều gì → phù hợp ngữ cảnh\ndrop (v): giảm xuống, đánh rơi\nbecome (v): trở thành (thường dùng \"become a victim of\", không kết hợp trực tiếp với \"victim to\")\nsuffer (v): chịu đựng (thường dùng \"suffer from\", không đi cùng \"victim to\")",
+                        "translation": "Bất chấp những tiến bộ gần đây về bình đẳng giới, một số lượng lớn phụ nữ không được học hành vẫn trở thành nạn nhân của bạo lực gia đình do họ thiếu sự độc lập về tài chính."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 8,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Hoàn thành câu",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "SYNONYM_ANTONYM",
+            "title": "Cultural exchange and globalization",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 9,
+                        "question": "Cultural exchange allows people to learn about the <strong><u>customs</u></strong> and beliefs of different nations around the world.",
+                        "type": "synonym",
+                        "option_a": "traditions",
+                        "option_b": "languages",
+                        "option_c": "conflicts",
+                        "option_d": "barriers",
+                        "answer": "A",
+                        "explanation": "customs (n): phong tục, tập quán\ntraditions (n): truyền thống, phong tục → phù hợp ngữ cảnh (= customs)\nlanguages (n): ngôn ngữ\nconflicts (n): xung đột\nbarriers (n): rào cản\nTrong ngữ cảnh tìm hiểu về văn hóa và tín ngưỡng của các quốc gia khác nhau, 'traditions' (truyền thống) có nghĩa gần nhất với 'customs' (phong tục).",
+                        "translation": "Sự giao lưu văn hóa cho phép mọi người tìm hiểu về phong tục và tín ngưỡng của các quốc gia khác nhau trên toàn thế giới."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 9,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Đồng nghĩa/Trái nghĩa",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "SYNONYM_ANTONYM",
+            "title": "Modern technological inventions",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 10,
+                        "question": "The scientists are planning to <strong><u>carry out</u></strong> several experiments in the laboratory to test the new AI processor.",
+                        "type": "synonym",
+                        "option_a": "conduct",
+                        "option_b": "design",
+                        "option_c": "evaluate",
+                        "option_d": "cancel",
+                        "answer": "A",
+                        "explanation": "carry out (phrasal verb): tiến hành, thực hiện\nconduct (v): tiến hành → phù hợp ngữ cảnh (= carry out)\ndesign (v): thiết kế\nevaluate (v): đánh giá\ncancel (v): hủy bỏ\nTrong ngữ cảnh nói về việc thực hiện các thí nghiệm, động từ \"conduct\" có nghĩa gần nhất với cụm động từ \"carry out\".",
+                        "translation": "Các nhà khoa học đang lên kế hoạch tiến hành một vài thí nghiệm trong phòng thí nghiệm để kiểm tra bộ vi xử lí AI mới."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 10,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Đồng nghĩa/Trái nghĩa",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SYNONYM_ANTONYM",
+            "title": "Unit 3. Music",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 11,
+                        "question": "Feeling overwhelmed by the pressure of the singing competition, she decided to <strong><u>drop out</u></strong> just days before the live broadcast.",
+                        "type": "antonym",
+                        "option_a": "carry on",
+                        "option_b": "give up",
+                        "option_c": "stand out",
+                        "option_d": "show off",
+                        "answer": "A",
+                        "explanation": "carry on (phrasal verb): tiếp tục → trái nghĩa với drop out (phrasal verb): rút lui, bỏ cuộc\ngive up (phrasal verb): từ bỏ, bỏ cuộc\nstand out (phrasal verb): nổi bật\nshow off (phrasal verb): phô diễn, khoe khoang\nTrong ngữ cảnh chịu áp lực từ cuộc thi âm nhạc, \"drop out\" mang nghĩa là rút lui, bỏ cuộc giữa chừng. Trái nghĩa với hành động này là \"carry on\" (tiếp tục). Phương án B (give up) là từ đồng nghĩa được dùng làm bẫy.",
+                        "translation": "Cảm thấy bị quá tải bởi áp lực của cuộc thi hát, cô ấy đã quyết định rút lui chỉ vài ngày trước buổi phát sóng trực tiếp."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 11,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Đồng nghĩa/Trái nghĩa",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SYNONYM_ANTONYM",
+            "title": "Unit 2. Humans And The Environment",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 12,
+                        "question": "Without strict conservation measures, the excessive use of fossil fuels will eventually <strong><u>deplete</u></strong> the earth's non-renewable energy reserves.",
+                        "type": "antonym",
+                        "option_a": "exhaust",
+                        "option_b": "replenish",
+                        "option_c": "extract",
+                        "option_d": "diminish",
+                        "answer": "B",
+                        "explanation": "replenish (v): bổ sung, làm đầy lại → trái nghĩa với deplete\ndeplete (v): làm cạn kiệt, rút cạn\nexhaust (v): làm cạn kiệt, dùng hết (từ đồng nghĩa - bẫy)\nextract (v): chiết xuất, khai thác\ndiminish (v): làm giảm bớt (từ đồng nghĩa - bẫy)\nTrong ngữ cảnh nói về việc sử dụng quá mức nhiên liệu hóa thạch sẽ làm cạn kiệt (deplete) trữ lượng năng lượng, từ có nghĩa trái ngược là 'replenish' (bổ sung, làm đầy lại). Lưu ý 'exhaust' và 'diminish' là các từ đồng nghĩa.",
+                        "translation": "Nếu không có các biện pháp bảo tồn nghiêm ngặt, việc sử dụng quá mức nhiên liệu hóa thạch cuối cùng sẽ làm cạn kiệt các trữ lượng năng lượng không thể tái tạo của trái đất."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 12,
+            "diff": "B2",
+            "text_type": "Từ vựng",
+            "text_type_en": "vocabulary",
+            "spec": "Đồng nghĩa/Trái nghĩa",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "DIALOUGE_COMPLETION",
+            "title": "Women’s achievements in history",
+            "parsed": {
+                "instruction": "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
+                "questions": [
+                    {
+                        "number": 13,
+                        "speaker_a": "Peter: Do you know who the first female cosmonaut in the world was?",
+                        "speaker_b": "Mary: ______",
+                        "option_a": "It was Valentina Tereshkova from the Soviet Union.",
+                        "option_b": "I want to become a successful pilot in the future.",
+                        "option_c": "She is known as a very skillful surgeon.",
+                        "option_d": "Yes, she currently works in a kindergarten.",
+                        "answer": "A",
+                        "explanation": "It was Valentina Tereshkova from the Soviet Union.: Đó là Valentina Tereshkova từ Liên Xô. → phù hợp với ngữ cảnh của đoạn hội thoại\nI want to become a successful pilot in the future.: Tôi muốn trở thành một phi công thành công trong tương lai.\nShe is known as a very skillful surgeon.: Cô ấy được biết đến là một bác sĩ phẫu thuật rất khéo léo.\nYes, she currently works in a kindergarten.: Vâng, cô ấy hiện đang làm việc ở một trường mẫu giáo.",
+                        "translation": {
+                            "speaker_a": "Peter: Bạn có biết ai là nữ phi hành gia đầu tiên trên thế giới không?",
+                            "speaker_b": "Mary: Đó là Valentina Tereshkova từ Liên Xô."
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 13,
+            "diff": "B2",
+            "text_type": "Kĩ năng nói",
+            "text_type_en": "speaking",
+            "spec": "Câu giao tiếp",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "DIALOUGE_COMPLETION",
+            "title": "Unit 4. For A Better Community",
+            "parsed": {
+                "instruction": "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
+                "questions": [
+                    {
+                        "number": 14,
+                        "speaker_a": "Mark: Would you like to participate in the charity run to raise funds for the local orphanage this Sunday?",
+                        "speaker_b": "Sarah: ______",
+                        "option_a": "That sounds like a wonderful idea! Count me in.",
+                        "option_b": "You're welcome to join us any time.",
+                        "option_c": "I couldn't agree with you more about it.",
+                        "option_d": "Never mind, I can handle it myself.",
+                        "answer": "A",
+                        "explanation": "That sounds like a wonderful idea! Count me in.: Nghe thật là một ý tưởng tuyệt vời! Cho tôi tham gia với. → phù hợp với ngữ cảnh của đoạn hội thoại\nYou're welcome to join us any time.: Bạn luôn được chào đón tham gia cùng chúng tôi bất cứ lúc nào. (dùng để đáp lại lời cảm ơn hoặc mời gọi chung chung)\nI couldn't agree with you more about it.: Tôi hoàn toàn đồng ý với bạn về điều đó. (dùng để tán thành một quan điểm)\nNever mind, I can handle it myself.: Đừng bận tâm, tôi có thể tự giải quyết được. (dùng để từ chối sự giúp đỡ)",
+                        "translation": {
+                            "speaker_a": "Mark: Bạn có muốn tham gia giải chạy từ thiện để quyên góp tiền cho trại trẻ mồ côi địa phương vào Chủ nhật này không?",
+                            "speaker_b": "Sarah: Nghe thật là một ý tưởng tuyệt vời! Cho tôi tham gia với."
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 14,
+            "diff": "B2",
+            "text_type": "Kĩ năng nói",
+            "text_type_en": "speaking",
+            "spec": "Câu giao tiếp",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "DIALOUGE_COMPLETION",
+            "title": "Online learning and digital platforms",
+            "parsed": {
+                "instruction": "Dialogue completion: Choose A, B, C or D to complete each dialogue.",
+                "questions": [
+                    {
+                        "number": 15,
+                        "speaker_a": "Mark: For our group project, would you prefer to use digital platforms or arrange a face-to-face meeting?",
+                        "speaker_b": "Sarah: ______",
+                        "option_a": "I'd rather meet face-to-face so we can focus without any digital distractions.",
+                        "option_b": "High-speed internet is necessary for online learning.",
+                        "option_c": "I strongly agree that blended learning is effective.",
+                        "option_d": "We need to install the voice recorder immediately.",
+                        "answer": "A",
+                        "explanation": "I'd rather meet face-to-face so we can focus without any digital distractions.: Tôi thà gặp trực tiếp để chúng ta có thể tập trung mà không có bất kỳ sự xao nhãng kĩ thuật số nào → phù hợp với ngữ cảnh của đoạn hội thoại\nHigh-speed internet is necessary for online learning.: Internet tốc độ cao là cần thiết cho việc học trực tuyến\nI strongly agree that blended learning is effective.: Tôi hoàn toàn đồng ý rằng phương pháp học tập kết hợp là hiệu quả\nWe need to install the voice recorder immediately.: Chúng ta cần lắp đặt máy thu âm ngay lập tức",
+                        "translation": {
+                            "speaker_a": "Mark: Cho dự án nhóm của chúng ta, bạn muốn sử dụng các nền tảng kĩ thuật số hay sắp xếp một cuộc gặp trực tiếp?",
+                            "speaker_b": "Sarah: Tôi thà gặp trực tiếp để chúng ta có thể tập trung mà không có bất kỳ sự xao nhãng kĩ thuật số nào."
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 15,
+            "diff": "B2",
+            "text_type": "Kĩ năng nói",
+            "text_type_en": "speaking",
+            "spec": "Câu giao tiếp",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "ARRANGE",
+            "title": "Global issues (peace, environment, health)",
+            "parsed": {
+                "question_number": 16,
+                "question_stem": "a. Mary: That's very responsible of you. They'll definitely take it there.\nb. Mary: Yes, just go straight past the traffic lights and turn right. It's next to the library.\nc. Tom: Perfect. Have a great day!\nd. Tom: Thank you! I've been carrying this old laptop for a while and want to recycle it properly.\ne. Tom: Excuse me, could you point me to the nearest electronic waste drop-off point?",
+                "option_a": "e - b - d - a - c",
+                "option_b": "e - d - b - a - c",
+                "option_c": "b - e - d - c - a",
+                "option_d": "e - b - a - d - c",
+                "answer": "A",
+                "solution_lines": [
+                    "Tom: Excuse me, could you point me to the nearest electronic waste drop-off point?",
+                    "Mary: Yes, just go straight past the traffic lights and turn right. It's next to the library.",
+                    "Tom: Thank you! I've been carrying this old laptop for a while and want to recycle it properly.",
+                    "Mary: That's very responsible of you. They'll definitely take it there.",
+                    "Tom: Perfect. Have a great day!"
+                ],
+                "translation_lines": [
+                    "Tom: Xin lỗi, bạn có thể chỉ cho tôi điểm thu gom rác thải điện tử gần nhất không?",
+                    "Mary: Vâng, bạn cứ đi thẳng qua đèn giao thông rồi rẽ phải. Nó nằm ngay cạnh thư viện.",
+                    "Tom: Cảm ơn bạn! Tôi đã mang theo chiếc máy tính xách tay cũ này một lúc rồi và muốn tái chế nó đúng cách.",
+                    "Mary: Bạn thật là một người có trách nhiệm. Họ chắc chắn sẽ nhận nó ở đó.",
+                    "Tom: Tuyệt quá. Chúc bạn một ngày tốt lành!"
+                ]
+            },
+            "question_count": 1,
+            "start_num": 16,
+            "diff": "B2",
+            "text_type": "Hội thoại",
+            "text_type_en": "dialogue",
+            "spec": "Sắp xếp",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "ARRANGE",
+            "title": "Advantages and challenges of e-learning",
+            "parsed": {
+                "question_number": 17,
+                "question_stem": "a. Ben: Another factor is the lack of face-to-face communication, which makes it harder to ask questions immediately.\n\nb. Anna: Why do you think so many students struggle to focus during online learning?\n\nc. Anna: I totally agree. Without a teacher's direct control, students often lose their motivation.\n\nd. Ben: In my opinion, the main cause is the high number of digital distractions at home.\n\ne. Anna: You're right. It's very easy to start watching videos instead of paying attention. Are there any other reasons?",
+                "option_a": "b - e - d - a - c",
+                "option_b": "b - d - e - a - c",
+                "option_c": "d - b - e - a - c",
+                "option_d": "b - d - a - e - c",
+                "answer": "B",
+                "solution_lines": [
+                    "Anna: Why do you think so many students struggle to focus during online learning?",
+                    "Ben: In my opinion, the main cause is the high number of digital distractions at home.",
+                    "Anna: You're right. It's very easy to start watching videos instead of paying attention. Are there any other reasons?",
+                    "Ben: Another factor is the lack of face-to-face communication, which makes it harder to ask questions immediately.",
+                    "Anna: I totally agree. Without a teacher's direct control, students often lose their motivation."
+                ],
+                "translation_lines": [
+                    "Anna: Bạn nghĩ tại sao có quá nhiều học sinh gặp khó khăn trong việc tập trung khi học trực tuyến?",
+                    "Ben: Theo quan điểm của tôi, nguyên nhân chính là có quá nhiều sự xao nhãng kỹ thuật số ở nhà.",
+                    "Anna: Bạn nói đúng. Rất dễ để bắt đầu xem video thay vì chú ý nghe giảng. Còn lý do nào khác không?",
+                    "Ben: Một yếu tố khác là việc thiếu giao tiếp trực tiếp, điều này làm cho việc đặt câu hỏi ngay lập tức trở nên khó khăn hơn.",
+                    "Anna: Tôi hoàn toàn đồng ý. Nếu không có sự kiểm soát trực tiếp của giáo viên, học sinh thường mất đi động lực."
+                ]
+            },
+            "question_count": 1,
+            "start_num": 17,
+            "diff": "B2",
+            "text_type": "Hội thoại",
+            "text_type_en": "dialogue",
+            "spec": "Sắp xếp",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "ARRANGE",
+            "title": "Unit 3. Music",
+            "parsed": {
+                "question_number": 18,
+                "question_stem": "a. Sarah: Yes, I read a comment on social media saying there was an issue with the new location.\nb. John: I know, but I'm sure their performance will be absolutely worth the extra wait.\nc. John: Sarah, have you heard that the live concert this weekend has been delayed?\nd. Sarah: It's a pity! I was really looking forward to seeing the talented participants play their musical instruments.\ne. John: That's right. The organizers also need more time to finish the stage decoration.",
+                "option_a": "c - d - e - a - b",
+                "option_b": "c - a - e - d - b",
+                "option_c": "c - a - b - d - e",
+                "option_d": "e - a - c - d - b",
+                "answer": "B",
+                "solution_lines": [
+                    "John: Sarah, have you heard that the live concert this weekend has been delayed?",
+                    "Sarah: Yes, I read a comment on social media saying there was an issue with the new location.",
+                    "John: That's right. The organizers also need more time to finish the stage decoration.",
+                    "Sarah: It's a pity! I was really looking forward to seeing the talented participants play their musical instruments.",
+                    "John: I know, but I'm sure their performance will be absolutely worth the extra wait."
+                ],
+                "translation_lines": [
+                    "John: Sarah, cậu đã nghe nói rằng buổi hòa nhạc trực tiếp cuối tuần này đã bị hoãn lại chưa?",
+                    "Sarah: Rồi, tớ có đọc một bình luận trên mạng xã hội nói rằng có vấn đề với địa điểm mới.",
+                    "John: Đúng vậy. Ban tổ chức cũng cần thêm thời gian để hoàn thiện việc trang trí sân khấu.",
+                    "Sarah: Thật đáng tiếc! Tớ đã rất mong đợi được xem các thí sinh tài năng chơi nhạc cụ của họ.",
+                    "John: Tớ biết, nhưng tớ chắc chắn rằng màn trình diễn của họ sẽ hoàn toàn xứng đáng với sự chờ đợi thêm này."
+                ]
+            },
+            "question_count": 1,
+            "start_num": 18,
+            "diff": "B2",
+            "text_type": "Hội thoại",
+            "text_type_en": "dialogue",
+            "spec": "Sắp xếp",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 4. For A Better Community",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 19,
+                        "type": "rewriting",
+                        "instruction": "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question.",
+                        "question": "The generous community donated various life-saving items to the local orphanage last month.",
+                        "option_a": "Various life-saving items were donated to the local orphanage by the generous community last month.",
+                        "option_b": "Various life-saving items are donated to the local orphanage by the generous community last month.",
+                        "option_c": "Various life-saving items have been donated to the local orphanage by the generous community last month.",
+                        "option_d": "The local orphanage donated various life-saving items to the generous community last month.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- Various life-saving items were donated to the local orphanage by the generous community last month. (Nhiều vật dụng cứu sinh đa dạng đã được cộng đồng hào phóng quyên góp cho trại trẻ mồ côi địa phương vào tháng trước.) → chọn vì áp dụng đúng công thức câu bị động ở thì quá khứ đơn (were + VpII) đối với chủ ngữ số nhiều, truyền tải chính xác nghĩa của câu gốc.\n- Various life-saving items are donated to the local orphanage by the generous community last month. (Nhiều vật dụng cứu sinh đa dạng được cộng đồng hào phóng quyên góp cho trại trẻ mồ côi địa phương vào tháng trước.) - sai cấu trúc thì (dùng hiện tại đơn \"are donated\" không phù hợp với trạng từ \"last month\").\n- Various life-saving items have been donated to the local orphanage by the generous community last month. (Nhiều vật dụng cứu sinh đa dạng đã được cộng đồng hào phóng quyên góp cho trại trẻ mồ côi địa phương vào tháng trước.) - sai cấu trúc thì (dùng hiện tại hoàn thành \"have been donated\" không phù hợp với dấu hiệu thời gian trong quá khứ xác định).\n- The local orphanage donated various life-saving items to the generous community last month. (Trại trẻ mồ côi địa phương đã quyên góp nhiều vật dụng cứu sinh đa dạng cho cộng đồng hào phóng vào tháng trước.) - sai nghĩa hoàn toàn do đảo ngược chủ thể thực hiện và đối tượng nhận hành động.",
+                        "translation": "Cộng đồng hào phóng đã quyên góp nhiều vật dụng cứu sinh đa dạng cho trại trẻ mồ côi địa phương vào tháng trước.",
+                        "correct_translation": "Nhiều vật dụng cứu sinh đa dạng đã được cộng đồng hào phóng quyên góp cho trại trẻ mồ côi địa phương vào tháng trước."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 19,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 5. Inventions",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 20,
+                        "type": "rewriting",
+                        "instruction": "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question.",
+                        "question": "The research team has made an arrangement to install the new AI software in the laboratory tomorrow.",
+                        "option_a": "The research team is installing the new AI software in the laboratory tomorrow.",
+                        "option_b": "The research team is installing the new AI software in the laboratory every day.",
+                        "option_c": "The new AI software is installing by the research team in the laboratory tomorrow.",
+                        "option_d": "The research team has been installing the new AI software in the laboratory tomorrow.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- The research team is installing the new AI software in the laboratory tomorrow. (Nhóm nghiên cứu sẽ cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai.) → chọn vì thì hiện tại tiếp diễn có thể được dùng để diễn tả một kế hoạch, sự sắp xếp đã được lên lịch từ trước trong tương lai, đồng nghĩa với \"has made an arrangement to do something\".\n- The research team is installing the new AI software in the laboratory every day. (Nhóm nghiên cứu đang cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm mỗi ngày.) - sai vì thay đổi trạng từ chỉ thời gian ở tương lai \"tomorrow\" thành thói quen \"every day\", làm sai lệch ý nghĩa dự định của câu.\n- The new AI software is installing by the research team in the laboratory tomorrow. (Phần mềm trí tuệ nhân tạo mới đang cài đặt bởi nhóm nghiên cứu trong phòng thí nghiệm vào ngày mai.) - sai vì sử dụng cấu trúc chủ động thay vì bị động (phải là \"is being installed\" mới đúng ngữ pháp).\n- The research team has been installing the new AI software in the laboratory tomorrow. (Nhóm nghiên cứu đã và đang cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai.) - sai vì thì hiện tại hoàn thành tiếp diễn không thể kết hợp với trạng từ chỉ thời gian ở tương lai \"tomorrow\".\nTạm dịch: Nhóm nghiên cứu đã sắp xếp để cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai.\n→ Nhóm nghiên cứu sẽ cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai.",
+                        "translation": "Nhóm nghiên cứu đã sắp xếp để cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai.",
+                        "correct_translation": "Nhóm nghiên cứu sẽ cài đặt phần mềm trí tuệ nhân tạo mới trong phòng thí nghiệm vào ngày mai."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 20,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Changing attitudes toward gender roles",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 21,
+                        "type": "combination",
+                        "instruction": "Sentence combination: Choose A, B, C or D that has the CLOSEST meaning to the given pair of sentences in each question.",
+                        "question": "The director let the skillful female surgeon perform the difficult operation. However, he made her explain the procedure to the patient beforehand.",
+                        "option_a": "The director allowed the skillful female surgeon perform the difficult operation, but he made her to explain the procedure to the patient beforehand.",
+                        "option_b": "The skillful female surgeon was allowed to perform the difficult operation, but she was made explain the procedure to the patient beforehand.",
+                        "option_c": "The skillful female surgeon was allowed to perform the difficult operation, but she was made to explain the procedure to the patient beforehand.",
+                        "option_d": "The director let the skillful female surgeon to perform the difficult operation, but he had her explain the procedure to the patient beforehand.",
+                        "answer": "C",
+                        "explanation": "Chọn C\nLời giải\n- The director allowed the skillful female surgeon perform the difficult operation, but he made her to explain the procedure to the patient beforehand. (Giám đốc đã cho phép nữ bác sĩ phẫu thuật lành nghề thực hiện ca phẫu thuật khó, nhưng ông ấy bắt cô phải giải thích quy trình cho bệnh nhân trước đó.) - sai cấu trúc do dùng \"allow + tân ngữ + động từ nguyên thể\" (thiếu \"to\" ở \"perform\") và \"make + tân ngữ + to V\" (thừa \"to\" ở \"explain\").\n- The skillful female surgeon was allowed to perform the difficult operation, but she was made explain the procedure to the patient beforehand. (Nữ bác sĩ phẫu thuật lành nghề đã được cho phép thực hiện ca phẫu thuật khó, nhưng cô bị bắt phải giải thích quy trình cho bệnh nhân trước đó.) - sai cấu trúc do dùng dạng bị động \"be made + động từ nguyên thể\" (thiếu \"to\" ở \"explain\").\n- The skillful female surgeon was allowed to perform the difficult operation, but she was made to explain the procedure to the patient beforehand. (Nữ bác sĩ phẫu thuật lành nghề đã được cho phép thực hiện ca phẫu thuật khó, nhưng cô bị bắt phải giải thích quy trình cho bệnh nhân trước đó.) → chọn vì áp dụng chính xác các cấu trúc \"be allowed to do something\" (được phép làm gì) và \"be made to do something\" (bị/được yêu cầu làm gì), kết hợp hai câu đúng ngữ pháp và giữ nguyên nghĩa gốc.\n- The director let the skillful female surgeon to perform the difficult operation, but he had her explain the procedure to the patient beforehand. (Giám đốc đã để nữ bác sĩ phẫu thuật lành nghề thực hiện ca phẫu thuật khó, nhưng ông yêu cầu cô giải thích quy trình cho bệnh nhân trước đó.) - sai cấu trúc do dùng \"let + tân ngữ + to V\" (thừa \"to\" ở \"perform\").",
+                        "translation": "Giám đốc đã để cho nữ bác sĩ phẫu thuật lành nghề thực hiện ca phẫu thuật khó. Tuy nhiên, ông ấy bắt cô phải giải thích quy trình cho bệnh nhân trước đó.",
+                        "correct_translation": "Nữ bác sĩ phẫu thuật lành nghề đã được cho phép thực hiện ca phẫu thuật khó, nhưng cô bị bắt phải giải thích quy trình cho bệnh nhân trước đó."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 21,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 7. Viet Nam And International Organisations",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 22,
+                        "type": "rewriting",
+                        "instruction": "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question.",
+                        "question": "The principal objective of this international organisation is to promote free trade among its member states.",
+                        "option_a": "This international organisation aims to encourage free trade among its member states.",
+                        "option_b": "The member states aim to promote this international organisation through free trade.",
+                        "option_c": "This international organisation is aimed at restricting free trade among its member states.",
+                        "option_d": "The principal objective of this international organisation has resulted in free trade among its member states.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- This international organisation aims to encourage free trade among its member states. (Tổ chức quốc tế này nhằm mục đích khuyến khích thương mại tự do giữa các quốc gia thành viên.) → chọn vì cụm \"aim to encourage\" đồng nghĩa với cấu trúc nói về mục tiêu chính của tổ chức\n- The member states aim to promote this international organisation through free trade. (Các quốc gia thành viên nhằm mục đích thúc đẩy tổ chức quốc tế này thông qua thương mại tự do.) - sai chủ thể và ý nghĩa câu\n- This international organisation is aimed at restricting free trade among its member states. (Tổ chức quốc tế này nhằm mục đích hạn chế thương mại tự do giữa các quốc gia thành viên.) - sai nghĩa từ vựng do dùng từ \"restricting\" ngược nghĩa với từ khóa thúc đẩy\n- The principal objective of this international organisation has resulted in free trade among its member states. (Mục tiêu chính của tổ chức quốc tế này đã dẫn đến thương mại tự do giữa các quốc gia thành viên.) - sai vì cụm từ chỉ kết quả đã xảy ra không tương đương với ý định ở hiện tại",
+                        "translation": "Mục tiêu chính của tổ chức quốc tế này là thúc đẩy thương mại tự do giữa các quốc gia thành viên.",
+                        "correct_translation": "Tổ chức quốc tế này nhằm mục đích khuyến khích thương mại tự do giữa các quốc gia thành viên."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 22,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 8. New Ways To Learn",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 23,
+                        "type": "rewriting",
+                        "instruction": "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question.",
+                        "question": "The frequent distractions at home forced him to choose blended learning instead of full online learning.",
+                        "option_a": "The frequent distractions at home made him choose blended learning instead of full online learning.",
+                        "option_b": "The frequent distractions at home enabled him to choose blended learning instead of full online learning.",
+                        "option_c": "The frequent distractions at home prevented him from choosing blended learning instead of full online learning.",
+                        "option_d": "The frequent distractions at home allowed him to choose blended learning instead of full online learning.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- The frequent distractions at home made him choose blended learning instead of full online learning. (Những sự xao nhãng thường xuyên ở nhà đã khiến anh ấy chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn.) → chọn vì cấu trúc \"make somebody do something\" (khiến/bắt ai làm gì) dùng động từ nguyên thể không \"to\" (bare infinitive) tương đương nghĩa với \"force somebody to do something\" (buộc ai phải làm gì) dùng động từ nguyên thể có \"to\" (to-infinitive), diễn đạt lại chính xác ý nghĩa của câu gốc.\n- The frequent distractions at home enabled him to choose blended learning instead of full online learning. (Những sự xao nhãng thường xuyên ở nhà đã tạo điều kiện cho anh ấy chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn.) - sai nghĩa vì \"enable\" mang sắc thái tích cực (tạo điều kiện/khả năng), không đúng với ngữ cảnh ép buộc do bất lợi.\n- The frequent distractions at home prevented him from choosing blended learning instead of full online learning. (Những sự xao nhãng thường xuyên ở nhà đã ngăn cản anh ấy chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn.) - đảo ngược logic hoàn toàn (ngăn cản thay vì buộc phải chọn).\n- The frequent distractions at home allowed him to choose blended learning instead of full online learning. (Những sự xao nhãng thường xuyên ở nhà đã cho phép anh ấy chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn.) - sai nghĩa vì \"allow\" mang nghĩa cho phép một cách chủ động, làm mất đi sự bắt buộc trong câu gốc.",
+                        "translation": "Những sự xao nhãng thường xuyên ở nhà đã buộc anh ấy phải chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn.",
+                        "correct_translation": "Những sự xao nhãng thường xuyên ở nhà đã khiến anh ấy chọn phương pháp học tập kết hợp thay vì học trực tuyến hoàn toàn."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 23,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 6. Gender Equality",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 24,
+                        "type": "combination",
+                        "instruction": "Sentence combination: Choose A, B, C or D that has the CLOSEST meaning to the given pair of sentences in each question.",
+                        "question": "The female patient suffered a lot of mental trauma from domestic violence. She needed professional support to recover completely.",
+                        "option_a": "The female patient suffered a lot of mental trauma from domestic violence, so she needed professional support to recover completely.",
+                        "option_b": "The female patient suffered a lot of mental trauma from domestic violence, yet she needed professional support to recover completely.",
+                        "option_c": "The female patient needed professional support to recover completely, so she suffered a lot of mental trauma from domestic violence.",
+                        "option_d": "The female patient suffered a lot of mental trauma from domestic violence, or she needed professional support to recover completely.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- The female patient suffered a lot of mental trauma from domestic violence, so she needed professional support to recover completely. (Bệnh nhân nữ đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình, vì vậy cô ấy cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn.) → chọn vì liên từ \"so\" kết nối đúng quan hệ nguyên nhân - kết quả giữa hai mệnh đề tạo thành câu ghép hợp lý.\n- The female patient suffered a lot of mental trauma from domestic violence, yet she needed professional support to recover completely. (Bệnh nhân nữ đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình, nhưng cô ấy cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn.) - sai vì liên từ \"yet\" chỉ sự tương phản, không phù hợp logic của câu gốc.\n- The female patient needed professional support to recover completely, so she suffered a lot of mental trauma from domestic violence. (Bệnh nhân nữ cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn, vì vậy cô ấy đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình.) - sai vì đảo ngược quan hệ nguyên nhân và kết quả.\n- The female patient suffered a lot of mental trauma from domestic violence, or she needed professional support to recover completely. (Bệnh nhân nữ đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình, hoặc cô ấy cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn.) - sai vì liên từ \"or\" chỉ sự lựa chọn, làm sai lệch hoàn toàn ý nghĩa câu gốc.",
+                        "translation": "Bệnh nhân nữ đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình. Cô ấy cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn.",
+                        "correct_translation": "Bệnh nhân nữ đã chịu nhiều tổn thương tinh thần từ bạo lực gia đình, vì vậy cô ấy cần sự hỗ trợ chuyên môn để hồi phục hoàn toàn."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 24,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "SENTENCE_TRANSFORMATION",
+            "title": "Unit 7. Viet Nam And International Organisations",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 25,
+                        "type": "rewriting",
+                        "instruction": "Sentence rewriting: Choose A, B, C or D that has the CLOSEST meaning to the given sentence in each question.",
+                        "question": "The country's successful integration into the global economy is largely attributed to its membership in the World Trade Organisation.",
+                        "option_a": "The country's membership in the World Trade Organisation has largely resulted in its successful integration into the global economy.",
+                        "option_b": "The country's membership in the World Trade Organisation has resulted from its successful integration into the global economy.",
+                        "option_c": "Without its membership in the World Trade Organisation, the country's integration into the global economy would have been much more successful.",
+                        "option_d": "Only after the country successfully integrated into the global economy did it gain membership in the World Trade Organisation.",
+                        "answer": "A",
+                        "explanation": "Chọn A\nLời giải\n- The country's membership in the World Trade Organisation has largely resulted in its successful integration into the global economy. (Tư cách thành viên trong Tổ chức Thương mại Thế giới của đất nước phần lớn đã dẫn đến việc hội nhập thành công vào nền kinh tế toàn cầu.) → chọn vì cấu trúc 'result in' (dẫn đến) truyền tải đúng mối quan hệ nguyên nhân - kết quả tương đương với 'be attributed to' (được cho là nhờ vào) ở câu gốc.\n- The country's membership in the World Trade Organisation has resulted from its successful integration into the global economy. (Tư cách thành viên trong Tổ chức Thương mại Thế giới của đất nước là kết quả từ việc hội nhập thành công vào nền kinh tế toàn cầu.) - sai vì đảo ngược mối quan hệ nguyên nhân - kết quả ('result from' mang nghĩa 'bắt nguồn từ').\n- Without its membership in the World Trade Organisation, the country's integration into the global economy would have been much more successful. (Nếu không có tư cách thành viên trong Tổ chức Thương mại Thế giới, việc hội nhập vào nền kinh tế toàn cầu của đất nước đã thành công hơn nhiều.) - sai hoàn toàn về nghĩa so với câu gốc.\n- Only after the country successfully integrated into the global economy did it gain membership in the World Trade Organisation. (Chỉ sau khi đất nước hội nhập thành công vào nền kinh tế toàn cầu thì mới giành được tư cách thành viên trong Tổ chức Thương mại Thế giới.) - sai logic về trình tự thời gian và nguyên nhân.",
+                        "translation": "Việc đất nước hội nhập thành công vào nền kinh tế toàn cầu phần lớn được cho là nhờ vào tư cách thành viên trong Tổ chức Thương mại Thế giới.",
+                        "correct_translation": "Tư cách thành viên trong Tổ chức Thương mại Thế giới của đất nước phần lớn đã dẫn đến việc hội nhập thành công vào nền kinh tế toàn cầu."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 25,
+            "diff": "B2",
+            "text_type": "Kĩ năng viết",
+            "text_type_en": "grammar and writing skills",
+            "spec": "Kết hợp/viết lại câu",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "CLOZE",
+            "title": "Cultural exchange and globalization",
+            "parsed": {
+                "passage_title": "The Dynamics of Cultural Exchange in a Globalized World",
+                "passage": "Globalization has significantly transformed the way people across the world interact, leading to an unprecedented era of cultural exchange. In the past, geographical barriers limited human connection, causing civilizations to develop in relative isolation. Today, rapid advancements in digital technology, modern transportation, and mass communication have effectively turned the world into a \"global village.\" As a result, individuals are effortlessly exposed to diverse traditions, languages, and belief systems on a daily basis.\n\nThis deep cultural integration brings about numerous benefits for modern societies. Primarily, it fosters mutual understanding, reduces cultural prejudice, and encourages tolerance among people from widely different backgrounds. Furthermore, daily aspects of life such as culinary arts, fashion trends, and entertainment have become a beautiful mosaic of global influences. For instance, enjoying a cup of traditional Italian coffee while listening to upbeat Korean pop music in a busy cafe in New York has become an entirely normal experience.\n\nHowever, some sociologists express valid concern over the potential loss of unique cultural identities. The overwhelming dominance of a few major cultural powers might gradually overshadow smaller, indigenous communities. To prevent this cultural homogenization, various governments and international organizations are taking proactive steps to preserve local heritage. Many experts predict that modern technology (26)______ a crucial role in safeguarding these endangered traditions in the coming decades by efficiently documenting and sharing them with a wider global audience. Ultimately, embracing global connectivity while respecting deeply rooted cultural origins is the key to maintaining sustainable harmony in our diverse yet intrinsically interconnected society.",
+                "questions": [
+                    {
+                        "number": 26,
+                        "question_content": "",
+                        "option_a": "will play",
+                        "option_b": "played",
+                        "option_c": "has played",
+                        "option_d": "was playing",
+                        "answer": "A",
+                        "explanation": "Chọn A\nDấu hiệu nhận biết \"in the coming decades\" (trong những thập kỷ tới) và động từ \"predict\" (dự đoán) chỉ một sự việc chưa xảy ra và thuộc về tương lai. Do đó, chỗ trống cần sử dụng thì tương lai đơn với cấu trúc \"will + động từ nguyên thể\". Các phương án chia ở thì quá khứ đơn, hiện tại hoàn thành và quá khứ tiếp diễn đều không phù hợp với trạng ngữ thời gian trong câu.",
+                        "quote": "Many experts predict that modern technology <strong><u>will play</u></strong> a crucial role in safeguarding these endangered traditions in the coming decades by efficiently documenting and sharing them with a wider global audience.",
+                        "translation": "Nhiều chuyên gia dự đoán rằng công nghệ hiện đại sẽ đóng một vai trò quan trọng trong việc bảo vệ những truyền thống đang bị đe dọa này trong những thập kỷ tới bằng cách ghi chép và chia sẻ chúng một cách hiệu quả với đông đảo khán giả toàn cầu."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 26,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading comprehension",
+            "spec": "Điền từ",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "CLOZE",
+            "title": "Cultural exchange and globalization",
+            "parsed": {
+                "passage_title": "The Dual Impact of Globalization on Cultural Exchange",
+                "passage": "Globalization has fundamentally transformed the way cultural exchange occurs across the world. On the one hand, the rapid development of digital communication has made it remarkably easy to access different cultural products. People living in isolated regions can now watch foreign films, read international literature, and listen to music from distant continents. This unprecedented level of connectivity helps to foster mutual understanding and tolerance among nations. Through shared artistic expressions, individuals often discover that they have more in common with people from other backgrounds than they previously realized.\n\nHowever, the rapid (27) ______ of a dominant global culture has raised significant concerns about the survival of local traditions. Critics argue that indigenous languages and unique customs are gradually fading away as younger generations become more attracted to mainstream global trends. In many cases, traditional crafts and rituals are being replaced by mass-produced goods and standardized entertainment. This phenomenon can lead to a homogenization of human culture, where diversity is sacrificed for convenience and commercial success.\n\nTo address this issue, various organizations are making concerted efforts to (28) ______ cultural heritage while embracing the positive aspects of globalization. They advocate for balanced cultural policies (29) ______ local traditions can thrive alongside international trends. Ultimately, an inclusive approach is essential to ensure that globalization enriches rather than erases cultural diversity.",
+                "questions": [
+                    {
+                        "number": 27,
+                        "question_content": "",
+                        "option_a": "expansion",
+                        "option_b": "restriction",
+                        "option_c": "decline",
+                        "option_d": "rejection",
+                        "answer": "A",
+                        "explanation": "expansion (n): sự mở rộng, sự bành trướng\nrestriction (n): sự hạn chế\ndecline (n): sự suy giảm\nrejection (n): sự từ chối\nNgữ cảnh đề cập đến sự lan rộng và phát triển nhanh chóng của nền văn hóa toàn cầu thống trị (a dominant global culture) gây ra mối lo ngại cho các truyền thống địa phương. Do đó, 'expansion' là lựa chọn duy nhất phù hợp về nghĩa. → phù hợp ngữ cảnh",
+                        "quote": "However, the rapid <strong><u>expansion</u></strong> of a dominant global culture has raised significant concerns about the survival of local traditions.",
+                        "translation": "Tuy nhiên, sự mở rộng nhanh chóng của một nền văn hóa toàn cầu thống trị đã làm dấy lên những lo ngại đáng kể về sự tồn vong của các truyền thống địa phương."
+                    },
+                    {
+                        "number": 28,
+                        "question_content": "",
+                        "option_a": "preserve",
+                        "option_b": "abandon",
+                        "option_c": "destroy",
+                        "option_d": "conceal",
+                        "answer": "A",
+                        "explanation": "preserve (v): bảo tồn, gìn giữ\nabandon (v): từ bỏ\ndestroy (v): phá hủy\nconceal (v): che giấu\nCâu văn đề cập đến những nỗ lực phối hợp của các tổ chức nhằm giải quyết vấn đề bằng cách 'gìn giữ' di sản văn hóa (cultural heritage) trong khi vẫn đón nhận những mặt tích cực của toàn cầu hóa. Các phương án khác mang nghĩa tiêu cực hoặc không hợp logic. → phù hợp ngữ cảnh",
+                        "quote": "To address this issue, various organizations are making concerted efforts to <strong><u>preserve</u></strong> cultural heritage while embracing the positive aspects of globalization.",
+                        "translation": "Để giải quyết vấn đề này, nhiều tổ chức đang nỗ lực phối hợp để bảo tồn di sản văn hóa trong khi vẫn đón nhận những khía cạnh tích cực của toàn cầu hóa."
+                    },
+                    {
+                        "number": 29,
+                        "question_content": "",
+                        "option_a": "so that",
+                        "option_b": "even though",
+                        "option_c": "in case",
+                        "option_d": "as if",
+                        "answer": "A",
+                        "explanation": "so that + mệnh đề: để, nhằm mục đích\neven though + mệnh đề: mặc dù\nin case + mệnh đề: phòng khi, trong trường hợp\nas if + mệnh đề: cứ như thể là\nMệnh đề sau chỗ trống chỉ mục đích của việc ủng hộ các chính sách văn hóa cân bằng (để các truyền thống địa phương có thể cùng phát triển với các xu hướng quốc tế). Vì vậy, liên từ chỉ mục đích 'so that' là đáp án chính xác.",
+                        "quote": "They advocate for balanced cultural policies <strong><u>so that</u></strong> local traditions can thrive alongside international trends.",
+                        "translation": "Họ ủng hộ các chính sách văn hóa cân bằng để các truyền thống địa phương có thể phát triển mạnh mẽ song song với các xu hướng quốc tế."
+                    }
+                ]
+            },
+            "question_count": 3,
+            "start_num": 27,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading comprehension",
+            "spec": "Điền từ",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "CLOZE",
+            "title": "Cultural exchange and globalization",
+            "parsed": {
+                "passage_title": "Cultural Exchange in the Era of Globalization",
+                "passage": "In recent decades, the relentless pace of globalization has profoundly transformed how societies interact, blurring geographical boundaries and accelerating cultural exchange. While some critics argue that this phenomenon inevitably leads to cultural homogenization—where unique local traditions are gradually overshadowed by dominant global trends—many experts emphasize its positive impacts. One significant advantage is the unprecedented opportunity for people to learn about and appreciate diverse cultures from around the world. Through the internet, international travel, and global trade, individuals can now experience foreign cuisines, arts, and languages without ever leaving their hometowns.\n\nHowever, for cultural exchange to be truly beneficial, it must function as a reciprocal process rather than a one-sided imposition of one culture over another. Communities must actively preserve their invaluable heritage while remaining open to embracing external ideas. This balanced approach ensures that local identities are not completely lost but rather enriched through meaningful international connections. For instance, traditional indigenous music styles often blend seamlessly with modern global genres, creating innovative forms of expression that appeal to wider audiences worldwide. Ultimately, (30) ______ depends entirely on our collective ability to foster mutual respect and understanding. By deeply valuing cultural diversity, we can build a genuinely interconnected world where cultural exchange serves as a bridge rather than a barrier, allowing societies to thrive collaboratively in the modern era.",
+                "questions": [
+                    {
+                        "number": 30,
+                        "question_content": "",
+                        "option_a": "whether this global interconnectedness yields positive cultural outcomes",
+                        "option_b": "the degree to which local traditions dominate international norms",
+                        "option_c": "how quickly unique heritage is replaced by global homogenization",
+                        "option_d": "the reason that geographical boundaries remain strictly unchanged",
+                        "answer": "A",
+                        "explanation": "Câu hỏi yêu cầu điền một mệnh đề danh từ (noun clause) hoặc cụm danh từ đóng vai trò làm chủ ngữ cho động từ 'depends'.\nXét về ngữ nghĩa, đoạn văn đang bàn luận về việc toàn cầu hóa và giao lưu văn hóa có thể mang lại lợi ích nếu diễn ra theo hướng hai chiều ('reciprocal process') và có sự cân bằng ('balanced approach'). Câu trước đó đề cập đến kết quả tích cực là tạo ra những hình thức biểu đạt mới. Câu chứa chỗ trống đưa ra kết luận: 'Cuối cùng, [điều kiện để có kết quả tốt] phụ thuộc hoàn toàn vào khả năng thúc đẩy sự tôn trọng lẫn nhau'. Do đó, mệnh đề 'liệu sự kết nối toàn cầu này có mang lại những kết quả văn hóa tích cực hay không' là hoàn toàn phù hợp về logic.\nCác phương án sai:\nthe degree to which local traditions dominate international norms: sai vì bài đọc nhấn mạnh sự cân bằng, không phải sự thống trị của văn hóa địa phương.\nhow quickly unique heritage is replaced by global homogenization: sai vì đây là hệ quả tiêu cực, không đi cùng ngữ cảnh 'phụ thuộc vào khả năng thấu hiểu và tôn trọng'.\nthe reason that geographical boundaries remain strictly unchanged: sai vì trái ngược với thông tin ở câu mở đầu ('blurring geographical boundaries').",
+                        "quote": "Ultimately, <strong><u>whether this global interconnectedness yields positive cultural outcomes</u></strong> depends entirely on our collective ability to foster mutual respect and understanding.",
+                        "translation": "Cuối cùng, liệu sự kết nối toàn cầu này có mang lại những kết quả văn hóa tích cực hay không hoàn toàn phụ thuộc vào khả năng chung của chúng ta trong việc thúc đẩy sự tôn trọng và thấu hiểu lẫn nhau."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 30,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading comprehension",
+            "spec": "Điền từ",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "RC",
+            "title": "Laws and policies promoting equality",
+            "parsed": {
+                "passage_title": "Legislative Strides Toward Genuine Parity",
+                "passage": "[P1] Historically, sweeping legislative frameworks have been instrumental in fostering gender equality and dismantling systemic prejudices. In the past, discriminatory practices often marginalized specific demographics, leaving many financially dependent or deliberately uneducated. However, the paradigm shifted when governments began to recognize that genuine equality required more than just theoretical declarations; it necessitated enforceable laws to ensure equal access to education and employment for all citizens.\n\n[P2] The most profound impacts of these legal reforms are visible in the professional sphere, where stereotypical boundaries have been legally **dismantled**. Decades ago, fields demanding immense physical endurance or high mental resilience, such as becoming a firefighter, a military officer, or a skillful surgeon, were predominantly male-oriented. Conversely, roles like kindergarten teachers or secretaries were stereotyped as female. Recent employment equity laws mandate blind recruitment processes. Although conservative critics initially resisted such legal frameworks, **they** fundamentally redesign the workforce by valuing competence over outdated gender norms.\n\n[P3] Furthermore, modern policies have expanded to safeguard vulnerable individuals within their private lives, actively combatting domestic violence. Stringent laws now provide comprehensive protection and psychological support for victims, ensuring they are not left to navigate their trauma alone. To ensure strict enforcement, judicial systems have integrated specialized training for law officers. Through these progressive legal strides, society is gradually evolving into a space where true parity is a tangible reality rather than an elusive ideal.",
+                "questions": [
+                    {
+                        "number": 31,
+                        "question_content": "The word \"dismantled\" in paragraph 2 is closest in meaning to ______.",
+                        "option_a": "eradicated",
+                        "option_b": "reinforced",
+                        "option_c": "assessed",
+                        "option_d": "restructured",
+                        "answer": "A",
+                        "explanation": "Từ \"eradicated\" (loại bỏ hoàn toàn, xóa sổ) phù hợp nhất với ngữ cảnh phá vỡ, xóa bỏ các ranh giới định kiến trong nghề nghiệp.\nTừ \"restructured\" (tái cấu trúc) sai vì rào cản định kiến cần được phá bỏ hoàn toàn chứ không phải xây dựng lại dưới hình thức khác.\nTừ \"reinforced\" (củng cố) mang nghĩa trái ngược hoàn toàn với mạch logic của câu.\nTừ \"assessed\" (đánh giá) không hợp lý về mặt ý nghĩa khi kết hợp với danh từ chỉ rào cản định kiến (stereotypical boundaries).",
+                        "quote": "The most profound impacts of these legal reforms are visible in the professional sphere, where stereotypical boundaries have been legally dismantled.",
+                        "translation": "Tác động sâu sắc nhất của những cải cách pháp lý này có thể thấy rõ trong lĩnh vực nghề nghiệp, nơi các ranh giới định kiến đã bị xóa bỏ về mặt pháp lý."
+                    },
+                    {
+                        "number": 32,
+                        "question_content": "According to paragraph 2, what is the ultimate outcome of the recent legal reforms in the professional sphere?",
+                        "option_a": "Prioritizing individual capability instead of traditional gender expectations.",
+                        "option_b": "Completely eliminating all physical and mental requirements for demanding jobs.",
+                        "option_c": "Forcing male workers to take on roles traditionally held by women.",
+                        "option_d": "Ensuring that female candidates are always favored in blind recruitment processes.",
+                        "answer": "A",
+                        "explanation": "Nội dung \"Prioritizing individual capability instead of traditional gender expectations\" phản ánh chính xác kết quả của các đạo luật bình đẳng: tái định hình lực lượng lao động bằng cách đề cao năng lực thực sự (competence) thay vì các chuẩn mực giới tính lỗi thời (outdated gender norms).\nNội dung \"Completely eliminating all physical and mental requirements for demanding jobs\" sai vì bài đọc chỉ nêu rào cản giới tính bị xóa bỏ, không hề đề cập đến việc hủy bỏ yêu cầu thể chất hay tinh thần thiết yếu của công việc.\nNội dung \"Forcing male workers to take on roles traditionally held by women\" sai logic nghiêm trọng vì luật lệ chỉ mở ra cơ hội bình đẳng tự do chứ không mang tính ép buộc đổi vai trò.\nNội dung \"Ensuring that female candidates are always favored in blind recruitment processes\" sai vì quy trình tuyển dụng giấu tên nhằm mục đích ngăn chặn sự phân biệt đối xử, đảm bảo tính công bằng tuyệt đối chứ không thiên vị bất kỳ giới tính nào.",
+                        "quote": "Although conservative critics initially resisted such legal frameworks, they fundamentally redesign the workforce by valuing competence over outdated gender norms.",
+                        "translation": "Mặc dù các nhà phê bình bảo thủ ban đầu chống lại các khung pháp lý như vậy, nhưng chúng đã tái định hình căn bản lực lượng lao động bằng cách đề cao năng lực thay vì các chuẩn mực giới tính lỗi thời."
+                    },
+                    {
+                        "number": 33,
+                        "question_content": "The word \"they\" in paragraph 2 refers to ______.",
+                        "option_a": "legal frameworks",
+                        "option_b": "conservative critics",
+                        "option_c": "blind recruitment processes",
+                        "option_d": "gender norms",
+                        "answer": "A",
+                        "explanation": "Đại từ \"they\" thay thế cho cụm danh từ \"legal frameworks\" (các khung pháp lý) được nhắc đến ở vế nhượng bộ ngay phía trước. Các khung pháp lý này chính là chủ thể hợp lý thực hiện hành động \"redesign the workforce\" (tái định hình lực lượng lao động).\nCụm \"conservative critics\" (nhà phê bình bảo thủ) sai logic vì những người này vốn chống lại sự thay đổi, không thể là tác nhân tái định hình lực lượng lao động theo hướng tiến bộ, coi trọng năng lực.\nCụm \"blind recruitment processes\" (quy trình tuyển dụng giấu tên) sai vì đây chỉ là một trong các biện pháp cụ thể do luật quy định, không đóng vai trò chủ thể bao quát cho toàn bộ mệnh đề phía sau.\nCụm \"gender norms\" (chuẩn mực giới tính) sai vì chuẩn mực giới tính lỗi thời chính là thứ đang bị thay thế (over outdated gender norms), không thể là tác nhân gây ra sự đổi mới.",
+                        "quote": "Although conservative critics initially resisted such legal frameworks, they fundamentally redesign the workforce by valuing competence over outdated gender norms.",
+                        "translation": "Mặc dù các nhà phê bình bảo thủ ban đầu chống lại các khung pháp lý như vậy, nhưng chúng đã tái định hình căn bản lực lượng lao động bằng cách đề cao năng lực thay vì các chuẩn mực giới tính lỗi thời."
+                    },
+                    {
+                        "number": 34,
+                        "question_content": "Which of the following best summarises paragraph 2?",
+                        "option_a": "The impact of equality legislation on breaking occupational gender stereotypes.",
+                        "option_b": "The physical and mental challenges faced by women in male-dominated professions.",
+                        "option_c": "The necessity of blind recruitment processes in promoting female leadership.",
+                        "option_d": "A historical comparison of male and female participation in high-risk occupations.",
+                        "answer": "A",
+                        "explanation": "Ý tưởng \"The impact of equality legislation on breaking occupational gender stereotypes\" bao quát toàn bộ nội dung trọng tâm của đoạn 2: luật pháp đã can thiệp để xóa bỏ ranh giới định kiến, cho phép cả nam và nữ tham gia vào các ngành nghề mà trước đây họ bị hạn chế bởi định kiến giới tính.\nÝ tưởng \"The physical and mental challenges faced by women in male-dominated professions\" quá hẹp và làm lệch trọng tâm, đoạn văn không phân tích khó khăn của riêng nữ giới mà nhấn mạnh vào sự thay đổi do luật pháp mang lại cho cả hai giới.\nÝ tưởng \"The necessity of blind recruitment processes in promoting female leadership\" sai vì tuyển dụng giấu tên chỉ là một chi tiết nhỏ nhằm minh họa cho chính sách, và đoạn văn cũng không hề giới hạn ở việc thúc đẩy năng lực lãnh đạo của nữ giới.\nÝ tưởng \"A historical comparison of male and female participation in high-risk occupations\" sai hoàn toàn vì đoạn văn không cung cấp số liệu so sánh lịch sử về tỷ lệ tham gia, mà tập trung vào việc phân tích tác động của các chính sách pháp lý hiện đại đối với thị trường lao động chung.",
+                        "quote": "The most profound impacts of these legal reforms are visible in the professional sphere, where stereotypical boundaries have been legally dismantled.",
+                        "translation": "Tác động sâu sắc nhất của những cải cách pháp lý này có thể thấy rõ trong lĩnh vực nghề nghiệp, nơi các ranh giới định kiến đã bị xóa bỏ về mặt pháp lý."
+                    }
+                ]
+            },
+            "question_count": 4,
+            "start_num": 31,
+            "diff": "C1",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading comprehension",
+            "spec": "Đọc hiểu",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "RC",
+            "title": "Laws and policies promoting equality",
+            "parsed": {
+                "passage_title": "Comprehensive Legal Frameworks for Equality",
+                "passage": "In recent decades, legislative frameworks globally have undergone profound transformations to foster genuine gender equality. Historically, occupational segregation dictated that certain rigorous professions, such as those of surgeons, pilots, or firefighters, were predominantly reserved for men, under the flawed assumption that they required superior physical endurance. Conversely, roles deemed nurturing or administrative, like kindergarten educators and secretaries, were overwhelmingly assigned to women. Contemporary anti-discrimination laws now strictly prohibit gender-based occupational exclusion, ensuring that hiring practices focus solely on whether a candidate is highly skillful and qualified.\n\nBeyond professional parity, modern policies have expanded to encompass mental and emotional well-being, particularly by addressing deeply entrenched societal crises. Robust legal mechanisms have been enacted to combat domestic violence, a pervasive issue that disproportionately affects women. These legislative measures not only criminalize such abusive behaviors but also mandate the establishment of comprehensive support systems. Consequently, victims receive essential legal and psychological assistance, empowering them to rebuild their lives without the persistent threat of systemic marginalization.\n\nFurthermore, affirmative action policies have been instrumental in reforming educational sectors. Governments have recognized that allowing vulnerable demographics to remain uneducated perpetuates a cycle of poverty and disenfranchisement. New statutory mandates ensure equal access to high-quality education and vocational training for all genders. By equipping previously disadvantaged individuals with critical expertise, these laws transform them into a skillful, self-reliant workforce capable of driving economic growth.\n\nUltimately, the pursuit of an equal society is not merely a theoretical ideal but an ongoing structural operation. Through the rigorous enforcement of these multifaceted laws—ranging from workplace anti-discrimination to educational inclusivity and victim protection—nations are steadily dismantling the archaic paradigms that once hindered true human progress.",
+                "questions": [
+                    {
+                        "number": 35,
+                        "question_content": "Which of the following best summarizes the main topic of the passage?",
+                        "option_a": "The implementation of multifaceted legal frameworks aimed at eradicating gender disparities and fostering comprehensive social parity.",
+                        "option_b": "The effectiveness of anti-discrimination policies in abolishing occupational segregation and penalizing perpetrators of domestic violence.",
+                        "option_c": "The transformation of marginalized groups into a skillful workforce through mandatory educational reforms and vocational training.",
+                        "option_d": "How grassroots societal shifts have compelled legislative bodies to enact strict measures protecting vulnerable demographics.",
+                        "answer": "A",
+                        "explanation": "Đoạn văn trình bày về các khuôn khổ pháp lý đa diện nhằm thúc đẩy bình đẳng giới trên nhiều lĩnh vực: từ chống phân biệt đối xử nghề nghiệp (đoạn 1), bảo vệ nạn nhân bạo lực gia đình (đoạn 2), đến đảm bảo quyền tiếp cận giáo dục bình đẳng (đoạn 3). Đoạn cuối tổng kết lại vai trò của các đạo luật này.\n\nThe implementation of multifaceted legal frameworks aimed at eradicating gender disparities and fostering comprehensive social parity: Phương án này bao quát toàn bộ luận điểm của bài về các bộ luật đa chiều (nơi làm việc, bảo vệ nạn nhân, giáo dục) nhằm xóa bỏ bất bình đẳng.\n\nThe effectiveness of anti-discrimination policies in abolishing occupational segregation and penalizing perpetrators of domestic violence: Phương án này quá hẹp, chỉ tóm tắt nội dung của đoạn 1 và đoạn 2 mà bỏ qua khía cạnh giáo dục ở đoạn 3.\n\nThe transformation of marginalized groups into a skillful workforce through mandatory educational reforms and vocational training: Phương án này cũng quá hẹp, chỉ phản ánh nội dung của đoạn 3 về cải cách giáo dục.\n\nHow grassroots societal shifts have compelled legislative bodies to enact strict measures protecting vulnerable demographics: Phương án này sai trọng tâm và thêm thông tin ngoài bài. Bài đọc tập trung vào nội dung và tác động của các bộ luật nhằm thúc đẩy bình đẳng, chứ không bàn về việc các phong trào xã hội cấp cơ sở đã ép buộc chính phủ ban hành luật ra sao.",
+                        "quote": "Through the rigorous enforcement of these multifaceted laws—ranging from workplace anti-discrimination to educational inclusivity and victim protection—nations are steadily dismantling the archaic paradigms that once hindered true human progress.",
+                        "translation": "Thông qua việc thực thi nghiêm ngặt các luật đa diện này—từ việc chống phân biệt đối xử tại nơi làm việc đến sự hòa nhập trong giáo dục và bảo vệ nạn nhân—các quốc gia đang dần phá bỏ những mô hình cổ hủ từng cản trở sự tiến bộ thực sự của nhân loại."
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 35,
+            "diff": "C1",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading comprehension",
+            "spec": "Đọc hiểu",
+            "level": "Vận dụng cao"
+        },
+        {
+            "type": "LOGICAL_THINKING",
+            "title": "Unit 1. Family Life",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 36,
+                        "type": "social_interaction",
+                        "scenario": "You see your mother carrying some heavy bags of groceries into the kitchen and you want to offer your help.",
+                        "speaker_a": null,
+                        "speaker_b": null,
+                        "question": "What can you say to make this offer?",
+                        "option_a": "Would you like me to give you a hand with those groceries?",
+                        "option_b": "You should stop buying too much food for our family.",
+                        "option_c": "Doing the heavy lifting is not a homemaker's responsibility.",
+                        "option_d": "I wonder who will help you carry those heavy bags.",
+                        "answer": "A",
+                        "explanation": "Tình huống: Bạn thấy mẹ đang xách những túi thực phẩm nặng vào bếp và muốn mở lời đề nghị giúp đỡ bà.\nWould you like me to give you a hand with those groceries?: Mẹ có muốn con giúp một tay xách chỗ thực phẩm đó không? → Phù hợp vì thể hiện trực tiếp lời đề nghị giúp đỡ một cách lịch sự.\nYou should stop buying too much food for our family.: Mẹ nên ngừng mua quá nhiều thức ăn cho gia đình mình. → Sai vì đây là lời khuyên mang tính phàn nàn, không phải lời đề nghị giúp đỡ.\nDoing the heavy lifting is not a homemaker's responsibility.: Việc mang vác nặng không phải là trách nhiệm của người nội trợ. → Sai vì đây chỉ là một lời nhận xét chung, không đóng góp vào việc giải quyết vấn đề.\nI wonder who will help you carry those heavy bags.: Con tự hỏi ai sẽ giúp mẹ xách những cái túi nặng đó. → Sai vì câu nói mang tính lảng tránh, không đạt được mục đích giao tiếp là đề nghị giúp đỡ.",
+                        "translation": {
+                            "scenario": "Bạn thấy mẹ mình đang xách một vài túi thực phẩm nặng vào bếp và bạn muốn đề nghị giúp đỡ bà.",
+                            "question": "Bạn có thể nói gì để đưa ra lời đề nghị này?",
+                            "speaker_a": null,
+                            "speaker_b": null
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 36,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading",
+            "spec": "Tư duy/Tình huống",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "LOGICAL_THINKING",
+            "title": "Unit 4. For A Better Community",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 37,
+                        "type": "dialogue_response",
+                        "scenario": "Anna is asking Tom to help her deliver some donations to the local orphanage.",
+                        "speaker_a": "Could you give me a hand with delivering these donations to the local orphanage?",
+                        "speaker_b": "______",
+                        "question": "What would be the best response for Tom in this situation?",
+                        "option_a": "Certainly. I'll get my car ready.",
+                        "option_b": "It's my pleasure. You're welcome.",
+                        "option_c": "I don't think they need donations.",
+                        "option_d": "Congratulations! That's wonderful news.",
+                        "answer": "A",
+                        "explanation": "Tình huống: Anna nhờ Tom giúp phân phát đồ quyên góp đến trại trẻ mồ côi. Tom cần đưa ra phản hồi đồng ý hoặc từ chối lịch sự cho lời nhờ vả. Certainly. I'll get my car ready: Chắc chắn rồi. Tôi sẽ chuẩn bị xe của mình. → Phù hợp vì thể hiện sự đồng ý nhiệt tình và đưa ra hành động cụ thể để giúp đỡ. It's my pleasure. You're welcome: Niềm vinh hạnh của tôi. Không có chi. → Sai vì cụm từ này dùng để đáp lại lời cảm ơn, không dùng để đáp lại lời nhờ vả. I don't think they need donations: Tôi không nghĩ họ cần đồ quyên góp. → Sai vì đây là một câu từ chối thiếu lịch sự và bác bỏ ý nghĩa của công việc thiện nguyện. Congratulations! That's wonderful news: Chúc mừng! Đó là tin tuyệt vời. → Sai vì dùng để chúc mừng, không liên quan đến ngữ cảnh nhờ vả.",
+                        "translation": {
+                            "scenario": "Anna đang nhờ Tom giúp cô ấy phân phát một số đồ quyên góp đến trại trẻ mồ côi địa phương.",
+                            "question": "Phản hồi nào là tốt nhất cho Tom trong tình huống này?",
+                            "speaker_a": "Bạn có thể giúp tôi một tay phân phát những món đồ quyên góp này đến trại trẻ mồ côi địa phương được không?",
+                            "speaker_b": "Chắc chắn rồi. Tôi sẽ chuẩn bị xe của mình."
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 37,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading",
+            "spec": "Tư duy/Tình huống",
+            "level": "Nhận biết"
+        },
+        {
+            "type": "LOGICAL_THINKING",
+            "title": "Unit 5. Inventions",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 38,
+                        "type": "fact_verification",
+                        "scenario": "You are reading a tech blog about recent inventions, particularly focusing on 3D printing and AI applications.",
+                        "speaker_a": null,
+                        "speaker_b": null,
+                        "question": "Following are statements about a new 3D printer from the article. Which statement can be considered a fact?",
+                        "option_a": "This 3D printer is the most impressive invention of the decade.",
+                        "option_b": "The device requires an internet connection to install its software.",
+                        "option_c": "Everyone will probably find this machine extremely easy to use.",
+                        "option_d": "It is a wonderful application of modern hardware technology.",
+                        "answer": "B",
+                        "explanation": "Tình huống: Xác định câu nào là sự thật (fact) về một chiếc máy in 3D — thông tin khách quan, có thể kiểm chứng được và không mang tính đánh giá cá nhân.\nThe device requires an internet connection to install its software.: Thiết bị này yêu cầu kết nối internet để cài đặt phần mềm. → Phù hợp vì thông tin này có thể tra cứu và xác minh bằng thông số kỹ thuật hoặc hướng dẫn sử dụng của thiết bị.\nThis 3D printer is the most impressive invention of the decade.: Máy in 3D này là phát minh ấn tượng nhất của thập kỷ. → Sai vì đây là đánh giá chủ quan ('most impressive'), không thể kiểm chứng khách quan.\nEveryone will probably find this machine extremely easy to use.: Mọi người có lẽ sẽ thấy chiếc máy này cực kỳ dễ sử dụng. → Sai vì đây là dự đoán và cảm nhận cá nhân ('probably', 'extremely easy').\nIt is a wonderful application of modern hardware technology.: Nó là một ứng dụng tuyệt vời của công nghệ phần cứng hiện đại. → Sai vì đây là nhận xét mang tính biểu cảm cá nhân ('wonderful').",
+                        "translation": {
+                            "scenario": "Bạn đang đọc một blog công nghệ về các phát minh gần đây, đặc biệt tập trung vào in 3D và các ứng dụng trí tuệ nhân tạo.",
+                            "question": "Dưới đây là các câu nhận định về một chiếc máy in 3D mới từ bài viết. Câu nào có thể được coi là sự thật (fact)?",
+                            "speaker_a": null,
+                            "speaker_b": null
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 38,
+            "diff": "B2",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading",
+            "spec": "Tư duy/Tình huống",
+            "level": "Thông hiểu"
+        },
+        {
+            "type": "LOGICAL_THINKING",
+            "title": "Unit 6. Gender Equality",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 39,
+                        "type": "cause_inference",
+                        "scenario": "A renowned hospital recently launched a major initiative to recruit more female surgeons, ensuring equal pay and flexible shifts. Despite these attractive conditions and a large pool of skillful female doctors in the region, the majority of applicants for these surgical positions are still male.",
+                        "speaker_a": null,
+                        "speaker_b": null,
+                        "question": "What is the most likely cause of this unexpected outcome?",
+                        "option_a": "Deeply rooted stereotypes regarding the physical and mental demands of the role still discourage women from applying.",
+                        "option_b": "The hospital's new equality policy explicitly prevents female doctors from performing major medical operations.",
+                        "option_c": "The recruitment campaign was conducted exclusively in areas where most residents are completely uneducated.",
+                        "option_d": "Male applicants receive significantly lower salaries and fewer benefits compared to female candidates.",
+                        "answer": "A",
+                        "explanation": "Tình huống: Một bệnh viện có chiến dịch lớn nhằm thu hút nữ bác sĩ phẫu thuật với điều kiện tốt, nhưng đa số người ứng tuyển vẫn là nam giới.\nDeeply rooted stereotypes regarding the physical and mental demands of the role still discourage women from applying: Những định kiến ăn sâu về yêu cầu khắt khe cả về thể chất lẫn tinh thần của công việc vẫn khiến phụ nữ e ngại ứng tuyển. → Giải thích được nguyên nhân sâu xa vì sao phụ nữ không nộp đơn dù có điều kiện làm việc tốt.\nThe hospital's new equality policy explicitly prevents female doctors from performing major medical operations: Chính sách bình đẳng mới của bệnh viện cấm rõ ràng các nữ bác sĩ thực hiện các ca phẫu thuật lớn. → Mâu thuẫn trực tiếp với bối cảnh bệnh viện đang chủ động tuyển dụng nữ bác sĩ phẫu thuật.\nThe recruitment campaign was conducted exclusively in areas where most residents are completely uneducated: Chiến dịch tuyển dụng được thực hiện độc quyền ở những khu vực mà phần lớn người dân hoàn toàn không được giáo dục. → Sai logic vì nếu người dân không được học hành, thì sẽ không có ai (kể cả nam giới) đủ trình độ nộp đơn làm bác sĩ phẫu thuật.\nMale applicants receive significantly lower salaries and fewer benefits compared to female candidates: Ứng viên nam nhận được mức lương và phúc lợi thấp hơn đáng kể so với ứng viên nữ. → Không hợp lý vì nếu ứng viên nam nhận ít quyền lợi hơn, điều đó càng phải khuyến khích nữ giới nộp đơn nhiều hơn thay vì ngược lại.",
+                        "translation": {
+                            "scenario": "Một bệnh viện danh tiếng gần đây đã triển khai một chiến dịch lớn nhằm tuyển dụng thêm nữ bác sĩ phẫu thuật, đảm bảo mức lương ngang bằng và ca làm việc linh hoạt. Bất chấp những điều kiện hấp dẫn này và việc có sẵn một lực lượng lớn các nữ bác sĩ lành nghề trong khu vực, phần lớn người ứng tuyển cho các vị trí phẫu thuật này vẫn là nam giới.",
+                            "question": "Nguyên nhân nào có khả năng nhất dẫn đến kết quả không mong đợi này?",
+                            "speaker_a": null,
+                            "speaker_b": null
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 39,
+            "diff": "C1",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading",
+            "spec": "Tư duy/Tình huống",
+            "level": "Vận dụng"
+        },
+        {
+            "type": "LOGICAL_THINKING",
+            "title": "Unit 8. New Ways To Learn",
+            "parsed": {
+                "questions": [
+                    {
+                        "number": 40,
+                        "type": "definition_example",
+                        "scenario": "Educational experts define a \"flipped classroom\" as a pedagogical strategy within blended learning. In this model, students are introduced to new theoretical concepts independently using digital resources before the lesson. Face-to-face class time is then exclusively dedicated to applying this knowledge to real-world scenarios through teamwork and teacher-guided problem-solving, rather than traditional lecturing.",
+                        "speaker_a": null,
+                        "speaker_b": null,
+                        "question": "Which of the following educational settings best illustrates the concept of a \"flipped classroom\"?",
+                        "option_a": "Students watch a recorded instructional video about creating flow charts at home, and then use the scheduled class time to collaboratively design original flow charts in groups.",
+                        "option_b": "An instructor delivers a comprehensive lecture on history in a traditional classroom, followed by assigning students high-speed online quizzes to complete as weekend homework.",
+                        "option_c": "Learners install an interactive educational app to master coding skills on their own schedules, avoiding face-to-face interaction to prevent unnecessary distractions.",
+                        "option_d": "A professor uses a voice recorder during the physical class so that absent students can later listen to the lecture and take notes immediately from home.",
+                        "answer": "A",
+                        "explanation": "Tình huống: Yêu cầu tìm ví dụ minh họa đúng nhất cho định nghĩa \"lớp học đảo ngược\" - người học tự nghiên cứu lý thuyết qua tài nguyên kĩ thuật số trước buổi học và dùng thời gian học trực tiếp để thực hành hoặc giải quyết vấn đề.\nStudents watch a recorded instructional video about creating flow charts at home, and then use the scheduled class time to collaboratively design original flow charts in groups: Học sinh xem video hướng dẫn tạo lưu đồ ở nhà, sau đó sử dụng thời gian trên lớp để cùng nhau thiết kế các lưu đồ sáng tạo theo nhóm. → Phù hợp, vì ví dụ này phản ánh chính xác tiến trình tự tiếp thu lý thuyết ở nhà qua thiết bị kĩ thuật số và ứng dụng kiến thức trên lớp qua hoạt động nhóm trực tiếp.\nAn instructor delivers a comprehensive lecture on history in a traditional classroom, followed by assigning students high-speed online quizzes to complete as weekend homework: Giảng viên giảng bài lịch sử chi tiết ở lớp học truyền thống, sau đó giao các bài kiểm tra trực tuyến tốc độ cao để học sinh làm bài tập cuối tuần. → Sai, vì đây là phương pháp dạy học truyền thống (lý thuyết ở lớp, bài tập ở nhà), không thay đổi cấu trúc tiến trình học.\nLearners install an interactive educational app to master coding skills on their own schedules, avoiding face-to-face interaction to prevent unnecessary distractions: Người học cài đặt ứng dụng giáo dục tương tác để tự học kĩ năng lập trình, tránh giao tiếp trực tiếp để ngăn ngừa sự mất tập trung không đáng có. → Sai, vì đây là hình thức tự học trực tuyến hoàn toàn, thiếu đi phần tương tác trực tiếp trên lớp để áp dụng kiến thức vào thực tế.\nA professor uses a voice recorder during the physical class so that absent students can later listen to the lecture and take notes immediately from home: Một giáo sư sử dụng máy thu âm trong lớp học trực tiếp để sinh viên vắng mặt sau đó có thể nghe lại bài giảng và ghi chép ngay tại nhà. → Sai, vì đây chỉ là việc ghi âm lại một lớp học truyền thống bằng thiết bị kĩ thuật số, không tạo ra mô hình học tập kết hợp theo tiến trình đảo ngược.",
+                        "translation": {
+                            "scenario": "Các chuyên gia giáo dục định nghĩa \"lớp học đảo ngược\" là một chiến lược sư phạm trong phương pháp học tập kết hợp. Trong mô hình này, học sinh tự làm quen với các khái niệm lý thuyết mới thông qua các nguồn tài nguyên kĩ thuật số trước buổi học. Thời gian học trực tiếp trên lớp sau đó được dành hoàn toàn để áp dụng kiến thức này vào các tình huống thực tế thông qua làm việc nhóm và giải quyết vấn đề dưới sự hướng dẫn của giáo viên, thay vì giảng bài theo cách truyền thống.",
+                            "question": "Môi trường giáo dục nào sau đây minh họa rõ nhất khái niệm \"lớp học đảo ngược\"?",
+                            "speaker_a": null,
+                            "speaker_b": null
+                        }
+                    }
+                ]
+            },
+            "question_count": 1,
+            "start_num": 40,
+            "diff": "C1",
+            "text_type": "Đọc hiểu",
+            "text_type_en": "reading",
+            "spec": "Tư duy/Tình huống",
+            "level": "Vận dụng cao"
+        }
+    ]
+}

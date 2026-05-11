@@ -20,6 +20,7 @@ from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_r
 from api.custom_prompts_api import router as custom_prompts_router
 from api.routes.export import routerEnglish
 from api.routes.solute import routerSolute
+from api.routes.regenerateEnglish import routerRegenerateEnglish
 # Load environment variables
 load_dotenv()
 
@@ -55,6 +56,7 @@ app.include_router(google_drive.router)
 app.include_router(regenerate.router)
 app.include_router(chart_regenerate.router)
 app.include_router(routerEnglish)
+app.include_router(routerRegenerateEnglish)
 app.include_router(math_template_selection.router)  # Math template selection
 app.include_router(history_material_selection.router)  # History DS material selection
 # Include new feature routers

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import testdata from '../components/generate/testdata.json'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -11,6 +12,17 @@ const api = axios.create({
 
 // Generate questions from matrix file
 export const generateQuestions = async (file, config = {}, templateDocx = null, pdfFiles = null) => {
+  // const USE_MOCK = true;
+
+  //   if (USE_MOCK) {
+  //   console.log("🚀 USING MOCK DATA - SKIP API");
+
+  //   // giả lập delay giống AI (optional)
+  //   await new Promise(res => setTimeout(res, 800));
+
+  //   return testdata;
+  // }
+
   try {
       const formData = new FormData()
       formData.append('file', file)
@@ -38,7 +50,7 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
           'Content-Type': 'multipart/form-data',
         },
       })
-    // console.log(">>>>>> debug response", response.data);
+  console.log(">>>>>> debug response", response.data);
   return response.data
   }catch(error) {
     console.log(error);
@@ -48,6 +60,75 @@ export const generateQuestions = async (file, config = {}, templateDocx = null, 
 
 }
 
+export const handleRegenerateEnglishQuestion = async (block, q, userFeedback) => {
+  const payload = {
+    type: block.type,
+    topic: block.title,
+    spec: block.spec,      
+    level: block.level,      
+    diff: block.diff,      
+    text_type: block.text_type,
+    question_number: q ? (q.number || (q.parsed && q.parsed.question_number)) : null,
+    user_feedback: userFeedback || "Sinh lại nội dung câu hỏi này",
+    passage: block.parsed?.passage || block.passage || "",
+    passage_title: block.parsed?.passage_title || block.passage_title || "",
+    current_question_data: q || block.parsed
+  };
+  console.log(">>>>>> debug payload ", payload);
+
+  const response =  await api.post('/api/regenerate-english/regenerate-one-question', payload);
+
+  return response.data;
+};
+
+
+export const handleGenerateArrangeEnglishQuestion = async (
+  block,
+  userFeedback
+) => {
+  const parsed = block?.parsed || {}
+
+  const payload = {
+    type: block.type,
+    topic: block.title,
+    spec: block.spec,
+    level: block.level,
+    diff: block.diff,
+    text_type: block.text_type,
+    text_type_en: block.text_type_en,
+    question_number: parsed.question_number,
+    user_feedback:
+      userFeedback || "Sinh lại câu hỏi sắp xếp hội thoại này",
+    current_question_data: {
+      question_number: parsed.question_number,
+      question_stem: parsed.question_stem,
+      option_a: parsed.option_a,
+      option_b: parsed.option_b,
+      option_c: parsed.option_c,
+      option_d: parsed.option_d,
+      answer: parsed.answer,
+      solution_lines: parsed.solution_lines || [],
+      translation_lines: parsed.translation_lines || [],
+    },
+  }
+
+  console.log(
+    ">>>>> debug arrange payload",
+    payload
+  )
+
+  const response = await api.post(
+    "/api/regenerate-english/regenerate-one-question",
+    payload
+  )
+
+  console.log(
+    ">>>>> debug arrange response",
+    response
+  )
+
+  return response.data
+}
 
 export const generateQuestionsEnglishTHCS = async (file) => {
   try {
@@ -67,38 +148,6 @@ export const generateQuestionsEnglishTHCS = async (file) => {
       }
 
 }
-
-// export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
-//   try {
-//       const formData = new FormData()
-//   formData.append('file', file)
-  
-//   // Thêm template DOCX nếu có  
-//   // Thêm PDF files nếu có
-//   if (pdfFiles && pdfFiles.length > 0) {
-//     for (const pdf of pdfFiles) {
-//       formData.append('pdf_files', pdf)
-//     }
-//   }
-  
-//   if (config.max_workers) formData.append('max_workers', config.max_workers)
-//   if (config.min_interval) formData.append('min_interval', config.min_interval)
-//   if (config.max_retries) formData.append('max_retries', config.max_retries)
-//   if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
-
-//   const response = await api.post('/api/solute-english-exam', formData, {
-//     headers: {
-//       'Content-Type': 'multipart/form-data',
-//     },
-//   })
-//    console.log(">>>>>> debug response  english", response.data);
-//   return response.data
-//   }catch(error) {
-//     console.log(">>>>>> error generete solutions", error)
-//     throw error;
-//   }
-
-// }
 
 export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
   const formData = new FormData()

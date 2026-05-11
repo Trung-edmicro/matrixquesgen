@@ -16,6 +16,7 @@ import {
   getEnrichedMatrix,
   saveTemplateSelections,
   continueToPhase4,
+  handleRegenerateEnglishQuestion,
   getEnrichedMatrixForMaterial,
   saveMaterialSelections,
   continueToPhase4AfterMaterial,
@@ -25,11 +26,14 @@ import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPa
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
 import EnglishExamTHCSPreviewPanel from '../components/generate/EnglishExamTHCSPreviewPanel'
 import QuestionTemplateSelector from '../components/math/QuestionTemplateSelector'
+import testdata from '../components/generate/testdata.json'
+import { message } from 'antd'
 import MaterialSelector from '../components/history/MaterialSelector'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
 const STORAGE_EXPIRY_HOURS = 5 // Lưu tối đa 5 tiếng
+const USE_MOCK = true;
 const STORAGE_VERSION = 2 // Tăng version khi cấu trúc data thay đổi
 
 export default function GenerateExamPage() {
@@ -43,6 +47,7 @@ export default function GenerateExamPage() {
   const [error, setError] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
   const [successMessage, setSuccessMessage] = useState(null)
+  const [selectedQuestions, setSelectedQuestions] = useState([])
   const [generationProgress, setGenerationProgress] = useState({
     percentage: 0,
     phase: '',
@@ -112,11 +117,127 @@ export default function GenerateExamPage() {
           matrixData,
           timestamp: Date.now() // Thêm timestamp để kiểm tra expiry
         }))
+
+        if (generatedExam && matrixData?.file?.name) {
+        const fileName = matrixData.file.name;
+        if (fileName.startsWith("MATRIX_ENGLISH_THPT_")) {
+          localStorage.setItem("generatedEnglishExam", JSON.stringify(generatedExam));
+        } else if (fileName.startsWith("MATRIX_ENGLISH_THCS_")) {
+          localStorage.setItem("generatedEnglishTHCSExam", JSON.stringify(generatedExam));
+        }
+      }
       } catch (err) {
         console.error('Lỗi khi lưu state:', err)
       }
     }
   }, [generatedExam, sessionId, matrixData])
+
+  const handleToggleQuestionSelection = ({
+  blockIndex,
+  questionNumber,
+}) => {
+  setSelectedQuestions((prev) => {
+    const existed = prev.some(
+      (item) =>
+        item.blockIndex === blockIndex &&
+        item.questionNumber === questionNumber
+    )
+
+    if (existed) {
+      return prev.filter(
+        (item) =>
+          !(
+            item.blockIndex === blockIndex &&
+            item.questionNumber === questionNumber
+          )
+      )
+    }
+
+    return [
+      ...prev,
+      {
+        blockIndex,
+        questionNumber,
+      },
+    ]
+  })
+}
+
+const handleRegenerateMultipleQuestions = async () => {
+  if (selectedQuestions.length < 2) return
+
+  try {
+    setIsGenerating(true)
+    // 1. Tạo bản sao sâu của dữ liệu hiện tại
+    const updatedExam = structuredClone(generatedExam)
+
+    for (const selected of selectedQuestions) {
+      const { blockIndex, questionNumber } = selected
+      const targetBlock = updatedExam.results[blockIndex]
+      if (!targetBlock) continue
+
+      // Xác định câu hỏi cũ để gửi lên API (nếu cần)
+      let oldQuestion = null
+      if (targetBlock.parsed?.questions) {
+        oldQuestion = targetBlock.parsed.questions.find(q => q.number === questionNumber)
+      } else if (targetBlock.parsed?.question_number === questionNumber) {
+        oldQuestion = targetBlock.parsed
+      }else if (Array.isArray(targetBlock?.questions)
+      ) {
+        oldQuestion =
+          targetBlock.questions.find(
+            (q) =>
+              q.number === questionNumber
+          )
+      }
+
+      // 2. Gọi API regenerate (giống logic câu đơn)
+      const result = await handleRegenerateEnglishQuestion(
+        targetBlock, 
+        oldQuestion, 
+        "Sinh lại câu hỏi này"
+      )
+
+      // 3. Kiểm tra kết quả và cập nhật vào bản sao updatedExam
+      if (result && result.status === "success") {
+        
+        // Trường hợp 1: Block chứa mảng questions (SentenceCompletion, Pronunciation,...)
+        if (targetBlock.parsed?.questions) {
+          const newQ = result.parsed?.questions?.[0] // Lấy câu hỏi thực sự từ response
+          if (newQ) {
+            targetBlock.parsed.questions = targetBlock.parsed.questions.map((q) =>
+              q.number === questionNumber ? newQ : q
+            )
+          }
+        } 
+        // Trường hợp 2: Block là câu đơn (ARRANGE)
+        else if (targetBlock.parsed?.question_number === questionNumber) {
+           // Với ARRANGE, API thường trả về object trực tiếp trong parsed
+           targetBlock.parsed = { ...targetBlock.parsed, ...result.parsed }
+        }
+      }
+    }
+
+    // 4. Cập nhật state một lần duy nhất sau khi vòng lặp kết thúc
+    setGeneratedExam(updatedExam)
+    
+    // 5. Lưu vào localStorage để đồng bộ (giống handleGenerate)
+    const isTHCS = matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THCS_")
+    localStorage.setItem(
+      isTHCS ? "generatedEnglishTHCSExam" : "generatedEnglishExam", 
+      JSON.stringify(updatedExam)
+    )
+
+    // Clear selection
+    setSelectedQuestions([])
+    message.success(`Đã sinh lại ${selectedQuestions.length} câu hỏi thành công`)
+  } catch (err) {
+    console.error("Lỗi regenerate multiple:", err)
+    message.error('Lỗi khi sinh lại nhiều câu hỏi')
+  } finally {
+    setIsGenerating(false)
+  }
+}
 
   const getPhaseDisplayName = (phase) => {
     const phaseNames = {
@@ -156,7 +277,7 @@ export default function GenerateExamPage() {
   }
 
   const handleDataChange = useCallback((newData, showMessage = true) => {
-    setGeneratedExam(newData)
+    setGeneratedExam({...newData})
     setIsDirty(false)
     if (showMessage) {
       setSuccessMessage('Đã lưu thay đổi thành công')
@@ -166,14 +287,18 @@ export default function GenerateExamPage() {
 
   const handleExportEnglishDocx = async () => {
 
-    const storedExam = localStorage.getItem("generatedEnglishExam");
+    // const storedExam = localStorage.getItem("generatedEnglishExam");
 
-    if (!storedExam) {
-      setError("Không có dữ liệu đề tiếng Anh để xuất file")
-      return
-    }
+    // if (!storedExam) {
+    //   setError("Không có dữ liệu đề tiếng Anh để xuất file")
+    //   return
+    // }
 
-    const generatedExam = JSON.parse(storedExam)
+    // const generatedExam = JSON.parse(storedExam)
+      if (!generatedExam) {
+        setError("Không có dữ liệu đề tiếng Anh để xuất file");
+        return;
+      }
 
     try {
       setIsExporting(true)
@@ -647,6 +772,8 @@ export default function GenerateExamPage() {
         <ActionBar
           onGenerate={handleGenerate}
           onExport={handleExport}
+          onRegenerateMultiple={handleRegenerateMultipleQuestions}
+          selectedCount={selectedQuestions.length}
           isGenerating={isGenerating}
           isExporting={isExporting}
           canGenerate={!!matrixData}
@@ -702,7 +829,7 @@ export default function GenerateExamPage() {
         ): matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") && !generatedExam ? (
           <EnglishExcelPreviewPanel file={matrixData.file} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") && generatedExam ? (
-          <EnglishExamPreviewPanel examData={generatedExam} />
+          <EnglishExamPreviewPanel  examData={generatedExam} onUpdateExam={handleDataChange} selectedQuestions={selectedQuestions} onToggleQuestionSelection={handleToggleQuestionSelection} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THCS_") && generatedExam ? (
           <EnglishExamTHCSPreviewPanel examData={generatedExam} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") ? (

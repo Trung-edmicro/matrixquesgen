@@ -529,9 +529,9 @@ Quy tắc bắt buộc:
 WORD_FORM_SENTENCE_COMPLETION_THPT_JSON_SCHEMA = """
 Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text ngoài JSON.
 
-{
+{{
   "questions": [
-    {
+    {{
       "number": <số thứ tự câu hỏi, integer>,
 
       "sentence": "<câu có 1 hoặc nhiều chỗ trống ______>",
@@ -550,16 +550,22 @@ Trả về DUY NHẤT một JSON object hợp lệ, KHÔNG markdown, KHÔNG text
 
       "knowledge": "<tên kiến thức chính: word form / verb tense / V-ing / collocation...>",
 
-      "explanation": {
+      "explanation": {{
         "blank_1": "<giải thích vì sao dùng dạng này (loại từ, thì, cấu trúc...)>",
         "blank_2": "<giải thích blank 2 nếu có>",
         "blank_3": "<giải thích blank 3 nếu có>"
-      },
+      }},
 
       "translation": "<dịch câu hoàn chỉnh sang tiếng Việt>"
     }
   ]
-}
+}}
+Quy tắc bắt buộc:
+- questions là mảng có đúng {N_Q} phần tử
+- Đánh số "number" bắt đầu từ {START_NUM}
+- answer KHÔNG phải A/B/C/D, mà là phần còn lại của câu
+- full_rewritten_sentence = rewrite_prompt + answer
+- KHÔNG thêm bất kỳ text nào ngoài JSON
 """
 
 
