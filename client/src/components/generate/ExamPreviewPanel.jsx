@@ -461,6 +461,19 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 
   const [editStates, setEditStates] = useState({})
 
+  // Defensive check for questions object structure
+  if (!questions || typeof questions !== 'object') {
+    return <div className="text-gray-500 p-4">Chưa có dữ liệu câu hỏi</div>
+  }
+
+  // Ensure all question types exist as arrays
+  const safeQuestions = {
+    TN: Array.isArray(questions.TN) ? questions.TN : [],
+    DS: Array.isArray(questions.DS) ? questions.DS : [],
+    TLN: Array.isArray(questions.TLN) ? questions.TLN : [],
+    TL: Array.isArray(questions.TL) ? questions.TL : []
+  }
+
   const toggleEditComment = (type, code) => {
     const key = type + '_' + code
     setEditStates(prev => ({
@@ -504,22 +517,26 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 
   // Sort function cho question_code (C1, C2, ..., C10, C11, ...)
   const sortByQuestionCode = (a, b) => {
-    const getNumber = (code) => parseInt(code.replace('C', ''))
+    const getNumber = (code) => {
+      if (!code || typeof code !== 'string') return 0
+      const num = parseInt(code.replace(/[^0-9]/g, ''))
+      return isNaN(num) ? 0 : num
+    }
     return getNumber(a.question_code) - getNumber(b.question_code)
   }
 
-  // Sort all question types
-  const sortedTN = [...(questions.TN || [])].sort(sortByQuestionCode)
-  const sortedDS = [...(questions.DS || [])].sort(sortByQuestionCode)
-  const sortedTLN = [...(questions.TLN || [])].sort(sortByQuestionCode)
-  const sortedTL = [...(questions.TL || [])].sort(sortByQuestionCode)
+  // Sort all question types using safe questions
+  const sortedTN = [...safeQuestions.TN].sort(sortByQuestionCode)
+  const sortedDS = [...safeQuestions.DS].sort(sortByQuestionCode)
+  const sortedTLN = [...safeQuestions.TLN].sort(sortByQuestionCode)
+  const sortedTL = [...safeQuestions.TL].sort(sortByQuestionCode)
 
   const handleBlur = (type, code, field, e) => {
     const newValue = e.target.textContent
 
-    // Lấy giá trị cũ để so sánh
+    // Lấy giá trị cũ từ safeQuestions (trong scope của QuestionsList)
     const oldValue = (() => {
-      const questionList = editedData?.questions?.[type] || []
+      const questionList = safeQuestions[type] || []
       const question = questionList.find(q => q.question_code === code)
       if (!question) return ''
 
@@ -538,7 +555,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 
     // Chỉ update nếu giá trị thực sự thay đổi
     if (newValue !== oldValue) {
-      handleFieldChange(type, code, field, newValue)
+      onFieldChange(type, code, field, newValue)
     }
   }
 
@@ -849,7 +866,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                     )}
 
                     {/* Source Origin Badge - Only show if subject needs source display */}
-                    {shouldDisplaySource && q.source_origin && (
+                    {/* {shouldDisplaySource && q.source_origin && (
                       <div className="mt-1">
                         <span className={`inline-block px-2 py-0.5 text-xs rounded ${q.source_origin === 'academic_journal' ? 'bg-purple-100 text-purple-700' :
                           q.source_origin === 'scholarly_book' ? 'bg-primary-100 text-primary-700' :
@@ -862,7 +879,7 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
                                 '📰 Báo chí uy tín'}
                         </span>
                       </div>
-                    )}
+                    )} */}
                   </div>
                 )}
                 <div className="space-y-2 pl-4">
@@ -1154,7 +1171,11 @@ function QuestionsList({ questions, onFieldChange, sessionId, shouldDisplaySourc
 function AnswersList({ questions }) {
   // Sort function cho question_code (C1, C2, ..., C10, C11, ...)
   const sortByQuestionCode = (a, b) => {
-    const getNumber = (code) => parseInt(code.replace('C', ''))
+    const getNumber = (code) => {
+      if (!code || typeof code !== 'string') return 0
+      const num = parseInt(code.replace(/[^0-9]/g, ''))
+      return isNaN(num) ? 0 : num
+    }
     return getNumber(a.question_code) - getNumber(b.question_code)
   }
 

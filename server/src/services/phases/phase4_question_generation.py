@@ -127,6 +127,11 @@ class QuestionGenerationService:
         # Default prompts directory (will be updated by set_prompts_directory)
         self.prompts_dir = self.prompts_base_dir
 
+        # Default subject/curriculum/grade (set via set_prompts_directory)
+        self.subject = None
+        self.curriculum = None
+        self.grade = None
+
         # Initialize existing AI client
         self.genai_client = None
         self.question_generator = None
@@ -137,7 +142,52 @@ class QuestionGenerationService:
         self.primary_model = Config.VERTEX_AI_MODEL
         self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
 
-        if ai_provider == "genai":
+        # Normalize "gemini" → "genai" for backward compatibility
+        if ai_provider == "gemini":
+            ai_provider = "genai"
+
+        if ai_provider == "openai":
+            # Initialize OpenAI client for text generation
+            try:
+                from ..core.openai_client import OpenAIClient
+                from ..core.openai_client import OpenAIClient as _OpenAIClient
+                self.genai_client = OpenAIClient()
+                # Update primary_model and fallback_model from actual client
+                if self.genai_client and self.genai_client.model_name:
+                    self.primary_model = self.genai_client.model_name
+                self.fallback_model = _OpenAIClient.FALLBACK_MODEL
+                print("✅ Initialized OpenAI client for question generation service")
+                print(f"✓ Configured retry strategy:")
+                print(f"   Primary model: {self.primary_model} (5 retries)")
+                print(f"   Fallback model: {self.fallback_model} (3 retries)")
+            except Exception as e:
+                print(f"❌ Failed to initialize OpenAI client: {e}")
+                self.genai_client = None
+                self.question_generator = None
+
+            # Always initialize ImageWorkflowService with Gemini client
+            # (image generation requires Gemini/Imagen regardless of text AI provider)
+            try:
+                project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
+                credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+                api_key = os.getenv("GENAI_API_KEY")
+                gemini_for_images = GenAIClient(
+                    project_id=project_id,
+                    credentials_path=credentials_path,
+                    api_key=api_key
+                )
+                self.image_workflow_service = ImageWorkflowService(
+                    ai_client=gemini_for_images,
+                    image_save_dir=None,
+                    prompts_dir=None
+                )
+                print("✅ Initialized ImageWorkflowService with Gemini (for HA_MH/HA_TL, always uses Gemini)")
+            except Exception as img_err:
+                print(f"⚠️ Failed to initialize ImageWorkflowService for OpenAI mode: {img_err}")
+                print("   Image-based questions (HA_MH/HA_TL) will not be available")
+                self.image_workflow_service = None
+
+        elif ai_provider == "genai":
             # Initialize GenAI client
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
             credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -908,7 +958,7 @@ class QuestionGenerationService:
                                 supplementary_for_ds = supplementary
                             else:
                                 # No rich content (text only) -> use spec materials
-                                supplementary_for_ds = spec_data.get('materials', '')
+                                supplementary_for_ds = self._resolve_materials(spec_data)
                             
                             # Create task for DS generation (only once per question_code)
                             task = {
@@ -1319,7 +1369,7 @@ class QuestionGenerationService:
                             'chapter': chapter,
                             'lesson': lesson,
                             'content': content,
-                            'supplementary': spec_data.get('materials', ''),
+                            'supplementary': self._resolve_materials(spec_data),
                             'spec_data': spec_data,
                             'matrix_data': matrix_data
                         }
@@ -1493,6 +1543,24 @@ class QuestionGenerationService:
         existing_set.total_questions = len(existing_set.questions)
         
         return existing_set
+
+    @staticmethod
+    def _resolve_materials(spec_data: Dict) -> str:
+        """Normalize 'materials' field from spec_data to a str.
+
+        Phase 3 may store materials as list[str] (after AI filtering) or str.
+        Phase 4 expects a single str to pass into TrueFalseQuestionSpec.
+
+        Args:
+            spec_data: DS spec dict
+
+        Returns:
+            str - joined materials if list, or raw string if str, or '' if missing
+        """
+        materials = spec_data.get('materials', '')
+        if isinstance(materials, list):
+            return '\n\n'.join(m for m in materials if m)
+        return materials or ''
 
     def _generate_question_task(self, task: Dict) -> List:
         """Generate questions for a single task with retry logic and fallback model"""
@@ -1740,7 +1808,7 @@ class QuestionGenerationService:
                         question_type="DS",
                         chapter_number=int(chapter),
                         supplementary_material=lesson_data.get('supplementary_material', ''),
-                        materials=spec_data.get('materials', ''),
+                        materials=self._resolve_materials(spec_data),
                         rich_content_types=spec_data.get('rich_content_types', None)
                     )
 

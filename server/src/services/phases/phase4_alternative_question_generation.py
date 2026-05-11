@@ -96,7 +96,22 @@ class AlternativeQuestionGenerationService:
         self.question_generator = None
         self.matrix_parser = MatrixParser()  # Initialize matrix parser for sample questions
 
-        if ai_provider == "genai":
+        # Normalize "gemini" → "genai" for backward compatibility
+        if ai_provider == "gemini":
+            ai_provider = "genai"
+
+        if ai_provider == "openai":
+            # Initialize OpenAI client
+            try:
+                from ..core.openai_client import OpenAIClient
+                self.genai_client = OpenAIClient()
+                self._init_question_generator_from_client(self.genai_client)
+            except Exception as e:
+                print(f"❌ Failed to initialize OpenAI client: {e}")
+                self.genai_client = None
+                self.question_generator = None
+
+        elif ai_provider == "genai":
             # Initialize GenAI client
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
             credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
@@ -108,43 +123,7 @@ class AlternativeQuestionGenerationService:
                     credentials_path=credentials_path,
                     api_key=api_key
                 )
-                
-                # Try to find TN prompt file (TN2.txt or TN.txt)
-                tn_prompt_path = None
-                if (self.prompts_dir / "TN2.txt").exists():
-                    tn_prompt_path = str(self.prompts_dir / "TN2.txt")
-                    print(f"✓ Using TN2.txt for QuestionGenerator init")
-                elif (self.prompts_dir / "TN.txt").exists():
-                    tn_prompt_path = str(self.prompts_dir / "TN.txt")
-                    print(f"✓ Using TN.txt for QuestionGenerator init")
-                else:
-                    print(f"⚠️ Neither TN.txt nor TN2.txt found in {self.prompts_dir}")
-                    print(f"   QuestionGenerator will be initialized when set_prompts_directory() is called")
-                
-                if not tn_prompt_path:
-                    for tier_name in ("TN_NB.txt", "TN_TH.txt", "TN_VD.txt"):
-                        candidate = self.prompts_dir / tier_name
-                        if candidate.exists():
-                            tn_prompt_path = str(candidate)
-                            print(f"✓ Using {tier_name} as fallback for QuestionGenerator init")
-                            break
-
-                if not tn_prompt_path:
-                    txts = sorted(self.prompts_dir.glob("*.txt"))
-                    if txts:
-                        tn_prompt_path = str(txts[0])
-                        print(f"✓ Using {txts[0].name} as last-resort fallback for QuestionGenerator init")
-
-                if tn_prompt_path:
-                    self.question_generator = QuestionGenerator(
-                        ai_client=self.genai_client,
-                        prompt_template_path=tn_prompt_path,
-                        verbose=True,
-                        matrix_parser=self.matrix_parser  # Add matrix_parser for sample questions
-                    )
-                    print(f"✓ QuestionGenerator initialized with {Path(tn_prompt_path).name}")
-                else:
-                    self.question_generator = None
+                self._init_question_generator_from_client(self.genai_client)
                     
             except Exception as e:
                 # print(f"❌ Failed to initialize GenAI client: {e}")
@@ -153,6 +132,48 @@ class AlternativeQuestionGenerationService:
                 # print(f"   API key: {'***' if api_key else None}")
                 self.genai_client = None
                 self.question_generator = None
+
+    def _init_question_generator_from_client(self, ai_client) -> None:
+        """
+        Khởi tạo QuestionGenerator từ bất kỳ ai_client nào (GenAI hoặc OpenAI).
+        Tách ra để tái sử dụng trong cả hai nhánh khởi tạo.
+        """
+        # Try to find TN prompt file (TN2.txt or TN.txt)
+        tn_prompt_path = None
+        if (self.prompts_dir / "TN2.txt").exists():
+            tn_prompt_path = str(self.prompts_dir / "TN2.txt")
+            print(f"✓ Using TN2.txt for QuestionGenerator init")
+        elif (self.prompts_dir / "TN.txt").exists():
+            tn_prompt_path = str(self.prompts_dir / "TN.txt")
+            print(f"✓ Using TN.txt for QuestionGenerator init")
+        else:
+            print(f"⚠️ Neither TN.txt nor TN2.txt found in {self.prompts_dir}")
+            print(f"   QuestionGenerator will be initialized when set_prompts_directory() is called")
+
+        if not tn_prompt_path:
+            for tier_name in ("TN_NB.txt", "TN_TH.txt", "TN_VD.txt"):
+                candidate = self.prompts_dir / tier_name
+                if candidate.exists():
+                    tn_prompt_path = str(candidate)
+                    print(f"✓ Using {tier_name} as fallback for QuestionGenerator init")
+                    break
+
+        if not tn_prompt_path:
+            txts = sorted(self.prompts_dir.glob("*.txt"))
+            if txts:
+                tn_prompt_path = str(txts[0])
+                print(f"✓ Using {txts[0].name} as last-resort fallback for QuestionGenerator init")
+
+        if tn_prompt_path:
+            self.question_generator = QuestionGenerator(
+                ai_client=ai_client,
+                prompt_template_path=tn_prompt_path,
+                verbose=True,
+                matrix_parser=self.matrix_parser
+            )
+            print(f"✓ QuestionGenerator initialized with {Path(tn_prompt_path).name}")
+        else:
+            self.question_generator = None
 
     def classify_lesson_topic_type(self, lesson_data: Dict) -> int:
         """

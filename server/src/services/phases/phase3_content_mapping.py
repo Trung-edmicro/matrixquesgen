@@ -12,7 +12,9 @@ from dataclasses import dataclass
 
 from .phase1_matrix_processing import MatrixMetadata, LessonInfo
 from ..ai.math_template_filter_service import MathTemplateFilterService
+from ..ai.history_material_filter_service import HistoryMaterialFilterService
 from ..core.genai_client import GenAIClient
+from config.settings import Config
 
 
 @dataclass
@@ -44,9 +46,10 @@ class ContentMappingService:
         self.content_dir = Path("data/content")
         self.matrix_dir = Path("data/matrix")
         
-        # Initialize Math template filter service
+        # Initialize Math template filter service and History material filter service
         if genai_client:
             self.math_filter_service = MathTemplateFilterService(genai_client)
+            self.history_material_filter_service = HistoryMaterialFilterService(genai_client)
         else:
             # Create default GenAI client for Math filtering
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
@@ -60,10 +63,12 @@ class ContentMappingService:
                     api_key=api_key
                 )
                 self.math_filter_service = MathTemplateFilterService(default_client)
+                self.history_material_filter_service = HistoryMaterialFilterService(default_client)
             except Exception as e:
                 print(f"⚠️ Failed to initialize GenAI client for Math filtering: {e}")
                 # MathTemplateFilterService will handle None client
                 self.math_filter_service = MathTemplateFilterService(None)
+                self.history_material_filter_service = HistoryMaterialFilterService(None)
 
     def map_content_to_matrix(self, matrix_json_path: Path) -> ContentMappingResult:
         """Map content from Phase 2 JSON files into the matrix JSON"""
@@ -187,8 +192,6 @@ class ContentMappingService:
 
         # Fix curriculum in metadata before saving enriched matrix
         # Ensure it defaults to KNTT if empty or invalid
-        from config.settings import Config
-        
         if 'metadata' in matrix_data:
             curriculum = matrix_data['metadata'].get('curriculum', '')
             if not curriculum or len(curriculum) > 10:  # If it's a session ID or empty, replace with KNTT
@@ -356,10 +359,17 @@ class ContentMappingService:
                     # For other subjects: use random selection
                     questions_mapped += self._map_tn_questions(lesson_data['TL'], tl_data, map_all_templates)
 
-            # Map DS questions with random selection
+            # Map DS questions (with AI material filter for supported subjects)
             ds_data = data.get('DS', {})
             if 'DS' in lesson_data and lesson_data['DS']:
-                questions_mapped += self._map_ds_questions(lesson_data['DS'], ds_data.get('questions', []), ds_data.get('material', []), map_all_templates)
+                questions_mapped += self._map_ds_questions(
+                    lesson_data['DS'],
+                    ds_data.get('questions', []),
+                    ds_data.get('material', []),
+                    map_all_templates,
+                    subject=subject,
+                    lesson_name=lesson_data.get('lesson_name', '')
+                )
 
             return questions_mapped
 
@@ -409,20 +419,33 @@ class ContentMappingService:
 
         return questions_mapped
 
-    def _map_ds_questions(self, ds_specs: List, ds_questions: List, ds_materials: List, map_all: bool = False) -> int:
+    def _map_ds_questions(
+        self,
+        ds_specs: List,
+        ds_questions: List,
+        ds_materials: List,
+        map_all: bool = False,
+        subject: str = '',
+        lesson_name: str = ''
+    ) -> int:
         """Map DS questions with template selection
-        
+
         Args:
             ds_specs: Question specifications from Phase 1 matrix
             ds_questions: Question data from Phase 2 file
-            ds_materials: Material data from Phase 2 file
+            ds_materials: Material data from Phase 2 file (from Drive content)
             map_all: If True, map ALL templates (for TOAN)
                      If False, limit to 5 templates per question
+            subject: Subject code (e.g., 'LICHSU'). Used to decide AI material filtering.
+            lesson_name: Lesson name for AI context.
         """
         questions_mapped = 0
 
         if not ds_specs:
             return 0
+
+        # Determine if this subject needs AI material filtering
+        use_material_filter = Config.should_filter_material(subject) if subject else False
 
         # For each DS spec, select questions based on subject
         # For TOAN: select ALL questions, For others: limit to 5
@@ -446,9 +469,28 @@ class ContentMappingService:
             if 'supplementary_materials' in spec:
                 del spec['supplementary_materials']  # Remove old field
 
-            if ds_materials:
-                selected_material = random.choice(ds_materials)
-                spec['materials'] = selected_material
+            # Only map materials from Drive content if not already set in spec from matrix
+            existing_materials = spec.get('materials', '')
+            if existing_materials:
+                # Keep existing materials from matrix, don't override from Drive content
+                pass
+            elif ds_materials:
+                if use_material_filter:
+                    # Use AI to filter best matching materials from Drive content
+                    question_code = spec.get('question_code', spec.get('code', ['DS'])[0])
+                    statements = spec.get('statements', [])
+                    filtered = self.history_material_filter_service.filter_materials(
+                        lesson_name=lesson_name,
+                        question_code=question_code,
+                        statements=statements,
+                        materials_list=ds_materials
+                    )
+                    spec['materials'] = filtered  # Store as list[str]
+                    print(f"   ✓ AI filtered materials for DS {question_code}: {len(filtered)} selected")
+                else:
+                    # Default: random pick one material
+                    selected_material = random.choice(ds_materials)
+                    spec['materials'] = selected_material
             else:
                 spec['materials'] = ""
 

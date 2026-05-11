@@ -430,4 +430,28 @@ export const continueToPhase4 = async (sessionId) => {
   return response.data
 }
 
+// ── History DS material selection ──────────────────────────────────────────────
+
+// Get enriched matrix for DS material selection (LICHSU and similar subjects)
+export const getEnrichedMatrixForMaterial = async (sessionId) => {
+  const response = await api.get(`/api/history-material/${sessionId}/enriched-matrix`)
+  return response.data
+}
+
+// Save DS material selections (user picks one material per DS question)
+export const saveMaterialSelections = async (sessionId, selections) => {
+  const payload = {
+    session_id: sessionId,
+    selections: selections
+  }
+  const response = await api.post(`/api/history-material/${sessionId}/save-selections`, payload)
+  return response.data
+}
+
+// Continue to phase 4 after material selection
+export const continueToPhase4AfterMaterial = async (sessionId) => {
+  const response = await api.post(`/api/history-material/${sessionId}/continue-to-phase4`)
+  return response.data
+}
+
 export default api

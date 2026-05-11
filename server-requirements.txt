@@ -10,6 +10,9 @@ google-cloud-aiplatform>=1.38.1
 # google-cloud-aiplatform. Removed to eliminate version conflicts.
 google-genai>=1.61.0
 
+# OpenAI API
+openai
+
 # Google Drive API
 google-api-python-client==2.110.0
 google-auth-httplib2==0.1.1
