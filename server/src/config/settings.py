@@ -76,6 +76,27 @@ class Config:
         "LICHSU",  # Lịch sử cần hiển thị nguồn tư liệu
         # Thêm các môn khác cần hiển thị source vào đây
     ]
+
+    # ═════ DS Material Filter Configuration ═════
+    # Danh sách các môn học cần dùng AI để chọn tư liệu DS từ Drive
+    # (thay vì random.choice hoặc dùng nguyên materials từ ma trận)
+    SUBJECTS_WITH_MATERIAL_FILTER = [
+        "LICHSU",  # Lịch sử: filter tư liệu DS bằng AI
+        # Thêm các môn khác cần filter tư liệu DS vào đây
+    ]
+
+    @classmethod
+    def should_filter_material(cls, subject: str) -> bool:
+        """
+        Kiểm tra xem môn học có cần dùng AI để filter tư liệu DS không
+
+        Args:
+            subject (str): Mã môn học (VD: "LICHSU", "GDKTPL")
+
+        Returns:
+            bool: True nếu cần filter, False nếu không
+        """
+        return subject.upper() in cls.SUBJECTS_WITH_MATERIAL_FILTER
     
     @classmethod
     def should_display_source(cls, subject: str) -> bool:

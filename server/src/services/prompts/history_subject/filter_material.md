@@ -1,69 +1,58 @@
-# Nhiệm vụ
+﻿# Nhiem vu
 
-Bạn là hệ thống trích xuất dữ liệu.  
-Hãy tìm và trả về 2-3 **nguyên văn đoạn trích** phù hợp với yêu cầu.
-
----
-
-# Quy tắc bắt buộc
-
-- Chỉ được **copy nguyên văn** từ dữ liệu
-- **Không sửa, không tóm tắt, không diễn giải**
-- **Không thêm bất kỳ từ nào**
-- **Không ghép nhiều đoạn**
+Ban la nguoi loc, lua chon va trich xuat du lieu.  
+Hay tim va tra ve 2-3 **nguyen van doan trich** trong danh sach de phu hop voi yeu cau nhat.
 
 ---
 
-# Định dạng output
+# Quy tac bat buoc
 
-- Bao gồm:
-  - Nội dung đoạn trích
-  - **Nguồn (trích nguồn) đi kèm**
-- Giữ nguyên format (kể cả dấu `>` nếu có)
-
----
-
-# Không được phép
-
-- Thêm giải thích
-- Viết lại nội dung
-- Tự tạo nội dung mới
+- Chi duoc **copy nguyen van** tu du lieu danh sach
+- **Khong sua, khong tom tat, khong dien giai**
+- **Khong viet lai noi dung, khong them bat ky tu nao hay tu tao noi dung moi**
+- **Khong ghep nhieu doan**
 
 ---
 
-# Tiêu chí chọn đoạn
+# Tieu chi chon doan
 
-- Lấy chính xác tư liệu xuất hiện trong danh sách tư liệu đã cho. Tư liệu được đặt trong dấu ngoặc kép "" của file danh sách, lấy tư liệu bắt đầu từ "
-- NGHIÊM CẤM: chỉnh sửa, thêm bớt nội dung tư liệu, tự tạo tư liệu, lấy tư liệu bên ngoài
-- Chọn tư liệu phù hợp với [CẤU TRÚC CẤP ĐỘ TƯ DUY CỦA CÁC MỆNH ĐỀ (BẮT BUỘC) VÀ KẾT QUẢ CẦN ĐẠT] của câu hỏi: **Phủ nội dung trực tiếp**: Tư liệu phải chứa ít nhất 70% nội dung trong [YÊU CẦU CẦN ĐẠT]
-  - Nếu yêu cầu có 4 mục con → tư liệu phải phủ ít nhất 3 mục
-  - Ưu tiên
-    Tư liệu phủ nhiều mục hơn
-    Tư liệu có trích nguồn đầy đủ (tên tác giả, tác phẩm, nhà xuất bản số trang)
-- Tư liệu luôn phải được trích xuất đúng, ghi nguồn trích rõ ràng ở cuối và bọc trong cặp dấu "()".
+- Xac dinh dung Chuong/Chu de, Bai, Danh muc/Muc nho tuong ung voi yeu cau sau do lay chinh xac cac tu lieu xuat hien trong danh sach tu lieu da cho.
+- Chon tu lieu phu hop voi [CAU TRUC CAP DO TU DUY CUA CAC MENH DE (BAT BUOC) VA KET QUA CAN DAT] cua cau hoi: **Phu noi dung truc tiep**: Tu lieu phai chua it nhat 70% noi dung trong [YEU CAU CAN DAT]
+  - Neu yeu cau co 4 muc con -> tu lieu phai phu it nhat 3 muc
+  - Uu tien
+    Tu lieu phu nhieu muc hon
+    Tu lieu co trich nguon day du (ten tac gia, tac pham, nha xuat ban so trang)
 
 ---
 
-# Input
+# Data Input
 
-**Yêu cầu nội dung học liệu:**
-{{EXPECTED_LEARNING_OUTCOME_A}}
-{{EXPECTED_LEARNING_OUTCOME_B}}
-{{EXPECTED_LEARNING_OUTCOME_C}}
-{{EXPECTED_LEARNING_OUTCOME_D}}
+**Ma cau hoi:** {{QUESTION_CODE}}
 
-**Danh sách tư liệu:**
-{{materials}}
+**Noi dung bai hoc:**
+"{{LESSON_NAME}}"
+
+**Yeu cau can dat cua cac menh de (a, b, c, d):**
+- Menh de a ({{COGNITIVE_LEVEL_A}}): {{EXPECTED_LEARNING_OUTCOME_A}}
+- Menh de b ({{COGNITIVE_LEVEL_B}}): {{EXPECTED_LEARNING_OUTCOME_B}}
+- Menh de c ({{COGNITIVE_LEVEL_C}}): {{EXPECTED_LEARNING_OUTCOME_C}}
+- Menh de d ({{COGNITIVE_LEVEL_D}}): {{EXPECTED_LEARNING_OUTCOME_D}}
+
+**Danh sach tu lieu:**
+{{MATERIAL}}
 
 ---
 
 # Output
 
-- Chỉ gồm các đoạn trích phù hợp + nguồn
-- Nếu không có kết quả, trả về “Không tìm được học liệu phù hợp”
+Tra ve **JSON array** gom 2-3 chuoi, moi chuoi la **nguyen van** mot tu lieu phu hop tu danh sach tren (copy chinh xac khong thay doi).
 
-Nêu được các triều đại đầu tiên xác lập chủ quyền và quản lí liên tục đối với quần đảo Hoàng Sa và quần đảo Trường Sa.
-Nêu được các hình thức đấu tranh và bảo vệ, thực thi chủ quyền.
-Hiểu được hoạt động xác lập chủ quyền (đội Hoàng Sa, Bắc Hải) dưới triều Nguyễn.
-Hiểu được tầm quan trọng về quốc phòng, an ninh của Biển Đông đối với Việt Nam.
-Liên hệ trách nhiệm công dân trong việc đóng góp cho cuộc đấu tranh bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.
+Vi du format output:
+```json
+["<nguyen van tu lieu 1>", "<nguyen van tu lieu 2>"]
+```
+
+Neu khong tim duoc tu lieu phu hop, tra ve:
+```json
+[]
+```

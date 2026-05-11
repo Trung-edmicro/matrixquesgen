@@ -96,6 +96,10 @@ class AlternativeQuestionGenerationService:
         self.question_generator = None
         self.matrix_parser = MatrixParser()  # Initialize matrix parser for sample questions
 
+        # Normalize "gemini" → "genai" for backward compatibility
+        if ai_provider == "gemini":
+            ai_provider = "genai"
+
         if ai_provider == "openai":
             # Initialize OpenAI client
             try:

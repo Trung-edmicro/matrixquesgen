@@ -127,6 +127,11 @@ class QuestionGenerationService:
         # Default prompts directory (will be updated by set_prompts_directory)
         self.prompts_dir = self.prompts_base_dir
 
+        # Default subject/curriculum/grade (set via set_prompts_directory)
+        self.subject = None
+        self.curriculum = None
+        self.grade = None
+
         # Initialize existing AI client
         self.genai_client = None
         self.question_generator = None
@@ -136,6 +141,10 @@ class QuestionGenerationService:
         # Track primary and fallback models for retry logic
         self.primary_model = Config.VERTEX_AI_MODEL
         self.fallback_model = Config.VERTEX_AI_FALLBACK_MODEL
+
+        # Normalize "gemini" → "genai" for backward compatibility
+        if ai_provider == "gemini":
+            ai_provider = "genai"
 
         if ai_provider == "openai":
             # Initialize OpenAI client for text generation
@@ -949,7 +958,7 @@ class QuestionGenerationService:
                                 supplementary_for_ds = supplementary
                             else:
                                 # No rich content (text only) -> use spec materials
-                                supplementary_for_ds = spec_data.get('materials', '')
+                                supplementary_for_ds = self._resolve_materials(spec_data)
                             
                             # Create task for DS generation (only once per question_code)
                             task = {
@@ -1360,7 +1369,7 @@ class QuestionGenerationService:
                             'chapter': chapter,
                             'lesson': lesson,
                             'content': content,
-                            'supplementary': spec_data.get('materials', ''),
+                            'supplementary': self._resolve_materials(spec_data),
                             'spec_data': spec_data,
                             'matrix_data': matrix_data
                         }
@@ -1534,6 +1543,24 @@ class QuestionGenerationService:
         existing_set.total_questions = len(existing_set.questions)
         
         return existing_set
+
+    @staticmethod
+    def _resolve_materials(spec_data: Dict) -> str:
+        """Normalize 'materials' field from spec_data to a str.
+
+        Phase 3 may store materials as list[str] (after AI filtering) or str.
+        Phase 4 expects a single str to pass into TrueFalseQuestionSpec.
+
+        Args:
+            spec_data: DS spec dict
+
+        Returns:
+            str - joined materials if list, or raw string if str, or '' if missing
+        """
+        materials = spec_data.get('materials', '')
+        if isinstance(materials, list):
+            return '\n\n'.join(m for m in materials if m)
+        return materials or ''
 
     def _generate_question_task(self, task: Dict) -> List:
         """Generate questions for a single task with retry logic and fallback model"""
@@ -1781,7 +1808,7 @@ class QuestionGenerationService:
                         question_type="DS",
                         chapter_number=int(chapter),
                         supplementary_material=lesson_data.get('supplementary_material', ''),
-                        materials=spec_data.get('materials', ''),
+                        materials=self._resolve_materials(spec_data),
                         rich_content_types=spec_data.get('rich_content_types', None)
                     )
 

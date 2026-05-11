@@ -125,14 +125,31 @@ def generate_questions_task(
         _log.info(f"[{session_id}] Starting WorkflowOrchestrator")
         
         # ===== PHASE 1: Matrix Processing =====
-        _on_progress('phase1_matrix_processing', 10)
-        matrix_metadata, lessons, drive_paths, matrix_output_path = orchestrator.execute_phase1_matrix_processing(
-            Path(matrix_file_path)
-        )
+        try:
+            _on_progress('phase1_matrix_processing', 10)
+            matrix_metadata, lessons, drive_paths, matrix_output_path = orchestrator.execute_phase1_matrix_processing(
+                Path(matrix_file_path)
+            )
+            _log.info(f"[{session_id}] Phase 1 completed: subject={matrix_metadata.subject}")
+        except Exception as e:
+            _log.error(f"[{session_id}] Phase 1 failed: {e}")
+            raise
         
         # Check if this is Math (TOAN) - requires template selection after Phase 3
-        is_math = matrix_metadata.subject.upper() == 'TOAN'
-        _log.info(f"[{session_id}] Subject: {matrix_metadata.subject}, is_math: {is_math}")
+        # Or a subject with DS material filtering (e.g. LICHSU)
+        try:
+            from config.settings import Config as _Config
+            is_math = matrix_metadata.subject.upper() == 'TOAN'
+            needs_material_filter = _Config.should_filter_material(matrix_metadata.subject)
+            print(f"\n🔍 DEBUG Phase check:")
+            print(f"   Subject: {matrix_metadata.subject}")
+            print(f"   is_math: {is_math}")
+            print(f"   needs_material_filter: {needs_material_filter}")
+            _log.info(f"[{session_id}] Subject: {matrix_metadata.subject}, is_math: {is_math}, needs_material_filter: {needs_material_filter}")
+        except Exception as e:
+            _log.error(f"[{session_id}] Phase check failed: {e}")
+            is_math = False
+            needs_material_filter = False
         
         if is_math:
             # ===== TOAN WORKFLOW: Execute Phase 1-3, then pause for template selection =====
@@ -171,8 +188,8 @@ def generate_questions_task(
             return
         
         else:
-            # ===== NON-TOAN WORKFLOW: Execute all phases =====
-            _log.info(f"[{session_id}] Non-TOAN subject - executing complete workflow")
+            # ===== NON-TOAN WORKFLOW: Execute Phase 2 & 3 =====
+            _log.info(f"[{session_id}] Non-TOAN subject - executing Phase 2 & 3")
             
             # Phase 2: Content Acquisition
             _on_progress('phase2_content_acquisition', 30)
@@ -183,7 +200,28 @@ def generate_questions_task(
             # Phase 3: Content Mapping
             _on_progress('phase3_content_mapping', 50)
             mapping_result = orchestrator.execute_phase3_content_mapping(matrix_output_path)
-            
+
+            if needs_material_filter:
+                # ===== MATERIAL FILTER WORKFLOW: Pause for user material selection =====
+                _log.info(f"[{session_id}] Subject needs material filter - will pause after Phase 3")
+                session_data.update({
+                    "status": "awaiting_material_selection",
+                    "current_phase": "awaiting_material_selection",
+                    "progress": 75,
+                    "enriched_matrix_path": str(mapping_result.enriched_matrix_path),
+                    "metadata": {
+                        "subject": matrix_metadata.subject,
+                        "grade": matrix_metadata.grade,
+                        "curriculum": matrix_metadata.curriculum,
+                        "filename": Path(matrix_file_path).name
+                    }
+                })
+                update_session(session_data)
+                _log.info(f"[{session_id}] Waiting for material selection...")
+                # Return early - frontend will show material selector
+                # Phase 4 will be triggered by /history-material/continue-to-phase4 API
+                return
+
             # Phase 4: Question Generation
             _on_progress('phase4_question_generation', 80)
             question_set = orchestrator.execute_phase4_question_generation(mapping_result.enriched_matrix_path)

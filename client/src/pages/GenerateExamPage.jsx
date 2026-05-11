@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import MatrixInputPanel from '../components/generate/MatrixInputPanel'
 import ExamPreviewPanel from '../components/generate/ExamPreviewPanel'
 import ActionBar from '../components/generate/ActionBar'
@@ -16,16 +16,21 @@ import {
   getEnrichedMatrix,
   saveTemplateSelections,
   continueToPhase4,
+  getEnrichedMatrixForMaterial,
+  saveMaterialSelections,
+  continueToPhase4AfterMaterial,
 } from '../services/api'
 import { captureAllChartImages } from '../services/chartExportService'
 import EnglishExamPreviewPanel from '../components/generate/EnglishExamPreviewPanel'
 import EnglishExcelPreviewPanel from '../components/generate/EngLishExcelPreviewPanel'
 import EnglishExamTHCSPreviewPanel from '../components/generate/EnglishExamTHCSPreviewPanel'
 import QuestionTemplateSelector from '../components/math/QuestionTemplateSelector'
+import MaterialSelector from '../components/history/MaterialSelector'
 
 // Key để lưu state vào localStorage
 const STORAGE_KEY = 'matrixquesgen_generate_page_state'
 const STORAGE_EXPIRY_HOURS = 5 // Lưu tối đa 5 tiếng
+const STORAGE_VERSION = 2 // Tăng version khi cấu trúc data thay đổi
 
 export default function GenerateExamPage() {
   const [matrixData, setMatrixData] = useState(null)
@@ -45,6 +50,9 @@ export default function GenerateExamPage() {
   })
   const [showTemplateSelector, setShowTemplateSelector] = useState(false)
   const [enrichedMatrix, setEnrichedMatrix] = useState(null)
+  const [showMaterialSelector, setShowMaterialSelector] = useState(false)
+  const [enrichedMatrixForMaterial, setEnrichedMatrixForMaterial] = useState(null)
+  const materialSelectionInProgress = useRef(false)
   const generationConfig = {
     max_workers: 10,
     min_interval: 0.2,
@@ -58,6 +66,13 @@ export default function GenerateExamPage() {
       const savedState = localStorage.getItem(STORAGE_KEY)
       if (savedState) {
         const parsed = JSON.parse(savedState)
+
+        // Kiểm tra version compatibility
+        if (!parsed.version || parsed.version < STORAGE_VERSION) {
+          console.log('localStorage data version outdated, clearing...')
+          localStorage.removeItem(STORAGE_KEY)
+          return
+        }
 
         // Kiểm tra expiry time
         if (parsed.timestamp) {
@@ -91,6 +106,7 @@ export default function GenerateExamPage() {
     if (generatedExam || sessionId || matrixData) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          version: STORAGE_VERSION,
           generatedExam,
           sessionId,
           matrixData,
@@ -400,7 +416,7 @@ export default function GenerateExamPage() {
             status: progress.status || 'processing'
           })
 
-          // Check if awaiting template selection
+          // Check if awaiting template selection (TOAN)
           if (progress.status === 'awaiting_template_selection') {
             // Load enriched matrix data
             try {
@@ -411,6 +427,18 @@ export default function GenerateExamPage() {
             } catch (err) {
               console.error('[TOAN Workflow] Error loading enriched matrix:', err)
               setError('Lỗi khi tải dữ liệu câu hỏi mẫu: ' + err.message)
+              setIsGenerating(false)
+            }
+          // Check if awaiting material selection (LICHSU and similar subjects)
+          } else if (progress.status === 'awaiting_material_selection') {
+            try {
+              const matData = await getEnrichedMatrixForMaterial(newSessionId)
+              setEnrichedMatrixForMaterial(matData)
+              setShowMaterialSelector(true)
+              setIsGenerating(false)
+            } catch (err) {
+              console.error('[History Workflow] Error loading enriched matrix for materials:', err)
+              setError('Lỗi khi tải dữ liệu tư liệu: ' + err.message)
               setIsGenerating(false)
             }
           } else if (progress.status === 'completed') {
@@ -500,6 +528,65 @@ export default function GenerateExamPage() {
   const handleTemplateSelectionSkip = () => {
     // Close modal and let user see the error/info
     setShowTemplateSelector(false)
+  }
+
+  // ── History DS material selection handlers ────────────────────────────────
+  const handleMaterialSelectionComplete = async (selections) => {
+    if (materialSelectionInProgress.current) return
+    materialSelectionInProgress.current = true
+    try {
+      setShowMaterialSelector(false)
+      setIsGenerating(true)
+
+      await saveMaterialSelections(sessionId, selections)
+      await continueToPhase4AfterMaterial(sessionId)
+
+      // Poll for Phase 4 completion
+      let pollDelay = 2000
+      const maxDelay = 10000
+
+      const pollPhase4Progress = async () => {
+        try {
+          const progress = await getGenerationProgress(sessionId)
+
+          setGenerationProgress({
+            percentage: progress.progress || 0,
+            phase: progress.current_phase || '',
+            status: progress.status || 'processing'
+          })
+
+          if (progress.status === 'completed') {
+            const detail = await getSessionDetail(sessionId)
+            setGeneratedExam(detail)
+            setIsGenerating(false)
+            setIsDirty(false)
+          } else if (progress.status === 'failed') {
+            setError(progress.error || 'Lỗi khi sinh câu hỏi')
+            setIsGenerating(false)
+          } else {
+            pollDelay = Math.min(pollDelay * 1.2, maxDelay)
+            setTimeout(pollPhase4Progress, pollDelay)
+          }
+        } catch (err) {
+          setError('Lỗi khi kiểm tra tiến độ: ' + err.message)
+          setIsGenerating(false)
+        }
+      }
+
+      setTimeout(pollPhase4Progress, pollDelay)
+
+    } catch (err) {
+      setError('Lỗi khi lưu tư liệu: ' + err.message)
+      setIsGenerating(false)
+      setShowMaterialSelector(true)
+    } finally {
+      materialSelectionInProgress.current = false
+    }
+  }
+
+  const handleMaterialSelectionSkip = () => {
+    materialSelectionInProgress.current = false
+    setShowMaterialSelector(false)
   }
 
   return (
@@ -642,6 +729,16 @@ export default function GenerateExamPage() {
           enrichedMatrix={enrichedMatrix}
           onComplete={handleTemplateSelectionComplete}
           onSkip={handleTemplateSelectionSkip}
+        />
+      )}
+
+      {/* History DS Material Selector Modal */}
+      {showMaterialSelector && enrichedMatrixForMaterial && (
+        <MaterialSelector
+          sessionId={sessionId}
+          enrichedMatrix={enrichedMatrixForMaterial}
+          onComplete={handleMaterialSelectionComplete}
+          onSkip={handleMaterialSelectionSkip}
         />
       )}
     </div>
