@@ -50,6 +50,14 @@ try:
 except Exception:
     pystray_datas, pystray_binaries, pystray_hidden = [], [], []
 
+# openai: bundle so the OpenAI provider works in the frozen exe.
+# openai_client.py uses try/except ImportError, so if openai is not installed
+# the build still succeeds — the provider just won't work at runtime.
+try:
+    openai_datas, openai_binaries, openai_hidden = collect_all('openai')
+except Exception:
+    openai_datas, openai_binaries, openai_hidden = [], [], []
+
 # Walk every required package tree and copy all .py files directly into _MEIPASS.
 # This guarantees imports work even if PYZ bytecode collection misses something.
 pkg_dirs = []
@@ -125,10 +133,10 @@ a = Analysis(
     ['launcher.py'],
     pathex=[_server_src],
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries
-        + pil_binaries + pystray_binaries,
+        + pil_binaries + pystray_binaries + openai_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas  # mml2omml = XSL file
         + uvicorn_datas + starlette_datas + fastapi_datas
-        + pil_datas + pystray_datas
+        + pil_datas + pystray_datas + openai_datas
         + pkg_dirs,
     hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
         'uvicorn.logging',
@@ -186,6 +194,15 @@ a = Analysis(
         'api.routes.math_template_selection',
         # LICHSU DS material selection workflow
         'api.routes.history_material_selection',
+        # AI Settings workflow
+        'api.routes.ai_settings',
+        'services.core.ai_provider_settings',
+        # English exam routes
+        'api.routes.regenerateEnglish',
+        # Phase-specific APIs
+        'api.phase_apis',
+        # Custom prompts API
+        'api.custom_prompts_api',
         # Server modules — pathex includes server/src so these resolve correctly
         # collect_submodules walks each package and finds all sub-modules
         *collect_submodules('api'),
@@ -198,6 +215,11 @@ a = Analysis(
         # PIL hidden imports from collect_all (includes _imaging, Image, Draw, etc.)
         *pil_hidden,
         *pystray_hidden,
+        # OpenAI provider support
+        *openai_hidden,
+        'openai',
+        'openai.resources',
+        'openai.resources.responses',
         # Additional dependencies for new features
         'io',
         'pathlib',

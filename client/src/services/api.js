@@ -454,4 +454,15 @@ export const continueToPhase4AfterMaterial = async (sessionId) => {
   return response.data
 }
 
+// Request more AI-filtered materials for a DS question
+export const getMoreMaterials = async (sessionId, { lessonIndex, questionIndex, questionCode, alreadyShown }) => {
+  const response = await api.post(`/api/history-material/${sessionId}/more-materials`, {
+    lesson_index: lessonIndex,
+    question_index: questionIndex,
+    question_code: questionCode,
+    already_shown: alreadyShown
+  })
+  return response.data
+}
+
 export default api

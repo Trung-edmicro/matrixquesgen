@@ -16,24 +16,16 @@ class MathTemplateFilterService:
     """Service for filtering Math question templates using AI"""
 
     def __init__(self, genai_client: Optional[GenAIClient] = None):
-        # Initialize GenAI client
+        # Use the provided client, or create one from configured AI provider
         if genai_client:
             self.genai_client = genai_client
         else:
-            # Create default client from env
-            project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
-            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            api_key = os.getenv("GENAI_API_KEY")
-            
             try:
-                self.genai_client = GenAIClient(
-                    project_id=project_id,
-                    credentials_path=credentials_path,
-                    api_key=api_key
-                )
-                print("✅ Initialized GenAI client for Math template filtering")
+                from ..core.ai_provider_settings import create_ai_client
+                self.genai_client = create_ai_client()
+                print("✅ Initialized AI client for Math template filtering")
             except Exception as e:
-                print(f"❌ Failed to initialize GenAI client: {e}")
+                print(f"❌ Failed to initialize AI client for Math template filtering: {e}")
                 self.genai_client = None
         
         self.prompts_dir = Path(__file__).parent.parent / 'prompts' / 'math_subject'

@@ -150,6 +150,11 @@ def main():
         try:
             from api.routes import generate, questions, export, regenerate, google_drive, images, solute, chart_regenerate, math_template_selection, history_material_selection
             from api.routes import update as update_route
+            from api.routes.ai_settings import router as ai_settings_router
+            from api.routes.export import routerEnglish
+            from api.routes.regenerateEnglish import routerRegenerateEnglish
+            from api.phase_apis import phase1_router, phase2_router, phase3_router, phase4_router, workflow_router
+            from api.custom_prompts_api import router as custom_prompts_router
             print("✓ Đã import routes thành công")
         except Exception as e:
             logger.error(f"Lỗi khi import routes: {e}", exc_info=True)
@@ -217,14 +222,28 @@ def main():
             print("✓ Đã mount images router")
             app.include_router(update_route.router)
             print("✓ Đã mount update router")
-            app.include_router(export.routerEnglish)
+            app.include_router(routerEnglish)
             print("✓ Đã mount routerEnglish")
+            app.include_router(routerRegenerateEnglish)
+            print("✓ Đã mount routerRegenerateEnglish")
             app.include_router(solute.routerSolute)
             print("✓ Đã mount solute router")
             app.include_router(math_template_selection.router)
             print("✓ Đã mount math_template_selection router (TOAN workflow)")
             app.include_router(history_material_selection.router)
             print("✓ Đã mount history_material_selection router (LICHSU workflow)")
+            app.include_router(ai_settings_router)
+            print("✓ Đã mount ai_settings router")
+            # Include phase-specific routers
+            app.include_router(phase1_router)
+            app.include_router(phase2_router)
+            app.include_router(phase3_router)
+            app.include_router(phase4_router)
+            app.include_router(workflow_router)
+            print("✓ Đã mount phase routers")
+            # Include custom prompts router
+            app.include_router(custom_prompts_router, prefix="/api")
+            print("✓ Đã mount custom_prompts router")
         except Exception as e:
             print(f"✗ Lỗi khi mount routers: {e}")
             import traceback

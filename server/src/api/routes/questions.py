@@ -76,22 +76,33 @@ async def list_sessions(
             with open(session_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            metadata = data.get('metadata', data)
+            # Status and counts are always at root level in session files.
+            # Some workflows also add a nested 'metadata' sub-dict (e.g. LICHSU),
+            # but primary session fields (status, matrix_file, counts) stay at root.
+            session_status = data.get('status', 'unknown')
             
             # Filter by status if specified
-            if status and metadata.get('status') != status:
+            if status and session_status != status:
                 continue
             
+            # matrix_file: root key for all workflows; fallback to metadata.filename
+            nested_meta = data.get('metadata', {})
+            matrix_file = (
+                data.get('matrix_file')
+                or nested_meta.get('filename')
+                or 'unknown'
+            )
+            
             sessions.append(SessionMetadata(
-                session_id=metadata.get('session_id', session_file.stem),
-                matrix_file=metadata.get('matrix_file', 'unknown'),
-                total_questions=metadata.get('total_questions', metadata.get('total_generated', 0)),
-                tn_count=metadata.get('tn_count', metadata.get('tn_generated', 0)),
-                ds_count=metadata.get('ds_count', metadata.get('ds_generated', 0)),
-                tln_count=metadata.get('tln_count', metadata.get('tln_generated', 0)),
-                tl_count=metadata.get('tl_count', metadata.get('tl_generated', 0)),
-                generated_at=metadata.get('generated_at'),
-                status=metadata.get('status', 'unknown')
+                session_id=data.get('session_id', session_file.stem),
+                matrix_file=matrix_file,
+                total_questions=data.get('total_questions', data.get('total_generated', 0)),
+                tn_count=data.get('tn_count', data.get('tn_generated', 0)),
+                ds_count=data.get('ds_count', data.get('ds_generated', 0)),
+                tln_count=data.get('tln_count', data.get('tln_generated', 0)),
+                tl_count=data.get('tl_count', data.get('tl_generated', 0)),
+                generated_at=data.get('generated_at'),
+                status=session_status
             ))
         except Exception as e:
             print(f"Error reading session {session_file}: {e}")
@@ -157,23 +168,29 @@ async def get_session_detail(session_id: str):
     with open(session_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    metadata = data.get('metadata', {})
+    # Status is always at root level in session files.
+    # Some workflows (LICHSU, TOAN) add a nested 'metadata' sub-dict but
+    # primary fields (status, matrix_file, counts) remain at root.
+    session_status = data.get('status', 'unknown')
+    nested_meta = data.get('metadata', {})
     
-    if metadata.get('status') != 'completed':
+    if session_status != 'completed':
         raise HTTPException(
             status_code=400, 
-            detail=f"Session đang ở trạng thái: {metadata.get('status')}"
+            detail=f"Session đang ở trạng thái: {session_status}"
         )
+    
+    matrix_file = data.get('matrix_file') or nested_meta.get('filename') or 'unknown'
     
     return SessionDetail(
         metadata=SessionMetadata(
-            session_id=metadata.get('session_id', session_id),
-            matrix_file=metadata.get('matrix_file'),
-            total_questions=metadata.get('total_questions'),
-            tn_count=metadata.get('tn_count'),
-            ds_count=metadata.get('ds_count'),
-            generated_at=metadata.get('generated_at'),
-            status=metadata.get('status')
+            session_id=data.get('session_id', session_id),
+            matrix_file=matrix_file,
+            total_questions=data.get('total_questions', data.get('total_generated', 0)),
+            tn_count=data.get('tn_count', data.get('tn_generated', 0)),
+            ds_count=data.get('ds_count', data.get('ds_generated', 0)),
+            generated_at=data.get('generated_at'),
+            status=session_status
         ),
         questions=data.get('questions', {})
     )

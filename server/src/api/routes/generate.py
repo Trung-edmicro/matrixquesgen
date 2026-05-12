@@ -593,6 +593,11 @@ async def get_generation_result(session_id: str):
                     status_code=202,
                     detail="Workflow paused for template selection. Use /math-template endpoints to continue."
                 )
+            elif status == 'awaiting_material_selection':
+                raise HTTPException(
+                    status_code=202,
+                    detail="Workflow paused for material selection. Use /history-material endpoints to continue."
+                )
         
         raise HTTPException(
             status_code=404, 

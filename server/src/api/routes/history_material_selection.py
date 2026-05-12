@@ -242,6 +242,96 @@ async def save_material_selections(session_id: str, request: Request):
         raise HTTPException(status_code=500, detail=f"Error saving material selections: {str(e)}")
 
 
+# ── Pydantic model for more-materials ─────────────────────────────────────────
+
+class MoreMaterialsRequest(BaseModel):
+    """Request additional AI-filtered materials for a single DS question."""
+    lesson_index: int
+    question_index: int
+    question_code: str
+    already_shown: List[str] = []   # materials already visible in UI (to exclude)
+
+
+@router.post("/{session_id}/more-materials")
+async def get_more_materials(session_id: str, body: MoreMaterialsRequest):
+    """
+    Return up to 3 additional AI-filtered materials for a DS question.
+    Uses materials_pool stored in enriched matrix and excludes already-shown ones.
+    """
+    try:
+        # Load enriched matrix
+        session_file = _get_sessions_dir() / f"{session_id}.json"
+        if not session_file.exists():
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        with open(session_file, 'r', encoding='utf-8') as f:
+            session_data = json.load(f)
+
+        enriched_matrix_path = session_data.get('enriched_matrix_path')
+        if not enriched_matrix_path:
+            raise HTTPException(status_code=404, detail="Enriched matrix not found")
+
+        enriched_path = Path(enriched_matrix_path)
+        if not enriched_path.is_absolute():
+            enriched_path = _get_project_root() / enriched_matrix_path
+        if not enriched_path.exists():
+            raise HTTPException(status_code=404, detail="Enriched matrix file not found")
+
+        with open(enriched_path, 'r', encoding='utf-8') as f:
+            matrix_data = json.load(f)
+
+        # Locate the question
+        try:
+            lesson = matrix_data['lessons'][body.lesson_index]
+            question = lesson['DS'][body.question_index]
+        except (IndexError, KeyError):
+            raise HTTPException(status_code=404, detail="Question not found in enriched matrix")
+
+        # Full pool stored by Phase 3
+        pool: List[str] = question.get('materials_pool', [])
+        if not pool:
+            return {"new_materials": [], "message": "Không còn tư liệu nào trong kho để lọc thêm"}
+
+        # Exclude already-shown items (exact match)
+        already_shown_set = set(body.already_shown)
+        remaining = [m for m in pool if m not in already_shown_set]
+
+        if not remaining:
+            return {"new_materials": [], "message": "Đã hiển thị toàn bộ tư liệu trong kho"}
+
+        # AI filter on remaining pool
+        try:
+            from services.core.ai_provider_settings import create_ai_client
+            from services.ai.history_material_filter_service import HistoryMaterialFilterService
+
+            svc = HistoryMaterialFilterService(create_ai_client())
+        except Exception:
+            from services.ai.history_material_filter_service import HistoryMaterialFilterService
+            svc = HistoryMaterialFilterService(None)
+
+        lesson_name = lesson.get('lesson_name', '')
+        statements = question.get('statements', [])
+        new_filtered = svc.filter_materials(
+            lesson_name=lesson_name,
+            question_code=body.question_code,
+            statements=statements,
+            materials_list=remaining
+        )
+
+        # Clamp to 3 new results
+        new_filtered = new_filtered[:3]
+
+        print(f"✅ more-materials: {len(new_filtered)} new for DS {body.question_code} (pool remaining: {len(remaining)})")
+        return {"new_materials": new_filtered}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching more materials: {str(e)}")
+
+
 @router.post("/{session_id}/continue-to-phase4")
 async def continue_to_phase4_after_material(session_id: str, background_tasks: BackgroundTasks):
     """
@@ -395,13 +485,21 @@ def _run_phase4_after_material_selection(session_id: str, enriched_matrix_path: 
         questions_dir.mkdir(parents=True, exist_ok=True)
         questions_file = questions_dir / f"questions_{session_id}.json"
 
+        total_count = len(generated_tn) + len(generated_ds) + len(generated_tln) + len(generated_tl)
         output_data = {
-            "session_id": session_id,
             "metadata": {
+                "session_id": session_id,
                 "subject": subject,
                 "grade": grade,
                 "curriculum": curriculum,
-                "filename": session_metadata.get("filename", "")
+                "matrix_file": session_metadata.get("filename", ""),
+                "total_questions": total_count,
+                "tn_count": len(generated_tn),
+                "ds_count": len(generated_ds),
+                "tln_count": len(generated_tln),
+                "tl_count": len(generated_tl),
+                "generated_at": datetime.now().isoformat(),
+                "status": "completed"
             },
             "questions": {
                 "TN": [_normalize_question(q) for q in generated_tn],
@@ -409,8 +507,6 @@ def _run_phase4_after_material_selection(session_id: str, enriched_matrix_path: 
                 "TLN": [_normalize_question(q) for q in generated_tln],
                 "TL": [_normalize_question(q) for q in generated_tl],
             },
-            "total_count": len(generated_tn) + len(generated_ds) + len(generated_tln) + len(generated_tl),
-            "generated_at": datetime.now().isoformat()
         }
 
         with open(questions_file, 'w', encoding='utf-8') as f:
@@ -420,11 +516,11 @@ def _run_phase4_after_material_selection(session_id: str, enriched_matrix_path: 
             "status": "completed",
             "current_phase": "completed",
             "progress": 100,
-            "questions_file": str(questions_file),
-            "total_questions": output_data["total_count"]
+            "results_file": questions_file.name,
+            "total_questions": total_count
         })
         update_session(session_data)
-        _log.info(f"[{session_id}] Phase 4 completed — {output_data['total_count']} questions generated")
+        _log.info(f"[{session_id}] Phase 4 completed — {total_count} questions generated")
 
     except Exception as e:
         import traceback

@@ -3,28 +3,40 @@ pandas==2.1.4
 openpyxl==3.1.2
 pdfplumber==0.11.8
 pdf2image==1.17.0
+bs4
 
 # Google Cloud / Vertex AI
-google-cloud-aiplatform==1.38.1
-vertexai==0.0.1
-google-genai
+google-cloud-aiplatform>=1.38.1
+google-genai>=1.61.0
+
+# OpenAI API
+openai
+
+# Google Drive API
+google-api-python-client==2.110.0
+google-auth-httplib2==0.1.1
+google-auth-oauthlib==1.2.0
 
 # Document generation
 python-docx==1.1.0
 latex2mathml>=3.78.0
 lxml>=4.9.0
-playwright==1.41.0
 pillow>=10.0.0
+
+# System tray icon (Windows)
+pystray>=0.19.0
 
 # Utilities
 python-dotenv==1.0.0
 
 # API dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# fastapi>=0.111.0 required for anyio>=4.8.0 compatibility (google-genai>=1.61.0)
+fastapi>=0.111.0
+uvicorn[standard]>=0.24.0
 python-multipart==0.0.6
-pydantic==2.5.0
-pydantic-settings==2.1.0
+# pydantic>=2.9.0 required by google-genai>=1.61.0
+pydantic>=2.9.0
+pydantic-settings>=2.1.0
 
 # Build/Packaging
 pyinstaller>=6.0.0

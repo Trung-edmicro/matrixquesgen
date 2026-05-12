@@ -486,6 +486,7 @@ class ContentMappingService:
                         materials_list=ds_materials
                     )
                     spec['materials'] = filtered  # Store as list[str]
+                    spec['materials_pool'] = ds_materials  # Full pool for "load more" feature
                     print(f"   ✓ AI filtered materials for DS {question_code}: {len(filtered)} selected")
                 else:
                     # Default: random pick one material

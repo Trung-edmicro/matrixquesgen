@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { getMoreMaterials } from '../../services/api'
 
-const MATERIALS_PER_PAGE = 3
+const MATERIALS_PER_PAGE = 6
 
 export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete, onSkip }) {
   const [selections, setSelections] = useState({})
@@ -9,6 +10,8 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
   const [customMaterials, setCustomMaterials] = useState({})
   const [materialPages, setMaterialPages] = useState({})
   const [validationErrors, setValidationErrors] = useState([])
+  const [loadingMore, setLoadingMore] = useState({})  // key → bool
+  const [moreMaterialsMsg, setMoreMaterialsMsg] = useState({})  // key → string
 
   useEffect(() => {
     if (!enrichedMatrix?.lessons) return
@@ -27,9 +30,11 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
           question_index: qIndex,
           question_code: code,
           selected_material: null,
+          selected_index: -1,
           is_custom: false,
           is_random: false,
-          materials_list: materials
+          materials_list: materials,
+          pool_exhausted: false
         }
       })
     })
@@ -41,16 +46,15 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
       onComplete([])
     }
   // onComplete intentionally excluded to avoid stale closure re-runs
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enrichedMatrix])
 
   const totalQuestions = Object.keys(selections).length
   const selectedCount = Object.values(selections).filter(s => s.selected_material !== null).length
 
-  const handleSelect = (key, material, isCustom = false) => {
+  const handleSelect = (key, material, isCustom = false, materialIndex = -1) => {
     setSelections(prev => ({
       ...prev,
-      [key]: { ...prev[key], selected_material: material, is_custom: isCustom, is_random: false }
+      [key]: { ...prev[key], selected_material: material, selected_index: isCustom ? -1 : materialIndex, is_custom: isCustom, is_random: false }
     }))
     setValidationErrors(prev => prev.filter(e => e !== key))
   }
@@ -59,10 +63,11 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
     const sel = selections[key]
     if (!sel) return
     const list = sel.materials_list
-    const random = list[Math.floor(Math.random() * list.length)]
+    const randomIdx = Math.floor(Math.random() * list.length)
+    const random = list[randomIdx]
     setSelections(prev => ({
       ...prev,
-      [key]: { ...prev[key], selected_material: random, is_custom: false, is_random: true }
+      [key]: { ...prev[key], selected_material: random, selected_index: randomIdx, is_custom: false, is_random: true }
     }))
     setValidationErrors(prev => prev.filter(e => e !== key))
   }
@@ -94,6 +99,36 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
     if (cur > 0) setMaterialPages(prev => ({ ...prev, [key]: cur - 1 }))
   }
 
+  const handleLoadMore = async (key) => {
+    const sel = selections[key]
+    if (!sel || loadingMore[key]) return
+    setLoadingMore(prev => ({ ...prev, [key]: true }))
+    setMoreMaterialsMsg(prev => ({ ...prev, [key]: '' }))
+    try {
+      const result = await getMoreMaterials(sessionId, {
+        lessonIndex: sel.lesson_index,
+        questionIndex: sel.question_index,
+        questionCode: sel.question_code,
+        alreadyShown: sel.materials_list
+      })
+      const newMats = result.new_materials || []
+      if (newMats.length === 0) {
+        setSelections(prev => ({ ...prev, [key]: { ...prev[key], pool_exhausted: true } }))
+        setMoreMaterialsMsg(prev => ({ ...prev, [key]: result.message || 'Không còn tư liệu mới' }))
+      } else {
+        const updated = [...sel.materials_list, ...newMats]
+        // Go to last page so user sees new items
+        const newTotalPages = Math.ceil(updated.length / MATERIALS_PER_PAGE)
+        setSelections(prev => ({ ...prev, [key]: { ...prev[key], materials_list: updated } }))
+        setMaterialPages(prev => ({ ...prev, [key]: newTotalPages - 1 }))
+      }
+    } catch (err) {
+      setMoreMaterialsMsg(prev => ({ ...prev, [key]: 'Lỗi khi tải thêm tư liệu' }))
+    } finally {
+      setLoadingMore(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
   const validateSelections = () => {
     const errors = Object.keys(selections).filter(key => selections[key].selected_material === null)
     setValidationErrors(errors)
@@ -118,7 +153,7 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
     Object.keys(newSelections).forEach(key => {
       if (newSelections[key].selected_material === null) {
         const list = newSelections[key].materials_list
-        newSelections[key] = { ...newSelections[key], selected_material: list[0] || null, is_random: true, is_custom: false }
+        newSelections[key] = { ...newSelections[key], selected_material: list[0] || null, selected_index: list.length > 0 ? 0 : -1, is_random: true, is_custom: false }
       }
     })
     setSelections(newSelections)
@@ -210,6 +245,8 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
                           hasError={validationErrors.includes(key)}
                           customMaterial={customMaterials[key] || ''}
                           currentPage={getCurrentPage(key)}
+                          isLoadingMore={!!loadingMore[key]}
+                          moreMaterialsMsg={moreMaterialsMsg[key] || ''}
                           onSelect={handleSelect}
                           onRandomSelect={handleRandomSelect}
                           onToggleExpand={toggleExpanded}
@@ -217,6 +254,7 @@ export default function MaterialSelector({ sessionId, enrichedMatrix, onComplete
                           onCustomMaterialApply={handleCustomMaterialApply}
                           onNextPage={goToNextPage}
                           onPreviousPage={goToPreviousPage}
+                          onLoadMore={handleLoadMore}
                         />
                       )
                     })}
@@ -257,13 +295,16 @@ function MaterialSelectorItem({
   hasError,
   customMaterial,
   currentPage = 0,
+  isLoadingMore = false,
+  moreMaterialsMsg = '',
   onSelect,
   onRandomSelect,
   onToggleExpand,
   onCustomMaterialChange,
   onCustomMaterialApply,
   onNextPage,
-  onPreviousPage
+  onPreviousPage,
+  onLoadMore
 }) {
   const materials = selection.materials_list || []
   const totalPages = Math.ceil(materials.length / MATERIALS_PER_PAGE)
@@ -336,7 +377,7 @@ function MaterialSelectorItem({
                 <label
                   key={startIdx + idx}
                   className={`flex items-start gap-3 p-3 border rounded cursor-pointer transition-colors ${
-                    selection.selected_material === material && !selection.is_custom
+                    !selection.is_custom && selection.selected_index === (startIdx + idx)
                       ? 'border-amber-400 bg-amber-50'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
@@ -344,8 +385,8 @@ function MaterialSelectorItem({
                   <input
                     type="radio"
                     name={questionKey}
-                    checked={selection.selected_material === material && !selection.is_custom}
-                    onChange={() => onSelect(questionKey, material, false)}
+                    checked={!selection.is_custom && selection.selected_index === (startIdx + idx)}
+                    onChange={() => onSelect(questionKey, material, false, startIdx + idx)}
                     className="mt-1 flex-shrink-0 accent-amber-500"
                   />
                   <span className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
@@ -377,6 +418,39 @@ function MaterialSelectorItem({
                 </button>
               </div>
             )}
+
+            {/* Load more button */}
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              {!selection.pool_exhausted ? (
+                <button
+                  onClick={() => onLoadMore(questionKey)}
+                  disabled={isLoadingMore}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-300 rounded hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Đang tìm thêm học liệu...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Thêm học liệu
+                    </>
+                  )}
+                </button>
+              ) : (
+                <p className="text-center text-xs text-gray-400 py-1">Đã hiển thị toàn bộ học liệu trong kho</p>
+              )}
+              {moreMaterialsMsg && (
+                <p className="mt-1 text-center text-xs text-amber-600">{moreMaterialsMsg}</p>
+              )}
+            </div>
           </div>
 
           {/* Custom text input */}
