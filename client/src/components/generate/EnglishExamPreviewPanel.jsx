@@ -509,9 +509,6 @@ export function ClozeBlock({ data,index,onUpdate, type = "GAP", showInstruction=
             {/* TAGS */}
             <Tag color="geekblue">Chủ đề: {data.title}</Tag>{"    "}
             <Tag color="geekblue">Dạng câu hỏi: {data.spec}</Tag>{"    "}
-            <Tag color={getLevelColor(data.level)}>
-              Mức độ: {data.level}
-            </Tag>{"    "}
             <Tag color={getDiffColor(data.diff)}>
               Độ khó: {data.diff}
             </Tag>
@@ -1166,9 +1163,17 @@ export function ErrorIdentificationBlock({ data,index, onUpdate, showInstruction
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
-  const [messageApi, contextHolder] = message.useMessage()
 
-
+    const isQuestionSelected = (
+  blockIndex,
+  questionNumber
+) => {
+  return selectedQuestions.some(
+    (item) =>
+      item.blockIndex === blockIndex &&
+      item.questionNumber === questionNumber
+  )
+}
   if (!data || typeof data !== 'object') return null
 
   const handleChange = (qNumber, val) => {
@@ -1177,6 +1182,7 @@ export function ErrorIdentificationBlock({ data,index, onUpdate, showInstruction
       [qNumber]: val,
     }))
   }
+
 
 
 const handleSubmit = async (qNumber) => {
@@ -1357,7 +1363,17 @@ export function SentenceTransformationBlock({ data,index, onUpdate, showInstruct
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
-  const [messageApi, contextHolder] = message.useMessage()
+
+    const isQuestionSelected = (
+  blockIndex,
+  questionNumber
+) => {
+  return selectedQuestions.some(
+    (item) =>
+      item.blockIndex === blockIndex &&
+      item.questionNumber === questionNumber
+  )
+}
 
   if (!data || typeof data !== 'object') return null
 
@@ -1430,6 +1446,19 @@ const handleSubmit = async (qNumber) => {
         <div key={q.number} className="mb-6">
 
           <p className="font-semibold">
+
+             <Checkbox
+                checked={isQuestionSelected(
+                  index,
+                  q.number
+                )}
+                onChange={() =>
+                  onToggleQuestionSelection({
+                    blockIndex: index,
+                    questionNumber: q.number,
+                  })
+                }
+              />{"  "}
             Question {q.number}.{"    "}
 
             <ReloadOutlined
@@ -1517,11 +1546,8 @@ export function PronunciationBlock({ data,index, onUpdate, showInstruction = tru
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
-  const [messageApi, contextHolder] = message.useMessage()
 
-  if (!data || typeof data !== 'object') return null
-
-  const isQuestionSelected = (
+    const isQuestionSelected = (
   blockIndex,
   questionNumber
 ) => {
@@ -1531,6 +1557,7 @@ export function PronunciationBlock({ data,index, onUpdate, showInstruction = tru
       item.questionNumber === questionNumber
   )
 }
+  if (!data || typeof data !== 'object') return null
 
   const handleChange = (qNumber, val) => {
     setValueMap((prev) => ({
@@ -1902,8 +1929,6 @@ export function WordReorderingBlock({ data,index, onUpdate, showInstruction = tr
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
-  const [messageApi, contextHolder] = message.useMessage()
-
 
     const isQuestionSelected = (
   blockIndex,
@@ -2607,7 +2632,10 @@ const handleSubmit = async (qNumber) => {
       {data.questions.map(q => (
         <div  key={`${index}-${q.number}`} className="mb-6">
 
-        <Checkbox
+        
+
+          <p>
+            <Checkbox
                 checked={isQuestionSelected(
                   index,
                   q.number
@@ -2619,8 +2647,6 @@ const handleSubmit = async (qNumber) => {
                   })
                 }
               />{"  "}
-
-          <p>
             <strong>Question {q.number}.</strong>
 
             <ReloadOutlined
@@ -2788,7 +2814,10 @@ const handleSubmit = async (qNumber) => {
       {data.questions.map(q => (
         <div key={`${index}-${q.number}`} className="mb-6">
           
-          <Checkbox
+         
+        
+          <p>
+             <Checkbox
                 checked={isQuestionSelected(
                   index,
                   q.number
@@ -2800,8 +2829,6 @@ const handleSubmit = async (qNumber) => {
                   })
                 }
               />{"  "}
-        
-          <p>
             <strong>Question {q.number}.</strong>
               <ReloadOutlined
               style={{ cursor: "pointer" }}

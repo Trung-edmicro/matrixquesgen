@@ -306,46 +306,70 @@ META_COLS = ["STT", "Chủ đề", "Số từ","Từ vựng", "Độ khó", "D�
 def extract_blocks_from_excel(file_path: str):
     df = pd.read_excel(file_path, sheet_name="Ma trận")
 
-    # Chuẩn hóa column
+    # =========================
+    # Chuẩn hóa dữ liệu
+    # =========================
     df.columns = [str(col).strip() for col in df.columns]
 
-    # Fill meta
+    # fill các meta bị merge cell
     df[META_COLS] = df[META_COLS].ffill()
 
-    # Detect các cột dạng câu hỏi
+    # detect các cột dạng bài
     type_col_map = detect_type_columns(df)
 
     blocks = []
     total_counts = Counter()
 
+    # =========================
+    # Các dạng PHẢI giữ chung passage
+    # =========================
+    PASSAGE_TYPES = {
+        "Đọc hiểu",
+        "Điền từ",
+        "Điền cụm từ/điền câu",
+    }
+
+    # =========================
+    # Group theo STT
+    # =========================
     grouped = df.groupby("STT")
 
     for stt, group in grouped:
+
         first_row = group.iloc[0]
 
         topic = first_row["Chủ đề"]
         vocabulary_example = first_row["Từ vựng"]
         word_count = str(first_row["Số từ"])
         difficulty = first_row["Độ khó"]
+
         text_type = first_row["Dạng thức bài đọc (VI)"]
         text_type_en = first_row["Dạng thức bài đọc (EN)"]
+
         vocabulary = first_row["Từ vựng tham khảo"]
         document_sample = first_row["Tài liệu tham khảo"]
 
-        # Lưu toàn bộ question theo type
+        # gom question theo type
         question_types = defaultdict(list)
 
+        # =========================
+        # Parse từng row
+        # =========================
         for _, row in group.iterrows():
+
             spec = row.get("Đặc tả ma trận")
+
             if pd.isna(spec):
                 continue
 
             spec = str(spec).strip()
 
             for q_type, start_col in type_col_map.items():
+
                 levels = detect_all_levels(row, start_col)
 
                 for lv in levels:
+
                     question_types[q_type].append({
                         "spec": spec,
                         "level": lv
@@ -353,49 +377,126 @@ def extract_blocks_from_excel(file_path: str):
 
         print(f"\n=== STT {stt} ===")
 
-        # ✅ TÁCH BLOCK THEO LEVEL
+        # =========================
+        # Build block
+        # =========================
         for q_type, questions in question_types.items():
-            level_group = defaultdict(list)
 
-            for q in questions:
-                level_group[q["level"]].append(q)
+            # ==================================================
+            # CASE 1:
+            # Passage-based types
+            # KHÔNG split level
+            # ==================================================
+            if q_type in PASSAGE_TYPES:
 
-            for lv, qs in level_group.items():
-                count = len(qs)
+                count = len(questions)
 
-                print(f"{q_type} - {lv}: {count} questions")
+                print(f"{q_type} (PASSAGE BLOCK): {count} questions")
 
                 total_counts[q_type] += count
 
                 block = {
                     "type": q_type,
-                    "level": lv,  # ✅ level riêng
+
+                    # metadata
                     "topic": topic,
                     "difficulty": difficulty,
                     "text_type": text_type,
                     "text_type_en": text_type_en,
                     "word_count": word_count,
 
+                    # question data
                     "question_count": count,
-                    "questions": qs,
+                    "questions": questions,
 
-                    # metadata thêm
-                    "specs": list(set(q["spec"] for q in qs)),
-                    "distribution": Counter(q["level"] for q in qs),
+                    # level distribution
+                    "distribution": Counter(
+                        q["level"] for q in questions
+                    ),
 
+                    # specs
+                    "specs": list(set(
+                        q["spec"] for q in questions
+                    )),
+
+                    # tài nguyên
                     "vocabulary": vocabulary,
                     "document_sample": document_sample,
-                    "vocabulary_example": vocabulary_example
+                    "vocabulary_example": vocabulary_example,
+
+                    # optional
+                    "is_passage_based": True
                 }
 
                 blocks.append(block)
 
-    print("\n=== TOTAL QUESTIONS PER COLUMN ===")
+            # ==================================================
+            # CASE 2:
+            # Independent question types
+            # split theo level
+            # ==================================================
+            else:
+
+                level_group = defaultdict(list)
+
+                for q in questions:
+                    level_group[q["level"]].append(q)
+
+                for lv, qs in level_group.items():
+
+                    count = len(qs)
+
+                    print(f"{q_type} - {lv}: {count} questions")
+
+                    total_counts[q_type] += count
+
+                    block = {
+                        "type": q_type,
+                        "level": lv,
+
+                        # metadata
+                        "topic": topic,
+                        "difficulty": difficulty,
+                        "text_type": text_type,
+                        "text_type_en": text_type_en,
+                        "word_count": word_count,
+
+                        # question data
+                        "question_count": count,
+                        "questions": qs,
+
+                        # specs
+                        "specs": list(set(
+                            q["spec"] for q in qs
+                        )),
+
+                        # distribution
+                        "distribution": Counter(
+                            q["level"] for q in qs
+                        ),
+
+                        # tài nguyên
+                        "vocabulary": vocabulary,
+                        "document_sample": document_sample,
+                        "vocabulary_example": vocabulary_example,
+
+                        # optional
+                        "is_passage_based": False
+                    }
+
+                    blocks.append(block)
+
+    # =========================
+    # Debug summary
+    # =========================
+    print("\n=== TOTAL QUESTIONS PER TYPE ===")
+
     for q_type, count in total_counts.items():
         print(f"{q_type}: {count}")
-    print(f">>>>>> debug block {blocks}")
-    return blocks
 
+    print(f">>>>>> TOTAL BLOCKS: {len(blocks)}")
+
+    return blocks
 
 # ============================
 # JSON PARSE HELPERS
@@ -667,7 +768,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_cloze)
             tasks.append(task)
-            block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
+            block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
 
         # ===============================
@@ -747,7 +848,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_reading_comprehensive)
             tasks.append(task)
-            block_meta.append(("RC", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
+            block_meta.append(("RC", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
 
         # ===============================
@@ -794,7 +895,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = client.generate(prompt=ai_input)
             task = limited_generate(client_31, client_25, ai_input_silent)
             tasks.append(task)
-            block_meta.append(("GAP", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
+            block_meta.append(("GAP", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
         
         elif q_type == "Hoàn thành câu":
@@ -1148,7 +1249,7 @@ async def generate_exam_docx(blocks, output_path):
             # task = limited_generate(client, ai_input_logical_thinking)
             task = limited_generate(client_31, client_25,  ai_input_combine_sentence_prompt)
             tasks.append(task)
-            block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en,block["type"],block["level"]))
+            block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
 
         elif q_type == "Tự luận/sắp xếp từ":
