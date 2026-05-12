@@ -924,32 +924,32 @@ def handle_passage_based_regenerate(payload):
     # AI INPUT
     # =========================
     ai_input = f"""
-{prompt_template}
+        {prompt_template}
 
-## CONTEXT
-{mode_desc}
+        ## CONTEXT
+        {mode_desc}
 
-## CURRENT DATA
-Passage: {passage}
+        ## CURRENT DATA
+        Passage: {passage}
 
-Current Questions:
-{current_data}
+        Current Questions:
+        {current_data}
 
-## USER FEEDBACK
-{feedback}
+        ## USER FEEDBACK
+        {feedback}
 
-## CONSTRAINTS
-- Topic: {payload.get('topic')}
-- CEFR Level: {diff}
-- Cognitive Level: {level}
+        ## CONSTRAINTS
+        - Topic: {payload.get('topic')}
+        - CEFR Level: {diff}
+        - Cognitive Level: {level}
 
-## OUTPUT INSTRUCTION
-Tuyệt đối không nhắc lại A,B,C,D
-Phải viết lại toàn bộ nội dung của các đáp án A,B,C,D
-Trả về JSON đúng cấu trúc sau:
+        ## OUTPUT INSTRUCTION
+        Tuyệt đối không nhắc lại A,B,C,D
+        Phải viết lại toàn bộ nội dung của các đáp án A,B,C,D
+        Trả về JSON đúng cấu trúc sau:
 
 
-{output_rule}
+        {output_rule}
 """
 
     return ai_input
