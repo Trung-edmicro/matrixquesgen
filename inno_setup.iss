@@ -29,6 +29,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "dist\MatrixQuesGen.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "client\dist\*"; DestDir: "{app}\client\dist"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Bundle English prompts and vocabulary
+Source: "dist\data\prompts\*"; DestDir: "{app}\data\prompts"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\data\vocabulary_english\*"; DestDir: "{app}\data\vocabulary_english"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Configuration files (preserve user .env on upgrade)
 Source: ".env"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -56,8 +60,14 @@ Name: "{commondesktop}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"; Task
 Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesGen}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}\data"
+; Only delete logs on uninstall - preserve user data and prompts
 Type: filesandordirs; Name: "{app}\logs"
+; Delete empty directories if user didn't add custom files
+Type: dirifempty; Name: "{app}\data\.drive_metadata"
+Type: dirifempty; Name: "{app}\data\uploads"
+Type: dirifempty; Name: "{app}\data\output"
+Type: dirifempty; Name: "{app}\data\temp_uploads"
+
 
 
 
