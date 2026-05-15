@@ -1,6 +1,6 @@
 ﻿[Setup]
 AppName=MatrixQuesGen
-AppVersion=1.7.0
+AppVersion=1.7.1
 AppPublisher=Your Organization
 AppPublisherURL=https://github.com/Trung-edmicro/matrixquesgen
 AppSupportURL=https://github.com/Trung-edmicro/matrixquesgen/issues
@@ -8,7 +8,7 @@ AppUpdatesURL=https://github.com/Trung-edmicro/matrixquesgen/releases
 DefaultDirName={autopf}\MatrixQuesGen
 DefaultGroupName=MatrixQuesGen
 OutputDir=installer
-OutputBaseFilename=MatrixQuesGen_Setup_1.7.0
+OutputBaseFilename=MatrixQuesGen_Setup_1.7.1
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
@@ -66,6 +66,7 @@ Type: dirifempty; Name: "{app}\data\.drive_metadata"
 Type: dirifempty; Name: "{app}\data\uploads"
 Type: dirifempty; Name: "{app}\data\output"
 Type: dirifempty; Name: "{app}\data\temp_uploads"
+
 
 
 
