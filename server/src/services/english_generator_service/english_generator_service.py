@@ -695,7 +695,7 @@ async def generate_exam_docx(blocks, output_path):
     credentials_path=credentials_path # Nếu chạy local, nếu chạy trên Cloud thì không cần
 )
 
-    provider_name = os.getenv("LLM_PROVIDER", "vertex")
+    provider_name = os.getenv("LLM_PROVIDER", "openai")
 
     provider = build_llm_provider(
         provider_name=provider_name,

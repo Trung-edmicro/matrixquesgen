@@ -2,7 +2,7 @@
 import { useMemo } from "react"
 import { ArrangeBlock, ClozeBlock, DialogueBlock, ErrorIdentificationBlock, LogicalThinkingBlock,
         PronunciationBlock, SentenceTransformationBlock, SentenceCompletionBlock, SynonymBlock, WordReorderingBlock } from "./EnglishExamPreviewPanel"
-export default function EnglishExamTHCSPreviewPanel({ examData }) {
+export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, selectedQuestions,onToggleQuestionSelection }) {
 
   const blocks = useMemo(() => {
     return examData?.results || []
@@ -15,6 +15,51 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
       </div>
     )
   }
+
+  const handleUpdateBlock = (blockIndex, updatedQuestion) => {
+  // 1. Tạo bản sao của toàn bộ results
+  const newResults = [...examData.results];
+  
+  // 2. Lấy ra block (nhóm câu hỏi) cần update
+  const targetBlock = { ...newResults[blockIndex] };
+//    if (!targetBlock.parsed) targetBlock.parsed = {};
+
+ if (updatedQuestion.passage ) {
+    targetBlock.parsed = {
+      ...targetBlock.parsed,
+      ...updatedQuestion // Ghi đè toàn bộ passage, passage_title và questions mới
+    };
+  } 
+  // 3. Kiểm tra nếu block này có chứa mảng questions (đa số các block Tiếng Anh)
+  if (targetBlock.parsed && Array.isArray(targetBlock.parsed.questions)) {
+    const newQuestions = targetBlock.parsed.questions.map((q) => {
+      // So sánh theo q.number (ví dụ: Câu 1, Câu 2...)
+      return q.number === updatedQuestion.number ? updatedQuestion : q;
+    });
+
+    // Cập nhật lại mảng questions trong parsed
+    targetBlock.parsed = {
+      ...targetBlock.parsed,
+      questions: newQuestions,
+    };
+  } else {
+    // Trường hợp block đặc thù không có mảng questions (ví dụ: ARRANGE dạng đơn)
+    targetBlock.parsed = {
+      ...targetBlock.parsed,
+      ...updatedQuestion
+    };
+  }
+
+  // 4. Ghi lại block đã sửa vào mảng results
+  newResults[blockIndex] = targetBlock;
+
+  // 5. Cập nhật state tổng lên cha (GenerateExamPage)
+  onUpdateExam({
+    ...examData,
+    results: newResults
+  });
+};
+
 
   return (
     <div className="h-full overflow-auto bg-gray-50 p-6">
@@ -39,6 +84,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                  onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -48,6 +99,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                  onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }                  
                 />
               )
 
@@ -57,6 +114,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -66,6 +129,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -75,6 +144,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -84,6 +159,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -93,6 +174,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -102,6 +189,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -111,6 +204,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -123,6 +222,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   data={data}
                   type={block.type}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
 
@@ -156,6 +261,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
             case "ESSAY_COMBINE_SENTENCES":
@@ -164,6 +275,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
             case "ESSAY_WORD_ORDERING":
@@ -172,6 +289,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
             case "ESSAY_WORD_FORM_SENTENCE_COMPLETION":
@@ -180,6 +303,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   // showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
             case "ESSAY_WORD_PROMPT_SENTENCE":
@@ -188,6 +317,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData }) {
                   key={index}
                   data={data}
                   showInstruction={isFirstOfGroup}
+                                    onUpdate={handleUpdateBlock}
+                  showInstruction={isFirstOfGroup}
+                  selectedQuestions={selectedQuestions}
+                  onToggleQuestionSelection={
+                    onToggleQuestionSelection
+                  }
                 />
               )
            }
