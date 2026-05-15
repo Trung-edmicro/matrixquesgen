@@ -791,7 +791,7 @@ const handleSubmit = async (qNumber) => {
   )
 }
 
-export function SentenceCompletionBlock({ data,index, onUpdate, showInstruction = true, selectedQuestions,onToggleQuestionSelection }) {
+export function SentenceCompletionBlock({ data,index, onUpdate, showInstruction = true, selectedQuestions = [],onToggleQuestionSelection }) {
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
@@ -800,11 +800,9 @@ export function SentenceCompletionBlock({ data,index, onUpdate, showInstruction 
   blockIndex,
   questionNumber
 ) => {
-  return selectedQuestions.some(
-    (item) =>
-      item.blockIndex === blockIndex &&
-      item.questionNumber === questionNumber
-  )
+    return (selectedQuestions || []).some(
+      (item) => item.blockIndex === blockIndex && item.questionNumber === questionNumber
+    )
 }
   if (!data || typeof data !== 'object') return null
 
@@ -971,7 +969,7 @@ const handleSubmit = async (qNumber) => {
 }
 
 
-export function   SynonymBlock({ data,index, onUpdate, showInstruction = true,selectedQuestions,onToggleQuestionSelection }) {
+export function   SynonymBlock({ data,index, onUpdate, showInstruction = true,selectedQuestions = [],onToggleQuestionSelection }) {
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
@@ -981,11 +979,9 @@ export function   SynonymBlock({ data,index, onUpdate, showInstruction = true,se
   blockIndex,
   questionNumber
 ) => {
-  return selectedQuestions.some(
-    (item) =>
-      item.blockIndex === blockIndex &&
-      item.questionNumber === questionNumber
-  )
+    return (selectedQuestions || []).some(
+      (item) => item.blockIndex === blockIndex && item.questionNumber === questionNumber
+    )
 }
   if (!data || typeof data !== 'object') return null
 
@@ -1158,21 +1154,19 @@ const handleSubmit = async (qNumber) => {
 }
 
 
-export function ErrorIdentificationBlock({ data,index, onUpdate, showInstruction = true, selectedQuestions,onToggleQuestionSelection }) {
+export function ErrorIdentificationBlock({ data,index, onUpdate, showInstruction = true, selectedQuestions = [],onToggleQuestionSelection }) {
 
   const [activeQuestion, setActiveQuestion] = useState(null)
   const [valueMap, setValueMap] = useState({})
   const [loadingMap, setLoadingMap] = useState({})
 
-    const isQuestionSelected = (
+  const isQuestionSelected = (
   blockIndex,
   questionNumber
 ) => {
-  return selectedQuestions.some(
-    (item) =>
-      item.blockIndex === blockIndex &&
-      item.questionNumber === questionNumber
-  )
+    return (selectedQuestions || []).some(
+      (item) => item.blockIndex === blockIndex && item.questionNumber === questionNumber
+    )
 }
   if (!data || typeof data !== 'object') return null
 

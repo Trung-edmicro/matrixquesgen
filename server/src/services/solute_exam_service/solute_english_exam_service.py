@@ -1,12 +1,16 @@
 import json
+import os
+from pathlib import Path
 import random
 import re
 import requests
 import asyncio
 import logging
 from typing import Any, List
-
+import fitz
 from api.callApi import get_credentials
+from services.english_generator_service.json_utils import _safe_parse_json
+from services.english_generator_service.llm_factory import build_llm_provider
 from services.english_generator_service.vertex_async_client import AsyncVertexClient
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 
@@ -830,20 +834,77 @@ def _parse_single_result(result: Any) -> Any:
         except json.JSONDecodeError:
             return None
 
-async def solve_english_exam(file_paths: List[str]):
-    print(f">>>>> debug file_paths {file_paths}")
+# async def solve_english_exam(file_paths: List[str]):
+#     print(f">>>>> debug file_paths {file_paths}")
 
-    raw_schema_list = json.loads(ENGLISH_SCHEMA_SOLUTE)
+#     raw_schema_list = json.loads(ENGLISH_SCHEMA_SOLUTE)
     
-    valid_schema = {
-        "type": "array",
-        "items": {
-            "anyOf": raw_schema_list
-        }
-    }
+#     valid_schema = {
+#         "type": "array",
+#         "items": {
+#             "anyOf": raw_schema_list
+#         }
+#     }
+#     try:
+#         base_prompt = get_md_file_from_drive()
+
+#         full_prompt = f"""
+# {base_prompt}
+
+# ========================
+# OUTPUT FORMAT (STRICT JSON):
+
+
+# {ENGLISH_SCHEMA_SOLUTE}
+
+# ### QUY TẮC NGHIÊM NGẶT PHẢI TUÂN THỦ:
+
+# #### 1.Trong các trường passage hoặc tất cả các key và value theo schema có những phần tử hoặc các từ được in nghiêng và in đậm trong đoạn văn hãy viết format dạng <strong><u>abc</u></strong>, ví dụ <strong><u>contribute positively</u></strong> không được bỏ sót
+
+# ### 2. KHÔNG ĐƯỢC BỎ SÓT FORMATTING 
+#  - Phải quét tất cả các kí tự được in đậm in nghiêng gạch chân và trả về dạng <strong><u><i>abc</i></u></strong> không được thiếu bất kì 1 kí tự nào.
+# """
+
+#         credentials, project_id = get_credentials()
+
+#         client_31 = AsyncVertexGemini31(
+#             project_id="onluyen-media",
+#             model="gemini-3.1-pro-preview",
+#             thinking_level="HIGH"
+#         )
+
+#         client_25 = AsyncVertexClient(
+#             project_id=project_id,
+#             creds=credentials,
+#             model="gemini-2.5-pro"
+#         )
+
+#         async def run_all():
+#             tasks = [
+#                 process_single_pdf(pdf_path, full_prompt,client_31, client_25)
+#                 for pdf_path in file_paths
+#             ]
+#             return await asyncio.gather(*tasks)
+
+#         # ✅ FIX HERE
+#         results = await run_all()
+#         cleaned_results = clean_json(results)
+#         print(">>>>> debug cleaned_results:\n", json.dumps(cleaned_results, indent=2, ensure_ascii=False))
+#         return cleaned_results
+
+
+#     except Exception as e:
+#         logger.error(f"Error in solve_english_exam: {e}")
+#         return []
+
+
+
+
+async def solve_english_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
     try:
         base_prompt = get_md_file_from_drive()
-
         full_prompt = f"""
 {base_prompt}
 
@@ -861,36 +922,62 @@ OUTPUT FORMAT (STRICT JSON):
  - Phải quét tất cả các kí tự được in đậm in nghiêng gạch chân và trả về dạng <strong><u><i>abc</i></u></strong> không được thiếu bất kì 1 kí tự nào.
 """
 
+        # 1. Khởi tạo Provider thông qua Factory
         credentials, project_id = get_credentials()
-
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
         client_31 = AsyncVertexGemini31(
             project_id="onluyen-media",
-            model="gemini-3.1-pro-preview",
-            thinking_level="HIGH"
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
         )
 
-        client_25 = AsyncVertexClient(
-            project_id=project_id,
-            creds=credentials,
-            model="gemini-2.5-pro"
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
         )
 
-        async def run_all():
-            tasks = [
-                process_single_pdf(pdf_path, full_prompt,client_31, client_25)
-                for pdf_path in file_paths
-            ]
-            return await asyncio.gather(*tasks)
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
 
-        # ✅ FIX HERE
-        results = await run_all()
-        cleaned_results = clean_json(results)
-        print(">>>>> debug cleaned_results:\n", json.dumps(cleaned_results, indent=2, ensure_ascii=False))
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
         return cleaned_results
 
-
     except Exception as e:
-        logger.error(f"Error in solve_english_exam: {e}")
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
         return []
 
 
