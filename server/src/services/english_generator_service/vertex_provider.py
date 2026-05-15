@@ -1,3 +1,5 @@
+from fastapi import logger
+
 from .llm_provider import BaseLLMProvider
 
 class VertexProvider(BaseLLMProvider):
@@ -35,4 +37,14 @@ class VertexProvider(BaseLLMProvider):
                     max_tokens=max_tokens
                 )
 
+            raise
+
+    async def solute(self, prompt, pdf_path, schema=None, temperature=1.0, max_tokens=65536):
+        try:
+            return await self.client_31.solute(prompt=prompt, pdf_path=pdf_path, schema=schema, temperature=temperature, max_tokens=max_tokens)
+        except Exception as e:
+            error_msg = str(e).upper()
+            if self.client_25 and ("429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg):
+                logger.warning(f"Vertex 3.1 429, falling back to 2.5 for solute: {pdf_path}")
+                return await self.client_25.solute(prompt=prompt, pdf_path=pdf_path, temperature=temperature, max_tokens=max_tokens)
             raise

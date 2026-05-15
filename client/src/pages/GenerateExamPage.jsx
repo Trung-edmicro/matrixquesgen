@@ -831,7 +831,7 @@ const handleRegenerateMultipleQuestions = async () => {
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") && generatedExam ? (
           <EnglishExamPreviewPanel  examData={generatedExam} onUpdateExam={handleDataChange} selectedQuestions={selectedQuestions} onToggleQuestionSelection={handleToggleQuestionSelection} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THCS_") && generatedExam ? (
-          <EnglishExamTHCSPreviewPanel examData={generatedExam} />
+          <EnglishExamTHCSPreviewPanel examData={generatedExam} onUpdateExam={handleDataChange} selectedQuestions={selectedQuestions} onToggleQuestionSelection={handleToggleQuestionSelection} />
         ) : matrixData?.file?.name?.startsWith("MATRIX_ENGLISH_THPT_") ? (
           <div className="h-full flex items-center justify-center text-gray-500">
             Đang sinh đề tiếng Anh...
