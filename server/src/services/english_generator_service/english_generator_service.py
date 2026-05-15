@@ -10,6 +10,7 @@ import json
 import requests
 import shutil
 from api.callApi import get_credentials
+from services.english_generator_service.llm_factory import build_llm_provider
 from .vertex_async_client import AsyncVertexClient
 from .docx_helper_english import add_formatted_paragraph, add_html_formatted_text, render_standard_dialogue_completion_group, render_standard_logical_thinking_group, render_standard_sentence_completion_group, render_standard_single_synonym_question, render_standard_pronunciation_stress_group,render_standard_word_reordering_group,render_standard_sentence_transformation_group,render_standard_error_identification_group,render_standard_synonym_antonym_group
 from services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
@@ -639,12 +640,21 @@ async def generate_with_fallback(client_31: AsyncVertexGemini31, client_25: Asyn
 #         await asyncio.sleep(2)
 
 #         return result
-async def limited_generate(client_31, client_25, prompt):
+# async def limited_generate(client_31, client_25, prompt):
+#     async with SEM:
+#         # Sử dụng hàm fallback mới
+#         result = await generate_with_fallback(client_31, client_25, prompt)
+#         # Nghỉ ngắn giữa các request để tránh spam liên tục
+#         await asyncio.sleep(1)
+#         return result
+
+async def limited_generate(provider, prompt):
     async with SEM:
-        # Sử dụng hàm fallback mới
-        result = await generate_with_fallback(client_31, client_25, prompt)
-        # Nghỉ ngắn giữa các request để tránh spam liên tục
+
+        result = await provider.generate(prompt)
+
         await asyncio.sleep(1)
+
         return result
 
 
@@ -684,6 +694,14 @@ async def generate_exam_docx(blocks, output_path):
     thinking_level="HIGH",            # LOW, MEDIUM, hoặc HIGH
     credentials_path=credentials_path # Nếu chạy local, nếu chạy trên Cloud thì không cần
 )
+
+    provider_name = os.getenv("LLM_PROVIDER", "vertex")
+
+    provider = build_llm_provider(
+        provider_name=provider_name,
+        client_31=client_31,
+        client_25=client_25
+    )
 
     q_count = 1
     tasks = []
@@ -766,7 +784,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client_31, client_25, ai_input_cloze)
+            # task = limited_generate(client_31, client_25, ai_input_cloze)
+            task = limited_generate(provider, ai_input_cloze)
             tasks.append(task)
             block_meta.append(("CLOZE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
@@ -802,7 +821,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client_31, client_25, ai_input_arrange)
+            # task = limited_generate(client_31, client_25, ai_input_arrange)
+            task = limited_generate(provider, ai_input_arrange)
             tasks.append(task)
             block_meta.append(("ARRANGE", topic, 1, q_count, text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += 1
@@ -846,7 +866,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client_31, client_25, ai_input_reading_comprehensive)
+            # task = limited_generate(client_31, client_25, ai_input_reading_comprehensive)
+            task = limited_generate(provider, ai_input_reading_comprehensive)
             tasks.append(task)
             block_meta.append(("RC", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
@@ -893,7 +914,8 @@ async def generate_exam_docx(blocks, output_path):
            
 
             # task = client.generate(prompt=ai_input)
-            task = limited_generate(client_31, client_25, ai_input_silent)
+            # task = limited_generate(client_31, client_25, ai_input_silent)
+            task = limited_generate(provider, ai_input_silent)
             tasks.append(task)
             block_meta.append(("GAP", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block.get("level")))
             q_count += n_q
@@ -926,7 +948,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_sentence_completion
             ).strip()
 
-            task = limited_generate(client_31, client_25, ai_input_sentence_completion)
+            # task = limited_generate(client_31, client_25, ai_input_sentence_completion)
+            task = limited_generate(provider, ai_input_sentence_completion)
             tasks.append(task)
             block_meta.append(("SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -960,7 +983,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_synonum_antonym
             )
 
-            task = limited_generate(client_31, client_25, ai_input_synonym_antonym)
+            # task = limited_generate(client_31, client_25, ai_input_synonym_antonym)
+            task = limited_generate(provider, ai_input_synonym_antonym)
             tasks.append(task)
             block_meta.append(("SYNONYM_ANTONYM", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -995,7 +1019,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_error_identification)
-            task = limited_generate(client_31, client_25, ai_input_error_identification)
+            # task = limited_generate(client_31, client_25, ai_input_error_identification)
+            task = limited_generate(provider, ai_input_error_identification)
             tasks.append(task)
             block_meta.append(("ERROR_IDENTIFICATION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1034,7 +1059,8 @@ async def generate_exam_docx(blocks, output_path):
                 + output_rule_sentence_transformation
             ).strip()
 
-            task = limited_generate(client_31, client_25,  ai_input_sentence_transformation)
+            # task = limited_generate(client_31, client_25,  ai_input_sentence_transformation)
+            task = limited_generate(provider, ai_input_sentence_transformation)
             tasks.append(task)
             block_meta.append(("SENTENCE_TRANSFORMATION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1069,7 +1095,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_word_reordering)
-            task = limited_generate(client_31, client_25, ai_input_word_reordering)
+            # task = limited_generate(client_31, client_25, ai_input_word_reordering)
+            task = limited_generate(provider, ai_input_word_reordering)
             tasks.append(task)
             block_meta.append(("WORD_REORDERING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1104,7 +1131,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_pronounciation_stress)
-            task = limited_generate(client_31, client_25, ai_input_pronounciation_stress)
+            # task = limited_generate(client_31, client_25, ai_input_pronounciation_stress)
+            task = limited_generate(provider, ai_input_pronounciation_stress)
             tasks.append(task)
             block_meta.append(("PRONUNCIATION_STRESS", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1139,7 +1167,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_pronounciation_stress)
-            task = limited_generate(client_31, client_25, ai_input_dialouge_completion_stress)
+            # task = limited_generate(client_31, client_25, ai_input_dialouge_completion_stress)
+            task = limited_generate(provider, ai_input_dialouge_completion_stress)
             tasks.append(task)
             block_meta.append(("DIALOUGE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1175,7 +1204,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25, ai_input_logical_thinking)
+            # task = limited_generate(client_31, client_25, ai_input_logical_thinking)
+            task = limited_generate(provider, ai_input_logical_thinking)
             tasks.append(task)
             block_meta.append(("LOGICAL_THINKING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1211,7 +1241,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25, ai_input_sentence_rewriting_prompt)
+            # task = limited_generate(client_31, client_25, ai_input_sentence_rewriting_prompt)
+            task = limited_generate(provider, ai_input_sentence_rewriting_prompt)
             tasks.append(task)
             block_meta.append(("ESSAY_REWRITING_SENTENCES", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1247,7 +1278,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25,  ai_input_combine_sentence_prompt)
+            # task = limited_generate(client_31, client_25,  ai_input_combine_sentence_prompt)
+            task = limited_generate(provider, ai_input_combine_sentence_prompt)
             tasks.append(task)
             block_meta.append(("ESSAY_COMBINE_SENTENCES", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1283,7 +1315,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25,  ai_input_ordering_word_prompt)
+            # task = limited_generate(client_31, client_25,  ai_input_ordering_word_prompt)
+            task = limited_generate(provider, ai_input_ordering_word_prompt)
             tasks.append(task)
             block_meta.append(("ESSAY_WORD_ORDERING", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1319,7 +1352,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25,  ai_input_word_form_sentence_completion_thcs_prompt)
+            # task = limited_generate(client_31, client_25,  ai_input_word_form_sentence_completion_thcs_prompt)
+            task = limited_generate(provider, ai_input_word_form_sentence_completion_thcs_prompt)
             tasks.append(task)
             block_meta.append(("ESSAY_WORD_FORM_SENTENCE_COMPLETION", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
@@ -1355,7 +1389,8 @@ async def generate_exam_docx(blocks, output_path):
             )
 
             # task = limited_generate(client, ai_input_logical_thinking)
-            task = limited_generate(client_31, client_25,  ai_input_word_prompt_sentence_completion_thcs_prompt)
+            # task = limited_generate(client_31, client_25,  ai_input_word_prompt_sentence_completion_thcs_prompt)
+            task = limited_generate(provider, ai_input_word_prompt_sentence_completion_thcs_prompt)
             tasks.append(task)
             block_meta.append(("ESSAY_WORD_PROMPT_SENTENCE", topic, n_q, q_count,text_type_en,diff,text_type,block["type"],block["level"]))
             q_count += n_q
