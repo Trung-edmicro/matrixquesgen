@@ -404,8 +404,9 @@ def run_phase4_with_templates(session_id: str, enriched_matrix_path: str):
             _log.warning(f"⚠️ Error downloading prompts: {e}")
             _log.warning("   Will try to use local prompts if available")
         
-        # Initialize question generation service
-        question_service = QuestionGenerationService()
+        # Initialize question generation service (respect user's AI provider selection)
+        from services.core.ai_provider_settings import get_ai_provider
+        question_service = QuestionGenerationService(get_ai_provider())
         
         # Set prompts directory based on subject/curriculum/grade
         question_service.set_prompts_directory(subject, curriculum, grade)

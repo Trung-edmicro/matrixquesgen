@@ -24,7 +24,13 @@ class GoogleDriveService:
             credentials_path: Đường dẫn đến file credentials JSON
             scopes: List các scopes cần thiết
         """
-        self.credentials_path = credentials_path or os.getenv('GOOGLE_DRIVE_CREDENTIALS_PATH')
+        # Prefer explicit arg → GOOGLE_DRIVE_CREDENTIALS_PATH → GOOGLE_APPLICATION_CREDENTIALS
+        # (many deployments set only GOOGLE_APPLICATION_CREDENTIALS in .env)
+        self.credentials_path = (
+            credentials_path
+            or os.getenv('GOOGLE_DRIVE_CREDENTIALS_PATH')
+            or os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        )
         self.scopes = scopes or ['https://www.googleapis.com/auth/drive']
         self.service = None
         self._authenticated = False

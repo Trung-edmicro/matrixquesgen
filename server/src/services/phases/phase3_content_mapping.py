@@ -51,22 +51,15 @@ class ContentMappingService:
             self.math_filter_service = MathTemplateFilterService(genai_client)
             self.history_material_filter_service = HistoryMaterialFilterService(genai_client)
         else:
-            # Create default GenAI client for Math filtering
-            project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "matrixquesgen")
-            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            api_key = os.getenv("GENAI_API_KEY")
-            
+            # Dùng factory create_ai_client() để tôn trọng cài đặt AI provider
+            # (Gemini hoặc OpenAI tuỳ lựa chọn người dùng)
             try:
-                default_client = GenAIClient(
-                    project_id=project_id,
-                    credentials_path=credentials_path,
-                    api_key=api_key
-                )
+                from ..core.ai_provider_settings import create_ai_client
+                default_client = create_ai_client()
                 self.math_filter_service = MathTemplateFilterService(default_client)
                 self.history_material_filter_service = HistoryMaterialFilterService(default_client)
             except Exception as e:
-                print(f"⚠️ Failed to initialize GenAI client for Math filtering: {e}")
-                # MathTemplateFilterService will handle None client
+                print(f"⚠️ Failed to initialize AI client for Math/History filtering: {e}")
                 self.math_filter_service = MathTemplateFilterService(None)
                 self.history_material_filter_service = HistoryMaterialFilterService(None)
 

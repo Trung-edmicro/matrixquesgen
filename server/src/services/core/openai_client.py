@@ -20,7 +20,18 @@ from config.settings import Config as Settings
 
 
 # ── Đường dẫn file cấu hình OpenAI ──────────────────────────────────────────
-_SA_DIR = Path(__file__).parent.parent.parent.parent.parent / "data" / "SA"
+def _get_sa_dir() -> Path:
+    """Lấy đường dẫn thư mục SA.
+    Ưu tiên: SA_DIR (temp, frozen app) > DATA_DIR/SA > dev path."""
+    sa_dir = os.environ.get('SA_DIR')
+    if sa_dir:
+        return Path(sa_dir)
+    data_dir = os.environ.get('DATA_DIR')
+    if data_dir:
+        return Path(data_dir) / "SA"
+    return Path(__file__).parent.parent.parent.parent.parent / "data" / "SA"
+
+_SA_DIR = _get_sa_dir()
 _OPENAI_CFG_FILE = _SA_DIR / "sinh-de-ma-tran-open-syscfg.bin.json"
 
 

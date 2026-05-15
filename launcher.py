@@ -8,6 +8,7 @@ import time
 import webbrowser
 import threading
 import logging
+import shutil
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -29,6 +30,109 @@ sys.path.insert(0, str(server_dir))
 os.environ['DATA_DIR'] = str(APP_DIR / "data")
 os.environ['BASE_DIR'] = str(BASE_DIR)
 os.environ['APP_DIR'] = str(APP_DIR)
+
+# Migrate bundled English resources to APP_DIR if running as frozen exe
+if getattr(sys, 'frozen', False):
+    import shutil
+    
+    # Migrate English prompts and vocabulary
+    english_resource_dirs = [
+        'data/prompts/prompts_english',
+        'data/vocabulary_english',
+    ]
+    
+    for resource_dir in english_resource_dirs:
+        src = BASE_DIR / resource_dir
+        dst = APP_DIR / resource_dir
+        
+        if src.exists() and not dst.exists():
+            try:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(src, dst)
+                print(f'✓ Migrated resource: {resource_dir}')
+            except Exception as e:
+                print(f'⚠ Could not migrate {resource_dir}: {e}')
+        elif src.exists() and dst.exists():
+            # Merge: copy missing files from src to dst without overwriting
+            try:
+                for src_file in src.rglob('*'):
+                    if src_file.is_file():
+                        rel_path = src_file.relative_to(src)
+                        dst_file = dst / rel_path
+                        if not dst_file.exists():
+                            dst_file.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(src_file, dst_file)
+            except Exception as e:
+                print(f'⚠ Could not merge {resource_dir}: {e}')
+
+    # ── SA credential files: extract to TEMP, never write to APP_DIR ───────────
+    # Credential JSONs are extracted to a per-session temp dir so they never
+    # appear in the installation folder.  atexit removes them when app exits.
+    import tempfile as _tempfile
+    import atexit as _atexit
+    _sa_src = BASE_DIR / 'data' / 'SA'
+    if _sa_src.exists():
+        _sa_tmp = Path(_tempfile.mkdtemp(prefix='mqg_sa_'))
+        os.environ['SA_DIR'] = str(_sa_tmp)
+        _PREF_ONLY = {'ai-provider-settings.json'}
+        for _f in _sa_src.iterdir():
+            if _f.is_file() and _f.name not in _PREF_ONLY:
+                shutil.copy2(_f, _sa_tmp / _f.name)
+        _sa_tmp_ref = str(_sa_tmp)  # capture for closure
+        def _cleanup_sa(_d=_sa_tmp_ref):
+            shutil.rmtree(_d, ignore_errors=True)
+        _atexit.register(_cleanup_sa)
+        print('✓ SA credentials loaded to secure temp (hidden from install folder)')
+        # Migrate ONLY preference file (ai-provider-settings.json) to APP_DIR —
+        # it is not sensitive and must survive across restarts so the user's
+        # Gemini / OpenAI choice is remembered.
+        _sa_dst = APP_DIR / 'data' / 'SA'
+        _sa_dst.mkdir(parents=True, exist_ok=True)
+        for _f in _sa_src.iterdir():
+            if _f.is_file() and _f.name in _PREF_ONLY:
+                _dst_f = _sa_dst / _f.name
+                if not _dst_f.exists():
+                    shutil.copy2(_f, _dst_f)
+
+    # ── Load bundled .env directly into os.environ (zero files in APP_DIR) ─────
+    # BASE_DIR == _MEIPASS, which is a system temp directory automatically
+    # created when the exe starts and deleted when it exits — no files are ever
+    # written to the installation folder.
+    # All subsequent load_dotenv() calls (in callApi.py, main(), etc.) are
+    # silent no-ops because load_dotenv() never overrides already-set env vars.
+    _bundled_env = BASE_DIR / '.env'
+    if _bundled_env.exists():
+        try:
+            from dotenv import dotenv_values as _dv
+            for _k, _v in _dv(_bundled_env).items():
+                os.environ.setdefault(_k, _v)
+            # Remap credential file paths from build-machine absolute path
+            # to the per-session temp SA dir (primary) or _MEIPASS/credentials/ (fallback).
+            _sa_dir_env = os.environ.get('SA_DIR', '')
+            for _cvar in ['GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_DRIVE_CREDENTIALS_PATH']:
+                _val = os.environ.get(_cvar, '')
+                if _val:
+                    _fname = Path(_val).name
+                    _found = False
+                    for _cbase in filter(None, [
+                        Path(_sa_dir_env) if _sa_dir_env else None,
+                        BASE_DIR / 'credentials',
+                    ]):
+                        _candidate = _cbase / _fname
+                        if _candidate.exists():
+                            os.environ[_cvar] = str(_candidate)
+                            print(f'✓ Using embedded credential for {_cvar}: {_fname}')
+                            _found = True
+                            break
+            # Cross-fallback: if only GOOGLE_APPLICATION_CREDENTIALS is set (no separate
+            # GOOGLE_DRIVE_CREDENTIALS_PATH), point Drive to the same SA file.
+            _gac = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+            if _gac and not os.environ.get('GOOGLE_DRIVE_CREDENTIALS_PATH', ''):
+                os.environ['GOOGLE_DRIVE_CREDENTIALS_PATH'] = _gac
+                print('✓ GOOGLE_DRIVE_CREDENTIALS_PATH set from GOOGLE_APPLICATION_CREDENTIALS')
+            print('✓ Loaded bundled configuration')
+        except Exception as e:
+            print(f'⚠ Could not load bundled config: {e}')
 
 # Fix Playwright Chromium path when running as frozen .exe
 # Playwright resolves browser paths relative to its own __file__, which in a

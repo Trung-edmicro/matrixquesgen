@@ -41,6 +41,23 @@ if (-not $SkipBuild) {
     Pop-Location
     Write-Host "React client built successfully" -ForegroundColor Green
 
+    # Prepare English resources for bundling
+    Write-Host "Preparing English resource files for bundling..."
+    $distDataDir = "dist\data"
+    if (-not (Test-Path $distDataDir)) {
+        New-Item -ItemType Directory -Path $distDataDir -Force | Out-Null
+    }
+    
+    # Copy English resources to dist/data
+    if (Test-Path "data\prompts\prompts_english") {
+        Write-Host "  → Copying English prompts..."
+        Copy-Item -Path "data\prompts\prompts_english" -Destination "$distDataDir\prompts" -Recurse -Force
+    }
+    if (Test-Path "data\vocabulary_english") {
+        Write-Host "  → Copying English vocabulary..."
+        Copy-Item -Path "data\vocabulary_english" -Destination $distDataDir -Recurse -Force
+    }
+
     Write-Host "Building executable with PyInstaller..."
     $pythonExe = ".venv\Scripts\python.exe"
     if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
@@ -81,17 +98,27 @@ if (-not $SkipInstaller) {
 
 Write-Host ""
 Write-Host "Build completed!" -ForegroundColor Green
+Write-Host "Features included:"
+Write-Host "  ✓ TOAN subject processing"
+Write-Host "  ✓ English subject support"
+Write-Host "  ✓ English resource files bundled"
+Write-Host ""
+Write-Host "📦 Resource files bundled:"
+Write-Host "  • data/prompts/prompts_english/"
+Write-Host "  • data/vocabulary_english/"
+Write-Host ""
+Write-Host "Note: TOAN prompts are managed separately (not bundled in installer)"
+Write-Host ""
 Write-Host "Files created:"
 if (-not $SkipBuild) {
     Write-Host "  - dist/MatrixQuesGen.exe"
 }
 if (-not $SkipInstaller) {
-    Write-Host "  - installer/MatrixQuesGen_Installer.exe"
+    Write-Host "  - installer/MatrixQuesGen_Setup_$Version.exe"
 }
 
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "1. Test the executable: .\dist\MatrixQuesGen.exe"
-Write-Host "2. Create a GitHub release with tag v$Version"
-Write-Host "3. Upload MatrixQuesGen_Installer.exe as release asset"
-Write-Host "4. Update GITHUB_REPO in update.py with your repository"
+Write-Host "1. Test: .\dist\MatrixQuesGen.exe"
+Write-Host "2. Create GitHub release v$Version"
+Write-Host "3. Upload MatrixQuesGen_Setup_$Version.exe"

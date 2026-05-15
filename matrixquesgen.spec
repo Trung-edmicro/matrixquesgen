@@ -78,7 +78,7 @@ if os.path.exists(server_src):
                 server_datas.append((src_path, dest_dir))
 
 # Add data directories and files
-# Note: Không đóng gói data/prompts để user có thể tùy chỉnh
+# Bundle only English prompts and vocabulary
 added_files = [
     ('client/dist', 'client/dist'),
     ('tray_icon.py', '.'),
@@ -86,23 +86,61 @@ added_files = [
     ('update.py', '.'),
 ]
 
-# Add vocabulary and prompts directories for English generator
-# These should be preserved in the build output so users can update them
+# Bundle English vocabulary and prompts directories
 if os.path.exists('data/vocabulary_english'):
-    added_files.append(('data/vocabulary_english', 'data/vocabulary_english'))
+    for root, dirs, files in os.walk('data/vocabulary_english'):
+        for file in files:
+            if file.endswith(('.txt', '.md', '.json')):
+                src_path = os.path.join(root, file)
+                dest_dir = os.path.dirname(src_path)
+                added_files.append((src_path, dest_dir))
     print('  [data] Bundling data/vocabulary_english')
 else:
     print('  [data] WARNING: data/vocabulary_english not found (will be created at runtime)')
 
 if os.path.exists('data/prompts/prompts_english'):
-    added_files.append(('data/prompts/prompts_english', 'data/prompts/prompts_english'))
+    for root, dirs, files in os.walk('data/prompts/prompts_english'):
+        for file in files:
+            if file.endswith(('.txt', '.md', '.json')):
+                src_path = os.path.join(root, file)
+                dest_dir = os.path.dirname(src_path)
+                added_files.append((src_path, dest_dir))
     print('  [data] Bundling data/prompts/prompts_english')
 else:
     print('  [data] WARNING: data/prompts/prompts_english not found (will be created at runtime)')
 
-# .env: only bundle if it exists (not present in CI – user provides it after install)
+# .env: bundle if it exists — launcher.py loads it directly into os.environ
+# from _MEIPASS so no .env file is ever written to the installation folder.
 if os.path.exists('.env'):
     added_files.append(('.env', '.'))
+
+# Bundle data/SA/ directory (Drive SA, OpenAI config, ai-provider-settings, etc.)
+# launcher.py migrates these to APP_DIR/data/SA/ on first run so all modules
+# that look up DATA_DIR/SA/ (openai_client.py, ai_provider_settings.py, etc.)
+# find the files in the correct location.
+import glob as _glob
+if os.path.isdir('data/SA'):
+    for _sa_file in _glob.glob('data/SA/*.json'):
+        added_files.append((_sa_file.replace('\\', '/'), 'data/SA'))
+        print(f'  [data] Bundling SA file: {_sa_file}')
+    print('  [data] Bundled data/SA/')
+else:
+    print('  [data] WARNING: data/SA/ not found — SA credentials will be missing')
+
+# Bundle GOOGLE_APPLICATION_CREDENTIALS into credentials/ as fallback
+# (for Vertex AI SA files that live outside data/SA/).
+if os.path.exists('.env'):
+    import re as _re
+    _env_text = open('.env', encoding='utf-8').read()
+    _m = _re.search(r'^GOOGLE_APPLICATION_CREDENTIALS\s*=\s*["\']?([^"\'\\r\\n]+)["\']?', _env_text, _re.MULTILINE)
+    if _m:
+        _sa_path = _m.group(1).strip()
+        # Only bundle separately if the file is NOT already in data/SA/
+        if os.path.exists(_sa_path) and not os.path.abspath(_sa_path).startswith(os.path.abspath('data/SA')):
+            added_files.append((_sa_path, 'credentials'))
+            print(f'  [creds] Bundling GOOGLE_APPLICATION_CREDENTIALS (external): {_sa_path}')
+        elif not os.path.exists(_sa_path):
+            print(f'  [creds] WARNING: GOOGLE_APPLICATION_CREDENTIALS={_sa_path} not found — skipping')
 
 # Add icon file if exists
 if os.path.exists('favicon.ico'):

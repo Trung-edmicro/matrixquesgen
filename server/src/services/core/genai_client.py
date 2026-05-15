@@ -34,6 +34,7 @@ class GenAIClient:
                  project_id: str,
                  location: str = "global",
                  credentials_path: Optional[str] = None,
+                 credentials=None,
                  api_key: Optional[str] = None):
         """
         Khởi tạo GenAI Client
@@ -42,11 +43,13 @@ class GenAIClient:
             project_id (str): Google Cloud Project ID
             location (str): Vùng triển khai (mặc định: global cho gemini-3-pro-preview)
             credentials_path (str, optional): Đường dẫn đến file credentials JSON
+            credentials (optional): Pre-built google.oauth2 credentials object
             api_key (str, optional): API key (cho express mode)
         """
         self.project_id = project_id
         self.location = location
         self.credentials_path = credentials_path
+        self._explicit_credentials = credentials
         self.api_key = api_key
         self.client = None
         self.model_name = Settings.VERTEX_AI_MODEL
@@ -56,12 +59,18 @@ class GenAIClient:
     def _initialize(self):
         """Khởi tạo kết nối với GenAI"""
         try:
-            # Load credentials từ file nếu có
-            credentials = None
-            if self.credentials_path and os.path.exists(self.credentials_path):
-                # Tạo credentials object từ service account file
-                credentials = service_account.Credentials.from_service_account_file(
-                    self.credentials_path,
+            # 1) Dùng credentials object được truyền trực tiếp (từ factory)
+            credentials = self._explicit_credentials
+
+            # 2) Nếu chưa có, load từ file — normalize private key để tránh lỗi JWT
+            if not credentials and self.credentials_path and os.path.exists(self.credentials_path):
+                with open(self.credentials_path, 'r', encoding='utf-8') as _f:
+                    sa_info = json.load(_f)
+                # Đảm bảo private key có newline thật (không phải literal \n)
+                if 'private_key' in sa_info and '\\n' in sa_info['private_key']:
+                    sa_info['private_key'] = sa_info['private_key'].replace('\\n', '\n')
+                credentials = service_account.Credentials.from_service_account_info(
+                    sa_info,
                     scopes=['https://www.googleapis.com/auth/cloud-platform']
                 )
             
