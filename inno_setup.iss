@@ -32,8 +32,7 @@ Source: "client\dist\*"; DestDir: "{app}\client\dist"; Flags: ignoreversion recu
 ; Bundle English prompts and vocabulary
 Source: "dist\data\prompts\*"; DestDir: "{app}\data\prompts"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\data\vocabulary_english\*"; DestDir: "{app}\data\vocabulary_english"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Configuration files (preserve user .env on upgrade)
-Source: ".env"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
+; Configuration files
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
@@ -67,6 +66,7 @@ Type: dirifempty; Name: "{app}\data\.drive_metadata"
 Type: dirifempty; Name: "{app}\data\uploads"
 Type: dirifempty; Name: "{app}\data\output"
 Type: dirifempty; Name: "{app}\data\temp_uploads"
+
 
 
 
