@@ -1,6 +1,7 @@
 # services/regenerate_english_service.py
 
 import asyncio
+import os
 from pathlib import Path
 import traceback
 
@@ -9,6 +10,7 @@ from server.src.api.callApi import get_credentials
 from server.src.services.english_generator_service.constants import(PROMPTS, SENTENCE_COMPLETION_JSON_SCHEMA,SENTENCE_TRANSFORMATION_JSON_SCHEMA, ARRANGE_SOLUTION_TEMPLATE, CLOZE_EXPLANATION_TEMPLATE, ERROR_IDENTIFICATION_JSON_SCHEMA,ESSAY_COMBINE_SENTENCES_THPT_JSON_SCHEMA,ESSAY_SENTENCE_REWRITING_THPT_JSON_SCHEMA,
                    ESSAY_WORD_FORM_SENTENCE_COMPLETION_JSON_SCHEMA,ESSAY_WORD_ORDERING_THPT_JSON_SCHEMA,ESSAY_WORD_PROMPT_SENTENCE_COMPLETION_THPT_JSON_SCHEMA,SILENT_PHASE_EXPLANATION_TEMPLATE,READING_COMPREHENSION_EXPLANATION_TEMPLATE,WORD_REORDERING_JSON_SCHEMA, ARRANGE_JSON_SCHEMA,CLOZE_JSON_SCHEMA, CLOZE_WITH_TITLE_JSON_SCHEMA, DIALOGUE_COMPLETION_JSON_SCHEMA, LOGICAL_THINKING_JSON_SCHEMA, PRONUNCIATION_STRESS_JSON_SCHEMA, SYNONYM_ANTONYM_JSON_SCHEMA, WORD_FORM_SENTENCE_COMPLETION_THPT_JSON_SCHEMA)
 from server.src.services.english_generator_service.english_generator_service import _safe_parse_json, limited_generate, load_prompt, safe_str
+from server.src.services.english_generator_service.llm_factory import build_llm_provider
 from server.src.services.english_generator_service.vertex_async_3_1_model import AsyncVertexGemini31
 from server.src.services.english_generator_service.vertex_async_client import AsyncVertexClient
 
@@ -89,6 +91,13 @@ async def regenerate_english_question(payload: dict):
         thinking_level="HIGH",
         credentials_path=credentials_path
     )
+    provider_name = os.getenv("LLM_PROVIDER", "vertex")
+    
+    provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
 
     # =========================
     # 2. Dispatcher
@@ -111,7 +120,9 @@ async def regenerate_english_question(payload: dict):
     # =========================
     # 3. Call AI
     # =========================
-    response = await limited_generate(client_31, client_25, ai_input)
+    # response = await limited_generate(client_31, client_25, ai_input)
+    response = await limited_generate(provider, ai_input)
+
 
     parsed = _safe_parse_json(response)
     print(f">>>>> debug parsed {parsed}")
