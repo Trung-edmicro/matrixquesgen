@@ -1,8 +1,9 @@
 ﻿"""
 Version information for MatrixQuesGen
 """
-__version__ = "1.6.3"
+__version__ = "1.7.0"
 __app_name__ = "MatrixQuesGen"
+
 
 
 
