@@ -604,6 +604,222 @@ ENGLISH_SCHEMA_SOLUTE = """
  ]
 """
 
+EXAM_JSON_SCHEMA = """
+{
+   "exam_id": "string",
+    "exam_title": "string",
+    "province": "string | null",
+    "subject": "string",
+    "sections: [
+      "section_title:"string | null",
+      "questions": [
+    {
+      "type": "multiple_choice",
+      "question_number": "number",
+      "question_title": "string | null",
+      "media": [  
+        {
+          "type": "table",
+          "context_source": "explicit | implicit",
+          "position": "before_question_content | after_question_content",
+          "source": "Bảng [X] - Trang [Y]",
+          "title": "Tiêu đề bảng",
+          "unit": "string | null",
+          "headers": ["Cột 1", "Cột 2"],
+          "rows": [["Dữ liệu 1", "Dữ liệu 2"]],
+          "notes": "string | null",
+        }
+       ] | null,
+      "question_content": "string | null",
+      "note":"string | null",
+      "options": [
+        {
+          "option_a": "string |  number",
+          "option_b": "string |  number",
+          "option_c": "string |  number",
+          "option_d": "string |  number",
+          "answer": "A | B | C | D | E | F | G | H"
+        }
+      ],
+      "explanation": "string",
+      "conclusion":"string"
+    },
+    {
+        "type": "true_false",
+        "question_number": "number",
+        "question_title": "string | null",
+         "media": [  
+        {
+          "type": "table",
+          "position": "before_question_content | after_question_content",
+          "context_source": "explicit | implicit",
+          "source": "Bảng [X] - Trang [Y]",
+          "title": "Tiêu đề bảng",
+          "unit": "string | null",
+          "headers": ["Cột 1", "Cột 2"],
+          "rows": [["Dữ liệu 1", "Dữ liệu 2"]],
+          "notes": "string | null"
+        }
+       ] | null,
+        "question_content": "string | null",
+        "note":"string | null",
+        "images": [],
+        "options": [
+            {
+            "label": "A",
+            "content": "string | number",
+            "is_correct": "boolean",
+            "explanation": "string"
+            },
+            {
+            "label": "B",
+            "content": "string | number",
+            "is_correct": "boolean",
+            "explanation": "string"
+            },
+            {
+            "label": "C",
+            "content": "string | number",
+            "is_correct": "boolean",
+            "explanation": "string"
+            },
+            {
+            "label": "D",
+            "content": "string | number",
+            "is_correct": "boolean",
+            "explanation": "string"
+            }
+           ],
+        "correct_answer": "string"
+        },
+    {
+      "type": "short_answer",
+      "question_number": "number",
+      "question_title": "string | null",
+      "media": [  
+        {
+          "type": "table",
+          "position": "before_question_content | after_question_content",
+          "context_source": "explicit | implicit",
+          "source": "Bảng [X] - Trang [Y]",
+          "title": "Tiêu đề bảng",
+          "unit": "string | null",
+          "headers": ["Cột 1", "Cột 2"],
+          "rows": [["Dữ liệu 1", "Dữ liệu 2"]],
+          "notes": "Ghi chú dưới bảng"
+        }
+      ] | null,
+      "question_content": "string | null",
+      "note":"string | null",
+      "images": [],
+      "correct_answer": "string | number",
+      "explanation": "string",
+      "conclusion":"string"
+    },
+    {
+      "type": "essay",
+      "question_number": "number",
+      "media": [  
+        {
+          "type": "table",
+          "position": "before_question_content | after_question_content",
+          "context_source": "explicit | implicit",
+          "source": "Bảng [X] - Trang [Y]",
+          "title": "Tiêu đề bảng",
+          "unit": "string | null",
+          "headers": ["Cột 1", "Cột 2"],
+          "rows": [["Dữ liệu 1", "Dữ liệu 2"]],
+          "notes": "Ghi chú dưới bảng"
+        }
+      ] | null,
+      "passage_data":[
+        {
+            "passage_title":"string | null",
+            "passage_content":"string | null",
+            "notes": "string | null"
+        }
+        ] | null,
+      "question_title": "string | null",
+      "question_content": "string | null",
+      "note":"string | null",
+      "images": [],
+      "explanation": "string"
+      }
+    ]
+  ]
+}
+"""
+
+
+EXAM_LITERATURE_JSON_SCHEMA = """{
+  "exam_data_schema": {
+    "exam_id": "string",
+    "exam_title": "string",
+    "province": "string | null",
+    "subject": "string",
+    "sections": [
+      {
+        "section_title": "string",
+        "reading_passage": {
+          "intro_text": "string | null (Bắt buộc chứa lời dẫn như: Đọc đoạn trích sau, Đọc văn bản...)",
+          "content": "string | null",
+          "source": "string | null",
+        },
+        "questions": [
+          {
+            "number": "number",
+            "question_type": "READING | WRITING_200 | WRITING_600",
+            "question_content": "string",
+            "content_learning_materials":"string | null",
+            "content_source":"string | null",
+            "solution": {
+              "problem_statement": "string | null",
+              "structured_content": {
+                "a_general_requirements": {
+                  "issue": "string | null",
+                  "form": "string | null",
+                  "length": "string | null",
+                  "evidence": "string | null"
+                },
+                "b_specific_requirements": {
+                "name": "string (ví dụ: Yêu cầu cụ thể)",
+                "steps": {
+                  "b1": {
+                    "name": "string ",
+                    "content": "string | null (các ý triển khai chi tiết)"
+                  },
+                  "b2": {
+                    "name": "string",
+                    "content": "string | null"
+                  },
+                  "b3": {
+                    "name": "string",
+                    "content": "string | null"
+                  },
+                  "b4": {
+                    "name": "string | null",
+                    "content": "string | null"
+                  },
+                  "b5": {
+                    "name": "string | null",
+                    "content": "string | null"
+                  }
+                }
+              },
+              "explanation": "string (must use <i> for formatting and \\n for line breaks)"
+            }
+          }
+        ]
+      }
+    ],
+  "formatting_rules": {
+    "italic_tag": "<i>text</i>",
+    "line_break": "\\n",
+    "forbidden_markdown": ["**", "###", "- ", "1. ","*","“","”"],
+  }
+}
+"""
+
 
 API_KEY = "AIzaSyAUZx6cZjFMEGZjDV9Hv7489s-seEcqMxI"
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/19WaudkbI20vukSvswqrHGvv407E6PiLZ"
@@ -615,6 +831,158 @@ def extract_folder_id(url):
         raise Exception("Không tìm thấy folder ID")
     return match.group(1)
 
+def get_geography_txt_file_from_drive():
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'promptGiaiDeDiaLi.txt'",
+            "fields": "files(id, name, mimeType)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        if not files:
+            raise Exception("❌ Không tìm thấy file promptGiaiDeDiaLi.txt")
+
+        file_id = files[0]["id"]
+
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+
+        params = {
+            "alt":"media",
+            "key": API_KEY
+        }
+
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
+
+        content = file_res.content.decode("utf-8")
+
+        print(f">>>>> debug content {content}")
+        return content
+
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
+
+def get_math_txt_file_from_drive():
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'promptGiaiDeToan.txt'",
+            "fields": "files(id, name, mimeType)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        if not files:
+            raise Exception("❌ Không tìm thấy file promptGiaiDeToan.txt")
+
+        file_id = files[0]["id"]
+
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+
+        params = {
+            "alt":"media",
+            "key": API_KEY
+        }
+
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
+
+        content = file_res.content.decode("utf-8")
+
+        print(f">>>>> debug content {content}")
+        return content
+
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
+
+def get_literature_txt_file_from_drive():
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'promptGiaiDeNguVanUpgrade.txt'",
+            "fields": "files(id, name, mimeType)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        if not files:
+            raise Exception("❌ Không tìm thấy file TA_Huong_dan_giai.md")
+
+        file_id = files[0]["id"]
+
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+
+        params = {
+            "alt":"media",
+            "key": API_KEY
+        }
+
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
+
+        content = file_res.content.decode("utf-8")
+
+        print(f">>>>> debug content {content}")
+        return content
+
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
 
 def get_md_file_from_drive():
     try:
@@ -897,6 +1265,367 @@ def _parse_single_result(result: Any) -> Any:
 #         logger.error(f"Error in solve_english_exam: {e}")
 #         return []
 
+async def solve_geography_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
+    try:
+        base_prompt =  get_geography_txt_file_from_drive()
+        full_prompt = f"""
+{base_prompt}
+========================
+        YÊU CẦU OUTPUT JSON MÔN VĂN
+        =====================
+
+        - Chỉ trả về JSON đúng theo schema dưới đây
+        - Không markdown
+        - Không ```json
+        - Không giải thích ngoài JSON
+        - Field nào không dùng thì bỏ qua
+        - Giữ nguyên cấu trúc key
+        - Bắt buộc giữ formatting <b><i>
+
+        SCHEMA:
+{EXAM_JSON_SCHEMA}
+
+"""
+
+        # 1. Khởi tạo Provider thông qua Factory
+        credentials, project_id = get_credentials()
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
+        client_31 = AsyncVertexGemini31(
+            project_id="onluyen-media",
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
+        )
+
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
+
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
+
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        merge_data = merge_exam_sections(cleaned_results)
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
+        # return cleaned_results
+        return merge_data
+
+    except Exception as e:
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        return []
+
+def merge_exam_sections(cleaned_results):
+    """
+    Gộp tất cả các sections từ nhiều file/kết quả vào đối tượng đầu tiên.
+    """
+    if not cleaned_results or len(cleaned_results) < 2:
+        return cleaned_results
+
+    # Lấy đối tượng đầu tiên làm gốc (Base Exam)
+    base_exam = cleaned_results[0]
+    
+    # Nếu đối tượng gốc chưa có mảng sections, khởi tạo nó
+    if "sections" not in base_exam:
+        base_exam["sections"] = []
+
+    # Lặp qua các kết quả từ file thứ 2 trở đi
+    for extra_exam in cleaned_results[1:]:
+        if isinstance(extra_exam, dict) and "sections" in extra_exam:
+            # Gộp các section của file này vào file gốc
+            base_exam["sections"].extend(extra_exam["sections"])
+        elif isinstance(extra_exam, list):
+            # Trường hợp kết quả trả về là một list các exam
+            for item in extra_exam:
+                if "sections" in item:
+                    base_exam["sections"].extend(item["sections"])
+
+    # Trả về kết quả cuối cùng là một list chứa 1 exam duy nhất đã gộp
+    return [base_exam]
+
+async def solve_math_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
+    try:
+        base_prompt =  get_math_txt_file_from_drive()
+        full_prompt = f"""
+{base_prompt}
+========================
+        YÊU CẦU OUTPUT JSON MÔN VĂN
+        =====================
+
+        - Chỉ trả về JSON đúng theo schema dưới đây
+        - Không markdown
+        - Không ```json
+        - Không giải thích ngoài JSON
+        - Field nào không dùng thì bỏ qua
+        - Giữ nguyên cấu trúc key
+        - Bắt buộc giữ formatting <b><i>
+
+        SCHEMA:
+{EXAM_JSON_SCHEMA}
+
+"""
+
+        # 1. Khởi tạo Provider thông qua Factory
+        credentials, project_id = get_credentials()
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
+        client_31 = AsyncVertexGemini31(
+            project_id="onluyen-media",
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
+        )
+
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
+
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
+
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        merge_data = merge_exam_sections(cleaned_results)
+
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
+        return merge_data
+
+    except Exception as e:
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        return []
+
+
+async def solve_other_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
+    try:
+        base_prompt = get_literature_txt_file_from_drive()
+        full_prompt = f"""
+{base_prompt}
+========================
+        YÊU CẦU OUTPUT JSON MÔN VĂN
+        =====================
+
+        - Chỉ trả về JSON đúng theo schema dưới đây
+        - Không markdown
+        - Không ```json
+        - Không giải thích ngoài JSON
+        - Field nào không dùng thì bỏ qua
+        - Giữ nguyên cấu trúc key
+        - Bắt buộc giữ formatting <b><i>
+
+        SCHEMA:
+{EXAM_JSON_SCHEMA}
+
+"""
+
+        # 1. Khởi tạo Provider thông qua Factory
+        credentials, project_id = get_credentials()
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
+        client_31 = AsyncVertexGemini31(
+            project_id="onluyen-media",
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
+        )
+
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
+
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
+
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
+        return cleaned_results
+
+    except Exception as e:
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        return []
+
+
+async def solve_literature_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
+    try:
+        base_prompt = get_literature_txt_file_from_drive()
+        full_prompt = f"""
+{base_prompt}
+========================
+        YÊU CẦU OUTPUT JSON MÔN VĂN
+        =====================
+
+        - Chỉ trả về JSON đúng theo schema dưới đây
+        - Không markdown
+        - Không ```json
+        - Không giải thích ngoài JSON
+        - Field nào không dùng thì bỏ qua
+        - Giữ nguyên cấu trúc key
+        - Bắt buộc giữ formatting <b><i>
+
+        SCHEMA:
+{EXAM_LITERATURE_JSON_SCHEMA}
+
+"""
+
+        # 1. Khởi tạo Provider thông qua Factory
+        credentials, project_id = get_credentials()
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
+        client_31 = AsyncVertexGemini31(
+            project_id="onluyen-media",
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
+        )
+
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
+
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
+
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
+        return cleaned_results
+
+    except Exception as e:
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        return []
 
 
 

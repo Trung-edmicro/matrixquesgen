@@ -83,7 +83,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <ArrangeBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                   onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -98,7 +97,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <SentenceCompletionBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                   onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -113,7 +111,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <SynonymBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -128,7 +125,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <ErrorIdentificationBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -143,8 +139,7 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <SentenceTransformationBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
-                                    onUpdate={handleUpdateBlock}
+                  onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
                   onToggleQuestionSelection={
@@ -158,7 +153,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <PronunciationBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -173,8 +167,7 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <DialogueBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
-                                    onUpdate={handleUpdateBlock}
+                  onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
                   onToggleQuestionSelection={
@@ -188,8 +181,7 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <LogicalThinkingBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
-                                    onUpdate={handleUpdateBlock}
+                  onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
                   onToggleQuestionSelection={
@@ -203,7 +195,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <WordReorderingBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -221,8 +212,7 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                   key={index}
                   data={data}
                   type={block.type}
-                  showInstruction={isFirstOfGroup}
-                                    onUpdate={handleUpdateBlock}
+                  onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
                   onToggleQuestionSelection={
@@ -260,7 +250,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <EssaySentenceRewritingBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -274,7 +263,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <EssayCombineSentencesBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -288,7 +276,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <EssayWordOrderingBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -302,7 +289,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <EssayWordFormCompletionBlock
                   key={index}
                   data={data}
-                  // showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}
@@ -316,7 +302,6 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
                 <EssayWordPromptSentenceCompletionBlock
                   key={index}
                   data={data}
-                  showInstruction={isFirstOfGroup}
                                     onUpdate={handleUpdateBlock}
                   showInstruction={isFirstOfGroup}
                   selectedQuestions={selectedQuestions}

@@ -149,7 +149,233 @@ export const generateQuestionsEnglishTHCS = async (file) => {
 
 }
 
+export const generateLiteratureSolutions = async (file, config = {}, pdfFiles = null) => {
+  const formData = new FormData()
+
+  try {
+    formData.append('file', file)
+
+    // Thêm PDF files nếu có
+    if (pdfFiles && pdfFiles.length > 0) {
+      for (const pdf of pdfFiles) {
+        formData.append('pdf_files', pdf)
+      }
+    }
+
+    if (config.max_workers) formData.append('max_workers', config.max_workers)
+    if (config.min_interval) formData.append('min_interval', config.min_interval)
+    if (config.max_retries) formData.append('max_retries', config.max_retries)
+    if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+    const response = await api.post('/api/solute-literature-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+
+    // console.log(">>>>>> debug response english", response.data)
+    return response.data;
+
+  } catch (error) {
+    console.log(">>>>>> error generate solutions", error)
+    throw error
+  } finally {
+    // Cleanup file tạm
+    try {
+      if (file && file instanceof File) {
+        // Nếu là object URL thì revoke
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      }
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        for (const pdf of pdfFiles) {
+          if (pdf.preview) {
+            URL.revokeObjectURL(pdf.preview)
+          }
+        }
+      }
+
+      console.log(">>>>>> cleaned up temp files")
+    } catch (cleanupError) {
+      console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
+    }
+  }
+}
+
 export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
+  const formData = new FormData()
+
+  try {
+    formData.append('file', file)
+
+    // Thêm PDF files nếu có
+    if (pdfFiles && pdfFiles.length > 0) {
+      for (const pdf of pdfFiles) {
+        formData.append('pdf_files', pdf)
+      }
+    }
+
+    if (config.max_workers) formData.append('max_workers', config.max_workers)
+    if (config.min_interval) formData.append('min_interval', config.min_interval)
+    if (config.max_retries) formData.append('max_retries', config.max_retries)
+    if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+    const response = await api.post('/api/solute-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+
+    // console.log(">>>>>> debug response english", response.data)
+    return response.data;
+
+  } catch (error) {
+    console.log(">>>>>> error generate solutions", error)
+    throw error
+  } finally {
+    // Cleanup file tạm
+    try {
+      if (file && file instanceof File) {
+        // Nếu là object URL thì revoke
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      }
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        for (const pdf of pdfFiles) {
+          if (pdf.preview) {
+            URL.revokeObjectURL(pdf.preview)
+          }
+        }
+      }
+
+      console.log(">>>>>> cleaned up temp files")
+    } catch (cleanupError) {
+      console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
+    }
+  }
+}
+
+export const generateGeographySolutions = async (file, config = {}, pdfFiles = null) => {
+  const formData = new FormData()
+
+  try {
+    formData.append('file', file)
+
+    // Thêm PDF files nếu có
+    if (pdfFiles && pdfFiles.length > 0) {
+      for (const pdf of pdfFiles) {
+        formData.append('pdf_files', pdf)
+      }
+    }
+
+    if (config.max_workers) formData.append('max_workers', config.max_workers)
+    if (config.min_interval) formData.append('min_interval', config.min_interval)
+    if (config.max_retries) formData.append('max_retries', config.max_retries)
+    if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+    const response = await api.post('/api/solute-geography-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+
+    // console.log(">>>>>> debug response english", response.data)
+    return response.data;
+
+  } catch (error) {
+    console.log(">>>>>> error generate solutions", error)
+    throw error
+  } finally {
+    // Cleanup file tạm
+    try {
+      if (file && file instanceof File) {
+        // Nếu là object URL thì revoke
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      }
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        for (const pdf of pdfFiles) {
+          if (pdf.preview) {
+            URL.revokeObjectURL(pdf.preview)
+          }
+        }
+      }
+
+      console.log(">>>>>> cleaned up temp files")
+    } catch (cleanupError) {
+      console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
+    }
+  }
+}
+
+export const generateMathSolutions = async (file, config = {}, pdfFiles = null) => {
+  const formData = new FormData()
+
+  try {
+    formData.append('file', file)
+
+    // Thêm PDF files nếu có
+    if (pdfFiles && pdfFiles.length > 0) {
+      for (const pdf of pdfFiles) {
+        formData.append('pdf_files', pdf)
+      }
+    }
+
+    if (config.max_workers) formData.append('max_workers', config.max_workers)
+    if (config.min_interval) formData.append('min_interval', config.min_interval)
+    if (config.max_retries) formData.append('max_retries', config.max_retries)
+    if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+    const response = await api.post('/api/solute-math-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    console.log(">>>>>>> debug response math", response.data);
+
+    // console.log(">>>>>> debug response english", response.data)
+    return response.data;
+
+  } catch (error) {
+    console.log(">>>>>> error generate solutions", error)
+    throw error
+  } finally {
+    // Cleanup file tạm
+    try {
+      if (file && file instanceof File) {
+        // Nếu là object URL thì revoke
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      }
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        for (const pdf of pdfFiles) {
+          if (pdf.preview) {
+            URL.revokeObjectURL(pdf.preview)
+          }
+        }
+      }
+
+      console.log(">>>>>> cleaned up temp files")
+    } catch (cleanupError) {
+      console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
+    }
+  }
+}
+
+
+export const generateEnglishSolutions = async (file, config = {}, pdfFiles = null) => {
   const formData = new FormData()
 
   try {
@@ -174,7 +400,7 @@ export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
     })
 
     // console.log(">>>>>> debug response english", response.data)
-    return response.data
+    return response.data;
 
   } catch (error) {
     console.log(">>>>>> error generate solutions", error)
@@ -311,6 +537,53 @@ export const exportToSolutedEnglishStandardDocx = async (generatedExam, config) 
   )
   return response
 }
+
+export const exportToSolutedOtherDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-other-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToSolutedLiteratureDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-literature-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToSolutedGeographyDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-geography-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+
+export const exportToSolutedMathDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-math-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
+export const exportToSolutedStandardMathDocx = async (generatedExam, config) => {
+  const response = await api.post(
+    `/api/export-soluted-standard-english-exam`,
+    generatedExam,
+    config
+  )
+  return response
+}
+
 
 
 export const exportToEnglishExamDocx = async (generatedExam, config) => {
