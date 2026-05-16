@@ -196,7 +196,7 @@ def main():
         import importlib.util as _iutil
         logger.info(f"sys.path: {sys.path}")
         meipass = str(BASE_DIR)
-        for _pkg in ['fastapi', 'uvicorn', 'starlette', 'pydantic']:
+        for _pkg in ['fastapi', 'uvicorn', 'starlette', 'pydantic', 'fitz']:
             _init_py = os.path.join(meipass, _pkg, '__init__.py')
             _spec = _iutil.find_spec(_pkg)
             logger.info(

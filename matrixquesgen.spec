@@ -58,6 +58,21 @@ try:
 except Exception:
     openai_datas, openai_binaries, openai_hidden = [], [], []
 
+# PyMuPDF provides the runtime module imported as "fitz".
+# collect_all also captures native extension modules needed by the frozen exe.
+try:
+    pymupdf_datas, pymupdf_binaries, pymupdf_hidden = collect_all('fitz')
+except Exception:
+    pymupdf_datas, pymupdf_binaries, pymupdf_hidden = [], [], []
+
+try:
+    _pymupdf_datas2, _pymupdf_binaries2, _pymupdf_hidden2 = collect_all('pymupdf')
+    pymupdf_datas += _pymupdf_datas2
+    pymupdf_binaries += _pymupdf_binaries2
+    pymupdf_hidden += _pymupdf_hidden2
+except Exception:
+    pass
+
 # Walk every required package tree and copy all .py files directly into _MEIPASS.
 # This guarantees imports work even if PYZ bytecode collection misses something.
 pkg_dirs = []
@@ -171,12 +186,14 @@ a = Analysis(
     ['launcher.py'],
     pathex=[_server_src],
     binaries=uvicorn_binaries + starlette_binaries + fastapi_binaries
-        + pil_binaries + pystray_binaries + openai_binaries,
+        + pil_binaries + pystray_binaries + openai_binaries
+        + pymupdf_binaries,
     datas=server_datas + added_files + latex2mathml_datas + mml2omml_datas  # mml2omml = XSL file
         + uvicorn_datas + starlette_datas + fastapi_datas
         + pil_datas + pystray_datas + openai_datas
+        + pymupdf_datas
         + pkg_dirs,
-    hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + [
+    hiddenimports=uvicorn_hidden + starlette_hidden + fastapi_hidden + pymupdf_hidden + [
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',
@@ -222,6 +239,8 @@ a = Analysis(
         'xlrd',
         'pdfplumber',
         'pdf2image',
+        'fitz',          # PyMuPDF (imported as 'fitz' in openai_provider.py)
+        'pymupdf',
         'docx',          # python-docx installs as 'docx'
         'bs4',
         'PIL',

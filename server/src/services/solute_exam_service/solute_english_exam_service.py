@@ -7,7 +7,6 @@ import requests
 import asyncio
 import logging
 from typing import Any, List
-import fitz
 from api.callApi import get_credentials
 from services.english_generator_service.json_utils import _safe_parse_json
 from services.english_generator_service.llm_factory import build_llm_provider

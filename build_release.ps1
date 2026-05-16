@@ -29,6 +29,23 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not $SkipBuild) {
+    $pythonExe = ".venv\Scripts\python.exe"
+    if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
+
+    Write-Host "Installing/verifying build dependencies..."
+    & $pythonExe -m pip install -r requirements-build.txt
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install build dependencies from requirements-build.txt"
+        exit 1
+    }
+
+    Write-Host "Checking required Python imports..."
+    & $pythonExe -c "import fitz; print('PyMuPDF/fitz import OK:', fitz.__file__)"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "PyMuPDF is missing or broken. Run: $pythonExe -m pip install PyMuPDF"
+        exit 1
+    }
+
     # Build React client first so client/dist is up to date
     Write-Host "Building React client..."
     Push-Location "client"
@@ -59,8 +76,6 @@ if (-not $SkipBuild) {
     }
 
     Write-Host "Building executable with PyInstaller..."
-    $pythonExe = ".venv\Scripts\python.exe"
-    if (-not (Test-Path $pythonExe)) { $pythonExe = "python" }
     & $pythonExe -m PyInstaller --clean --noconfirm matrixquesgen.spec
 
     if ($LASTEXITCODE -ne 0) {
