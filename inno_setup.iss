@@ -42,7 +42,8 @@ Name: "{app}\data\content"
 Name: "{app}\data\matrix"
 Name: "{app}\data\output"
 Name: "{app}\data\prompts"
-Name: "{app}\data\upload"
+Name: "{app}\data\uploads"
+Name: "{app}\temp_uploads"
 Name: "{app}\data\questions"
 Name: "{app}\data\sessions"
 Name: "{app}\data\exports"
@@ -50,13 +51,13 @@ Name: "{app}\data\images"
 Name: "{app}\logs"
 
 [Icons]
-Name: "{group}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"
+Name: "{group}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"; WorkingDir: "{app}"
 
-Name: "{commondesktop}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"; Tasks: desktopicon
+Name: "{commondesktop}\MatrixQuesGen"; Filename: "{app}\MatrixQuesGen.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 ; Launch the app after install (user can uncheck)
-Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesGen}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\MatrixQuesGen.exe"; Description: "{cm:LaunchProgram,MatrixQuesGen}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Only delete logs on uninstall - preserve user data and prompts
@@ -65,7 +66,8 @@ Type: filesandordirs; Name: "{app}\logs"
 Type: dirifempty; Name: "{app}\data\.drive_metadata"
 Type: dirifempty; Name: "{app}\data\uploads"
 Type: dirifempty; Name: "{app}\data\output"
-Type: dirifempty; Name: "{app}\data\temp_uploads"
+Type: dirifempty; Name: "{app}\temp_uploads"
+
 
 
 
