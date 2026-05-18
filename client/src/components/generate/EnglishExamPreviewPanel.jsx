@@ -598,67 +598,70 @@ export function ArrangeBlock({ data,index, onUpdate, showInstruction = true, sel
   if (!data || typeof data !== 'object') return null
 
 
-  const isQuestionSelected = (
-  blockIndex,
-  questionNumber
-) => {
-  return (selectedQuestions || []).some(
-    (item) =>
-      item.blockIndex === blockIndex &&
-      item.questionNumber === questionNumber
-  )
-}
+//   const isQuestionSelected = (
+//   blockIndex,
+//   questionNumber
+// ) => {
+//   return (selectedQuestions || []).some(
+//     (item) =>
+//       item.blockIndex === blockIndex &&
+//       item.questionNumber === questionNumber
+//   )
+// }
 
-  const handleChange = (qNumber, val) => {
-    setValueMap((prev) => ({
-      ...prev,
-      [qNumber]: val,
-    }))
-  }
+//   const handleChange = (qNumber, val) => {
+//     setValueMap((prev) => ({
+//       ...prev,
+//       [qNumber]: val,
+//     }))
+//   }
 
-const handleSubmit = async (qNumber) => {
-  const feedback = valueMap[qNumber] || "Sinh lại câu hỏi này";
-  setLoadingMap(prev => ({ ...prev, [qNumber]: true }));
+// const handleSubmit = async (qNumber) => {
+//   const feedback = valueMap[qNumber] || "Sinh lại câu hỏi này";
+//   setLoadingMap(prev => ({ ...prev, [qNumber]: true }));
 
-    notification.info({
-    title: "Đã gửi yêu cầu",
-    description: "Đã gửi yêu cầu sinh lại câu hỏi. Vui lòng đợi kết quả!",
-    placement: "topRight",
-    duration: 3
-  });
+//     notification.info({
+//     title: "Đã gửi yêu cầu",
+//     description: "Đã gửi yêu cầu sinh lại câu hỏi. Vui lòng đợi kết quả!",
+//     placement: "topRight",
+//     duration: 3
+//   });
 
-  try {
-   const currentQuestion = data.parsed;
-   const result = await handleGenerateArrangeEnglishQuestion(
-      data,
-      feedback
-    )
+//   try {
+//    const currentQuestion = data.parsed;
+//    const result = await handleGenerateArrangeEnglishQuestion(
+//       data,
+//       feedback
+//     )
 
-    if (result.status === "success") {
-      // Backend trả về: { questions: [ {number: 1, ...} ] }
-      const updatedQuestion = result.parsed;
+//     if (result.status === "success") {
+//       // Backend trả về: { questions: [ {number: 1, ...} ] }
+//       const updatedQuestion = result.parsed;
 
-      if (updatedQuestion) {
-        // Gọi hàm onUpdate của cha (EnglishExamPreviewPanel)
-        console.log(">>>>> debug index", index);
-        onUpdate(index, updatedQuestion); 
-        setActiveQuestion(null);
+//       if (updatedQuestion) {
+//         // Gọi hàm onUpdate của cha (EnglishExamPreviewPanel)
+//         console.log(">>>>> debug index", index);
+//         onUpdate(index, {
+//             ...data,
+//             parsed: result.parsed,
+//           });
+//         setActiveQuestion(null);
 
-        notification.success({
-        title: "Thành công",
-        description: `Câu ${qNumber} đã được sinh lại`,
-        placement: "topRight",
-        duration: 2
-      });
+//         notification.success({
+//         title: "Thành công",
+//         description: `Câu ${qNumber} đã được sinh lại`,
+//         placement: "topRight",
+//         duration: 2
+//       });
     
-      }
-    }
-  } catch (error) {
-    // ... handle error
-  } finally {
-    setLoadingMap(prev => ({ ...prev, [qNumber]: false }));
-  }
-};
+//       }
+//     }
+//   } catch (error) {
+//     // ... handle error
+//   } finally {
+//     setLoadingMap(prev => ({ ...prev, [qNumber]: false }));
+//   }
+// };
 
 
     const instruction =
@@ -677,42 +680,24 @@ const handleSubmit = async (qNumber) => {
       {/* QUESTION */}
       <p className="font-semibold">
 
-          <Checkbox
+          {/* <Checkbox
                 checked={isQuestionSelected(
                   index,
-                  data?.parsed.question_number
+                  data?.parsed?.question_number
                 )}
                 onChange={() =>
                   onToggleQuestionSelection({
                     blockIndex: index,
-                    questionNumber: data?.parsed.question_number,
+                    questionNumber: data?.parsed?.question_number,
                   })
                 }
-              />{"  "}
-        Question {data?.parsed.question_number ?? 'N/A'}. {"    "}
+              />{"  "} */}
+        Question {data?.parsed?.question_number ?? 'N/A'}. {"    "}
 
-        <ReloadOutlined
-              style={{ cursor: "pointer" }}
-              onClick={() =>
-                setActiveQuestion(
-                  activeQuestion === data.parsed.question_number ? null : data.parsed.question_number
-                )
-              }
-            />
-            {"    "}
 
-            {/* TAGS */}
-            <Tag color="geekblue">Chủ đề: {data.title}</Tag>{"    "}
-            <Tag color="geekblue">Dạng câu hỏi:{data.spec}</Tag>{"    "}
-            <Tag color={getLevelColor(data.level)}>
-              Mức độ: {data.level}
-            </Tag>{"    "}
-            <Tag color={getDiffColor(data.diff)}>
-              Độ khó: {data.diff}
-            </Tag>
       </p>
 
-        {activeQuestion === data.parsed.question_number && (
+        {/* {activeQuestion === data.parsed.question_number && (
             <div className="mt-2 pl-6 border p-3 rounded-lg bg-gray-50">
 
               <div className="flex justify-end gap-2 mb-2">
@@ -728,23 +713,23 @@ const handleSubmit = async (qNumber) => {
               <TextArea
                 rows={3}
                 placeholder="Nhập câu trả lời..."
-                value={valueMap[data.parsed.question_number] || ""}
+                value={valueMap[data?.parsed?.question_number] || ""}
                 onChange={(e) =>
-                  handleChange(data.parsed.question_number, e.target.value)
+                  handleChange(data?.parsed?.question_number, e.target.value)
                 }
               />
 
               <div className="mt-2 flex justify-end">
                 <Button
                   type="primary"
-                  loading={loadingMap[data.parsed.question_number]}
-                  onClick={() => handleSubmit(data.parsed.question_number)}
+                  loading={loadingMap[data?.parsed?.question_number]}
+                  onClick={() => handleSubmit(data?.parsed?.question_number)}
                 >
                   Gửi
                 </Button>
               </div>
             </div>
-          )}
+          )} */}
 
 
       {data.question_stem && (
