@@ -831,6 +831,57 @@ def extract_folder_id(url):
         raise Exception("Không tìm thấy folder ID")
     return match.group(1)
 
+def get_other_txt_file_from_drive():
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'promptToolGiaiDe.txt'",
+            "fields": "files(id, name, mimeType)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        if not files:
+            raise Exception("❌ Không tìm thấy file promptGiaiDeDiaLi.txt")
+
+        file_id = files[0]["id"]
+
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+
+        params = {
+            "alt":"media",
+            "key": API_KEY
+        }
+
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
+
+        content = file_res.content.decode("utf-8")
+
+        print(f">>>>> debug content {content}")
+        return content
+
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
+
 def get_geography_txt_file_from_drive():
     try:
         folder_id = extract_folder_id(DRIVE_FOLDER)
@@ -1466,7 +1517,7 @@ async def solve_other_exam(file_paths: List[str]):
     logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
     
     try:
-        base_prompt = get_literature_txt_file_from_drive()
+        base_prompt = get_other_txt_file_from_drive()
         full_prompt = f"""
 {base_prompt}
 ========================
@@ -1480,6 +1531,7 @@ async def solve_other_exam(file_paths: List[str]):
         - Field nào không dùng thì bỏ qua
         - Giữ nguyên cấu trúc key
         - Bắt buộc giữ formatting <b><i>
+        - File nào có bảng phải trả về data dạng bảng
 
         SCHEMA:
 {EXAM_JSON_SCHEMA}
@@ -1537,11 +1589,12 @@ async def solve_other_exam(file_paths: List[str]):
                         cleaned_results.extend(parsed) # Gộp vào kết quả tổng
                     else:
                         cleaned_results.append(parsed)
+        merge_data = merge_exam_sections(cleaned_results)
         logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
-        return cleaned_results
+        return merge_data
 
     except Exception as e:
-        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        logger.error(f"Error in solve_other_exam: {e}", exc_info=True)
         return []
 
 
@@ -1614,12 +1667,13 @@ async def solve_literature_exam(file_paths: List[str]):
             if res:
                 # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
                 parsed = _safe_parse_json(res) 
-                if parsed:
-                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
-                    if isinstance(parsed, list):
-                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
-                    else:
-                        cleaned_results.append(parsed)
+            if parsed:
+                # Nếu AI trả về 1 object đơn lẻ, ta bọc nó vào list
+                if isinstance(parsed, dict):
+                    cleaned_results.append(parsed)
+                # Nếu AI trả về list, ta gộp vào cleaned_results
+                elif isinstance(parsed, list):
+                    cleaned_results.extend(parsed)
         logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
         return cleaned_results
 

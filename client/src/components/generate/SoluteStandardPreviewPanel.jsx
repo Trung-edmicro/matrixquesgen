@@ -241,7 +241,7 @@ export default function SoluteStandardPreviewPanel({ examData }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gray-50 p-6 font-serif">
+    <div className="h-full overflow-auto bg-gray-50 p-6 font-sans">
       <div className="max-w-4xl mx-auto bg-white shadow-lg p-10 border rounded">
         <h1 className="text-center text-2xl font-bold uppercase mb-8 border-b pb-4 text-blue-800">
           {finalData?.exam_title || "LỜI GIẢI CHI TIẾT"}
@@ -269,9 +269,9 @@ export default function SoluteStandardPreviewPanel({ examData }) {
                   <span className="font-bold whitespace-nowrap text-blue-700">
                     Câu {q.question_number}:
                   </span>
-                  <div className="prose max-w-none">
-                    <SafeMathText text={q.question_content} />
-                  </div>
+  <div className="prose max-w-none whitespace-pre-line">
+    <SafeMathText text={q.question_content} />
+  </div>
                 </div>
 
                 {/* MEDIA GIỮA NỘI DUNG (NẾU CÓ) */}

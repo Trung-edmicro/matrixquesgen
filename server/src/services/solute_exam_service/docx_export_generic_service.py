@@ -301,8 +301,8 @@ class DocxExportService:
         # 4. Ghi chú dưới bảng
         if table_data.get("notes"):
             p = doc.add_paragraph()
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            self.insert_text_with_math(p, f"Ghi chú: {table_data['notes']}", italic=True)
+            p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            self.insert_text_with_math(p, f"{table_data['notes']}", italic=True)
 
     def _add_image_to_doc(self, doc, media_data):
         """Xử lý hình ảnh từ base64"""
@@ -390,22 +390,75 @@ class DocxExportService:
                 # Xử lý Media an toàn
                 media_list = (q.get("media") or [])
                 
-                for m in media_list:
-                    if m and m.get("position") == "before_question_content":
-                        if m["type"] == "table": self._add_table_to_doc(doc, m)
-                        elif m["type"] == "image": self._add_image_to_doc(doc, m)
-
                 # Nội dung câu hỏi
                 p_q = doc.add_paragraph()
                 p_q.add_run(f"Câu {q.get('question_number') or ''}. ").bold = True
                 if q.get("question_title"):
-                    self.insert_text_with_math(p_q, f"{q['question_title']}: ", bold=True)
-                self.insert_text_with_math(p_q, q.get("question_content") or "")
+                        self.insert_text_with_math(
+                            p_q,
+                            f"{q['question_title']} ",
+                            bold=True
+                        )
+                # self.insert_text_with_math(p_q, q.get("question_content") or "")
 
+                # for m in media_list:
+                #         if m["type"] == "table": self._add_table_to_doc(doc, m)
+                #         elif m["type"] == "image": self._add_image_to_doc(doc, m)
                 for m in media_list:
-                    if m and m.get("position") != "before_question_content":
-                        if m["type"] == "table": self._add_table_to_doc(doc, m)
-                        elif m["type"] == "image": self._add_image_to_doc(doc, m)
+                    if not m:
+                        continue
+
+                    if m.get("position") == "before_question_content":
+                        if m["type"] == "table":
+                            self._add_table_to_doc(doc, m)
+
+                        elif m["type"] == "image":
+                            self._add_image_to_doc(doc, m)
+                
+                question_content = q.get("question_content")
+
+                # if question_content:
+                #     p_content = doc.add_paragraph()
+
+                #     self.insert_text_with_math(
+                #         p_content,
+                #         question_content
+                #     )
+
+                has_after_media = any(
+                    m and m.get("position") == "after_question_content"
+                    for m in media_list
+                )
+
+                if question_content:
+                    # Nếu có after_question_content
+                    # -> gộp content vào cùng paragraph với "Câu X"
+                    if has_after_media:
+                        self.insert_text_with_math(
+                            p_q,
+                            question_content
+                        )
+
+                    # Logic cũ giữ nguyên
+                    else:
+                        p_content = doc.add_paragraph()
+
+                        self.insert_text_with_math(
+                            p_content,
+                            question_content
+                        )
+
+                # AFTER -> thêm mới
+                for m in media_list:
+                    if not m:
+                        continue
+
+                    if m.get("position") == "after_question_content":
+                        if m["type"] == "table":
+                            self._add_table_to_doc(doc, m)
+
+                        elif m["type"] == "image":
+                            self._add_image_to_doc(doc, m)
 
                 # Xử lý các loại câu hỏi
                 q_type = q.get("type")
@@ -416,7 +469,7 @@ class DocxExportService:
                 # Ghi chú
                 if q.get("note"):
                     p_n = doc.add_paragraph()
-                    self.insert_text_with_math(p_n, f"Lưu ý: {q['note']}", italic=True)
+                    self.insert_text_with_math(p_n, f"Lưu ý: {q['note']}")
 
                 # Lời giải
                 self._add_explanation_section(doc, q)
@@ -428,7 +481,7 @@ class DocxExportService:
         opt = q["options"][0]
         for label, key in [("A", "option_a"), ("B", "option_b"), ("C", "option_c"), ("D", "option_d")]:
             if opt.get(key):
-                p = doc.add_paragraph(style='List Bullet')
+                p = doc.add_paragraph('')
                 p.add_run(f"{label}. ").bold = True
                 self.insert_text_with_math(p, opt[key])
 
@@ -436,7 +489,7 @@ class DocxExportService:
         for opt in q.get("options", []):
             p = doc.add_paragraph()
             lbl = opt.get("label", "").lower()
-            if lbl: self.insert_text_with_math(p, f"{lbl}) ", italic=True)
+            if lbl: self.insert_text_with_math(p, f"{lbl}) ")
             self.insert_text_with_math(p, opt.get("content", ""))
 
     # def _handle_essay(self, doc, q):
@@ -456,8 +509,6 @@ class DocxExportService:
                 self.insert_text_with_math(doc.add_paragraph(), pas["passage_content"])
         
         # Sửa lỗi None ở images
-        for img_data in (q.get("images") or []):
-            self._add_image_to_doc(doc, {"image_base64": img_data})
 
     def _add_explanation_section(self, doc, q):
         doc.add_paragraph().add_run("Lời giải").bold = True
@@ -474,6 +525,37 @@ class DocxExportService:
             self.insert_text_with_math(p, f"[[{q.get('correct_answer', '')}]]", bold=True)
 
         doc.add_paragraph("####").runs[0].bold = True
+        if q.get("type") == "true_false":
+
+            for opt in (q.get("options") or []):
+
+                # Dòng nội dung + ĐÚNG/SAI
+                p = doc.add_paragraph()
+
+                label = opt.get("label", "")
+                content = opt.get("content", "")
+
+                self.insert_text_with_math(p, content)
+
+                p.add_run(" → ")
+
+                result_run = p.add_run(
+                    "ĐÚNG" if opt.get("is_correct") else "SAI"
+                )
+                result_run.bold = True
+
+                # Explanation
+                explanation = opt.get("explanation")
+
+                if explanation:
+                    for line in str(explanation).split("\n"):
+                        self.insert_text_with_math(
+                            doc.add_paragraph(),
+                            line
+                        )
+
+            return
+
         if q.get("explanation"):
             for line in str(q["explanation"]).split("\n"):
                 self.insert_text_with_math(doc.add_paragraph(), line)
@@ -507,7 +589,7 @@ class DocxExportService:
                 if passage.get("source"):
                     p = doc.add_paragraph()
                     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                    self.insert_text_with_math(p, f"({passage['source']})", italic=True)
+                    self.insert_text_with_math(p, f"({passage['source']})")
 
             for q in sec.get("questions", []):
                 p_q = doc.add_paragraph()
@@ -548,4 +630,6 @@ class DocxExportService:
                 p = doc.add_paragraph()
                 p.add_run(f"{skey}. {sdata.get('name', '')}: ").italic = True
                 if sdata.get("content"):
-                    self.insert_text_with_math(p, sdata["content"])
+                    for line in sdata["content"].split("\n"):
+                        p_line = doc.add_paragraph()
+                        self.insert_text_with_math(p_line, line)

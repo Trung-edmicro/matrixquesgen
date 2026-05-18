@@ -34,6 +34,8 @@ def delete_temp_file(path: str):
 async def export_soluted_english_exam(payload: dict):
     file_path = "output_exam.docx"
 
+    export_soluted_english_exam_from_data(payload, file_path)
+
     return FileResponse(
         file_path,
         filename="Soluted_English_Exam.docx",
@@ -117,6 +119,38 @@ async def export_soluted_geography_exam(payload: dict):
         print(f"Error exporting docx: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@routerSolute.post("/export-soluted-other-exam")
+async def export_soluted_other_exam(payload: dict):
+    try:
+        # 1. Trích xuất dữ liệu thực tế từ payload
+        # Theo cấu trúc JSON bạn gửi: {"results": [{...}]}
+        if "results" in payload and len(payload["results"]) > 0:
+            exam_data = payload["results"][0]
+        else:
+            exam_data = payload # Trường hợp payload là object trực tiếp
+
+        # 2. Định nghĩa đường dẫn file tạm
+        filepath = "output_exam.docx"
+        
+        # 3. Khởi tạo Service và tạo file
+        exporter = DocxExportService()
+        exporter.create_standard_docx(exam_data, filepath)
+
+        # 4. Kiểm tra file có tồn tại không
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=500, detail="Could not create docx file")
+
+        # 5. Trả về file cho frontend
+        return FileResponse(
+            path=filepath,
+            filename="Soluted_Exam.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+
+    except Exception as e:
+        print(f"Error exporting docx: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @routerSolute.post("/export-soluted-literature-exam")
 async def export_soluted_literature_exam(payload: dict):
@@ -182,7 +216,7 @@ async def solute_exam(
             file_paths.append(str(file_path))
 
         # 🚀 Gọi service xử lý
-        result = await solve_english_exam(file_paths)
+        result = await solve_other_exam(file_paths)
 
         print(f">>>>>>> debug result {result}")
 

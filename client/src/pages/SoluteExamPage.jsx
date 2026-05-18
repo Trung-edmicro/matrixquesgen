@@ -9,7 +9,6 @@ import {
   generateMathSolutions,
   generateGeographySolutions,
   exportToSolutedMathDocx,
-  exportToSolutedStandardMathDocx,
   exportToSolutedGeographyDocx,
   exportToSolutedLiteratureDocx,
   exportToSolutedOtherDocx
@@ -18,7 +17,7 @@ import SoluteActionBar from '../components/generate/SoluteActionBar'
 import { useNotification } from '../hooks/useNotification'
 import { Modal, Spin } from 'antd'
 import SoluteStandardPreviewPanel from '../components/generate/SoluteStandardPreviewPanel'
-
+import SoluteLiteraturePreviewPanel from '../components/generate/SoluteLiteraturePreviewPanel'
 // Storage
 const STORAGE_KEY = 'matrixquesgen_solute_page_state'
 const STORAGE_EXPIRY_HOURS = 5
@@ -501,15 +500,27 @@ useEffect(() => {
 
       const parsed = JSON.parse(stored);
       const generatedExam = parsed.data;
+      
+      setLoadingModal(true);
 
-      // TODO: thay bằng API export thật của bạn
-      const res = await exportToSolutedLiteratureDocx(generatedExam, {
+      try {
+         const res = await exportToSolutedLiteratureDocx({
+          results: generatedExam
+        }, {
         responseType: "blob"
       });
 
       downloadFile(res.data, "Soluted_Literature_Exam.docx");
 
       notify.success("Đã xuất file DOCX môn Ngữ Văn");
+      }catch(err) {
+        notify.error("Lỗi xuất file docx cho môn Ngữ Văn" + err.message);
+      }finally {
+        setLoadingModal(false)
+      }
+
+      // TODO: thay bằng API export thật của bạn
+
       return; 
     }
 
@@ -528,15 +539,25 @@ useEffect(() => {
 
       const parsed = JSON.parse(stored);
       const generatedExam = parsed.data;
+      setLoadingModal(true);
+      try {
+          const res = await exportToSolutedGeographyDocx( {
+          results: generatedExam
+        }, {
+          responseType: "blob"
+        });
+
+        downloadFile(res.data, "Soluted_Geography_Exam.docx");
+
+        notify.success("Đã xuất file DOCX môn Địa Lí");
+      }catch(err) {
+       console.log("Lỗi khi xuất file docx cho môn Địa lí"  + err.message);
+      }finally {
+        setLoadingModal(false);
+      }
 
       // TODO: thay bằng API export thật của bạn
-      const res = await exportToSolutedGeographyDocx(generatedExam, {
-        responseType: "blob"
-      });
 
-      downloadFile(res.data, "Soluted_Geography_Exam.docx");
-
-      notify.success("Đã xuất file DOCX môn Địa Lí");
       return;
     }
 
@@ -551,13 +572,16 @@ useEffect(() => {
       if (!stored) {
         notify.error("Không có dữ liệu để xuất file");
         return;
-      }
+      } 
+     
 
       const parsed = JSON.parse(stored);
       const generatedExam = parsed.data;
-
-      // TODO: thay bằng API export mặc định
-      const res = await exportToSolutedOtherDocx(generatedExam, {
+      setLoadingModal(true);
+      try {
+        const res = await exportToSolutedOtherDocx( {
+          results: generatedExam
+        }, {
         responseType: "blob"
       });
 
@@ -565,6 +589,14 @@ useEffect(() => {
 
       notify.success("Đã xuất file DOCX");
       return;
+      }catch(err) {
+        console.log("Lỗi khi xuất file docx ", err);
+      }finally {
+        setLoadingModal(false);
+      }
+
+      // TODO: thay bằng API export mặc định
+
     }
 
   } catch (err) {
@@ -676,12 +708,14 @@ useEffect(() => {
 
         ) : (
 
-          <ExamPreviewPanel
-            examData={generatedExam}
-            isGenerating={isGenerating}
-            sessionId={sessionId}
-            onDataChange={handleDataChange}
-          />
+          // <ExamPreviewPanel
+          //   examData={generatedExam}
+          //   isGenerating={isGenerating}
+          //   sessionId={sessionId}
+          //   onDataChange={handleDataChange}
+          // />
+           <SoluteStandardPreviewPanel examData={generatedExam} />
+
 
         )}
 

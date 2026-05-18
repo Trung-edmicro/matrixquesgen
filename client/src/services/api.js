@@ -173,7 +173,7 @@ export const generateLiteratureSolutions = async (file, config = {}, pdfFiles = 
       },
     })
 
-    // console.log(">>>>>> debug response english", response.data)
+    console.log(">>>>>> debug response literature", response.data)
     return response.data;
 
   } catch (error) {
@@ -285,7 +285,7 @@ export const generateGeographySolutions = async (file, config = {}, pdfFiles = n
       },
     })
 
-    // console.log(">>>>>> debug response english", response.data)
+    console.log(">>>>>> debug response geography", response.data)
     return response.data;
 
   } catch (error) {
