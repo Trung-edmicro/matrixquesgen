@@ -255,125 +255,274 @@ export default function SoluteStandardPreviewPanel({ examData }) {
               </h2>
             )}
 
-            {section.questions.map((q, qIdx) => (
-              <div key={qIdx} className="mb-12 border-b border-gray-100 pb-8 last:border-0">
-                
-                {/* HIỂN THỊ MEDIA (BẢNG) TRƯỚC NỘI DUNG NẾU CÓ */}
-                {q.media?.map((m, mIdx) => (
-                  m.type === 'table' && m.position === 'before_question_content' && 
-                  <TableRenderer key={mIdx} tableData={m} />
-                ))}
+       {section.questions.map((q, qIdx) => {
+  const mediaList = q.media || [];
 
-                {/* Nội dung câu hỏi */}
-                <div className="flex gap-2 mb-4 text-[16px] leading-relaxed">
-                  <span className="font-bold whitespace-nowrap text-blue-700">
-                    Câu {q.question_number}:
+  const hasBeforeMedia = mediaList.some(
+    (m) => m && m.position === "before_question_content"
+  );
+
+  const hasAfterMedia = mediaList.some(
+    (m) => m && m.position === "after_question_content"
+  );
+
+  // Không có media nào
+  const hasNoMedia = !hasBeforeMedia && !hasAfterMedia;
+
+  return (
+    <div
+      key={qIdx}
+      className="mb-12 border-b border-gray-100 pb-8 last:border-0"
+    >
+
+      {/* QUESTION */}
+      <div className="mb-4 text-[16px] leading-relaxed">
+
+        {/* CASE:
+            1. Có after media  -> content cùng dòng
+            2. Không có media  -> content cùng dòng
+        */}
+        {(hasAfterMedia || hasNoMedia) ? (
+          <div className="flex flex-wrap gap-2">
+
+            <span className="font-bold whitespace-nowrap text-blue-700">
+              Câu {q.question_number}.
+            </span>
+
+            {q.question_title && (
+              <span className="font-bold">
+                <SafeMathText text={q.question_title} />
+              </span>
+            )}
+
+            {q.question_content && (
+              <span>
+                <SafeMathText text={q.question_content} />
+              </span>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Chỉ render question line */}
+            <div className="flex flex-wrap gap-2">
+
+              <span className="font-bold whitespace-nowrap">
+                Câu {q.question_number}.
+              </span>
+
+              {q.question_title && (
+                <span className="font-bold">
+                  <SafeMathText text={q.question_title} />
+                </span>
+              )}
+            </div>
+
+            {/* BEFORE MEDIA */}
+            {mediaList.map((m, mIdx) => {
+              if (!m) return null;
+
+              if (m.position === "before_question_content") {
+
+                if (m.type === "table") {
+                  return (
+                    <TableRenderer
+                      key={mIdx}
+                      tableData={m}
+                    />
+                  );
+                }
+
+                if (m.type === "image") {
+                  return (
+                    <div
+                      key={mIdx}
+                      className="my-4 flex justify-center"
+                    >
+                      <img
+                        src={m.url}
+                        alt=""
+                        className="max-w-full h-auto rounded"
+                      />
+                    </div>
+                  );
+                }
+              }
+
+              return null;
+            })}
+
+            {/* Content paragraph riêng */}
+            {q.question_content && (
+              <div className="mt-3 whitespace-pre-line">
+                <SafeMathText text={q.question_content} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* AFTER MEDIA */}
+      {mediaList.map((m, mIdx) => {
+        if (!m) return null;
+
+        if (m.position === "after_question_content") {
+
+          if (m.type === "table") {
+            return (
+              <TableRenderer
+                key={mIdx}
+                tableData={m}
+              />
+            );
+          }
+
+          if (m.type === "image") {
+            return (
+              <div
+                key={mIdx}
+                className="my-4 flex justify-center"
+              >
+                <img
+                  src={m.url}
+                  alt=""
+                  className="max-w-full h-auto rounded"
+                />
+              </div>
+            );
+          }
+        }
+
+        return null;
+      })}
+
+      {/* multiple_choice */}
+      {q.type === "multiple_choice" && q.options && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 ml-6 mb-6">
+          {["a", "b", "c", "d"].map((key) => {
+            const opt = q.options[0]?.[`option_${key}`];
+
+            if (!opt) return null;
+
+            return (
+              <div key={key} className="flex gap-2 items-start">
+                <span className="font-bold uppercase">{key}.</span>
+                <SafeMathText text={opt} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* true_false */}
+      {q.type === "true_false" && q.options && (
+        <div className="ml-6 mb-6 space-y-3">
+          {q.options.map((opt, idx) => (
+            <div
+              key={idx}
+              className="flex gap-2 items-start border-l-2 border-gray-100 pl-3"
+            >
+              <span className="font-bold">
+                {opt.label.toLowerCase()})
+              </span>
+
+              <div className="flex-1 italic">
+                <SafeMathText text={opt.content} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* SOLUTION */}
+      <div className="bg-blue-50 p-5 rounded-lg border border-blue-100 relative">
+        <div className="absolute -top-3 left-4">
+          <span className="bg-blue-600 text-white text-[11px] px-3 py-1 rounded-full font-sans uppercase tracking-wider shadow-sm">
+            Lời giải
+          </span>
+        </div>
+
+        <div className="mt-2">
+
+          <div className="mb-3">
+            {q.type === "multiple_choice" &&
+              q.options?.[0]?.answer && (
+                <div className="text-lg">
+                  Chọn{" "}
+                  <span className="font-bold">
+                    {q.options[0].answer}
                   </span>
-  <div className="prose max-w-none whitespace-pre-line">
-    <SafeMathText text={q.question_content} />
-  </div>
                 </div>
+              )}
 
-                {/* MEDIA GIỮA NỘI DUNG (NẾU CÓ) */}
-                {q.media?.map((m, mIdx) => (
-                  m.type === 'table' && m.position !== 'before_question_content' && 
-                  <TableRenderer key={mIdx} tableData={m} />
-                ))}
+            {q.type === "true_false" &&
+              q.correct_answer && (
+                <div className="text-lg">
+                  Đáp án:{" "}
+                  <span className="font-bold font-mono tracking-widest">
+                    {q.correct_answer}
+                  </span>
+                </div>
+              )}
 
-                {/* Phần trắc nghiệm nhiều phương án */}
-                {q.type === "multiple_choice" && q.options && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 ml-6 mb-6">
-                    {['a', 'b', 'c', 'd'].map(key => {
-                      const opt = q.options[0]?.[`option_${key}`];
-                      if (!opt) return null;
-                      return (
-                        <div key={key} className="flex gap-2 items-start">
-                          <span className="font-bold uppercase">{key}.</span>
-                          <SafeMathText text={opt} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+            {q.type === "short_answer" &&
+              q.correct_answer && (
+                <div className="text-lg">
+                  Đáp án:{" "}
+                  <span >
+                    {q.correct_answer}
+                  </span>
+                </div>
+              )}
+          </div>
 
-                {/* Trắc nghiệm Đúng/Sai */}
-                {q.type === "true_false" && q.options && (
-                  <div className="ml-6 mb-6 space-y-3">
-                    {q.options.map((opt, idx) => (
-                      <div key={idx} className="flex gap-2 items-start border-l-2 border-gray-100 pl-3">
-                        <span className="font-bold">{opt.label.toLowerCase()})</span>
-                        <div className="flex-1 italic">
-                          <SafeMathText text={opt.content} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {q.type === "true_false" ? (
+            <div className="space-y-4 mt-4">
+              <div className="font-bold text-gray-400">####</div>
 
-                {/* Đáp án & Lời giải */}
-                <div className="bg-blue-50 p-5 rounded-lg border border-blue-100 relative">
-                  <div className="absolute -top-3 left-4">
-                    <span className="bg-blue-600 text-white text-[11px] px-3 py-1 rounded-full font-sans uppercase tracking-wider shadow-sm">
-                      Lời giải
+              {q.options.map((opt, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white/50 p-3 rounded border border-blue-50"
+                >
+                  <div className="flex gap-2 mb-1">
+                    <p>{opt.content}</p>
+
+                    <span
+                      className={`font-bold ml-auto ${
+                        opt.is_correct
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      — {opt.is_correct ? "ĐÚNG" : "SAI"}
                     </span>
                   </div>
 
-                  <div className="mt-2">
-                    {/* Hiển thị đáp án nhanh */}
-                    <div className="mb-3">
-                      {q.type === "multiple_choice" && q.options?.[0]?.answer && (
-                        <div className="text-lg">
-                          Chọn <span className="font-bold ">{q.options[0].answer}</span>
-                        </div>
-                      )}
-                      {q.type === "true_false" && q.correct_answer && (
-                        <div className="text-lg">
-                          Đáp án: <span className="font-bold  font-mono tracking-widest">{q.correct_answer}</span>
-                        </div>
-                      )}
-                      {q.type === "short_answer" && q.correct_answer && (
-                        <div className="text-lg">
-                          Đáp số: <span className="font-bold text-green-700">{q.correct_answer}</span>
-                        </div>
-                      )}
+                  {opt.explanation && (
+                    <div className="text-sm pl-5 border-l border-blue-200">
+                      <SafeMathText text={opt.explanation} />
                     </div>
-
-                    {/* Chi tiết lời giải theo từng loại câu hỏi */}
-                    {q.type === "true_false" ? (
-                      <div className="space-y-4 mt-4">
-                        <div className="font-bold text-gray-400">####</div>
-                        {q.options.map((opt, idx) => (
-                          <div key={idx} className="bg-white/50 p-3 rounded border border-blue-50">
-                            <div className="flex gap-2 mb-1">
-                             
-                              <p>{opt.content}</p>
-                              <span className={`font-bold ml-auto ${opt.is_correct ? "text-green-600" : "text-red-600"}`}>
-                                — {opt.is_correct ? "ĐÚNG" : "SAI"}
-                              </span>
-                            </div>
-                            {opt.explanation && (
-                              <div className="text-sm pl-5 border-l border-blue-200">
-                                <SafeMathText text={opt.explanation} />
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-gray-800 leading-relaxed whitespace-pre-line">
-                        <SafeMathText text={q.explanation} />
-                      </div>
-                    )}
-                    
-                    {q.conclusion && (
-                      <div className="mt-4 font-bold border-t border-blue-200 pt-2 ">
-                        Kết luận: <SafeMathText text={q.conclusion} />
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-800 leading-relaxed whitespace-pre-line">
+              <SafeMathText text={q.explanation} />
+            </div>
+          )}
+
+          {q.conclusion && (
+            <div className="mt-4 font-bold border-t border-blue-200 pt-2">
+              Kết luận:{" "}
+              <SafeMathText text={q.conclusion} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+})}
           </div>
         ))}
       </div>
