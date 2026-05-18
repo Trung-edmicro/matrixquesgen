@@ -1,5 +1,4 @@
 import axios from 'axios'
-import testdata from '../components/generate/testdata.json'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -260,6 +259,63 @@ export const generateSolutions = async (file, config = {}, pdfFiles = null) => {
     }
   }
 }
+
+export const generateHistorySolutions = async (file, config = {}, pdfFiles = null) => {
+  const formData = new FormData()
+
+  try {
+    formData.append('file', file)
+
+    // Thêm PDF files nếu có
+    if (pdfFiles && pdfFiles.length > 0) {
+      for (const pdf of pdfFiles) {
+        formData.append('pdf_files', pdf)
+      }
+    }
+
+    if (config.max_workers) formData.append('max_workers', config.max_workers)
+    if (config.min_interval) formData.append('min_interval', config.min_interval)
+    if (config.max_retries) formData.append('max_retries', config.max_retries)
+    if (config.retry_delay) formData.append('retry_delay', config.retry_delay)
+
+    const response = await api.post('/api/solute-history-exam', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+
+    console.log(">>>>>> debug response history", response.data)
+    return response.data;
+
+  } catch (error) {
+    console.log(">>>>>> error generate solutions", error)
+    throw error
+  } finally {
+    // Cleanup file tạm
+    try {
+      if (file && file instanceof File) {
+        // Nếu là object URL thì revoke
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview)
+        }
+      }
+
+      if (pdfFiles && pdfFiles.length > 0) {
+        for (const pdf of pdfFiles) {
+          if (pdf.preview) {
+            URL.revokeObjectURL(pdf.preview)
+          }
+        }
+      }
+
+      console.log(">>>>>> cleaned up temp files")
+    } catch (cleanupError) {
+      console.log(">>>>>> error during cleanup", cleanupError)
+      throw cleanupError;
+    }
+  }
+}
+
 
 export const generateGeographySolutions = async (file, config = {}, pdfFiles = null) => {
   const formData = new FormData()

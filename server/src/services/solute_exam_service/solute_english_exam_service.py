@@ -1034,6 +1034,57 @@ def get_literature_txt_file_from_drive():
         # lỗi logic
         raise Exception(f"❌ Internal error: {str(e)}")
 
+def get_history_md_file_from_drive():
+    try:
+        folder_id = extract_folder_id(DRIVE_FOLDER)
+
+        # 1. List files trong folder
+        list_url = "https://www.googleapis.com/drive/v3/files"
+
+        params = {
+            "key": API_KEY,
+            "q": f"'{folder_id}' in parents and name = 'promptToolGiaiDeLichSu.md'",
+            "fields": "files(id, name, mimeType)"
+        }
+
+        res = requests.get(list_url, params=params)
+        res.raise_for_status()
+
+        files = res.json().get("files", [])
+
+        if not files:
+            raise Exception("❌ Không tìm thấy file TA_Huong_dan_giai.md")
+
+        file_id = files[0]["id"]
+
+        # 2. Download file content
+        download_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+
+        params = {
+            "alt":"media",
+            "key": API_KEY
+        }
+
+        file_res = requests.get(download_url, params=params)
+        file_res.raise_for_status()
+
+        content = file_res.content.decode("utf-8")
+
+        print(f">>>>> debug content {content}")
+        return content
+
+    except requests.exceptions.RequestException as e:
+        # lỗi HTTP / network
+        raise Exception(
+            f"🌐 Request error\n"
+            f"Error: {str(e)}\n"
+            f"Response: {getattr(e.response, 'text', 'No response')}"
+        )
+
+    except Exception as e:
+        # lỗi logic
+        raise Exception(f"❌ Internal error: {str(e)}")
+
 def get_md_file_from_drive():
     try:
         folder_id = extract_folder_id(DRIVE_FOLDER)
@@ -1426,6 +1477,91 @@ def merge_exam_sections(cleaned_results):
 
     # Trả về kết quả cuối cùng là một list chứa 1 exam duy nhất đã gộp
     return [base_exam]
+
+
+async def solve_history_exam(file_paths: List[str]):
+    logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
+    
+    try:
+        base_prompt =   get_history_md_file_from_drive()
+        full_prompt = f"""
+{base_prompt}
+========================
+        YÊU CẦU OUTPUT JSON MÔN VĂN
+        =====================
+
+        - Chỉ trả về JSON đúng theo schema dưới đây
+        - Không markdown
+        - Không ```json
+        - Không giải thích ngoài JSON
+        - Field nào không dùng thì bỏ qua
+        - Giữ nguyên cấu trúc key
+        - Bắt buộc giữ formatting <b><i>
+
+        SCHEMA:
+{EXAM_JSON_SCHEMA}
+
+"""
+
+        # 1. Khởi tạo Provider thông qua Factory
+        credentials, project_id = get_credentials()
+        
+        # Vertex Clients (dùng cho trường hợp provider là vertex)
+        client_25 = AsyncVertexClient(project_id=project_id, creds=credentials, model="gemini-2.5-pro")
+        
+        BASE_DIR = Path(__file__).resolve().parent 
+        credentials_path = str(BASE_DIR / "data" / "SA" / "sinh-de-tuong-tu-syscfg.bin 2.json")
+        client_31 = AsyncVertexGemini31(
+            project_id="onluyen-media",
+            location="global",
+            thinking_level="HIGH",
+            credentials_path=credentials_path
+        )
+
+        provider_name = os.getenv("LLM_PROVIDER", "openai") # Có thể set "openai" trong .env
+        provider = build_llm_provider(
+            provider_name=provider_name,
+            client_31=client_31,
+            client_25=client_25
+        )
+
+        # 2. Xử lý song song các file PDF bằng provider
+        async def process_file(pdf_path):
+            try:
+                # Gọi phương thức solute đã được thống nhất interface
+                result = await provider.solute(
+                    prompt=full_prompt,
+                    pdf_path=pdf_path,
+                    schema=None # Hoặc truyền schema nếu provider hỗ trợ
+                )
+                return result
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý file {pdf_path}: {e}")
+                return None
+
+        tasks = [process_file(p) for p in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # 3. Clean và parse kết quả
+        cleaned_results = []
+        for res in results:
+            if res:
+                # Lúc này res đã là một chuỗi JSON chứa toàn bộ câu hỏi của 1 file PDF
+                parsed = _safe_parse_json(res) 
+                if parsed:
+                    # parsed bây giờ là List[Dict] (danh sách các block câu hỏi)
+                    if isinstance(parsed, list):
+                        cleaned_results.extend(parsed) # Gộp vào kết quả tổng
+                    else:
+                        cleaned_results.append(parsed)
+        merge_data = merge_exam_sections(cleaned_results)
+
+        logger.info(f"✅ Đã giải xong {len(cleaned_results)}/{len(file_paths)} files")
+        return merge_data
+
+    except Exception as e:
+        logger.error(f"Error in solve_english_exam: {e}", exc_info=True)
+        return []
 
 async def solve_math_exam(file_paths: List[str]):
     logger.info(f"🚀 Bắt đầu giải đề với {len(file_paths)} files")
