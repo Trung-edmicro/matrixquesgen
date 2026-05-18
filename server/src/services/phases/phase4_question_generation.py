@@ -252,6 +252,16 @@ class QuestionGenerationService:
             print(f"⚠️ Prompts directory not found: {self.prompts_dir}")
             print(f"   Will fallback to base directory: {self.prompts_base_dir}")
             self.prompts_dir = self.prompts_base_dir
+
+        # TOAN uses one unified prompt.txt for all grades/question types. Some
+        # deployments only have a single TOAN prompt folder locally, so use it
+        # when the exact grade folder is missing or does not contain prompt.txt.
+        if subject and subject.upper() == 'TOAN' and not (self.prompts_dir / "prompt.txt").exists():
+            fallback_prompt_dir = self._find_toan_prompt_fallback_dir(subject, curriculum)
+            if fallback_prompt_dir:
+                print(f"⚠️ TOAN prompt.txt not found for {subject}_{curriculum}_{grade}")
+                print(f"   Using TOAN prompt fallback: {fallback_prompt_dir}")
+                self.prompts_dir = fallback_prompt_dir
         
         # Update ImageWorkflowService prompts_dir if initialized
         if self.image_workflow_service:
@@ -315,6 +325,23 @@ class QuestionGenerationService:
                     self.question_generator = None
             except Exception as e:
                 print(f"❌ Failed to initialize QuestionGenerator: {e}")
+
+    def _find_toan_prompt_fallback_dir(self, subject: str, curriculum: str) -> Optional[Path]:
+        """Find a local TOAN prompt.txt from another grade as a grade-agnostic fallback."""
+        same_curriculum_pattern = f"{subject}_{curriculum}_*"
+        candidates = sorted(self.prompts_base_dir.glob(same_curriculum_pattern))
+
+        for candidate in candidates:
+            if candidate.is_dir() and (candidate / "prompt.txt").exists():
+                return candidate
+
+        any_curriculum_pattern = f"{subject}_*"
+        candidates = sorted(self.prompts_base_dir.glob(any_curriculum_pattern))
+        for candidate in candidates:
+            if candidate.is_dir() and (candidate / "prompt.txt").exists():
+                return candidate
+
+        return None
 
     def _get_prompt_path(self, question_type: str, rich_content_types: Optional[Dict[str, Any]] = None,
                          cognitive_level: str = "") -> Path:

@@ -325,42 +325,45 @@ class MathVariableMappingService:
         Returns:
             Formatted template text
         """
+        def _join_template_list(tmpl) -> str:
+            """Join a template value that may be a list, dict, or string into a single string."""
+            if isinstance(tmpl, list):
+                return "\n\n".join(t for t in tmpl if t)
+            if isinstance(tmpl, dict):
+                tmpl = tmpl.get('template', '')
+                if isinstance(tmpl, list):
+                    return "\n\n".join(t for t in tmpl if t)
+                return tmpl or ''
+            return str(tmpl) if tmpl else ''
+
         if template_mode == "SINGLE":
-            # Single mode: return template directly
-            template = spec_data.get('selected_question_template', '')
-            # If template is a dict, extract 'template' field
-            if isinstance(template, dict):
-                template = template.get('template', str(template))
-            return template
-        
+            # First check selected_templates_by_code for the single code
+            if codes:
+                code = codes[0]
+                stbc = spec_data.get('selected_templates_by_code', {})
+                if stbc and code in stbc:
+                    return _join_template_list(stbc[code])
+            # Fallback to selected_question_template (backward compat / no question_code)
+            return _join_template_list(spec_data.get('selected_question_template', ''))
+
         elif template_mode == "MULTIPLE":
             # Multiple mode: format with code labels
             selected_templates_by_code = spec_data.get('selected_templates_by_code', {})
-            
+
             if not selected_templates_by_code:
                 # Fallback: try to use single template
-                template = spec_data.get('selected_question_template', '')
-                if isinstance(template, dict):
-                    template = template.get('template', str(template))
-                return template
-            
+                return _join_template_list(spec_data.get('selected_question_template', ''))
+
             template_parts = []
             for code in codes:
-                # Get template for this code
-                code_template = selected_templates_by_code.get(code, '')
-                
-                # If template is a dict, extract 'template' field
-                if isinstance(code_template, dict):
-                    code_template = code_template.get('template', '')
-                
-                if code_template:
-                    # Format: "Câu mã C1\n{template}"
-                    formatted = f"Câu mã {code}\n{code_template}"
-                    template_parts.append(formatted)
-            
+                code_template_str = _join_template_list(selected_templates_by_code.get(code, ''))
+                if code_template_str:
+                    # Format: "Câu mã C1\n{template(s)}"
+                    template_parts.append(f"Câu mã {code}\n{code_template_str}")
+
             # Join with double newline separator
             return "\n\n".join(template_parts) if template_parts else ""
-        
+
         return ""
     
     @staticmethod

@@ -241,6 +241,7 @@ a = Analysis(
         'pdf2image',
         'fitz',          # PyMuPDF (imported as 'fitz' in openai_provider.py)
         'pymupdf',
+        'pypandoc',
         'docx',          # python-docx installs as 'docx'
         'bs4',
         'PIL',

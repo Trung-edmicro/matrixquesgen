@@ -67,6 +67,7 @@ class OpenAIClient:
     # Model mặc định
     DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4")
     FALLBACK_MODEL = os.getenv("OPENAI_FALLBACK_MODEL", "gpt-5.4-mini")
+    DEFAULT_SERVICE_TIER = os.getenv("OPENAI_SERVICE_TIER", "flex")
 
     def __init__(self, api_key: Optional[str] = None):
         if not OPENAI_AVAILABLE:
@@ -84,7 +85,8 @@ class OpenAIClient:
 
         self.client = OpenAI(api_key=resolved_key)
         self.model_name: str = self.DEFAULT_MODEL
-        print(f"✓ Đã kết nối OpenAI Responses API - model mặc định: {self.model_name}")
+        self.service_tier: str = self.DEFAULT_SERVICE_TIER
+        print(f"✓ Đã kết nối OpenAI Responses API - model mặc định: {self.model_name}, service_tier: {self.service_tier}")
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -159,6 +161,7 @@ class OpenAIClient:
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                service_tier=self.service_tier,
             )
             self._log_usage(response)
             self._check_response_status(response)
@@ -240,6 +243,7 @@ class OpenAIClient:
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                service_tier=self.service_tier,
                 text={
                     "format": {
                         "type": "json_schema",
@@ -274,6 +278,7 @@ class OpenAIClient:
                 temperature=Settings.VERTEX_AI_TEMPERATURE,
                 top_p=Settings.VERTEX_AI_TOP_P,
                 max_output_tokens=Settings.VERTEX_AI_MAX_OUTPUT_TOKENS,
+                service_tier=self.service_tier,
                 text={"format": {"type": "json_object"}},
             )
             self._log_usage(response)

@@ -141,10 +141,11 @@ class OpenAIProvider(BaseLLMProvider):
     PDF CONTENT:
 
     {chunk_text}
-    """,
+            """,
 
 
-            max_output_tokens=max_tokens
+            max_output_tokens=max_tokens,
+            service_tier=self.client_wrapper.service_tier
         )
 
         output_text = ""

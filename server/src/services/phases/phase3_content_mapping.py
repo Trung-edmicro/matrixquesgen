@@ -241,24 +241,56 @@ class ContentMappingService:
         Returns:
             Path to content file or None if not found
             
-        Pattern: SUBJECT_CURRICULUM_GRADE_CHAPTER_LESSON_content.json
-        e.g., TOAN_KNTT_C10_1_1_content.json, HOAHOC_KNTT_C11_1_1_content.json
+        Patterns:
+        - Current Phase 2 cache: SUBJECT_GRADE_CHAPTER_LESSON_content.json
+          e.g., TOAN_C12_1_1_content.json
+        - Legacy cache with curriculum: SUBJECT_CURRICULUM_GRADE_CHAPTER_LESSON_content.json
+          e.g., TOAN_KNTT_C12_1_1_content.json
         """
-        # First try: exact match with subject, grade, and lesson
-        primary_pattern = f"{subject}_*_{grade}_{chapter_num}_{lesson_num}_content.json"
-        matching_files = list(self.content_dir.glob(primary_pattern))
-        
-        if matching_files:
-            print(f"✅ Found content file for {subject} {grade} lesson {chapter_num}.{lesson_num}: {matching_files[0].name}")
-            return matching_files[0]
-        
-        # Fallback: if grade/curriculum varies, try broader pattern but verify subject
+        # First try the exact filename produced by Phase 2.
+        exact_filename = f"{subject}_{grade}_{chapter_num}_{lesson_num}_content.json"
+        exact_file = self.content_dir / exact_filename
+        if exact_file.exists():
+            print(f"✅ Found exact content file for {subject} {grade} lesson {chapter_num}.{lesson_num}: {exact_file.name}")
+            return exact_file
+
+        # Then try the legacy format that includes curriculum between subject and grade.
+        legacy_pattern = f"{subject}_*_{grade}_{chapter_num}_{lesson_num}_content.json"
+        legacy_files = sorted(self.content_dir.glob(legacy_pattern))
+        if legacy_files:
+            print(f"✅ Found legacy content file for {subject} {grade} lesson {chapter_num}.{lesson_num}: {legacy_files[0].name}")
+            return legacy_files[0]
+
+        # Last-resort search is intentionally grade-safe. Older logic used
+        # SUBJECT_*_CHAPTER_LESSON and could pick C10 content for a C12 matrix.
         fallback_pattern = f"{subject}_*_{chapter_num}_{lesson_num}_content.json"
-        fallback_files = list(self.content_dir.glob(fallback_pattern))
-        
-        if fallback_files:
-            print(f"⚠️  Using fallback pattern for {subject} lesson {chapter_num}.{lesson_num}: {fallback_files[0].name}")
-            return fallback_files[0]
+        fallback_files = sorted(self.content_dir.glob(fallback_pattern))
+        rejected_files = []
+
+        for fallback_file in fallback_files:
+            name_parts = fallback_file.stem.split('_')
+            if len(name_parts) < 5:
+                rejected_files.append(fallback_file.name)
+                continue
+
+            file_subject = name_parts[0]
+            file_grade = name_parts[-4]
+            file_chapter = name_parts[-3]
+            file_lesson = name_parts[-2]
+
+            if (
+                file_subject == subject
+                and file_grade == grade
+                and file_chapter == str(chapter_num)
+                and file_lesson == str(lesson_num)
+            ):
+                print(f"⚠️  Using grade-safe fallback content file for {subject} {grade} lesson {chapter_num}.{lesson_num}: {fallback_file.name}")
+                return fallback_file
+
+            rejected_files.append(fallback_file.name)
+
+        if rejected_files:
+            print(f"⚠️  Rejected fallback content files for {subject} {grade} lesson {chapter_num}.{lesson_num} due to grade mismatch: {rejected_files}")
         
         # If still not found
         print(f"❌ Content file not found for {subject} {grade} lesson {chapter_num}.{lesson_num}")

@@ -77,7 +77,7 @@ class TemplateSelection(BaseModel):
     level: Optional[str] = None  # "NB", "TH", "VD" for TN/TLN/TL
     question_index: int  # Index within the level/type array
     question_code: Optional[str] = None  # Question code (e.g., "C1", "C2") for grouped questions
-    selected_template: Optional[str] = None  # The selected template text (can be null if not selected)
+    selected_template: Optional[List[str]] = None  # The selected templates (can be null or empty if not selected)
     is_custom: bool = False  # True if user provided custom template
     is_random: bool = False  # True if system randomly selected
 

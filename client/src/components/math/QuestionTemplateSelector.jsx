@@ -41,7 +41,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
               level: level || null,
               question_index: qIndex,
               question_code: code,  // Track which code this selection is for
-              selected_template: null,
+              selected_template: [],
               is_custom: false,
               is_random: false,
               has_templates: hasTemplates
@@ -84,15 +84,25 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
   }, [enrichedMatrix])
 
   const handleTemplateSelect = (key, template, isCustom = false) => {
-    setSelections(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        selected_template: template,
-        is_custom: isCustom,
-        is_random: false
+    setSelections(prev => {
+      const current = prev[key]
+      const currentTemplates = Array.isArray(current.selected_template) ? current.selected_template : []
+      let newTemplates
+      if (currentTemplates.includes(template)) {
+        newTemplates = currentTemplates.filter(t => t !== template)
+      } else {
+        newTemplates = [...currentTemplates, template]
       }
-    }))
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          selected_template: newTemplates,
+          is_custom: isCustom,
+          is_random: false
+        }
+      }
+    })
     setValidationErrors(prev => prev.filter(e => e !== key))
   }
 
@@ -118,7 +128,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
         ...prev,
         [key]: {
           ...prev[key],
-          selected_template: randomTemplate,
+          selected_template: [randomTemplate],
           is_custom: false,
           is_random: true
         }
@@ -137,13 +147,34 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
   const handleCustomTemplateApply = (key) => {
     const customValue = customTemplates[key]
     if (customValue && customValue.trim()) {
-      handleTemplateSelect(key, customValue.trim(), true)
-      // Reset custom template input after applying
-      setCustomTemplates(prev => ({
-        ...prev,
-        [key]: ''
-      }))
+      setSelections(prev => {
+        const current = prev[key]
+        const currentTemplates = Array.isArray(current.selected_template) ? current.selected_template : []
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            selected_template: [...currentTemplates, customValue.trim()],
+            is_custom: true,
+            is_random: false
+          }
+        }
+      })
+      setValidationErrors(prev => prev.filter(e => e !== key))
+      setCustomTemplates(prev => ({ ...prev, [key]: '' }))
     }
+  }
+
+  const handleClearTemplate = (key) => {
+    setSelections(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        selected_template: [],
+        is_custom: false,
+        is_random: false
+      }
+    }))
   }
 
   const getCurrentPage = (key) => {
@@ -182,7 +213,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
     Object.keys(selections).forEach(key => {
       const selection = selections[key]
       // Only require template if question originally had templates
-      if (selection.has_templates && !selection.selected_template) {
+      if (selection.has_templates && (!selection.selected_template || selection.selected_template.length === 0)) {
         errors.push(key)
       }
     })
@@ -217,7 +248,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
     const newSelections = { ...selections }
     
     Object.keys(newSelections).forEach(key => {
-      if (!newSelections[key].selected_template) {
+      if (!newSelections[key].selected_template || newSelections[key].selected_template.length === 0) {
         const selection = newSelections[key]
         const lesson = enrichedMatrix.lessons[selection.lesson_index]
         let question
@@ -232,7 +263,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
           const randomTemplate = question.question_template[
             Math.floor(Math.random() * question.question_template.length)
           ]
-          newSelections[key].selected_template = randomTemplate
+          newSelections[key].selected_template = [randomTemplate]
           newSelections[key].is_random = true
         }
       }
@@ -273,14 +304,14 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
   }
 
   const questionCountByTypeSelected = {
-    TN: Object.values(selections).filter(s => s.question_type === 'TN' && s.selected_template).length,
-    DS: Object.values(selections).filter(s => s.question_type === 'DS' && s.selected_template).length,
-    TLN: Object.values(selections).filter(s => s.question_type === 'TLN' && s.selected_template).length,
-    TL: Object.values(selections).filter(s => s.question_type === 'TL' && s.selected_template).length
+    TN: Object.values(selections).filter(s => s.question_type === 'TN' && s.selected_template && s.selected_template.length > 0).length,
+    DS: Object.values(selections).filter(s => s.question_type === 'DS' && s.selected_template && s.selected_template.length > 0).length,
+    TLN: Object.values(selections).filter(s => s.question_type === 'TLN' && s.selected_template && s.selected_template.length > 0).length,
+    TL: Object.values(selections).filter(s => s.question_type === 'TL' && s.selected_template && s.selected_template.length > 0).length
   }
 
   const totalQuestions = Object.keys(selections).length
-  const selectedCount = Object.values(selections).filter(s => s.selected_template).length
+  const selectedCount = Object.values(selections).filter(s => s.selected_template && s.selected_template.length > 0).length
 
   // Get available question types (only types with questions needing templates)
   const availableQuestionTypes = [
@@ -399,6 +430,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                             onToggleExpand={toggleExpanded}
                             onCustomTemplateChange={handleCustomTemplateChange}
                             onCustomTemplateApply={handleCustomTemplateApply}
+                            onClearTemplate={handleClearTemplate}
                             onNextPage={goToNextPage}
                             onPreviousPage={goToPreviousPage}
                           />
@@ -435,6 +467,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                         onToggleExpand={toggleExpanded}
                         onCustomTemplateChange={handleCustomTemplateChange}
                         onCustomTemplateApply={handleCustomTemplateApply}
+                        onClearTemplate={handleClearTemplate}
                         onNextPage={goToNextPage}
                         onPreviousPage={goToPreviousPage}
                       />
@@ -472,6 +505,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                             onToggleExpand={toggleExpanded}
                             onCustomTemplateChange={handleCustomTemplateChange}
                             onCustomTemplateApply={handleCustomTemplateApply}
+                            onClearTemplate={handleClearTemplate}
                             onNextPage={goToNextPage}
                             onPreviousPage={goToPreviousPage}
                           />
@@ -511,6 +545,7 @@ export default function QuestionTemplateSelector({ sessionId, enrichedMatrix, on
                             onToggleExpand={toggleExpanded}
                             onCustomTemplateChange={handleCustomTemplateChange}
                             onCustomTemplateApply={handleCustomTemplateApply}
+                            onClearTemplate={handleClearTemplate}
                             onNextPage={goToNextPage}
                             onPreviousPage={goToPreviousPage}
                           />
@@ -563,6 +598,7 @@ function QuestionTemplateItem({
   onToggleExpand,
   onCustomTemplateChange,
   onCustomTemplateApply,
+  onClearTemplate,
   onNextPage,
   onPreviousPage
 }) {
@@ -586,16 +622,20 @@ function QuestionTemplateItem({
               <span className="text-xs text-red-600 font-medium">Chưa chọn</span>
             )}
           </div>
-          {selection && selection.selected_template && (
+          {selection && Array.isArray(selection.selected_template) && selection.selected_template.length > 0 && (
             <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded">
               <div className="text-xs text-green-700 font-medium mb-1 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                Đã chọn {selection.is_custom ? '(Tự nhập)' : selection.is_random ? '(Ngẫu nhiên)' : ''}
+                Đã chọn {selection.selected_template.length} mẫu {selection.is_custom ? '(Tự nhập)' : selection.is_random ? '(Ngẫu nhiên)' : ''}
               </div>
-              <div className="text-sm text-gray-800 whitespace-pre-wrap">
-                <LaTeXRenderer>{selection.selected_template}</LaTeXRenderer>
+              <div className="space-y-2">
+                {selection.selected_template.map((t, i) => (
+                  <div key={i} className={`text-sm text-gray-800 whitespace-pre-wrap ${i > 0 ? 'border-t border-green-100 pt-2' : ''}`}>
+                    <LaTeXRenderer>{t}</LaTeXRenderer>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -611,7 +651,7 @@ function QuestionTemplateItem({
       {isExpanded && (
         <div className="mt-4 space-y-3">
           {/* If no templates available and none selected yet: show text input */}
-          {!hasTemplates && !(selection && selection.selected_template) && (
+          {!hasTemplates && !(selection && selection.selected_template && selection.selected_template.length > 0) && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <div className="flex-1">
@@ -641,23 +681,10 @@ function QuestionTemplateItem({
           )}
 
           {/* If no templates and custom template was applied: show edit button */}
-          {!hasTemplates && selection && selection.selected_template && (
+          {!hasTemplates && selection && selection.selected_template && selection.selected_template.length > 0 && (
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <button
-                onClick={() => {
-                  setSelections(prev => ({
-                    ...prev,
-                    [questionKey]: {
-                      ...prev[questionKey],
-                      selected_template: null,
-                      is_custom: false
-                    }
-                  }))
-                  setCustomTemplates(prev => ({
-                    ...prev,
-                    [questionKey]: ''
-                  }))
-                }}
+                onClick={() => onClearTemplate(questionKey)}
                 className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-300 rounded hover:bg-blue-50"
               >
                 Sửa câu mẫu
@@ -692,11 +719,10 @@ function QuestionTemplateItem({
                         className="flex items-start gap-3 p-3 border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
                       >
                         <input
-                          type="radio"
-                          name={questionKey}
-                          checked={selection && selection.selected_template === template && !selection.is_custom}
+                          type="checkbox"
+                          checked={selection && Array.isArray(selection.selected_template) && selection.selected_template.includes(template) && !selection.is_custom}
                           onChange={() => onTemplateSelect(questionKey, template, false)}
-                          className="mt-1 flex-shrink-0"
+                          className="mt-1 flex-shrink-0 accent-blue-600"
                         />
                         <span className="text-sm text-gray-700 flex-1">
                           <LaTeXRenderer>{template}</LaTeXRenderer>

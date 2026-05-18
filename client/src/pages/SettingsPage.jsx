@@ -30,7 +30,7 @@ const AI_PROVIDER_LABELS = {
 
 const AI_PROVIDER_DESCRIPTIONS = {
   gemini: 'Sử dụng Google Gemini (Vertex AI) — mặc định',
-  openai: 'Sử dụng OpenAI GPT-4o',
+  openai: 'Sử dụng OpenAI',
 }
 
 export default function SettingsPage() {

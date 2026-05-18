@@ -5,6 +5,7 @@ pdfplumber==0.11.8
 pdf2image==1.17.0
 bs4
 PyMuPDF>=1.23.0
+pypandoc
 
 # Google Cloud / Vertex AI
 google-cloud-aiplatform>=1.38.1
