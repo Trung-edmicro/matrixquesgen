@@ -71,7 +71,12 @@ export default function EnglishExamTHCSPreviewPanel({ examData,onUpdateExam, sel
         </h1>
 
         {blocks.map((block, index) => {
-          const data = block.parsed
+          // const data = block.parsed
+          const data = {
+            ...block,
+            ...block.parsed
+          }
+
 
           const prevType = blocks[index - 1]?.type
           const isFirstOfGroup = prevType !== block.type
