@@ -86,6 +86,9 @@ server_src = 'server/src'
 if os.path.exists(server_src):
     for root, dirs, files in os.walk(server_src):
         for file in files:
+            # Skip temp/lock files (Excel temp files, etc.)
+            if file.startswith('~$') or file.startswith('.~'):
+                continue
             if file.endswith(('.py', '.txt', '.md', '.json')):
                 src_path = os.path.join(root, file)
                 # Preserve the directory structure

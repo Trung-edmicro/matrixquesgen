@@ -49,6 +49,16 @@ if (-not $SkipBuild) {
     # Build React client first so client/dist is up to date
     Write-Host "Building React client..."
     Push-Location "client"
+    
+    # Install npm dependencies first
+    Write-Host "Installing Node.js dependencies..."
+    npm install
+    if ($LASTEXITCODE -ne 0) {
+        Pop-Location
+        Write-Error "npm install failed!"
+        exit 1
+    }
+    
     npm run build
     if ($LASTEXITCODE -ne 0) {
         Pop-Location
@@ -76,6 +86,12 @@ if (-not $SkipBuild) {
     }
 
     Write-Host "Building executable with PyInstaller..."
+    
+    # Clean up temporary/lock files that can cause PyInstaller permission errors
+    Write-Host "Cleaning up temporary files..."
+    Get-ChildItem -Path "data" -Recurse -Filter "~$*" -Force | Remove-Item -Force
+    Get-ChildItem -Path "data" -Recurse -Filter ".~*" -Force | Remove-Item -Force
+    
     & $pythonExe -m PyInstaller --clean --noconfirm matrixquesgen.spec
 
     if ($LASTEXITCODE -ne 0) {
