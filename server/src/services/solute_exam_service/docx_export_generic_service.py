@@ -6,7 +6,7 @@ from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 import latex2mathml.converter
-import mathml2omml
+# import mathml2omml
 from lxml import etree
 import pypandoc
 import re
