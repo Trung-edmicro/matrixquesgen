@@ -890,7 +890,7 @@ def get_geography_txt_file_from_drive():
 
         params = {
             "key": API_KEY,
-            "q": f"'{folder_id}' in parents and name = 'promptGiaiDeDiaLi.txt'",
+            "q": f"'{folder_id}' in parents and name = 'promptGiaiDeDiaLi.md'",
             "fields": "files(id, name, mimeType)"
         }
 
