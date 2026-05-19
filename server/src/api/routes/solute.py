@@ -8,7 +8,7 @@ from typing import List
 from pathlib import Path
 import uuid
 from fastapi.responses import FileResponse
-from services.solute_exam_service.solute_english_exam_service import solve_english_exam, solve_literature_exam, solve_other_exam, solve_geography_exam, solve_math_exam
+from services.solute_exam_service.solute_english_exam_service import solve_english_exam, solve_literature_exam, solve_other_exam, solve_geography_exam, solve_math_exam, solve_history_exam
 from services.solute_exam_service.docx_export_exam_service import export_soluted_english_exam_from_data, export_soluted_standard_english_exam_from_data
 from services.solute_exam_service.docx_export_generic_service import DocxExportService
 
@@ -237,6 +237,59 @@ async def solute_exam(
                     print(f">>>>>>> deleted temp file: {path}")
             except Exception as cleanup_error:
                 print(f">>>>>>> failed to delete {path}: {cleanup_error}")
+
+@routerSolute.post("/solute-history-exam")
+async def solute_history_exam(
+    pdf_files: List[UploadFile] = File(...)
+):
+    """
+    Nhận PDF đề tiếng Anh → trả về JSON lời giải
+    """
+
+    if not pdf_files:
+        raise HTTPException(status_code=400, detail="Không có file PDF")
+
+    try:
+        # Tạo thư mục temp
+        temp_dir = Path("temp_uploads")
+        temp_dir.mkdir(exist_ok=True)
+
+        file_paths = []
+
+        # Save files
+        for pdf in pdf_files:
+            file_id = str(uuid.uuid4())
+            file_path = temp_dir / f"{file_id}_{pdf.filename}"
+
+            with open(file_path, "wb") as f:
+                content = await pdf.read()
+                f.write(content)
+
+            file_paths.append(str(file_path))
+
+        # 🚀 Gọi service xử lý
+        result = await solve_history_exam(file_paths)
+
+        print(f">>>>>>> debug result {result}")
+
+        return {
+            "data": result
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        # ✅ Luôn xóa file temp dù thành công hay lỗi
+        for path in file_paths:
+            try:
+                file = Path(path)
+                if file.exists():
+                    file.unlink()
+                    print(f">>>>>>> deleted temp file: {path}")
+            except Exception as cleanup_error:
+                print(f">>>>>>> failed to delete {path}: {cleanup_error}")
+
 
 @routerSolute.post("/solute-math-exam")
 async def solute_math_exam(

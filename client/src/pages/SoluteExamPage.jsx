@@ -11,7 +11,8 @@ import {
   exportToSolutedMathDocx,
   exportToSolutedGeographyDocx,
   exportToSolutedLiteratureDocx,
-  exportToSolutedOtherDocx
+  exportToSolutedOtherDocx,
+  generateHistorySolutions
 } from '../services/api'
 import SoluteActionBar from '../components/generate/SoluteActionBar'
 import { useNotification } from '../hooks/useNotification'
@@ -313,6 +314,13 @@ useEffect(() => {
       localStorage.setItem("solutedGeographyExam", JSON.stringify({ 
         data: resultData, 
       }));
+    }else if(fileName.startsWith("LICHSU_PDF_")) {
+      const result = await  generateHistorySolutions(null, generationConfig, examPdf.files);
+      const resultData = result.data;
+      setGeneratedExam(resultData);
+      localStorage.setItem("solutedDataExam", JSON.stringify({ 
+        data: resultData, 
+      }));
     }
      else {
       // Môn tự nhiên (Toán, Lý, Hóa)
@@ -350,261 +358,356 @@ useEffect(() => {
   // =========================
   // Export DOCX
   // =========================
-  // const handleExport = async () => {
-  //     const storedExam = localStorage.getItem("solutedEnglishExam");   
-  //      if (!storedExam) {
-  //        notify.error('Không có dữ liệu đề tiếng Anh để xuất file')
-  //        return
-  //      }
-   
-  //     //  const generatedExam = JSON.parse(storedExam)
-  //     const parsed = JSON.parse(storedExam);
-  //     const generatedExam = parsed.data;
-   
-  //      try {
-  //        setIsExporting(true)
-  //        notify.error(null)
-   
-  //        const res1 = await exportToSolutedEnglishExamDocx(generatedExam, {
-  //          responseType: "blob"
-  //        })
-   
-  //        downloadFile(res1.data, "Soluted_English_Exam.docx")
-   
-  //        const res2 = await exportToSolutedEnglishStandardDocx(generatedExam, {
-  //          responseType: "blob"
-  //        })
-   
-  //        downloadFile(res2.data, "Soluted_English_Standard_Exam.docx")
-   
-  //        notify.success("Đã xuất 2 file DOCX thành công")
-   
-  //      } catch (err) {
-  //        notify.error("Lỗi khi xuất file: " + err.message)
-  //      } finally {
-  //        setIsExporting(false)
-  //      }
-  // }
 
-  const handleExport = async () => {
+const handleExport = async () => {
   try {
-    const fileName = examPdf?.files?.[0]?.name || "";
+    const originalFile = examPdf?.files?.[0];
+    const fileName = originalFile?.name || "";
+    
+    // Tạo tên file download mặc định dựa trên tên file gốc
+    // "filename.pdf" -> "filename.docx"
+    const genericDownloadName = fileName.replace(/\.pdf$/i, "") + ".docx";
 
     let storageKey = "";
-    let exportHandlers = [];
 
     // =========================
-    // ENGLISH
+    // ENGLISH (Giữ nguyên logic cũ)
     // =========================
     if (fileName.startsWith("ENGLISH_PDF_")) {
       storageKey = "solutedEnglishExam";
-
       const stored = localStorage.getItem(storageKey);
-
       if (!stored) {
         notify.error("Không có dữ liệu đề tiếng Anh để xuất file");
         return;
       }
-
       const parsed = JSON.parse(stored);
       const generatedExam = parsed.data;
 
-      exportHandlers = [
-        {
-          api: exportToSolutedEnglishExamDocx,
-          filename: "Soluted_English_Exam.docx"
-        },
-        {
-          api: exportToSolutedEnglishStandardDocx,
-          filename: "Soluted_English_Standard_Exam.docx"
-        }
-      ];
-
       setIsExporting(true);
+      
+      // Tiếng Anh thường xuất 2 file với tên cố định
+      const res1 = await exportToSolutedEnglishExamDocx(generatedExam, { responseType: "blob" });
+      downloadFile(res1.data, "Soluted_English_Exam.docx");
 
-      for (const item of exportHandlers) {
-        const res = await item.api(generatedExam, {
-          responseType: "blob"
-        });
-
-        downloadFile(res.data, item.filename);
-      }
+      const res2 = await exportToSolutedEnglishStandardDocx(generatedExam, { responseType: "blob" });
+      downloadFile(res2.data, "Soluted_English_Standard_Exam.docx");
 
       notify.success("Đã xuất file DOCX tiếng Anh thành công");
     }
 
-    // =========================
-    // TOÁN
-    // =========================
-    else if (
-      fileName.startsWith("TOAN_PDF_")
-    ) {
-      storageKey = "solutedMathExam";
-
-      const stored = localStorage.getItem(storageKey);
-
-      if (!stored) {
-        notify.error("Không có dữ liệu đề Toán để xuất file");
-        return;
-      }
-
-      const parsed = JSON.parse(stored);
-      const generatedExam = parsed.data;
-      console.log(">>>>>>>>> debug generatedExam", generatedExam);
-
-      // TODO: thay bằng API export thật của bạn
-      // const resSolutedMath = await exportToSolutedMathDocx(generatedExam, {
-      //   responseType: "blob"
-      // });
-
-      // downloadFile(resSolutedMath.data, "Soluted_Math_Exam.docx");
-
-      // notify.success("Đã xuất file DOCX môn Toán");
-      setLoadingModal(true);
-
-      try {
-        const resSolutedMath = await exportToSolutedMathDocx(
-          generatedExam,
-          {
-            responseType: "blob"
-          }
-        );
-
-        downloadFile(
-          resSolutedMath.data,
-          "Soluted_Math_Exam.docx"
-        );
-
-        notify.success("Đã xuất file DOCX môn Toán");
-      } catch (err) {
-        notify.error("Lỗi khi xuất file Toán: " + err.message);
-      } finally {
-        // 👇 luôn tắt modal
-        setLoadingModal(false);
-      }
-      return;
-    }
-
-    // =========================
-    // NGỮ VĂN
-    // =========================
-    else if (fileName.startsWith("NGUVAN_PDF_")) {
-      storageKey = "solutedLiteratureDataExam";
-
-      const stored = localStorage.getItem(storageKey);
-
-      if (!stored) {
-        notify.error("Không có dữ liệu đề Ngữ Văn để xuất file");
-        return;
-      }
-
-      const parsed = JSON.parse(stored);
-      const generatedExam = parsed.data;
-      
-      setLoadingModal(true);
-
-      try {
-         const res = await exportToSolutedLiteratureDocx({
-          results: generatedExam
-        }, {
-        responseType: "blob"
-      });
-
-      downloadFile(res.data, "Soluted_Literature_Exam.docx");
-
-      notify.success("Đã xuất file DOCX môn Ngữ Văn");
-      }catch(err) {
-        notify.error("Lỗi xuất file docx cho môn Ngữ Văn" + err.message);
-      }finally {
-        setLoadingModal(false)
-      }
-
-      // TODO: thay bằng API export thật của bạn
-
-      return; 
-    }
-
-    // =========================
-    // ĐỊA LÝ
-    // =========================
-    else if (fileName.startsWith("DIALI_PDF_")) {
-      storageKey = "solutedGeographyExam";
-
-      const stored = localStorage.getItem(storageKey);
-
-      if (!stored) {
-        notify.error("Không có dữ liệu đề Địa Lí để xuất file");
-        return;
-      }
-
-      const parsed = JSON.parse(stored);
-      const generatedExam = parsed.data;
-      setLoadingModal(true);
-      try {
-          const res = await exportToSolutedGeographyDocx( {
-          results: generatedExam
-        }, {
-          responseType: "blob"
-        });
-
-        downloadFile(res.data, "Soluted_Geography_Exam.docx");
-
-        notify.success("Đã xuất file DOCX môn Địa Lí");
-      }catch(err) {
-       console.log("Lỗi khi xuất file docx cho môn Địa lí"  + err.message);
-      }finally {
-        setLoadingModal(false);
-      }
-
-      // TODO: thay bằng API export thật của bạn
-
-      return;
-    }
-
-    // =========================
-    // DEFAULT
-    // =========================
+    // ========================================================
+    // CÁC MÔN KHÁC (Toán, Văn, Địa, Lý, Hóa...) -> Đổi tên theo file gốc
+    // ========================================================
     else {
-      storageKey = "solutedDataExam";
+      if (fileName.startsWith("TOAN_PDF_") || fileName.startsWith("MATH_PDF_")) {
+        storageKey = "solutedMathExam";
+      } else if (fileName.startsWith("NGUVAN_PDF_")) {
+        storageKey = "solutedLiteratureDataExam";
+      } else if (fileName.startsWith("DIALI_PDF_") || fileName.startsWith("LICHSU_PDF_")) {
+        storageKey = fileName.startsWith("DIALI_PDF_") ? "solutedGeographyExam" : "solutedDataExam";
+      } else {
+        storageKey = "solutedDataExam";
+      }
 
       const stored = localStorage.getItem(storageKey);
-
       if (!stored) {
-        notify.error("Không có dữ liệu để xuất file");
+        notify.error("Không tìm thấy dữ liệu để xuất file");
         return;
-      } 
-     
+      }
 
       const parsed = JSON.parse(stored);
       const generatedExam = parsed.data;
       setLoadingModal(true);
+
       try {
-        const res = await exportToSolutedOtherDocx( {
-          results: generatedExam
-        }, {
-        responseType: "blob"
-      });
+        let response;
+        const config = { responseType: "blob" };
 
-      downloadFile(res.data, "Soluted_Exam.docx");
+        if (storageKey === "solutedMathExam") {
+          response = await exportToSolutedMathDocx(generatedExam, config);
+        } else if (storageKey === "solutedLiteratureDataExam") {
+          response = await exportToSolutedLiteratureDocx({ results: generatedExam }, config);
+        } else if (storageKey === "solutedGeographyExam" || storageKey === "solutedHistoryExam") {
+          response = await exportToSolutedGeographyDocx({ results: generatedExam }, config);
+        } else {
+          response = await exportToSolutedOtherDocx({ results: generatedExam }, config);
+        }
 
-      notify.success("Đã xuất file DOCX");
-      return;
-      }catch(err) {
-        console.log("Lỗi khi xuất file docx ", err);
-      }finally {
+        // Tải về với tên file đã được đổi đuôi từ PDF sang DOCX
+        downloadFile(response.data, genericDownloadName);
+        notify.success(`Đã xuất file: ${genericDownloadName}`);
+
+      } catch (err) {
+        notify.error("Lỗi khi xuất file: " + err.message);
+      } finally {
         setLoadingModal(false);
       }
-
-      // TODO: thay bằng API export mặc định
-
     }
-
   } catch (err) {
-    notify.error("Lỗi khi xuất file: " + err.message);
+    notify.error("Lỗi hệ thống: " + err.message);
   } finally {
     setIsExporting(false);
   }
 };
+
+
+//   const handleExport = async () => {
+//   try {
+//     // const fileName = examPdf?.files?.[0]?.name || "";
+//     const originalFile = examPdf?.files?.[0];
+//     const fileName = originalFile?.name || "";
+    
+//     // Tạo tên file download mặc định dựa trên tên file gốc
+//     // "filename.pdf" -> "filename.docx"
+//     const genericDownloadName = fileName.replace(/\.pdf$/i, "") + ".docx";
+
+//     let storageKey = "";
+//     let exportHandlers = [];
+
+//     // =========================
+//     // ENGLISH
+//     // =========================
+//     if (fileName.startsWith("ENGLISH_PDF_")) {
+//       storageKey = "solutedEnglishExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu đề tiếng Anh để xuất file");
+//         return;
+//       }
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+
+//       exportHandlers = [
+//         {
+//           api: exportToSolutedEnglishExamDocx,
+//           filename: "Soluted_English_Exam.docx"
+//         },
+//         {
+//           api: exportToSolutedEnglishStandardDocx,
+//           filename: "Soluted_English_Standard_Exam.docx"
+//         }
+//       ];
+
+//       setIsExporting(true);
+
+//       for (const item of exportHandlers) {
+//         const res = await item.api(generatedExam, {
+//           responseType: "blob"
+//         });
+
+//         downloadFile(res.data, item.filename);
+//       }
+
+//       notify.success("Đã xuất file DOCX tiếng Anh thành công");
+//     }
+
+//     // =========================
+//     // TOÁN
+//     // =========================
+//     else if (
+//       fileName.startsWith("TOAN_PDF_")
+//     ) {
+//       storageKey = "solutedMathExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu đề Toán để xuất file");
+//         return;
+//       }
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+//       console.log(">>>>>>>>> debug generatedExam", generatedExam);
+
+//       // TODO: thay bằng API export thật của bạn
+//       // const resSolutedMath = await exportToSolutedMathDocx(generatedExam, {
+//       //   responseType: "blob"
+//       // });
+
+//       // downloadFile(resSolutedMath.data, "Soluted_Math_Exam.docx");
+
+//       // notify.success("Đã xuất file DOCX môn Toán");
+//       setLoadingModal(true);
+
+//       try {
+//         const resSolutedMath = await exportToSolutedMathDocx(
+//           generatedExam,
+//           {
+//             responseType: "blob"
+//           }
+//         );
+
+//         downloadFile(
+//           resSolutedMath.data,
+//           "Soluted_Math_Exam.docx"
+//         );
+
+//         notify.success("Đã xuất file DOCX môn Toán");
+//       } catch (err) {
+//         notify.error("Lỗi khi xuất file Toán: " + err.message);
+//       } finally {
+//         // 👇 luôn tắt modal
+//         setLoadingModal(false);
+//       }
+//       return;
+//     }
+
+//     // =========================
+//     // NGỮ VĂN
+//     // =========================
+//     else if (fileName.startsWith("NGUVAN_PDF_")) {
+//       storageKey = "solutedLiteratureDataExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu đề Ngữ Văn để xuất file");
+//         return;
+//       }
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+      
+//       setLoadingModal(true);
+
+//       try {
+//          const res = await exportToSolutedLiteratureDocx({
+//           results: generatedExam
+//         }, {
+//         responseType: "blob"
+//       });
+
+//       downloadFile(res.data, "Soluted_Literature_Exam.docx");
+
+//       notify.success("Đã xuất file DOCX môn Ngữ Văn");
+//       }catch(err) {
+//         notify.error("Lỗi xuất file docx cho môn Ngữ Văn" + err.message);
+//       }finally {
+//         setLoadingModal(false)
+//       }
+
+//       // TODO: thay bằng API export thật của bạn
+
+//       return; 
+//     }
+
+//     // =========================
+//     // ĐỊA LÝ
+//     // =========================
+//     else if (fileName.startsWith("DIALI_PDF_")) {
+//       storageKey = "solutedGeographyExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu đề Địa Lí để xuất file");
+//         return;
+//       }
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+//       setLoadingModal(true);
+//       try {
+//           const res = await exportToSolutedGeographyDocx( {
+//           results: generatedExam
+//         }, {
+//           responseType: "blob"
+//         });
+
+//         downloadFile(res.data, "Soluted_Geography_Exam.docx");
+
+//         notify.success("Đã xuất file DOCX môn Địa Lí");
+//       }catch(err) {
+//        console.log("Lỗi khi xuất file docx cho môn Địa lí"  + err.message);
+//       }finally {
+//         setLoadingModal(false);
+//       }
+
+//       // TODO: thay bằng API export thật của bạn
+
+//       return;
+//     } else if (fileName.startsWith("LICHSU_PDF_")) {
+//       storageKey = "solutedHistoryExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu đề Địa Lí để xuất file");
+//         return;
+//       }
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+//       setLoadingModal(true);
+//       try {
+//           const res = await exportToSolutedGeographyDocx( {
+//           results: generatedExam
+//         }, {
+//           responseType: "blob"
+//         });
+
+//         downloadFile(res.data, "Soluted_Geography_Exam.docx");
+
+//         notify.success("Đã xuất file DOCX môn Địa Lí");
+//       }catch(err) {
+//        console.log("Lỗi khi xuất file docx cho môn Địa lí"  + err.message);
+//       }finally {
+//         setLoadingModal(false);
+//       }
+
+//       // TODO: thay bằng API export thật của bạn
+
+//       return;
+//     }
+
+//     // =========================
+//     // DEFAULT
+//     // =========================
+//     else {
+//       storageKey = "solutedDataExam";
+
+//       const stored = localStorage.getItem(storageKey);
+
+//       if (!stored) {
+//         notify.error("Không có dữ liệu để xuất file");
+//         return;
+//       } 
+     
+
+//       const parsed = JSON.parse(stored);
+//       const generatedExam = parsed.data;
+//       setLoadingModal(true);
+//       try {
+//         const res = await exportToSolutedOtherDocx( {
+//           results: generatedExam
+//         }, {
+//         responseType: "blob"
+//       });
+
+//       downloadFile(res.data, "Soluted_Exam.docx");
+
+//       notify.success("Đã xuất file DOCX");
+//       return;
+//       }catch(err) {
+//         console.log("Lỗi khi xuất file docx ", err);
+//       }finally {
+//         setLoadingModal(false);
+//       }
+
+//       // TODO: thay bằng API export mặc định
+
+//     }
+
+//   } catch (err) {
+//     notify.error("Lỗi khi xuất file: " + err.message);
+//   } finally {
+//     setIsExporting(false);
+//   }
+// };
 
 
   const handleDataChange = useCallback((data) => {
@@ -702,18 +805,13 @@ useEffect(() => {
 
         ) : currentFileName.startsWith("TOAN_PDF_") ||
             currentFileName.startsWith("MATH_PDF_") ||
+            currentFileName.startsWith("LICHSU_PDF_") ||
             currentFileName.startsWith("DIALI_PDF_") ? (
 
           <SoluteStandardPreviewPanel examData={generatedExam} />
 
         ) : (
 
-          // <ExamPreviewPanel
-          //   examData={generatedExam}
-          //   isGenerating={isGenerating}
-          //   sessionId={sessionId}
-          //   onDataChange={handleDataChange}
-          // />
            <SoluteStandardPreviewPanel examData={generatedExam} />
 
 
