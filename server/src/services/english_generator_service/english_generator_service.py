@@ -677,7 +677,7 @@ async def generate_exam_docx(blocks, output_path):
     client_25 = AsyncVertexClient(
         project_id=project_id,
         creds=credentials,
-        model="gemini-2.5-pro"
+        model="gemini-3.1-pro-preview"
     )
 
 #     client_31 = AsyncVertexGemini31(
